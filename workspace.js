@@ -1,79 +1,88 @@
 // ==========================================================================
-// CEREBRO DE WORKSPACE: IMÁN MAGNÉTICO, REDIMENSIONADO PERIMETRAL Y MODULAR
+// CEREBRO DE WORKSPACE V1.2: DISEÑO GOOGLE, IMÁN DESPEGABLE Y TOPE 100% REAL
 // ==========================================================================
 
 const styleSheet = document.createElement("style");
 styleSheet.innerText = `
     body {
         margin: 0; padding: 0;
-        background-color: #080b11;
+        background-color: #06090e;
         overflow: hidden; height: 100vh;
+        font-family: system-ui, -apple-system, sans-serif;
     }
     .top-bar-menu {
-        height: 38px; background: #0f131a;
-        border-bottom: 1px solid #1e2430;
-        display: flex; align-items: center; padding: 0 15px; gap: 8px; z-index: 9999; position: relative;
+        height: 44px; background: #0b0f17;
+        border-bottom: 1px solid #161f30;
+        display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 9999; position: relative;
     }
-    .top-bar-title { color: #4b5563; font-weight: 700; font-size: 0.8rem; margin-right: 15px; font-family: monospace; }
+    .top-center-toggles { display: flex; gap: 6px; }
+    .top-bar-title { color: #475569; font-weight: 700; font-size: 0.8rem; font-family: monospace; letter-spacing: 1px; }
+    
+    /* BOTONES ESTILO MENÚ PREMIUM */
+    .menu-btn {
+        color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .success-btn { background: #059669; } .success-btn:hover { background: #047857; }
+    .select-btn { background: #2563eb; display: inline-block; } .select-btn:hover { background: #1d4ed8; }
+    
     .toggle-panel-btn {
-        background: #1e2430; color: #94a3b8; border: 1px solid #2e3748;
-        padding: 3px 9px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 600;
+        background: #161f30; color: #94a3b8; border: 1px solid #222f47;
+        padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: 600;
     }
     .toggle-panel-btn.active { background: #2563eb; color: white; border-color: #3b82f6; }
-    .workspace-container { position: relative; width: 100vw; height: calc(100vh - 38px); overflow: hidden; }
     
-    /* Panel Rediseñado: Sin título visual, cabecera ultra delgada */
+    .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); overflow: hidden; }
+    
+    /* DISEÑO GOOGLE: Sin marcos, esquinas redondeadas y sombras suaves */
     .workspace-panel {
-        position: absolute; background: #0f131a; border: 1px solid #222b3c;
-        border-radius: 4px; display: flex; flex-direction: column; overflow: visible; z-index: 10;
-        box-shadow: 0 15px 25px -5px rgba(0,0,0,0.6);
+        position: absolute; background: #0f131a; border: none !important;
+        border-radius: 14px; display: flex; flex-direction: column; overflow: visible; z-index: 10;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.5);
     }
-    .panel-header {
-        height: 8px; background: #1a202c; cursor: move; user-select: none;
-        position: relative; border-bottom: 1px solid #222b3c; width: 100%;
-    }
-    .panel-content { padding: 10px; flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 6px; height: calc(100% - 8px); }
     
-    /* CAPAS INVISIBLES PERIMETRALES PARA REDIMENSIONAR DESDE CUALQUIER BORDE */
+    /* Tirador de arrastre integrado invisible en la parte superior */
+    .panel-header {
+        height: 12px; cursor: move; user-select: none; width: 100%;
+        border-top-left-radius: 14px; border-top-right-radius: 14px; background: transparent;
+    }
+    .panel-content { padding: 14px; flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 6px; height: calc(100% - 12px); }
+    
+    /* PERÍMETRO COMPLETO INVISIBLE PARA REDIMENSIONADO */
     .edge-resizer { position: absolute; background: transparent; z-index: 999; }
-    .edge-resizer.t  { top: -4px; left: 4px; right: 4px; height: 6px; cursor: n-resize; }
-    .edge-resizer.b  { bottom: -4px; left: 4px; right: 4px; height: 6px; cursor: s-resize; }
-    .edge-resizer.l  { left: -4px; top: 4px; bottom: 4px; width: 6px; cursor: w-resize; }
-    .edge-resizer.r  { right: -4px; top: 4px; bottom: 4px; width: 6px; cursor: e-resize; }
-    .edge-resizer.tl { top: -4px; left: -4px; width: 8px; height: 8px; cursor: nw-resize; }
-    .edge-resizer.tr { top: -4px; right: -4px; width: 8px; height: 8px; cursor: ne-resize; }
-    .edge-resizer.bl { bottom: -4px; left: -4px; width: 8px; height: 8px; cursor: sw-resize; }
-    .edge-resizer.br { bottom: -4px; right: -4px; width: 8px; height: 8px; cursor: se-resize; }
+    .edge-resizer.t  { top: -3px; left: 6px; right: 6px; height: 6px; cursor: n-resize; }
+    .edge-resizer.b  { bottom: -3px; left: 6px; right: 6px; height: 6px; cursor: s-resize; }
+    .edge-resizer.l  { left: -3px; top: 6px; bottom: 6px; width: 6px; cursor: w-resize; }
+    .edge-resizer.r  { right: -3px; top: 6px; bottom: 6px; width: 6px; cursor: e-resize; }
+    .edge-resizer.tl { top: -3px; left: -3px; width: 8px; height: 8px; cursor: nw-resize; }
+    .edge-resizer.tr { top: -3px; right: -3px; width: 8px; height: 8px; cursor: ne-resize; }
+    .edge-resizer.bl { bottom: -3px; left: -3px; width: 8px; height: 8px; cursor: sw-resize; }
+    .edge-resizer.br { bottom: -3px; right: -3px; width: 8px; height: 8px; cursor: se-resize; }
 
-    video, canvas { width: 100% !important; height: 100% !important; background: #000; }
+    video, canvas { width: 100% !important; height: 100% !important; background: #000; border-radius: 8px; }
 `;
-document.head.appendChild(styleSheet);
+document.body.appendChild(styleSheet);
 
 const initialLayout = {
-    "panel-video":    { top: 15,  left: 15,  w: 520, h: 380 },
-    "panel-keyboard": { top: 15,  left: 550, w: 340, h: 200 },
-    "panel-actions":  { top: 230, left: 550, w: 340, h: 165 },
-    "panel-presets":  { top: 15,  left: 905, w: 340, h: 380 },
-    "panel-timeline": { top: 410, left: 15,  w: 1230, h: 240 }
+    "panel-video":    { top: 12,  left: 12,  w: 540, h: 390 },
+    "panel-keyboard": { top: 12,  left: 562, w: 350, h: 200 },
+    "panel-actions":  { top: 222, left: 562, w: 350, h: 180 },
+    "panel-presets":  { top: 12,  left: 922, w: 340, h: 390 },
+    "panel-timeline": { top: 412, left: 12,  w: 1250, h: 250 }
 };
 
 let highestZIndex = 10;
-const SNAP_THRESHOLD = 12; // Imán de acoplamiento a menos de 12 píxeles
+const SNAP_DIST = 12; // Rango de atracción del imán
+const TRACK_GAP = 10; // Riel con separación limpia de 10px
 
 document.addEventListener("DOMContentLoaded", () => {
     const container = document.getElementById("workspace");
-    
-    const topBar = document.createElement("div");
-    topBar.className = "top-bar-menu";
-    topBar.innerHTML = `<div class="top-bar-title">FUNSCRIPT STUDIO</div>`;
-    document.body.insertBefore(topBar, container);
-
+    const topCenter = document.getElementById("top-center-toggles");
     const panels = document.querySelectorAll(".workspace-panel");
 
-    // Lógica del Imán Magnético (Compara bordes con los otros paneles visibles)
-    function applyMagneticSnapping(panel, newLeft, newTop, width, height) {
-        let snappedLeft = newLeft;
-        let snappedTop = newTop;
+    // LÓGICA DEL IMÁN DESPEGABLE Y RIELES
+    function calculateSnap(panel, idealX, idealY, w, h) {
+        let finalX = idealX;
+        let finalY = idealY;
 
         panels.forEach(other => {
             if (other === panel || other.style.display === "none") return;
@@ -83,25 +92,29 @@ document.addEventListener("DOMContentLoaded", () => {
             const oR = oL + other.offsetWidth;
             const oB = oT + other.offsetHeight;
 
-            // Alineación Eje Horizontal (Izquierda / Derecha)
-            if (Math.abs(newLeft - oL) < SNAP_THRESHOLD) snappedLeft = oL;
-            else if (Math.abs(newLeft - oR) < SNAP_THRESHOLD) snappedLeft = oR;
-            else if (Math.abs((newLeft + width) - oL) < SNAP_THRESHOLD) snappedLeft = oL - width;
-            else if (Math.abs((newLeft + width) - oR) < SNAP_THRESHOLD) snappedLeft = oR - width;
+            // Rieles en X (Pegado a ras o separación de 10px)
+            if (Math.abs(idealX - oL) < SNAP_DIST) finalX = oL;
+            else if (Math.abs(idealX - oR) < SNAP_THRESHOLD_FIX(idealX, oR)) finalX = oR;
+            else if (Math.abs(idealX - (oR + TRACK_GAP)) < SNAP_DIST) finalX = oR + TRACK_GAP;
+            else if (Math.abs((idealX + w) - oL) < SNAP_DIST) finalX = oL - w;
+            else if (Math.abs((idealX + w) - (oL - TRACK_GAP)) < SNAP_DIST) finalX = oL - w - TRACK_GAP;
 
-            // Alineación Eje Vertical (Superior / Inferior)
-            if (Math.abs(newTop - oT) < SNAP_THRESHOLD) snappedTop = oT;
-            else if (Math.abs(newTop - oB) < SNAP_THRESHOLD) snappedTop = oB;
-            else if (Math.abs((newTop + height) - oT) < SNAP_THRESHOLD) snappedTop = oT - height;
-            else if (Math.abs((newTop + height) - oB) < SNAP_THRESHOLD) snappedTop = oB - height;
+            // Rieles en Y (Pegado a ras o separación de 10px)
+            if (Math.abs(idealY - oT) < SNAP_DIST) finalY = oT;
+            else if (Math.abs(idealY - oB) < SNAP_DIST) finalY = oB;
+            else if (Math.abs(idealY - (oB + TRACK_GAP)) < SNAP_DIST) finalY = oB + TRACK_GAP;
+            else if (Math.abs((idealY + h) - oT) < SNAP_DIST) finalY = oT - h;
+            else if (Math.abs((idealY + h) - (oT - TRACK_GAP)) < SNAP_DIST) finalY = oT - h - TRACK_GAP;
         });
 
-        return { x: snappedLeft, y: snappedTop };
+        function SNAP_THRESHOLD_FIX(v1, v2) { return Math.abs(v1 - v2) < SNAP_DIST; }
+
+        return { x: finalX, y: finalY };
     }
 
     panels.forEach(panel => {
         const id = panel.id;
-        const config = initialLayout[id] || { top: 40, left: 40, w: 300, h: 200 };
+        const config = initialLayout[id] || { top: 20, left: 20, w: 400, h: 300 };
         const title = panel.getAttribute("data-title") || "Módulo";
 
         panel.style.top = `${config.top}px`;
@@ -109,15 +122,12 @@ document.addEventListener("DOMContentLoaded", () => {
         panel.style.width = `${config.w}px`;
         panel.style.height = `${config.h}px`;
 
-        const header = panel.querySelector(".panel-header");
-
-        // Generar botones en barra superior usando la metadata
         const toggleBtn = document.createElement("button");
         toggleBtn.className = "toggle-panel-btn active";
         toggleBtn.innerText = title;
-        topBar.appendChild(toggleBtn);
+        if (topCenter) topCenter.appendChild(toggleBtn);
 
-        const toggleVisibility = () => {
+        toggleBtn.addEventListener("click", () => {
             if (panel.style.display === "none") {
                 panel.style.display = "flex";
                 toggleBtn.classList.add("active");
@@ -127,32 +137,40 @@ document.addEventListener("DOMContentLoaded", () => {
                 panel.style.display = "none";
                 toggleBtn.classList.remove("active");
             }
-        };
-        toggleBtn.addEventListener("click", toggleVisibility);
+        });
+
         panel.addEventListener("mousedown", () => { panel.style.zIndex = ++highestZIndex; });
 
-        // ARRASTRE CON IMÁN INCORPORADO
+        // ARRASTRE FLUIDO CON TOPE FÍSICO REAL EN EXTREMOS
+        const header = panel.querySelector(".panel-header");
         header.addEventListener("mousedown", (e) => {
             e.preventDefault();
             panel.style.zIndex = ++highestZIndex;
-            let startX = e.clientX;
-            let startY = e.clientY;
+            
+            let mouseStartX = e.clientX;
+            let mouseStartY = e.clientY;
+            let panelStartX = panel.offsetLeft;
+            let panelStartY = panel.offsetTop;
 
             const mouseMoveHandler = (moveEvent) => {
-                let dx = moveEvent.clientX - startX;
-                let dy = moveEvent.clientY - startY;
+                // Mantenemos la ruta ideal del ratón para que se despegue al instante del imán
+                let idealLeft = panelStartX + (moveEvent.clientX - mouseStartX);
+                let idealTop = panelStartY + (moveEvent.clientY - mouseStartY);
 
-                let targetLeft = panel.offsetLeft + dx;
-                let targetTop = panel.offsetTop + dy;
+                // TOPE FÍSICO ABSOLUTO EN LAS 4 DIRECCIONES DE TU PANTALLA
+                const maxLeft = window.innerWidth - panel.offsetWidth;
+                const maxTop = window.innerHeight - 44 - panel.offsetHeight;
 
-                // Ejecutar cálculo del imán
-                let snapped = applyMagneticSnapping(panel, targetLeft, targetTop, panel.offsetWidth, panel.offsetHeight);
+                if (idealLeft < 0) idealLeft = 0;
+                if (idealTop < 0) idealTop = 0;
+                if (idealLeft > maxLeft) idealLeft = maxLeft;
+                if (idealTop > maxTop) idealTop = maxTop;
 
-                panel.style.left = `${Math.max(0, snapped.x)}px`;
-                panel.style.top = `${Math.max(0, snapped.y)}px`;
+                // Aplicar imán despegable a la renderización gráfica
+                let snapped = calculateSnap(panel, idealLeft, idealTop, panel.offsetWidth, panel.offsetHeight);
 
-                startX = moveEvent.clientX;
-                startY = moveEvent.clientY;
+                panel.style.left = `${snapped.x}px`;
+                panel.style.top = `${snapped.y}px`;
                 window.dispatchEvent(new Event('resize'));
             };
 
@@ -166,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.addEventListener("mouseup", mouseUpHandler);
         });
 
-        // INYECCIÓN DE 8 MANILLAS DE REDIMENSIONAMIENTO PERIMETRAL
+        // REDIMENSIONADO PERIMETRAL ULTRA-PRECISO
         const directions = ['t', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br'];
         directions.forEach(dir => {
             const resizer = document.createElement("div");
@@ -191,20 +209,25 @@ document.addEventListener("DOMContentLoaded", () => {
                     
                     let nw = startW, nh = startH, nl = startLeft, nt = startTop;
 
-                    if (dir.includes('r')) nw = Math.max(220, startW + dw);
-                    if (dir.includes('b')) nh = Math.max(120, startH + dh);
+                    if (dir.includes('r')) nw = Math.max(200, startW + dw);
+                    if (dir.includes('b')) nh = Math.max(100, startH + dh);
                     
                     if (dir.includes('l')) {
                         let potentialW = startW - dw;
-                        if (potentialW >= 220) { nw = potentialW; nl = startLeft + dw; }
+                        if (potentialW >= 200) { nw = potentialW; nl = startLeft + dw; }
                     }
                     if (dir.includes('t')) {
                         let potentialH = startH - dh;
-                        if (potentialH >= 120) { nh = potentialH; nt = startTop + dh; }
+                        if (potentialH >= 100) { nh = potentialH; nt = startTop + dh; }
                     }
 
-                    // El imán también asiste al cambiar el tamaño de los extremos libres
-                    let snapped = applyMagneticSnapping(panel, nl, nt, nw, nh);
+                    // Topes en redimensionado perimetral externo
+                    if (nl < 0) { nw += nl; nl = 0; }
+                    if (nt < 0) { nh += nt; nt = 0; }
+                    if (nl + nw > window.innerWidth) nw = window.innerWidth - nl;
+                    if (nt + nh > window.innerHeight - 44) nh = window.innerHeight - 44 - nt;
+
+                    let snapped = calculateSnap(panel, nl, nt, nw, nh);
                     
                     panel.style.width = `${nw}px`;
                     panel.style.height = `${nh}px`;
