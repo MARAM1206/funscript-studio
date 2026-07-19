@@ -20,25 +20,25 @@
         </div>
     </div>
 
-    <!-- CONTENEDOR FLUIDO TOTAL -->
-    <div id="workspace" class="workspace-container">
-        
-        <!-- Panel 1: Reproductor de Video con Capa IA -->
+<!-- Panel 1: Reproductor de Video con Capa IA -->
         <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
             <div class="panel-content">
-                <!-- Contenedor relativo para empalmar el video y la IA perfectamente -->
                 <div style="position: relative; width: 100%; flex-grow: 1; background: #000; border-radius: 8px; overflow: hidden;">
                     <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%;"></video>
-                    <!-- NUEVO: Canvas transparente para dibujar el cuadro de tracking -->
                     <canvas id="tracking-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 5; cursor: crosshair; display: none;"></canvas>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                
+                <!-- NUEVO: Barra de progreso externa separada del Canvas -->
+                <div class="progress-bar-container">
+                    <input type="range" id="video-progress" class="custom-progress" min="0" max="100" value="0" step="0.05">
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
                     <div id="video-filename" style="font-size: 0.7rem; color: #475569; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%;">Sin archivo seleccionado</div>
                     <div id="video-specs" style="font-size: 0.7rem; color: #64748b; font-family: monospace; font-weight: bold; text-align: right;"></div>
                 </div>
-                <div class="video-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                <div class="video-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
                     <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
-                    <!-- NUEVO: Botón maestro para activar la Inteligencia Artificial -->
                     <button id="toggle-ai-btn" class="btn" style="background: #7c3aed; padding: 4px 10px; font-size: 0.75rem;">🤖 Activar IA Tracking</button>
                 </div>
             </div>
