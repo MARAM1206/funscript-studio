@@ -1,23 +1,27 @@
 // ==========================================================================
-// CEREBRO DE IA TRACKING V1.0: COINCIDENCIA DE PLANTILLAS Y SELECCIÓN ANATÓMICA
+// CEREBRO DE IA TRACKING V1.1: LIENZO TRANSPARENTE Y RANGO CALIBRABLE
 // ==========================================================================
 
 const trackCanvas = document.getElementById('tracking-canvas');
-const trackCtx = trackCanvas.getContext('2d', { willReadFrequently: true });
+const trackCtx = trackCanvas.getContext('2d');
 const toggleAiBtn = document.getElementById('toggle-ai-btn');
+
+// NUEVO: Canvas oculto en memoria para procesamiento interno (Evita el video negro)
+const hiddenCanvas = document.createElement('canvas');
+const hiddenCtx = hiddenCanvas.getContext('2d', { willReadFrequently: true });
 
 let aiActive = false;
 let isDrawingBox = false;
 let boxStart = { x: 0, y: 0 };
-let trackBox = null; // { x, y, w, h }
+let trackBox = null; 
 
-// Datos de la plantilla memorizada para el Flujo Óptico
 let templateData = null;
 let lastTrackedY = 0;
-let trackingMinY = 0;
-let trackingMaxY = 0;
+let initialTrackedY = 0;
 
-// Encender/Apagar el Modo IA
+// NUEVO: Rango de píxeles calibrable para controlar la sensibilidad (Evita saltos bruscos)
+let aiTrackingRange = 180; 
+
 toggleAiBtn?.addEventListener('click', () => {
     aiActive = !aiActive;
     if (aiActive) {
@@ -25,7 +29,7 @@ toggleAiBtn?.addEventListener('click', () => {
         toggleAiBtn.style.background = "#10b981";
         trackCanvas.style.display = "block";
         syncTrackingCanvasSize();
-        if (videoPlayer) videoPlayer.pause(); // Pausar para dejar dibujar el cuadro con calma
+        if (videoPlayer) videoPlayer.pause(); 
     } else {
         toggleAiBtn.innerText = "🤖 Activar IA Tracking";
         toggleAiBtn.style.background = "#7c3aed";
@@ -39,6 +43,8 @@ toggleAiBtn?.addEventListener('click', () => {
 function syncTrackingCanvasSize() {
     trackCanvas.width = videoPlayer.clientWidth;
     trackCanvas.height = videoPlayer.clientHeight;
+    hiddenCanvas.width = videoPlayer.clientWidth;
+    hiddenCanvas.height = videoPlayer.clientHeight;
 }
 window.addEventListener('resize', () => { if (aiActive) syncTrackingCanvasSize(); });
 
@@ -46,25 +52,37 @@ function clearTrackCanvas() {
     trackCtx.clearRect(0, 0, trackCanvas.width, trackCanvas.height);
 }
 
-// CAPTURA DE RATÓN: Dibujar la Bounding Box sobre la anatomía
-trackCanvas.addEventListener('mousedown', (e) => {
+// ESCUCHADOR DE TECLADO INTERNO: Calibración de rango mediante + y -
+window.addEventListener('keydown', (e) => {
+    if (!aiActive || !trackBox) return;
+    if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        aiTrackingRange = Math.min(500, aiTrackingRange + 15); // Reduce sensibilidad (más rango de recorrido)
+        drawConfirmedBox();
+    }
+    if (e.key === '-') {
+        e.preventDefault();
+        aiTrackingRange = Math.max(40, aiTrackingRange - 15); // Aumenta sensibilidad (menos rango de recorrido)
+        drawConfirmedBox();
+    }
+});
+
+trackCanvas.addEventListener('mousedown', (event) => {
     if (!aiActive) return;
     const rect = trackCanvas.getBoundingClientRect();
     boxStart.x = event.clientX - rect.left;
     boxStart.y = event.clientY - rect.top;
     isDrawingBox = true;
-    templateData = null; // Borra rastreos anteriores
+    templateData = null;
 });
 
-trackCanvas.addEventListener('mousemove', (e) => {
+trackCanvas.addEventListener('mousemove', (event) => {
     if (!isDrawingBox) return;
     const rect = trackCanvas.getBoundingClientRect();
     const currentX = event.clientX - rect.left;
     const currentY = event.clientY - rect.top;
 
     clearTrackCanvas();
-    
-    // Dibujar cuadro guía estilo Google
     trackCtx.strokeStyle = '#7c3aed';
     trackCtx.lineWidth = 2;
     trackCtx.setLineDash([4, 4]);
@@ -75,7 +93,7 @@ trackCanvas.addEventListener('mousemove', (e) => {
     trackCtx.setLineDash([]);
 });
 
-trackCanvas.addEventListener('mouseup', (e) => {
+trackCanvas.addEventListener('mouseup', (event) => {
     if (!isDrawingBox) return;
     isDrawingBox = false;
     
@@ -90,128 +108,119 @@ trackCanvas.addEventListener('mouseup', (e) => {
 
     if (w > 10 && h > 10) {
         trackBox = { x, y, w, h };
-        lastTrackedY = y + h / 2;
+        initialTrackedY = y + h / 2;
+        lastTrackedY = initialTrackedY;
         
-        // Establecer límites de calibración basados en la pantalla actual
-        trackingMinY = Math.max(0, y - 120);
-        trackingMaxY = Math.min(trackCanvas.height, y + h + 120);
-        
-        // Memorizar los píxeles iniciales (Crear la plantilla de contraste)
-        try {
-            templateData = trackCtx.getImageData(x, y, w, h);
-            captureTemplateFromVideo();
-        } catch (err) { console.log("Carga inicial de pixeles activa."); }
+        // Captura inicial de píxeles usando el lienzo oculto en memoria
+        hiddenCtx.drawImage(videoPlayer, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+        templateData = hiddenCtx.getImageData(x, y, w, h);
         
         drawConfirmedBox();
     }
 });
 
+// NUEVO: DIBUJO DE MÁSCARA PROPORCIONAL MÓVIL
 function drawConfirmedBox() {
     clearTrackCanvas();
     if (!trackBox) return;
-    // Cuadro verde sólido: Objetivo fijado y listo para el tracking
+
+    // 1. Cuadro verde de objetivo fijado
     trackCtx.strokeStyle = '#10b981';
     trackCtx.lineWidth = 2;
     trackCtx.strokeRect(trackBox.x, trackBox.y, trackBox.w, trackBox.h);
     
-    // Dibujar marcadores horizontales sutiles de las 3 zonas anatómicas dentro del cuadro
-    trackCtx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    // 2. Barra lateral calibradora que se mueve JUNTO con el cuadro para no perder proporción
+    const barX = trackBox.x - 18;
+    const barY = trackBox.y + (trackBox.h / 2) - (aiTrackingRange / 2);
+    
+    // Renderizar los fondos de las 3 zonas anatómicas proporcionales en la barra móvil
+    trackCtx.fillStyle = 'rgba(239, 68, 68, 0.3)'; // Base (0-20%)
+    trackCtx.fillRect(barX, barY + (aiTrackingRange * 0.8), 8, aiTrackingRange * 0.2);
+    
+    trackCtx.fillStyle = 'rgba(139, 92, 246, 0.3)'; // Tronco (20-70%)
+    trackCtx.fillRect(barX, barY + (aiTrackingRange * 0.3), 8, aiTrackingRange * 0.5);
+    
+    trackCtx.fillStyle = 'rgba(16, 185, 129, 0.3)'; // Cabeza (70-100%)
+    trackCtx.fillRect(barX, barY, 8, aiTrackingRange * 0.3);
+
+    // Contorno de la barra calibradora
+    trackCtx.strokeStyle = '#64748b';
     trackCtx.lineWidth = 1;
-    // Línea del 70% (Cabeza/Tronco)
-    const y70 = trackBox.y + (trackBox.h * 0.30);
-    trackCtx.beginPath(); trackCtx.moveTo(trackBox.x, y70); trackCtx.lineTo(trackBox.x + trackBox.w, y70); trackCtx.stroke();
-    // Línea del 20% (Tronco/Base)
-    const y20 = trackBox.y + (trackBox.h * 0.80);
-    trackCtx.beginPath(); trackCtx.moveTo(trackBox.x, y20); trackCtx.lineTo(trackBox.x + trackBox.w, y20); trackCtx.stroke();
-}
+    trackCtx.strokeRect(barX, barY, 8, aiTrackingRange);
 
-function captureTemplateFromVideo() {
-    if (!trackBox) return;
-    // Forzar render momentáneo para extraer la matriz de pixeles reales del video local
-    trackCtx.drawImage(videoPlayer, 0, 0, trackCanvas.width, trackCanvas.height);
-    templateData = trackCtx.getImageData(trackBox.x, trackBox.y, trackBox.w, trackBox.h);
-    drawConfirmedBox();
-}
-
-// PROCESADOR DE FOTOGRAMAS EN ALTA VELOCIDAD (Aprovecha tu Hardware RTX)
-if (videoPlayer) {
-    videoPlayer.addEventListener('timeupdate', () => {
-        if (!aiActive || !templateData || !trackBox || videoPlayer.paused) return;
-        processTrackingFrame();
-    });
+    // Texto de feedback del Rango de Sensibilidad
+    trackCtx.fillStyle = '#94a3b8';
+    trackCtx.font = '10px monospace';
+    trackCtx.fillText(`Rango IA: ${aiTrackingRange}px [+/-]`, trackBox.x, Math.max(12, trackBox.y - 6));
 }
 
 function processTrackingFrame() {
-    // 1. Pintar el fotograma actual del video en el lienzo oculto de IA
-    trackCtx.drawImage(videoPlayer, 0, 0, trackCanvas.width, trackCanvas.height);
+    if (!trackBox || !templateData) return;
+
+    // Copiar fotograma al lienzo oculto
+    hiddenCtx.drawImage(videoPlayer, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
     
     const searchWidth = trackBox.w;
-    const searchHeight = trackBox.h + 60; // Ventana de búsqueda extendida verticalmente (+/- 30px)
+    const searchHeight = trackBox.h + 80; 
     const searchX = trackBox.x;
     const searchY = Math.max(0, (lastTrackedY - searchHeight / 2));
     
     let searchData;
     try {
-        searchData = trackCtx.getImageData(searchX, searchY, searchWidth, searchHeight);
+        searchData = hiddenCtx.getImageData(searchX, searchY, searchWidth, searchHeight);
     } catch (e) { return; }
 
-    // 2. Algoritmo matemático de Suma de Diferencias Absolutas (SAD)
     let bestY = 0;
     let minDifference = Infinity;
     
     const tData = templateData.data;
     const sData = searchData.data;
     
-    // Escaneo vertical pixel por pixel en busca del bloque con mayor coincidencia de contraste
     for (let y = 0; y <= searchHeight - trackBox.h; y++) {
         let difference = 0;
-        
-        for (let row = 0; row < trackBox.h; row += 2) { // Salto de 2px para máxima optimización y velocidad
+        for (let row = 0; row < trackBox.h; row += 2) {
             const templateRowOffset = row * trackBox.w * 4;
             const searchRowOffset = (y + row) * searchWidth * 4;
-            
             for (let col = 0; col < trackBox.w; col += 2) {
                 const tIdx = templateRowOffset + col * 4;
                 const sIdx = searchRowOffset + col * 4;
-                
-                // Comparación de canales de color RGB
                 difference += Math.abs(tData[tIdx] - sData[sIdx]) +
                              Math.abs(tData[tIdx+1] - sData[sIdx+1]) +
                              Math.abs(tData[tIdx+2] - sData[sIdx+2]);
             }
         }
-        
         if (difference < minDifference) {
             minDifference = difference;
             bestY = y;
         }
     }
 
-    // 3. Actualizar coordenadas del cuadro en base al éxito del match
     const absoluteNewY = searchY + bestY;
     lastTrackedY = absoluteNewY + trackBox.h / 2;
     trackBox.y = absoluteNewY;
     
-    // 4. NORMALIZACIÓN MATEMÁTICA E INYECCIÓN EN FUNSCRIPT DETECTANDO LAS 3 ZONAS
-    const totalRange = trackingMaxY - trackingMinY;
-    const currentRelativePos = trackBox.y - trackingMinY;
+    // NUEVAS MATEMÁTICAS DE CONVERSIÓN BASADAS EN EL CALIBRADOR MÓVIL
+    const displacementPixels = initialTrackedY - lastTrackedY; 
     
-    // Convertir a porcentaje invertido (0% abajo, 100% arriba)
-    let rawPercent = 100 - Math.round((currentRelativePos / totalRange) * 100);
-    let finalPosition = Math.max(0, Math.min(100, rawPercent));
+    // Mapear el desplazamiento de píxeles en base al rango de calibración establecido
+    let calculatedPercent = 50 + Math.round((displacementPixels / (aiTrackingRange / 2)) * 50);
+    let finalPosition = Math.max(0, Math.min(100, calculatedPercent));
     
-    // Insertar el punto automáticamente en la cinta transportadora en caliente
     const timeMs = Math.floor(videoPlayer.currentTime * 1000);
     
     if (typeof window.saveHistoryState === 'function') {
-        // Inyectar sin saturar el historial, ordenando de forma limpia
-        funscriptActions = funscriptActions.filter(act => Math.abs(act.at - timeMs) > 35);
+        funscriptActions = funscriptActions.filter(act => Math.abs(act.at - timeMs) > 30);
         funscriptActions.push({ at: timeMs, pos: finalPosition, selected: false });
         funscriptActions.sort((a, b) => a.at - b.at);
-        
-        if (typeof updateActionsLog === 'function') updateActionsLog();
     }
 
-    // Volver a dibujar el cuadro verde del tracker siguiendo el movimiento en pantalla
     drawConfirmedBox();
+}
+
+// Escuchador continuo sincronizado con el refresco de fotogramas del video
+if (videoPlayer) {
+    videoPlayer.addEventListener('timeupdate', () => {
+        if (!aiActive || !trackBox || videoPlayer.paused) return;
+        processTrackingFrame();
+    });
 }
