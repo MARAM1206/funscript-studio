@@ -1,5 +1,5 @@
 // ==========================================================================
-// CEREBRO WORKSPACE V1.3: IMÁN PERIMETRAL DE REDIMENSIONADO Y COBERTURA DE PANTALLA
+// WORKSPACE V1.4: PERSISTENCIA LOCAL, IMÁN A PAÑO GLOBAL Y COMPATIBILIDAD 27"
 // ==========================================================================
 
 const styleSheet = document.createElement("style");
@@ -14,7 +14,6 @@ styleSheet.innerText = `
         display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 9999; position: relative;
     }
     .top-center-toggles { display: flex; gap: 6px; }
-    
     .menu-btn {
         color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
     }
@@ -26,17 +25,13 @@ styleSheet.innerText = `
         padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: 600;
     }
     .toggle-panel-btn.active { background: #2563eb; color: white; border-color: #3b82f6; }
-    
     .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); margin: 0; padding: 0; overflow: hidden; }
     
-    /* MODULOS GOOGLE MODERNOS: Cero marcos superiores vacíos, esquinas pulidas */
     .workspace-panel {
         position: absolute; background: #0f131a; border: none !important;
         border-radius: 14px; display: flex; flex-direction: column; overflow: visible; z-index: 10;
         box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
     }
-    
-    /* Todo el cuerpo interior se vuelve sensible al arrastre si no clickeas controles */
     .panel-content { padding: 14px; flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 6px; height: 100%; border-radius: 14px; }
     
     .edge-resizer { position: absolute; background: transparent; z-index: 999; }
@@ -53,7 +48,7 @@ styleSheet.innerText = `
 `;
 document.head.appendChild(styleSheet);
 
-const initialLayout = {
+const defaultLayout = {
     "panel-video":    { top: 12,  left: 12,  w: 540, h: 390 },
     "panel-keyboard": { top: 12,  left: 562, w: 350, h: 200 },
     "panel-actions":  { top: 222, left: 562, w: 350, h: 180 },
@@ -62,7 +57,7 @@ const initialLayout = {
 };
 
 let highestZIndex = 10;
-const SNAP_DIST = 12;
+const SNAP_DIST = 14; 
 const TRACK_GAP = 10;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -70,7 +65,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const topCenter = document.getElementById("top-center-toggles");
     const panels = document.querySelectorAll(".workspace-panel");
 
-    function calculateSnap(panel, idealX, idealY, w, h) {
+    // CARGAR ACOMODO DESDE LOCALSTORAGE SI EXISTE
+    let savedLayout = {};
+    try {
+        savedLayout = JSON.parse(localStorage.getItem('funscript_workspace_layout')) || {};
+    } catch(e) { savedLayout = {}; }
+
+    function saveCurrentLayout() {
+        let currentLayout = {};
+        panels.forEach(p => {
+            currentLayout[p.id] = {
+                top: parseInt(p.style.top),
+                left: parseInt(p.style.left),
+                w: parseInt(p.style.width),
+                h: parseInt(p.style.height),
+                display: p.style.display
+            };
+        });
+        localStorage.setItem('funscript_workspace_layout', JSON.stringify(currentLayout));
+    }
+
+    // IMÁN GLOBAL: Busca a paño en CUALQUIER pestaña activa sin importar la distancia física
+    function calculateSnapGlobal(panel, idealX, idealY, w, h, checkX = true, checkY = true) {
         let finalX = idealX;
         let finalY = idealY;
 
@@ -82,17 +98,21 @@ document.addEventListener("DOMContentLoaded", () => {
             const oR = oL + other.offsetWidth;
             const oB = oT + other.offsetHeight;
 
-            if (Math.abs(idealX - oL) < SNAP_DIST) finalX = oL;
-            else if (Math.abs(idealX - oR) < SNAP_DIST) finalX = oR;
-            else if (Math.abs(idealX - (oR + TRACK_GAP)) < SNAP_DIST) finalX = oR + TRACK_GAP;
-            else if (Math.abs((idealX + w) - oL) < SNAP_DIST) finalX = oL - w;
-            else if (Math.abs((idealX + w) - (oL - TRACK_GAP)) < SNAP_DIST) finalX = oL - w - TRACK_GAP;
+            if (checkX) {
+                if (Math.abs(idealX - oL) < SNAP_DIST) finalX = oL;
+                else if (Math.abs(idealX - oR) < SNAP_DIST) finalX = oR;
+                else if (Math.abs(idealX - (oR + TRACK_GAP)) < SNAP_DIST) finalX = oR + TRACK_GAP;
+                else if (Math.abs((idealX + w) - oL) < SNAP_DIST) finalX = oL - w;
+                else if (Math.abs((idealX + w) - (oL - TRACK_GAP)) < SNAP_DIST) finalX = oL - w - TRACK_GAP;
+            }
 
-            if (Math.abs(idealY - oT) < SNAP_DIST) finalY = oT;
-            else if (Math.abs(idealY - oB) < SNAP_DIST) finalY = oB;
-            else if (Math.abs(idealY - (oB + TRACK_GAP)) < SNAP_DIST) finalY = oB + TRACK_GAP;
-            else if (Math.abs((idealY + h) - oT) < SNAP_DIST) finalY = oT - h;
-            else if (Math.abs((idealY + h) - (oT - TRACK_GAP)) < SNAP_DIST) finalY = oT - h - TRACK_GAP;
+            if (checkY) {
+                if (Math.abs(idealY - oT) < SNAP_DIST) finalY = oT;
+                else if (Math.abs(idealY - oB) < SNAP_DIST) finalY = oB;
+                else if (Math.abs(idealY - (oB + TRACK_GAP)) < SNAP_DIST) finalY = oB + TRACK_GAP;
+                else if (Math.abs((idealY + h) - oT) < SNAP_DIST) finalY = oT - h;
+                else if (Math.abs((idealY + h) - (oT - TRACK_GAP)) < SNAP_DIST) finalY = oT - h - TRACK_GAP;
+            }
         });
 
         return { x: finalX, y: finalY };
@@ -100,16 +120,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     panels.forEach(panel => {
         const id = panel.id;
-        const config = initialLayout[id] || { top: 20, left: 20, w: 400, h: 300 };
+        const config = savedLayout[id] || defaultLayout[id] || { top: 20, left: 20, w: 400, h: 300 };
         const title = panel.getAttribute("data-title") || "Módulo";
 
         panel.style.top = `${config.top}px`;
         panel.style.left = `${config.left}px`;
         panel.style.width = `${config.w}px`;
         panel.style.height = `${config.h}px`;
+        if (config.display === "none") panel.style.display = "none";
 
         const toggleBtn = document.createElement("button");
-        toggleBtn.className = "toggle-panel-btn active";
+        toggleBtn.className = `toggle-panel-btn ${config.display !== "none" ? 'active' : ''}`;
         toggleBtn.innerText = title;
         if (topCenter) topCenter.appendChild(toggleBtn);
 
@@ -118,17 +139,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 panel.style.display = "flex";
                 toggleBtn.classList.add("active");
                 panel.style.zIndex = ++highestZIndex;
-                window.dispatchEvent(new Event('resize'));
             } else {
                 panel.style.display = "none";
                 toggleBtn.classList.remove("active");
             }
+            saveCurrentLayout();
+            window.dispatchEvent(new Event('resize'));
         });
 
-        // CONTROL DE ARRASTRE DIRECTO POR CUERPO DEL PANEL INTERIOR
+        panel.addEventListener("mousedown", () => { panel.style.zIndex = ++highestZIndex; });
+
+        // DRAG Y ARRASTRE FLUIDO CON TOPES Y MEMORIA
         panel.addEventListener("mousedown", (e) => {
-            panel.style.zIndex = ++highestZIndex;
-            
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || 
                 e.target.tagName === 'BUTTON' || e.target.tagName === 'VIDEO' || 
                 e.target.tagName === 'CANVAS' || e.target.classList.contains('edge-resizer') ||
@@ -136,6 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 e.target.closest('.log-container') || e.target.closest('.presets-grid')) return;
 
             e.preventDefault();
+            panel.style.zIndex = ++highestZIndex;
             
             let mouseStartX = e.clientX;
             let mouseStartY = e.clientY;
@@ -146,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 let idealLeft = panelStartX + (moveEvent.clientX - mouseStartX);
                 let idealTop = panelStartY + (moveEvent.clientY - mouseStartY);
 
-                // CONTROL CORREGIDO PARA 27 PULGADAS: Límites exactos contra los bordes del contenedor
+                // TOPE CORREGIDO: Uso de clientWidth directo del canvas container para no desbordar en 27"
                 const maxLeft = container.clientWidth - panel.offsetWidth;
                 const maxTop = container.clientHeight - panel.offsetHeight;
 
@@ -155,9 +178,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (idealLeft > maxLeft) idealLeft = maxLeft;
                 if (idealTop > maxTop) idealTop = maxTop;
 
-                let snapped = calculateSnap(panel, idealLeft, idealTop, panel.offsetWidth, panel.offsetHeight);
+                let snapped = calculateSnapGlobal(panel, idealLeft, idealTop, panel.offsetWidth, panel.offsetHeight, true, true);
                 
-                // Si el ratón supera el rango de atracción del imán, se desliza libremente de inmediato
                 if (Math.abs(idealLeft - snapped.x) > SNAP_DIST) snapped.x = idealLeft;
                 if (Math.abs(idealTop - snapped.y) > SNAP_DIST) snapped.y = idealTop;
 
@@ -169,6 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const mouseUpHandler = () => {
                 document.removeEventListener("mousemove", mouseMoveHandler);
                 document.removeEventListener("mouseup", mouseUpHandler);
+                saveCurrentLayout();
                 window.dispatchEvent(new Event('resize'));
             };
 
@@ -176,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.addEventListener("mouseup", mouseUpHandler);
         });
 
-        // REDIMENSIONADO PERIMETRAL INTEGRADO CON SISTEMA DE IMÁN
+        // REDIMENSIONADO AISLADO POR EJE (Cero filtraciones en horizontal)
         const directions = ['t', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br'];
         directions.forEach(dir => {
             const resizer = document.createElement("div");
@@ -184,16 +207,16 @@ document.addEventListener("DOMContentLoaded", () => {
             panel.appendChild(resizer);
 
             resizer.addEventListener("mousedown", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+                e.preventDefault(); e.stopPropagation();
                 panel.style.zIndex = ++highestZIndex;
 
-                let startW = panel.offsetWidth;
-                let startH = panel.offsetHeight;
-                let startX = e.clientX;
-                let startY = e.clientY;
-                let startLeft = panel.offsetLeft;
-                let startTop = panel.offsetTop;
+                let startW = panel.offsetWidth; let startH = panel.offsetHeight;
+                let startX = e.clientX; let startY = e.clientY;
+                let startLeft = panel.offsetLeft; let startTop = panel.offsetTop;
+
+                // Identificar si la manilla modifica X, Y o ambos
+                const changeX = dir.includes('l') || dir.includes('r');
+                const changeY = dir.includes('t') || dir.includes('b');
 
                 const resizeMoveHandler = (moveEvent) => {
                     let dw = moveEvent.clientX - startX;
@@ -203,7 +226,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     if (dir.includes('r')) nw = Math.max(200, startW + dw);
                     if (dir.includes('b')) nh = Math.max(100, startH + dh);
-                    
                     if (dir.includes('l')) {
                         let potentialW = startW - dw;
                         if (potentialW >= 200) { nw = potentialW; nl = startLeft + dw; }
@@ -213,17 +235,16 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (potentialH >= 100) { nh = potentialH; nt = startTop + dh; }
                     }
 
-                    // Topes perimetrales en redimensionamiento
                     if (nl < 0) { nw += nl; nl = 0; }
                     if (nt < 0) { nh += nt; nt = 0; }
                     if (nl + nw > container.clientWidth) nw = container.clientWidth - nl;
                     if (nt + nh > container.clientHeight) nh = container.clientHeight - nt;
 
-                    // El imán asiste al tamaño aplicando física de acoplamiento simétrico
-                    let snapped = calculateSnap(panel, nl, nt, nw, nh);
+                    // AISLAMIENTO: Pasamos flags explícitos para no alterar el eje contrario
+                    let snapped = calculateSnapGlobal(panel, nl, nt, nw, nh, changeX, changeY);
                     
-                    if (Math.abs(nl - snapped.x) <= SNAP_DIST) { nw += (nl - snapped.x); nl = snapped.x; }
-                    if (Math.abs(nt - snapped.y) <= SNAP_DIST) { nh += (nt - snapped.y); nt = snapped.y; }
+                    if (changeX && Math.abs(nl - snapped.x) <= SNAP_DIST) { nw += (nl - snapped.x); nl = snapped.x; }
+                    if (changeY && Math.abs(nt - snapped.y) <= SNAP_DIST) { nh += (nt - snapped.y); nt = snapped.y; }
 
                     panel.style.width = `${nw}px`;
                     panel.style.height = `${nh}px`;
@@ -236,6 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const resizeUpHandler = () => {
                     document.removeEventListener("mousemove", resizeMoveHandler);
                     document.removeEventListener("mouseup", resizeUpHandler);
+                    saveCurrentLayout();
                     window.dispatchEvent(new Event('resize'));
                 };
 
@@ -244,4 +266,5 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
     });
+    window.dispatchEvent(new Event('resize'));
 });
