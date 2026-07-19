@@ -1,97 +1,96 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FunScript Studio - Editor Local</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-    <!-- MENÚ SUPERIOR INTERCAMBIADO -->
-    <div class="top-bar-menu">
-        <div class="top-left-actions">
-            <label for="video-input" class="menu-btn select-btn">📁 Seleccionar Video</label>
-            <input type="file" id="video-input" accept="video/*" style="display: none;">
-        </div>
-        <div id="top-center-toggles" class="top-center-toggles"></div>
-        <div class="top-right-actions">
-            <button id="export-btn" class="menu-btn success-btn">⬇ Exportar Archivo .funscript</button>
-        </div>
-    </div>
-
-    <!-- CONTENEDOR FLUIDO TOTAL -->
-    <div id="workspace" class="workspace-container">
+<!-- MENÚ SUPERIOR INTERCAMBIADO CON IMPORTACIÓN IA INTEGRADA -->
+<div class="top-bar-menu">
+    <div class="top-left-actions" style="display: flex; align-items: center;">
+        <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Seleccionar Video</label>
+        <input type="file" id="video-input" accept="video/*" style="display: none;">
         
-        <!-- Panel 1: Reproductor de Video con Capa IA Triple -->
-        <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
-            <div class="panel-content">
-                <div style="position: relative; width: 100%; flex-grow: 1; background: #000; border-radius: 8px; overflow: hidden;">
-                    <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%;"></video>
-                    <canvas id="tracking-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 5; cursor: crosshair; display: none;"></canvas>
-                </div>
-                
-                <div class="progress-bar-container">
-                    <input type="range" id="video-progress" class="custom-progress" min="0" max="100" value="0" step="0.05">
-                </div>
+        <!-- BOTÓN VERDE MAESTRO PARA IMPORTAR LOS DATOS DE LA IA DE PYTHON -->
+        <label for="json-ia-input" class="menu-btn" style="background: #10b981; margin-left: 10px; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none; transition: background 0.2s;">📥 Importar Datos IA</label>
+        <input type="file" id="json-ia-input" accept=".json" style="display: none;">
+    </div>
+    <div id="top-center-toggles" class="top-center-toggles"></div>
+    <div class="top-right-actions">
+        <button id="export-btn" class="menu-btn success-btn">⬇ Exportar Archivo .funscript</button>
+    </div>
+</div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                    <div id="video-filename" style="font-size: 0.7rem; color: #475569; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%;">Sin archivo seleccionado</div>
-                    <div id="video-specs" style="font-size: 0.7rem; color: #64748b; font-family: monospace; font-weight: bold; text-align: right;"></div>
-                </div>
-                <div class="video-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                    <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
-                    <button id="toggle-ai-btn" class="btn" style="background: #7c3aed; padding: 4px 10px; font-size: 0.75rem;">🤖 Activar IA Tracking</button>
-                </div>
+<!-- CONTENEDOR FLUIDO TOTAL -->
+<div id="workspace" class="workspace-container">
+    
+    <!-- Panel 1: Reproductor de Video con Capa IA -->
+    <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
+        <div class="panel-content">
+            <div style="position: relative; width: 100%; flex-grow: 1; background: #000; border-radius: 8px; overflow: hidden;">
+                <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%;"></video>
+                <canvas id="tracking-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 5; cursor: crosshair; display: none;"></canvas>
+            </div>
+            
+            <div class="progress-bar-container">
+                <input type="range" id="video-progress" class="custom-progress" min="0" max="100" value="0" step="0.05">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <div id="video-filename" style="font-size: 0.7rem; color: #475569; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%;">Sin archivo seleccionado</div>
+                <div id="video-specs" style="font-size: 0.7rem; color: #64748b; font-family: monospace; font-weight: bold; text-align: right;"></div>
+            </div>
+            <div class="video-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
+                <button id="toggle-ai-btn" class="btn" style="background: #7c3aed; padding: 4px 10px; font-size: 0.75rem;">🤖 Activar IA Tracking</button>
             </div>
         </div>
-
-        <!-- Panel 2: Controles y Atajos -->
-        <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
-            <div class="panel-content">
-                <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
-                    <li><span class="key">Arrastrar 1</span> = Cuadro Azul Mezclilla (Hombre)</li>
-                    <li><span class="key">Arrastrar 2</span> = Cuadro Rosa Intenso (Mujer)</li>
-                    <li><span class="key">Arrastrar 3</span> = Cuadro Gris Ceniza (Estabilizador Fondo)</li>
-                    <li><span class="key">Click + Arrastrar dentro</span> = Corregir posición</li>
-                    <li><span class="key">Líneas de Barra</span> = Ajustar Base/Cabeza con Mouse</li>
-                    <li><span class="key">Ctrl + A</span> = Seleccionar todos los puntos de la pista</li>
-                    <li><span class="key">B</span> / <span class="key">N</span> = Navegar entre nodos con auto-selección</li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- Panel 3: Consola -->
-        <div id="panel-actions" class="workspace-panel" data-title="📊 JSON Log">
-            <div class="panel-content">
-                <div id="actions-log" class="log-container">
-                    <span class="empty-log">Sin puntos registrados aún</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Panel 4: Presets -->
-        <div id="panel-presets" class="workspace-panel" data-title="💾 Presets">
-            <div class="panel-content">
-                <button id="save-preset-btn" class="btn">💾 Guardar Preset</button>
-                <div id="presets-list" class="presets-grid" style="margin-top: 8px; overflow-y: auto; flex-grow: 1;"></div>
-            </div>
-        </div>
-
-        <!-- Panel 5: Línea de Tiempo -->
-        <div id="panel-timeline" class="workspace-panel" data-title="📈 Timeline">
-            <div class="panel-content">
-                <canvas id="timeline-canvas"></canvas>
-            </div>
-        </div>
-
     </div>
 
-    <script src="workspace.js"></script>
-    <script src="player.js"></script>
-    <script src="timeline.js"></script>
-    <script src="presets.js"></script>
-    <script src="tracking.js"></script>
-    <script src="funscript.js"></script>
-</body>
-</html>
+    <!-- Panel 2: Controles y Atajos -->
+    <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
+        <div class="panel-content">
+            <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
+                <li><span class="key">Arrastrar Mouse 1</span> = Cuadro Azul (Hombre)</li>
+                <li><span class="key">Arrastrar Mouse 2</span> = Cuadro Rosa (Mujer)</li>
+                <li><span class="key">Click + Arrastrar dentro</span> = Mover/Corregir trackers</li>
+                <li><span class="key">Click en Líneas de Barra</span> = Ajustar Base/Cabeza con Mouse</li>
+                <li><span class="key">Ctrl + A</span> = Seleccionar todos los puntos de la pista</li>
+                <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
+                <li><span class="key">B</span> / <span class="key">N</span> = Navegar entre nodos en azul/naranja</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel 3: Consola -->
+    <div id="panel-actions" class="workspace-panel" data-title="📊 JSON Log">
+        <div class="panel-content">
+            <div id="actions-log" class="log-container">
+                <span class="empty-log">Sin puntos registrados aún</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel 4: Presets -->
+    <div id="panel-presets" class="workspace-panel" data-title="💾 Presets">
+        <div class="panel-content">
+            <button id="save-preset-btn" class="btn">💾 Guardar Preset</button>
+            <div id="presets-list" class="presets-grid" style="margin-top: 8px; overflow-y: auto; flex-grow: 1;"></div>
+        </div>
+    </div>
+
+    <!-- Panel 5: Línea de Tiempo -->
+    <div id="panel-timeline" class="workspace-panel" data-title="📈 Timeline">
+        <div class="panel-content">
+            <canvas id="timeline-canvas"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<script src="workspace.js"></script>
+<script src="player.js"></script>
+<script src="timeline.js"></script>
+<script src="presets.js"></script>
+<script src="tracking.js"></script>
+<script src="funscript.js"></script>
+
+
+He preparado estos dos archivos clave para que los tengas listos en el panel interactivo de la derecha.
+
+Haz la prueba: arrastra tu video .mp4 a tu carpeta de trabajo, abre tu consola CMD (donde dice (venv_ia)), ejecuta el script con python ia_tracker.py y haz tus primeros trazos.
+
+¡Cuéntame con mucha emoción cuando veas abrirse la pantalla interactiva de la IA en tu Windows!
