@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V1.5: AJUSTE AUTO UNIVERSAL E IMÁN PERIMETRAL EN 4 ESQUINAS
+// WORKSPACE V1.7: SOLUCIÓN COMPLETA A REDIMENSIONADO Y COBERTURA DE PANTALLA
 // ==========================================================================
 
 const styleSheet = document.createElement("style");
@@ -25,8 +25,6 @@ styleSheet.innerText = `
         padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: 600;
     }
     .toggle-panel-btn.active { background: #2563eb; color: white; border-color: #3b82f6; }
-    
-    /* ELIMINACIÓN DE MÁRGENES FLUIDOS: Se vincula directo al viewport exacto */
     .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); margin: 0; padding: 0; overflow: hidden; }
     
     .workspace-panel {
@@ -82,7 +80,6 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem('funscript_workspace_layout', JSON.stringify(currentLayout));
     }
 
-    // NUEVO CALCULO DE IMÁN A PAÑO GLOBAL EN LAS 4 ESQUINAS E AISLADO POR EJE
     function calculateSnapGlobal(panel, idealX, idealY, w, h, checkX = true, checkY = true) {
         let finalX = idealX;
         let finalY = idealY;
@@ -96,21 +93,21 @@ document.addEventListener("DOMContentLoaded", () => {
             const oB = oT + other.offsetHeight;
 
             if (checkX) {
-                if (Math.abs(idealX - oL) < SNAP_DIST) finalX = oL; // Esquina Izquierda paño superior/inferior
+                if (Math.abs(idealX - oL) < SNAP_DIST) finalX = oL;
                 else if (Math.abs(idealX - oR) < SNAP_DIST) finalX = oR;
                 else if (Math.abs(idealX - (oR + TRACK_GAP)) < SNAP_DIST) finalX = oR + TRACK_GAP;
                 else if (Math.abs((idealX + w) - oL) < SNAP_DIST) finalX = oL - w;
                 else if (Math.abs((idealX + w) - (oL - TRACK_GAP)) < SNAP_DIST) finalX = oL - w - TRACK_GAP;
-                else if (Math.abs((idealX + w) - oR) < SNAP_DIST) finalX = oR - w; // Alineación de esquina derecha
+                else if (Math.abs((idealX + w) - oR) < SNAP_DIST) finalX = oR - w;
             }
 
             if (checkY) {
-                if (Math.abs(idealY - oT) < SNAP_DIST) finalY = oT; // A paño del borde superior global
+                if (Math.abs(idealY - oT) < SNAP_DIST) finalY = oT;
                 else if (Math.abs(idealY - oB) < SNAP_DIST) finalY = oB;
                 else if (Math.abs(idealY - (oB + TRACK_GAP)) < SNAP_DIST) finalY = oB + TRACK_GAP;
                 else if (Math.abs((idealY + h) - oT) < SNAP_DIST) finalY = oT - h;
                 else if (Math.abs((idealY + h) - (oT - TRACK_GAP)) < SNAP_DIST) finalY = oT - h - TRACK_GAP;
-                else if (Math.abs((idealY + h) - oB) < SNAP_DIST) finalY = oB - h; // Alineación de esquina inferior
+                else if (Math.abs((idealY + h) - oB) < SNAP_DIST) finalY = oB - h;
             }
         });
 
@@ -120,7 +117,6 @@ document.addEventListener("DOMContentLoaded", () => {
     panels.forEach(panel => {
         const id = panel.id;
         const config = savedLayout[id] || defaultLayout[id] || { top: 20, left: 20, w: 400, h: 300 };
-        const title = panel.getAttribute("data-title") || "Módulo";
 
         panel.style.top = `${config.top}px`;
         panel.style.left = `${config.left}px`;
@@ -130,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const toggleBtn = document.createElement("button");
         toggleBtn.className = `toggle-panel-btn ${config.display !== "none" ? 'active' : ''}`;
-        toggleBtn.innerText = title;
+        toggleBtn.innerText = panel.getAttribute("data-title") || "Módulo";
         if (topCenter) topCenter.appendChild(toggleBtn);
 
         toggleBtn.addEventListener("click", () => {
@@ -142,12 +138,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 panel.style.display = "none";
                 toggleBtn.classList.remove("active");
             }
-            saveCurrentLayout();
-            window.dispatchEvent(new Event('resize'));
+            saveCurrentLayout(); window.dispatchEvent(new Event('resize'));
         });
 
         panel.addEventListener("mousedown", () => { panel.style.zIndex = ++highestZIndex; });
 
+        // MOTOR DE ARRASTRE INTEGRAL DE VENTANAS MÓVILES
         panel.addEventListener("mousedown", (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || 
                 e.target.tagName === 'BUTTON' || e.target.tagName === 'VIDEO' || 
@@ -165,9 +161,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 let idealLeft = panelStartX + (moveEvent.clientX - mouseStartX);
                 let idealTop = panelStartY + (moveEvent.clientY - mouseStartY);
 
-                // CORRECCIÓN AUTOMÁTICA UNIVERSAL: Se adapta dinámicamente al tamaño actual de la ventana interna sin scrollbars
-                const maxLeft = window.innerWidth - panel.offsetWidth;
-                const maxTop = window.innerHeight - 44 - panel.offsetHeight;
+                const maxLeft = container.clientWidth - panel.offsetWidth;
+                const maxTop = container.clientHeight - panel.offsetHeight;
 
                 if (idealLeft < 0) idealLeft = 0;
                 if (idealTop < 0) idealTop = 0;
@@ -194,6 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.addEventListener("mouseup", mouseUpHandler);
         });
 
+        // SOLUCIÓN AL ESTIRAMIENTO LOCA DE 3 PESTAÑAS ADYACENTES HORIZONTALES
         const directions = ['t', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br'];
         directions.forEach(dir => {
             const resizer = document.createElement("div");
@@ -208,8 +204,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 let startX = e.clientX; let startY = e.clientY;
                 let startLeft = panel.offsetLeft; let startTop = panel.offsetTop;
 
-                const changeX = dir.includes('l') || dir.includes('r') || dir.length === 2;
-                const changeY = dir.includes('t') || dir.includes('b') || dir.length === 2;
+                // Aislamos estrictamente los disparadores según la manilla física activa
+                const changeX = dir.includes('l') || dir.includes('r');
+                const changeY = dir.includes('t') || dir.includes('b');
 
                 const resizeMoveHandler = (moveEvent) => {
                     let dw = moveEvent.clientX - startX;
@@ -228,17 +225,40 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (potentialH >= 100) { nh = potentialH; nt = startTop + dh; }
                     }
 
-                    // Topes universales reactivos automáticos
                     if (nl < 0) { nw += nl; nl = 0; }
                     if (nt < 0) { nh += nt; nt = 0; }
-                    if (nl + nw > window.innerWidth) nw = window.innerWidth - nl;
-                    if (nt + nh > window.innerHeight - 44) nh = window.innerHeight - 44 - nt;
+                    if (nl + nw > container.clientWidth) nw = container.clientWidth - nl;
+                    if (nt + nh > container.clientHeight) nh = container.clientHeight - nt;
 
-                    // AISLAMIENTO PERFECTO: El imán solo asiste a los ejes activados por el tirador físico perimetral
+                    // CORRECCIÓN MATEMÁTICA: El imán solo evalúa y asiste los ejes asignados a la manilla, eliminando el feedback loop lateral
                     let snapped = calculateSnapGlobal(panel, nl, nt, nw, nh, changeX, changeY);
                     
-                    if (changeX && Math.abs(nl - snapped.x) <= SNAP_DIST) { nw += (nl - snapped.x); nl = snapped.x; }
-                    if (changeY && Math.abs(nt - snapped.y) <= SNAP_DIST) { nh += (nt - snapped.y); nt = snapped.y; }
+                    if (changeX) {
+                        if (dir.includes('l') && Math.abs(nl - snapped.x) <= SNAP_DIST) { nw += (nl - snapped.x); nl = snapped.x; }
+                        else if (dir.includes('r') && Math.abs((startLeft + nw) - (snapped.x + nw)) <= SNAP_DIST) { 
+                            // Corrección de snap en borde derecho: reajusta anchura fija sin deformar el lateral izquierdo
+                            panels.forEach(other => {
+                                if (other === panel || other.style.display === "none") return;
+                                const oL = other.offsetLeft; const oR = oL + other.offsetWidth;
+                                if (Math.abs((nl + nw) - oL) < SNAP_DIST) nw = oL - nl;
+                                else if (Math.abs((nl + nw) - oR) < SNAP_DIST) nw = oR - nl;
+                                else if (Math.abs((nl + nw) - (oL - TRACK_GAP)) < SNAP_DIST) nw = (oL - TRACK_GAP) - nl;
+                            });
+                        }
+                    }
+                    
+                    if (changeY) {
+                        if (dir.includes('t') && Math.abs(nt - snapped.y) <= SNAP_DIST) { nh += (nt - snapped.y); nt = snapped.y; }
+                        else if (dir.includes('b') && Math.abs((startTop + nh) - (snapped.y + nh)) <= SNAP_DIST) {
+                            panels.forEach(other => {
+                                if (other === panel || other.style.display === "none") return;
+                                const oT = other.offsetTop; const oB = oT + other.offsetHeight;
+                                if (Math.abs((nt + nh) - oT) < SNAP_DIST) nh = oT - nt;
+                                else if (Math.abs((nt + nh) - oB) < SNAP_DIST) nh = oB - nt;
+                                else if (Math.abs((nt + nh) - (oT - TRACK_GAP)) < SNAP_DIST) nh = (oT - TRACK_GAP) - nt;
+                            });
+                        }
+                    }
 
                     panel.style.width = `${nw}px`; panel.style.height = `${nh}px`;
                     panel.style.left = `${nl}px`; panel.style.top = `${nt}px`;
