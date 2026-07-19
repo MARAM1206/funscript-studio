@@ -1,12 +1,11 @@
 // ==========================================================================
-// SISTEMA DE PRESETS BASADO EN SELECCIÓN VECTORIAL
+// SISTEMA DE PRESETS VECTORIAL ADAPTADO AL HISTORIAL
 // ==========================================================================
 
 let savedPresets = {};
 const presetsBtn = document.getElementById('save-preset-btn');
 
 if (presetsBtn) {
-    // Cambiamos el texto del botón del HTML original para reflejar la función exacta
     presetsBtn.innerText = "💾 Guardar Nodos Seleccionados como Preset";
 }
 
@@ -16,18 +15,16 @@ presetsBtn?.addEventListener('click', function() {
         return;
     }
 
-    // Filtramos ÚNICAMENTE los puntos que el usuario tiene seleccionados (en azul)
     const actionsToSave = funscriptActions.filter(act => act.selected);
 
     if (actionsToSave.length === 0) {
-        alert("No tienes ningún punto seleccionado. Haz clic izquierdo y arrastra un cuadro sobre los puntos del Canvas que quieras guardar como preset.");
+        alert("No tienes ningún punto seleccionado. Haz clic izquierdo y arrastra un cuadro sobre los puntos del Canvas que quieras guardar.");
         return;
     }
 
     const presetName = prompt("Introduce un nombre para guardar esta selección exacta:", `Patrón Custom ${Object.keys(savedPresets).length + 1}`);
     if (!presetName) return;
 
-    // Normalización matemática para que empiece en el milisegundo 0 relativo
     const baseTime = actionsToSave[0].at;
     const normalizedActions = actionsToSave.map(act => ({
         at: act.at - baseTime,
@@ -37,7 +34,6 @@ presetsBtn?.addEventListener('click', function() {
     savedPresets[presetName] = normalizedActions;
     updatePresetsList();
     
-    // Quitamos la selección para dar feedback visual de que ya se guardó
     funscriptActions.forEach(act => act.selected = false);
     drawTimeline();
     alert(`¡Preset "${presetName}" guardado con éxito!`);
@@ -75,13 +71,24 @@ function stampPreset(presetName) {
     const preset = savedPresets[presetName];
     if (!preset || !videoPlayer.src) return;
 
+    // CAPTURA DE HISTORIAL: Tomamos una sola foto antes del volcado masivo
+    if (typeof window.saveHistoryState === 'function') {
+        window.saveHistoryState();
+    }
+
     const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
 
     preset.forEach(presetAct => {
         const targetTime = currentTimeMs + presetAct.at;
         if (typeof addAction === 'function') {
-            addAction(targetTime, presetAct.pos);
+            // Inserta el nodo de forma nativa
+            funscriptActions = funscriptActions.filter(act => act.at !== targetTime);
+            funscriptActions.push({ at: targetTime, pos: presetAct.pos, selected: false });
         }
     });
-    drawTimeline();
+
+    // Ordenamos y redibujamos una sola vez al terminar el ciclo
+    funscriptActions.sort((a, b) => a.at - b.at);
+    if (typeof updateActionsLog === 'function') updateActionsLog();
+    if (typeof drawTimeline === 'function') drawTimeline();
 }
