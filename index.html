@@ -20,15 +20,17 @@
         </div>
     </div>
 
-<!-- Panel 1: Reproductor de Video con Capa IA -->
+    <!-- CONTENEDOR FLUIDO TOTAL -->
+    <div id="workspace" class="workspace-container">
+        
+        <!-- Panel 1: Reproductor de Video con Capa IA Doble -->
         <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
             <div class="panel-content">
                 <div style="position: relative; width: 100%; flex-grow: 1; background: #000; border-radius: 8px; overflow: hidden;">
-                    <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%;"></video>
+                    <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 5; cursor: crosshair; display: none;"></canvas>
                 </div>
                 
-                <!-- NUEVO: Barra de progreso externa separada del Canvas -->
                 <div class="progress-bar-container">
                     <input type="range" id="video-progress" class="custom-progress" min="0" max="100" value="0" step="0.05">
                 </div>
@@ -47,14 +49,14 @@
         <!-- Panel 2: Controles y Atajos -->
         <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
             <div class="panel-content">
-                <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
-                    <li><span class="key">0</span> = 0% | <span class="key">1</span>-<span class="key">9</span> = 10%-90% | <span class="key">Intro</span> = 100%</li>
-                    <li><span class="key">←</span> <span class="key">→</span> = Mover tiempo de puntos (-/+ 10ms)</li>
-                    <li><span class="key">↑</span> <span class="key">↓</span> = Ajustar altura de posición (-/+ 5%)</li>
-                    <li><span class="key">B</span> / <span class="key">N</span> = Navegar / Auto-seleccionar nodos</li>
-                    <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
-                    <li><span class="key">Q</span> / <span class="key">W</span> = Salto fluido de 3 fotogramas</li>
-                    <li><span class="key">Supr</span> = Eliminar puntos seleccionados</li>
+                <ul class="hotkey-list" style="font-size: 0.8rem; padding-left: 5px; margin: 0; gap: 4px;">
+                    <li><span class="key">Arrastrar 1</span> = Fijar Tracker 1 (Base/Anclaje)</li>
+                    <li><span class="key">Arrastrar 2</span> = Fijar Tracker 2 (Cuerpo Móvil)</li>
+                    <li><span class="key">+</span> / <span class="key">-</span> = Ajustar sensibilidad del rango IA</li>
+                    <li><span class="key">U</span> / <span class="key">I</span> = Mover la línea divisoria de la **Base** (-/+)</li>
+                    <li><span class="key">O</span> / <span class="key">P</span> = Mover la línea divisoria de la **Cabeza** (-/+)</li>
+                    <li><span class="key">B</span> / <span class="key">N</span> = Navegar entre nodos con auto-selección</li>
+                    <li><span class="key">Q</span> / <span class="key">W</span> = Salto fluido de 3 fotogramas de video</li>
                 </ul>
             </div>
         </div>
@@ -89,7 +91,7 @@
     <script src="player.js"></script>
     <script src="timeline.js"></script>
     <script src="presets.js"></script>
-    <script src="tracking.js"></script> <!-- NUEVO CEREBRO DE VISIÓN ARTIFICIAL -->
+    <script src="tracking.js"></script>
     <script src="funscript.js"></script>
 </body>
 </html>
