@@ -1,5 +1,5 @@
 // ==========================================================================
-// CAPTURA DE TECLADO Y RENDERIZADO DE LÍNEA DE TIEMPO (CANVAS)
+// CAPTURA DE TECLADO Y RENDERIZADO DE LÍNEA DE TIEMPO CON GUÍAS VISUALES
 // ==========================================================================
 
 // Elementos de la interfaz
@@ -8,140 +8,156 @@ const ctx = canvas.getContext('2d');
 const actionsLog = document.getElementById('actions-log');
 const zoomIndicator = document.getElementById('zoom-indicator');
 
-// Base de datos temporal de movimientos (Aquí se guarda el JSON interactivo)
+// Base de datos temporal de movimientos
 let funscriptActions = [];
 
 // Configuración del tamaño del Canvas
 function resizeCanvas() {
-    // Le damos resolución real al lienzo según su tamaño en pantalla
     canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = 120;
+    canvas.height = 150; // Aumentamos un poco la altura para que las 10 filas respiren mejor
     drawTimeline();
 }
 window.addEventListener('resize', resizeCanvas);
-// Ejecutar un pequeño retraso para asegurar que el diseño cargó en el navegador
 setTimeout(resizeCanvas, 500);
 
 // ==========================================================================
 // INTERCEPCIÓN DEL TECLADO (Mapeo Numérico 0-9 y Q)
 // ==========================================================================
 window.addEventListener('keydown', function(event) {
-    // Evitamos capturar si estás interactuando con menús desplegables
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
 
     let position = null;
     const key = event.key.toLowerCase();
 
-    // Mapeo de teclas numéricas a porcentajes (1 = 10%, 9 = 90%)
     if (key >= '1' && key <= '9') {
         position = parseInt(key) * 10;
     } else if (key === '0') {
-        position = 0; // Base total
+        position = 0;
     } else if (key === 'q') {
-        position = 100; // Cabeza total
+        position = 100;
     }
 
-    // Si se presionó una tecla válida y el video está cargado
     if (position !== null && videoPlayer.src) {
         event.preventDefault();
-        
-        // Obtenemos el tiempo actual del video en milisegundos exactos
         const timeMs = Math.floor(videoPlayer.currentTime * 1000);
-        
-        // Registramos la acción
         addAction(timeMs, position);
     }
 });
 
-/**
- * Añade un nodo de movimiento, evitando duplicados en el mismo milisegundo
- * y ordenándolos cronológicamente.
- */
 function addAction(timeMs, position) {
-    // Eliminamos si ya existía un punto en ese mismo milisegundo exacto para no encimar
     funscriptActions = funscriptActions.filter(act => act.at !== timeMs);
-    
-    // Insertamos el nuevo punto
     funscriptActions.push({ at: timeMs, pos: position });
-    
-    // Ordenamos la lista por tiempo (de menor a mayor)
     funscriptActions.sort((a, b) => a.at - b.at);
     
-    // Actualizamos la parte visual
     updateActionsLog();
     drawTimeline();
 }
 
 // ==========================================================================
-// RENDERIZADO GRÁFICO (El Canvas con Zonas Anatómicas)
+// RENDERIZADO GRÁFICO (Canvas con Rejilla de 10% y Línea Vertical)
 // ==========================================================================
 function drawTimeline() {
     if (!canvas.width) return;
     
-    // 1. Limpiar el lienzo
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 2. Dibujar las 3 Franjas Anatómicas de Fondo
-    // Canvas mide 0 en la parte superior y 'height' en la inferior. Invertimos el cálculo.
     const h = canvas.height;
+    const w = canvas.width;
+    const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000; 
     
-    // Sección 1: Cabeza (70% al 100% superior) -> Azul Oscuro Sutil
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.08)';
-    ctx.fillRect(0, 0, canvas.width, h * 0.30);
+    // 1. Limpiar el lienzo
+    ctx.clearRect(0, 0, w, h);
     
-    // Sección 2: Tronco (20% al 70% centro) -> Púrpura/Gris Sutil
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.04)';
-    ctx.fillRect(0, h * 0.30, canvas.width, h * 0.50);
+    // 2. Dibujar las 3 Franjas Anatómicas de Fondo (Base)
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.06)'; // Cabeza (70% - 100%)
+    ctx.fillRect(0, 0, w, h * 0.30);
     
-    // Sección 3: Base (0% al 20% inferior) -> Rojo Oscuro Sutil
-    ctx.fillStyle = 'rgba(239, 68, 68, 0.06)';
-    ctx.fillRect(0, h * 0.80, canvas.width, h * 0.20);
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.03)'; // Tronco (20% - 70%)
+    ctx.fillRect(0, h * 0.30, w, h * 0.50);
+    
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.05)'; // Base (0% - 20%)
+    ctx.fillRect(0, h * 0.80, w, h * 0.20);
 
-    // Líneas divisorias tenues
-    ctx.strokeStyle = '#273549';
+    // 3. NUEVO: Dibujar Filas de Guía (Cada 10%)
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, h * 0.30); ctx.lineTo(canvas.width, h * 0.30);
-    ctx.moveTo(0, h * 0.80); ctx.lineTo(canvas.width, h * 0.80);
-    ctx.stroke();
-
-    // Si no hay acciones guardadas, no hay nada más que pintar
-    if (funscriptActions.length === 0) return;
-
-    // 3. Dibujar las Líneas de Conexión Vectorial y Nodos
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#38bdf8'; // Línea azul brillante
-    ctx.beginPath();
-
-    funscriptActions.forEach((action, index) => {
-        // Mapeo básico de tiempo a coordenada X en pantalla (Escala temporal preliminar)
-        // Usamos una ventana de visualización simple proporcional a la duración del video
-        const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000; 
-        const x = (action.at / duration) * canvas.width;
+    ctx.font = '9px monospace';
+    
+    for (let i = 0; i <= 100; i += 10) {
+        const y = h - (i / 100) * h;
         
-        // Mapeo de porcentaje (0-100) a coordenada Y (Invertido para que 100 esté arriba)
-        const y = h - (action.pos / 100) * h;
-
-        if (index === 0) {
-            ctx.moveTo(x, y);
+        // Hacemos las líneas discontinuas (punteadas) para que no saturen la vista
+        ctx.setLineDash([4, 4]);
+        
+        // Destacamos más las líneas divisorias de las zonas anatómicas (20% y 70%)
+        if (i === 20 || i === 70) {
+            ctx.strokeStyle = '#475569';
+            ctx.setLineDash([]); // Línea continua para las divisiones mayores
         } else {
-            ctx.lineTo(x, y);
+            ctx.strokeStyle = '#1e293b';
         }
-    });
-    ctx.stroke();
-
-    // Dibujamos círculos en los nodos para verlos con claridad
-    funscriptActions.forEach((action) => {
-        const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
-        const x = (action.at / duration) * canvas.width;
-        const y = h - (action.pos / 100) * h;
-
+        
         ctx.beginPath();
-        ctx.arc(x, y, 4, 0, 2 * Math.PI);
-        // Nodo Verde si golpea arriba (zona cabeza), Rojo si golpea abajo (zona base)
-        ctx.fillStyle = action.pos >= 70 ? '#10b981' : (action.pos <= 20 ? '#ef4444' : '#f59e0b');
+        ctx.moveTo(40, y); // Dejamos un espacio a la izquierda para el texto
+        ctx.lineTo(w, y);
+        ctx.stroke();
+        
+        // Dibujar el texto del porcentaje (10%, 20%...) a la izquierda
+        ctx.setLineDash([]); // Quitamos el punteado para el texto
+        ctx.fillStyle = i === 20 || i === 70 || i === 100 || i === 0 ? '#64748b' : '#334155';
+        ctx.fillText(`${i}%`, 8, y + 3);
+    }
+
+    // 4. Dibujar las Líneas Vectoriales y Nodos del Script
+    if (funscriptActions.length > 0) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.beginPath();
+
+        funscriptActions.forEach((action, index) => {
+            const x = 40 + ((action.at / duration) * (w - 40));
+            const y = h - (action.pos / 100) * h;
+
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+
+        // Círculos en los nodos
+        funscriptActions.forEach((action) => {
+            const x = 40 + ((action.at / duration) * (w - 40));
+            const y = h - (action.pos / 100) * h;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = action.pos >= 70 ? '#10b981' : (action.pos <= 20 ? '#ef4444' : '#f59e0b');
+            ctx.fill();
+        });
+    }
+
+    // 5. NUEVO: Línea Vertical Indicadora del Video (Playhead)
+    if (videoPlayer.src) {
+        const currentTimeMs = videoPlayer.currentTime * 1000;
+        // Calculamos la posición X exacta basada en el tiempo actual del video
+        const currentX = 40 + ((currentTimeMs / duration) * (w - 40));
+        
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#f43f5e'; // Color rosa/rojo brillante para que resalte
+        ctx.setLineDash([]); // Línea sólida
+        
+        ctx.beginPath();
+        ctx.moveTo(currentX, 0);
+        ctx.lineTo(currentX, h);
+        ctx.stroke();
+        
+        // Una pequeña cabeza de flecha o indicador arriba de la línea vertical
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath();
+        ctx.moveTo(currentX - 4, 0);
+        ctx.lineTo(currentX + 4, 0);
+        ctx.lineTo(currentX, 6);
         ctx.fill();
-    });
+    }
 }
 
 // ==========================================================================
@@ -153,9 +169,7 @@ function updateActionsLog() {
         return;
     }
 
-    // Mostramos las últimas 5 acciones en orden descendente para tener control visual
     const latestActions = [...funscriptActions].reverse().slice(0, 5);
-    
     actionsLog.innerHTML = latestActions.map(act => {
         const seconds = (act.at / 1000).toFixed(3);
         let zoneText = act.pos >= 70 ? 'Cabeza' : (act.pos <= 20 ? 'Base' : 'Tronco');
@@ -167,7 +181,9 @@ function updateActionsLog() {
     }).join('');
 }
 
-// Escuchamos cuando el video avanza para poder redibujar la barra si es necesario
+// Escuchamos el evento 'timeupdate' para mover la línea vertical frame por frame
 if (videoPlayer) {
     videoPlayer.addEventListener('timeupdate', drawTimeline);
+    // También redibujamos cuando el video se pausa o se mueve manualmente la barra nativa
+    videoPlayer.addEventListener('seeking', drawTimeline);
 }
