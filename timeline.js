@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.5: MICRO-AJUSTE POR FLECHAS Y TOLERANCIA ABSOLUTA DE SELECCIÓN
+// TIMELINE V1.6: AUTO-PLAY SYNC E IMÁN DE PRESETS EN CABEZAL ROJO
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -44,7 +44,12 @@ function calculateAdaptiveZoom() {
     }
 }
 
+// CORRECCIÓN DE REPRODUCCIÓN: Al presionar Play, la cinta se alinea automáticamente con el cabezal central
 if (videoPlayer) {
+    videoPlayer.addEventListener('play', () => {
+        panX = 0; // Resetea cualquier navegación manual previa
+        drawTimeline();
+    });
     videoPlayer.addEventListener('loadedmetadata', () => {
         calculateAdaptiveZoom();
         zoom = 1.0; panX = 0;
@@ -58,6 +63,10 @@ function timeToX(timeMs) {
     const deltaMs = timeMs - currentTimeMs;
     return center + panX + (deltaMs * basePixelsPerMs * zoom);
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+    window.dispatchEvent(new Event('resize'));
+});
 
 function xToTime(xPos) {
     const center = canvas.width / 2;
@@ -102,20 +111,17 @@ window.addEventListener('keydown', function(event) {
     if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
     if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
 
-    // NUEVO: CONTROL DE MOVIMIENTO VECTORIAL MEDIANTE FLECHAS DEL TECLADO
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
         const selected = funscriptActions.filter(act => act.selected);
         if (selected.length > 0) {
             event.preventDefault();
-            saveHistoryState(); // Guarda estado antes del desplazamiento micro-métrico
-            
+            saveHistoryState();
             selected.forEach(act => {
-                if (key === 'arrowup') act.pos = Math.min(100, act.pos + 1); // +1% de altura hacia la cabeza
-                if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 1); // -1% de altura hacia la base
-                if (key === 'arrowleft') act.at = Math.max(0, act.at - 10); // Desplaza 10ms a la izquierda en la cinta
-                if (key === 'arrowright') act.at = act.at + 10; // Desplaza 10ms a la derecha en la cinta
+                if (key === 'arrowup') act.pos = Math.min(100, act.pos + 1);
+                if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 1);
+                if (key === 'arrowleft') act.at = Math.max(0, act.at - 10);
+                if (key === 'arrowright') act.at = act.at + 10;
             });
-            
             funscriptActions.sort((a, b) => a.at - b.at);
             updateActionsLog(); drawTimeline();
         }
@@ -179,11 +185,21 @@ function addAction(timeMs, position) {
     updateActionsLog(); drawTimeline();
 }
 
+// NUEVO: INTERCEPTOR CON IMÁN DE ACOPLAMIENTO PARA PRESETS EN LA BANDA ROJA CENTRAL
 canvas.addEventListener('dragover', function(event) {
     event.preventDefault();
     if (!window.timelineGhostPreset) return;
     const pos = getMousePos(event);
-    window.timelineGhostMouseX = pos.x;
+    
+    // El eje central donde descansa fijamente la línea roja
+    const centerFixedX = canvas.width / 2 + panX;
+    
+    // Si la posición de arrastre está a menos de 25 píxeles de la línea roja, se engancha magnéticamente
+    if (Math.abs(pos.x - centerFixedX) < 25) {
+        window.timelineGhostMouseX = centerFixedX;
+    } else {
+        window.timelineGhostMouseX = pos.x;
+    }
     drawTimeline();
 });
 
@@ -195,8 +211,8 @@ canvas.addEventListener('drop', function(event) {
     event.preventDefault();
     if (!window.timelineGhostPreset || !videoPlayer.src) return;
     
-    const pos = getMousePos(event);
-    const targetTimeMs = Math.floor(xToTime(pos.x));
+    const dropX = (window.timelineGhostMouseX !== -1) ? window.timelineGhostMouseX : getMousePos(event).x;
+    const targetTimeMs = Math.floor(xToTime(dropX));
     
     saveHistoryState();
     window.timelineGhostPreset.forEach(presetAct => {
@@ -275,7 +291,7 @@ canvas.addEventListener('mouseup', function(event) {
                 const renderX = timeToX(action.at);
                 const renderY = h - (action.pos / 100) * h;
                 
-                // CORRECCIÓN DE UNIÓN EN 0%: Añadimos zona de amortiguación vertical de 12px en los extremos para atrapar nodos al ras
+                // Zona de amortiguación vertical (+/- 12px) para atrapar con total seguridad nodos en 0% y 100%
                 if (renderX >= xMin && renderX <= xMax && renderY >= (yMin - 12) && renderY <= (yMax + 12)) {
                     action.selected = true;
                 }
