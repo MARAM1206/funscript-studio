@@ -1,5 +1,5 @@
 // ==========================================================================
-// CONTROL DEL REPRODUCTOR V1.6: RESOLUCIÓN LIMPIA Y SALTO DE 5 FPS
+// CONTROL DEL REPRODUCTOR V1.7: RESOLUCIÓN LIMPIA Y SALTO DE 3 FPS
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -9,7 +9,7 @@ const videoFilename = document.getElementById('video-filename');
 const videoSpecs = document.getElementById('video-specs');
 
 let currentSpeed = 1.0; 
-window.videoFPS = 30; // Valor por defecto global
+window.videoFPS = 30; 
 
 videoInput.addEventListener('change', function(event) {
     const file = event.target.files[0];
@@ -53,7 +53,7 @@ videoPlayer.addEventListener('loadedmetadata', function() {
             else if (calculatedFps > 23 && calculatedFps < 26) calculatedFps = 24;
             else if (calculatedFps > 47 && calculatedFps < 52) calculatedFps = 50;
 
-            window.videoFPS = calculatedFps; // Almacenar globalmente para la línea de tiempo
+            window.videoFPS = calculatedFps; 
             if (videoSpecs) videoSpecs.innerText = `${resLabel} @ ${calculatedFps} FPS`;
         }
     }
@@ -87,9 +87,9 @@ window.addEventListener('keydown', function(event) {
         speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
     }
 
-    // AJUSTE PRE CROWD: Avanza y retrocede fluidamente saltando bloques de 5 fotogramas exactos
+    // INTERCEPTORES DE PRECISIÓN OPTIMIZADOS: Saltos equilibrados de 3 fotogramas exactos
     const fps = window.videoFPS || 30;
-    const stepTime = 5 / fps; 
+    const stepTime = 3 / fps; 
 
     if (key === 'q') {
         event.preventDefault(); videoPlayer.pause();
