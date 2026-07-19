@@ -8,27 +8,27 @@
 </head>
 <body>
 
-    <!-- MENÚ SUPERIOR INTERCAMBIADO (SELECCIONAR IZQ / EXPORTAR DER) -->
+    <!-- MENÚ SUPERIOR INTERCAMBIADO -->
     <div class="top-bar-menu">
         <div class="top-left-actions">
             <label for="video-input" class="menu-btn select-btn">📁 Seleccionar Video</label>
             <input type="file" id="video-input" accept="video/*" style="display: none;">
         </div>
-        <div id="top-center-toggles" class="top-center-toggles">
-            <!-- Los botones interactivos se inyectan aquí automáticamente -->
-        </div>
+        <div id="top-center-toggles" class="top-center-toggles"></div>
         <div class="top-right-actions">
             <button id="export-btn" class="menu-btn success-btn">⬇ Exportar Archivo .funscript</button>
         </div>
     </div>
 
-    <!-- CONTENEDOR FLUIDO TOTAL DE PANTALLA -->
+    <!-- CONTENEDOR FLUIDO TOTAL -->
     <div id="workspace" class="workspace-container">
         
         <!-- Panel 1: Reproductor de Video -->
         <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
             <div class="panel-content">
                 <video id="video-player" controls disablepictureinpicture controlslist="nodownload"></video>
+                <!-- NUEVO: Contenedor para el nombre del archivo en letras pequeñas -->
+                <div id="video-filename" style="font-size: 0.7rem; color: #475569; margin-top: 4px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Sin archivo seleccionado</div>
                 <div class="video-controls">
                     <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
                 </div>
@@ -43,8 +43,8 @@
                     <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
                     <li><span class="key">Q</span> / <span class="key">W</span> = Fotograma Atrás / Adelante</li>
                     <li><span class="key">A</span> / <span class="key">S</span> = Saltar -5s / +5s en el video</li>
-                    <li><span class="key">E</span> / <span class="key">R</span> = Bajar / Subir velocidad (-/+ 0.1)</li>
-                    <li><span class="key">M</span> = Mutear / Desmutear audio del video</li>
+                    <li><span class="key">E</span> / <span class="key">R</span> = Bajar / Subir velocidad</li>
+                    <li><span class="key">M</span> = Mutear / Desmutear audio</li>
                     <li><span class="key">Supr</span> = Eliminar puntos seleccionados</li>
                     <li><span class="key">Arrastrar Preset</span> = Suelta el preset sobre el Canvas</li>
                 </ul>
@@ -63,8 +63,8 @@
         <!-- Panel 4: Presets -->
         <div id="panel-presets" class="workspace-panel" data-title="💾 Presets">
             <div class="panel-content">
-                <!-- Renombrado a Guardar Preset -->
-                <button id="save-preset-btn" class="btn">Guardar Preset</button>
+                <!-- NUEVO: Nombre y emoji de disquete -->
+                <button id="save-preset-btn" class="btn">💾 Guardar Preset</button>
                 <div id="presets-list" class="presets-grid" style="margin-top: 8px; overflow-y: auto; flex-grow: 1;"></div>
             </div>
         </div>
