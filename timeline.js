@@ -1,29 +1,30 @@
 // ==========================================================================
-// LÍNEA DE TIEMPO ULTRA-PRECISA CON SISTEMA DE HISTORIAL (CTRL+Z / CTRL+Y)
+// LÍNEA DE TIEMPO VECTORIAL CORREGIDA (CERO DISTORSIÓN VISUAL AL REDIMENSIONAR)
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
 const ctx = canvas.getContext('2d');
 const actionsLog = document.getElementById('actions-log');
-const zoomIndicator = document.getElementById('zoom-indicator');
 
 let funscriptActions = [];
-
-// Pilas de memoria para el Historial (Undo / Redo stacks)
 let undoStack = [];
 let redoStack = [];
-const MAX_HISTORY = 50; // Límite de acciones guardadas en memoria
+const MAX_HISTORY = 50;
 
-// Estados de Navegación y Selección
 let zoom = 1.0;
 let panX = 0;
 let isSelecting = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
+// SISTEMA CORREGIDO: Ajusta los píxeles reales del Canvas para evitar el efecto foto estirada
 function resizeCanvas() {
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = 160;
+    const parent = canvas.parentElement;
+    if (parent && parent.clientWidth > 0) {
+        canvas.width = parent.clientWidth;
+        // Restamos espacio suficiente para el botón verde inferior de exportación
+        canvas.height = Math.max(100, parent.clientHeight - 55); 
+    }
     drawTimeline();
 }
 window.addEventListener('resize', resizeCanvas);
@@ -37,76 +38,35 @@ function getMousePos(event) {
     };
 }
 
-// ==========================================================================
-// FUNCIONES LÓGICAS DEL HISTORIAL (SNAP-SHOTS)
-// ==========================================================================
-/**
- * Guarda una copia profunda del estado actual antes de que ocurra una modificación
- */
 function saveHistoryState() {
-    // Clonamos el array actual para que no se altere la foto guardada
     undoStack.push(funscriptActions.map(act => ({ ...act })));
-    
-    // Si superamos el límite, desechamos el cambio más antiguo
-    if (undoStack.length > MAX_HISTORY) {
-        undoStack.shift();
-    }
-    // Cada acción nueva limpia la pila de "Rehacer"
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
     redoStack = [];
 }
 
 function executeUndo() {
     if (undoStack.length === 0) return;
-    
-    // Guardamos el estado actual en Redo antes de volver al pasado
     redoStack.push(funscriptActions.map(act => ({ ...act })));
-    
-    // Extraemos el último estado y lo aplicamos
     funscriptActions = undoStack.pop();
-    
     updateActionsLog();
     drawTimeline();
-    console.log("Deshacer ejecutado (Ctrl+Z)");
 }
 
 function executeRedo() {
     if (redoStack.length === 0) return;
-    
-    // Guardamos en Undo antes de avanzar al futuro
     undoStack.push(funscriptActions.map(act => ({ ...act })));
-    
-    // Extraemos el estado del futuro y lo aplicamos
     funscriptActions = redoStack.pop();
-    
     updateActionsLog();
     drawTimeline();
-    console.log("Rehacer ejecutado (Ctrl+Y)");
 }
-
-// Hacemos la función accesible globalmente para el módulo de presets
 window.saveHistoryState = saveHistoryState;
 
-// ==========================================================================
-// ENTRADAS DEL TECLADO (0-9, Intro, Borrar, Ctrl+Z, Ctrl+Y)
-// ==========================================================================
 window.addEventListener('keydown', function(event) {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
-
     const key = event.key.toLowerCase();
 
-    // INTERCEPCIÓN DE CTRL + Z (Deshacer)
-    if (event.ctrlKey && key === 'z') {
-        event.preventDefault();
-        executeUndo();
-        return;
-    }
-
-    // INTERCEPCIÓN DE CTRL + Y (Rehacer)
-    if (event.ctrlKey && key === 'y') {
-        event.preventDefault();
-        executeRedo();
-        return;
-    }
+    if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
+    if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
 
     let position = null;
     if (key >= '1' && key <= '9') position = parseInt(key) * 10;
@@ -118,7 +78,7 @@ window.addEventListener('keydown', function(event) {
 
     if (position !== null && videoPlayer.src) {
         event.preventDefault();
-        saveHistoryState(); // Tomar foto antes de agregar
+        saveHistoryState();
         const timeMs = Math.floor(videoPlayer.currentTime * 1000);
         addAction(timeMs, position);
     }
@@ -126,7 +86,7 @@ window.addEventListener('keydown', function(event) {
     if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         if (funscriptActions.some(act => act.selected)) {
-            saveHistoryState(); // Tomar foto antes de borrar
+            saveHistoryState();
             funscriptActions = funscriptActions.filter(act => !act.selected);
             updateActionsLog();
             drawTimeline();
@@ -142,9 +102,6 @@ function addAction(timeMs, position) {
     drawTimeline();
 }
 
-// ==========================================================================
-// NAVEGACIÓN POR RUEDA Y CLICS MOUSE
-// ==========================================================================
 canvas.addEventListener('wheel', function(event) {
     event.preventDefault();
     const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
@@ -165,7 +122,6 @@ canvas.addEventListener('wheel', function(event) {
         else panX = panX + (rawPlayheadX * oldZoom) - (rawPlayheadX * zoom);
         if (panX > 0) panX = 0;
     }
-    zoomIndicator.innerText = `Zoom: ${zoom.toFixed(1)}x | Pan: ${Math.floor(panX)}`;
     drawTimeline();
 });
 
@@ -236,9 +192,6 @@ canvas.addEventListener('mouseup', function(event) {
     }
 });
 
-// ==========================================================================
-// RENDERIZADOR GRÁFICO
-// ==========================================================================
 function drawTimeline() {
     if (!canvas.width) return;
     const h = canvas.height; const w = canvas.width; const timelineWidth = w - 40;
