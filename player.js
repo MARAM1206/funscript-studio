@@ -1,56 +1,63 @@
 // ==========================================================================
-// CONTROL DEL REPRODUCTOR DE VIDEO LOCAL
+// CONTROL DEL REPRODUCTOR (FOTOGRAMAS Y VELOCIDAD POR TECLADO)
 // ==========================================================================
 
-// Capturamos los elementos del HTML
 const videoInput = document.getElementById('video-input');
 const videoPlayer = document.getElementById('video-player');
-const speedControl = document.getElementById('speed-control');
+const speedDisplay = document.getElementById('speed-display');
 
-/**
- * Carga instantánea del video local desde el disco.
- * Usa una API del navegador para leer el archivo directamente de tu SSD
- * sin subir un solo byte a servidores externos.
- */
+let currentSpeed = 1.0; // Cambiado a 1.0x de manera predeterminada
+
 videoInput.addEventListener('change', function(event) {
     const file = event.target.files[0];
-    
     if (file) {
-        // Creamos una URL local en memoria que apunta directo a tu archivo
         const videoURL = URL.createObjectURL(file);
-        
-        // Asignamos el video al reproductor e iniciamos
         videoPlayer.src = videoURL;
         videoPlayer.load();
-        
-        // Forzamos a que mantenga la velocidad seleccionada al cargar un nuevo video
-        adjustPlaybackSpeed();
-        
-        console.log("Video local cargado con éxito:", file.name);
+        videoPlayer.playbackRate = currentSpeed;
     }
 });
 
 /**
- * Ajusta la velocidad del video según la opción del menú desplegable.
+ * Gestiona los atajos de teclado para la reproducción, fotogramas y velocidad
  */
-function adjustPlaybackSpeed() {
-    const speed = parseFloat(speedControl.value);
-    videoPlayer.playbackRate = speed;
-}
-
-// Escuchamos cuando cambias la velocidad en el menú
-speedControl.addEventListener('change', adjustPlaybackSpeed);
-
-// Atajo global: Barra espaciadora para Play/Pausa
 window.addEventListener('keydown', function(event) {
-    // Si el usuario presiona la barra espaciadora y no está escribiendo en ningún input
-    if (event.code === 'Space' && event.target.tagName !== 'INPUT' && event.target.tagName !== 'SELECT') {
-        event.preventDefault(); // Evitamos que la página salte hacia abajo
-        
-        if (videoPlayer.paused) {
-            videoPlayer.play();
-        } else {
-            videoPlayer.pause();
-        }
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
+
+    const key = event.key.toLowerCase();
+
+    // 1. BARRA ESPACIADORA: Play / Pausa
+    if (event.code === 'Space') {
+        event.preventDefault();
+        if (videoPlayer.paused) videoPlayer.play();
+        else videoPlayer.pause();
+    }
+
+    // 2. CONTROLES DE VELOCIDAD (E = Bajar, R = Subir) de 0.1 en 0.1
+    if (key === 'e') {
+        event.preventDefault();
+        currentSpeed = Math.max(0.1, currentSpeed - 0.1);
+        videoPlayer.playbackRate = currentSpeed;
+        speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
+    }
+    if (key === 'r') {
+        event.preventDefault();
+        currentSpeed = Math.min(5.0, currentSpeed + 0.1);
+        videoPlayer.playbackRate = currentSpeed;
+        speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
+    }
+
+    // 3. MOVIMIENTO FOTOGRAMA A FOTOGRAMA (Q = Atrás, W = Adelante)
+    // Asumimos un estándar de 30 FPS (1 fotograma ≈ 33.3 milisegundos)
+    const frameTime = 1 / 30;
+    if (key === 'q') {
+        event.preventDefault();
+        videoPlayer.pause(); // Pausamos para edición precisa
+        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - frameTime);
+    }
+    if (key === 'w') {
+        event.preventDefault();
+        videoPlayer.pause();
+        videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + frameTime);
     }
 });
