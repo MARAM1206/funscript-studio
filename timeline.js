@@ -1,5 +1,5 @@
 // ==========================================================================
-// LÍNEA DE TIEMPO VECTORIAL CORREGIDA (CERO DISTORSIÓN VISUAL AL REDIMENSIONAR)
+// LÍNEA DE TIEMPO INTERACTIVA V1.3: PORTAPAPELES CTRL+C/V Y FANTASMA DE DRAG&DROP
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -11,18 +11,24 @@ let undoStack = [];
 let redoStack = [];
 const MAX_HISTORY = 50;
 
+// Portapapeles Global Interno
+let clipboard = [];
+
+// Variables Globales compartidas para el Fantasma de Arrastre de Presets
+window.timelineGhostPreset = null;
+window.timelineGhostMouseX = -1;
+
 let zoom = 1.0;
 let panX = 0;
 let isSelecting = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// SISTEMA CORREGIDO: Redibuja píxeles reales adaptados al 100% del contenedor redondeado
 function resizeCanvas() {
     const parent = canvas.parentElement;
     if (parent && parent.clientWidth > 0) {
         canvas.width = parent.clientWidth;
-        canvas.height = parent.clientHeight; // Usa todo el espacio interno ahora que no hay footer
+        canvas.height = parent.clientHeight;
     }
     drawTimeline();
 }
@@ -47,32 +53,64 @@ function executeUndo() {
     if (undoStack.length === 0) return;
     redoStack.push(funscriptActions.map(act => ({ ...act })));
     funscriptActions = undoStack.pop();
-    updateActionsLog();
-    drawTimeline();
+    updateActionsLog(); drawTimeline();
 }
 
 function executeRedo() {
     if (redoStack.length === 0) return;
     undoStack.push(funscriptActions.map(act => ({ ...act })));
     funscriptActions = redoStack.pop();
-    updateActionsLog();
-    drawTimeline();
+    updateActionsLog(); drawTimeline();
 }
 window.saveHistoryState = saveHistoryState;
 
+// ESCUCHADOR GLOBAL: COPIAR, PEGAR, ELIMINAR Y NÚMEROS
 window.addEventListener('keydown', function(event) {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
     const key = event.key.toLowerCase();
 
+    // CTRL + Z / CTRL + Y
     if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
     if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
+
+    // NUEVO: CTRL + C (COPIAR NODOS SELECCIONADOS)
+    if (event.ctrlKey && key === 'c') {
+        event.preventDefault();
+        const selected = funscriptActions.filter(act => act.selected);
+        if (selected.length > 0) {
+            const baseTime = selected[0].at;
+            clipboard = selected.map(act => ({
+                relAt: act.at - baseTime,
+                pos: act.pos
+            }));
+            console.log(`Copiados ${clipboard.length} puntos al portapapeles.`);
+        }
+        return;
+    }
+
+    // NUEVO: CTRL + V (PEGAR EN CABEZAL ROJO DE VIDEO)
+    if (event.ctrlKey && key === 'v') {
+        event.preventDefault();
+        if (clipboard.length > 0 && videoPlayer.src) {
+            saveHistoryState();
+            const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
+            clipboard.forEach(item => {
+                const targetTime = currentTimeMs + item.relAt;
+                funscriptActions = funscriptActions.filter(act => act.at !== targetTime);
+                funscriptActions.push({ at: targetTime, pos: item.pos, selected: false });
+            });
+            funscriptActions.sort((a, b) => a.at - b.at);
+            updateActionsLog(); drawTimeline();
+            console.log("Puntos pegados correctamente.");
+        }
+        return;
+    }
 
     let position = null;
     if (key >= '1' && key <= '9') position = parseInt(key) * 10;
     else if (key === '0') position = 0;
     else if (event.code === 'NumpadEnter' || event.key === 'Enter') {
-        event.preventDefault();
-        position = 100;
+        event.preventDefault(); position = 100;
     }
 
     if (position !== null && videoPlayer.src) {
@@ -87,8 +125,7 @@ window.addEventListener('keydown', function(event) {
         if (funscriptActions.some(act => act.selected)) {
             saveHistoryState();
             funscriptActions = funscriptActions.filter(act => !act.selected);
-            updateActionsLog();
-            drawTimeline();
+            updateActionsLog(); drawTimeline();
         }
     }
 });
@@ -97,9 +134,49 @@ function addAction(timeMs, position) {
     funscriptActions = funscriptActions.filter(act => act.at !== timeMs);
     funscriptActions.push({ at: timeMs, pos: position, selected: false });
     funscriptActions.sort((a, b) => a.at - b.at);
-    updateActionsLog();
-    drawTimeline();
+    updateActionsLog(); drawTimeline();
 }
+
+// DRAG OVER Y DROP NATIVO PARA PRESETS CON PREVISUALIZACIÓN FANTASMA
+canvas.addEventListener('dragover', function(event) {
+    event.preventDefault();
+    if (!window.timelineGhostPreset) return;
+    const pos = getMousePos(event);
+    window.timelineGhostMouseX = pos.x;
+    drawTimeline();
+});
+
+canvas.addEventListener('dragleave', function() {
+    window.timelineGhostMouseX = -1;
+    drawTimeline();
+});
+
+canvas.addEventListener('drop', function(event) {
+    event.preventDefault();
+    if (!window.timelineGhostPreset || !videoPlayer.src) return;
+    
+    const pos = getMousePos(event);
+    const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
+    const timelineWidth = canvas.width - 40;
+    
+    const rawX = (pos.x - 40 - panX) / zoom;
+    const targetTimeMs = Math.floor((rawX / timelineWidth) * duration);
+    
+    saveHistoryState();
+    
+    window.timelineGhostPreset.forEach(presetAct => {
+        const finalTime = targetTimeMs + presetAct.at;
+        if (finalTime >= 0) {
+            funscriptActions = funscriptActions.filter(act => act.at !== finalTime);
+            funscriptActions.push({ at: finalTime, pos: presetAct.pos, selected: false });
+        }
+    });
+    
+    funscriptActions.sort((a, b) => a.at - b.at);
+    window.timelineGhostPreset = null;
+    window.timelineGhostMouseX = -1;
+    updateActionsLog(); drawTimeline();
+});
 
 canvas.addEventListener('wheel', function(event) {
     event.preventDefault();
@@ -109,11 +186,9 @@ canvas.addEventListener('wheel', function(event) {
     const rawPlayheadX = (currentTimeMs / duration) * timelineWidth;
 
     if (event.shiftKey) {
-        panX -= event.deltaY * 0.6;
-        if (panX > 0) panX = 0;
+        panX -= event.deltaY * 0.6; if (panX > 0) panX = 0;
     } else {
-        const oldZoom = zoom;
-        const zoomIntensity = 0.15;
+        const oldZoom = zoom; const zoomIntensity = 0.15;
         if (event.deltaY < 0) zoom = Math.min(60.0, zoom + zoomIntensity);
         else zoom = Math.max(1.0, zoom - zoomIntensity);
         
@@ -129,14 +204,12 @@ canvas.addEventListener('mousedown', function(event) {
     const pos = getMousePos(event);
     startX = pos.x; startY = pos.y;
     const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
-    const timelineWidth = canvas.width - 40;
-    const h = canvas.height;
+    const timelineWidth = canvas.width - 40; const h = canvas.height;
     let clickedANode = false;
 
     funscriptActions.forEach(action => {
         const rawX = (action.at / duration) * timelineWidth;
-        const renderX = 40 + (rawX * zoom) + panX;
-        const renderY = h - (action.pos / 100) * h;
+        const renderX = 40 + (rawX * zoom) + panX; const renderY = h - (action.pos / 100) * h;
 
         if (Math.abs(renderX - startX) <= 8 && Math.abs(renderY - startY) <= 8) {
             clickedANode = true;
@@ -149,12 +222,9 @@ canvas.addEventListener('mousedown', function(event) {
     });
 
     if (clickedANode) {
-        isSelecting = false;
-        updateActionsLog();
-        drawTimeline();
+        isSelecting = false; updateActionsLog(); drawTimeline();
     } else {
-        isSelecting = true;
-        currentX = startX; currentY = startY;
+        isSelecting = true; currentX = startX; currentY = startY;
         if (!event.ctrlKey) funscriptActions.forEach(act => act.selected = false);
         drawTimeline();
     }
@@ -175,19 +245,16 @@ canvas.addEventListener('mouseup', function(event) {
         const xMin = Math.min(startX, currentX); const xMax = Math.max(startX, currentX);
         const yMin = Math.min(startY, currentY); const yMax = Math.max(startY, currentY);
         const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
-        const timelineWidth = canvas.width - 40;
-        const h = canvas.height;
+        const timelineWidth = canvas.width - 40; const h = canvas.height;
 
         if (xMax - xMin > 2 || yMax - yMin > 2) {
             funscriptActions.forEach(action => {
                 const rawX = (action.at / duration) * timelineWidth;
-                const renderX = 40 + (rawX * zoom) + panX;
-                const renderY = h - (action.pos / 100) * h;
+                const renderX = 40 + (rawX * zoom) + panX; const renderY = h - (action.pos / 100) * h;
                 if (renderX >= xMin && renderX <= xMax && renderY >= yMin && renderY <= yMax) action.selected = true;
             });
         }
-        updateActionsLog();
-        drawTimeline();
+        updateActionsLog(); drawTimeline();
     }
 });
 
@@ -204,8 +271,7 @@ function drawTimeline() {
     ctx.lineWidth = 1; ctx.font = '9px monospace';
     for (let i = 0; i <= 100; i += 10) {
         const y = h - (i / 100) * h;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = (i === 20 || i === 70) ? '#475569' : '#141d2b';
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = (i === 20 || i === 70) ? '#475569' : '#141d2b';
         if (i === 20 || i === 70) ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(w, y); ctx.stroke();
         ctx.setLineDash([]);
@@ -234,6 +300,33 @@ function drawTimeline() {
                     ctx.fillStyle = action.pos >= 70 ? '#10b981' : (action.pos <= 20 ? '#ef4444' : '#f59e0b');
                     ctx.fill();
                 }
+            }
+        });
+    }
+
+    // NUEVO: RENDERIZADO VISUAL DEL FANTASMA DE PRESET AL ARRASTRAR EN EL CANVAS
+    if (window.timelineGhostPreset && window.timelineGhostMouseX >= 40) {
+        const rawXMouse = (window.timelineGhostMouseX - 40 - panX) / zoom;
+        const baseTimeMs = (rawXMouse / timelineWidth) * duration;
+        
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.setLineDash([3, 3]); ctx.beginPath();
+        
+        window.timelineGhostPreset.forEach((action, index) => {
+            const targetTime = baseTimeMs + action.at;
+            const rX = (targetTime / duration) * timelineWidth;
+            const x = 40 + (rX * zoom) + panX; const y = h - (action.pos / 100) * h;
+            if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke(); ctx.setLineDash([]);
+        
+        window.timelineGhostPreset.forEach((action) => {
+            const targetTime = baseTimeMs + action.at;
+            const rX = (targetTime / duration) * timelineWidth;
+            const x = 40 + (rX * zoom) + panX; const y = h - (action.pos / 100) * h;
+            if (x >= 40 && x <= w) {
+                ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.6)'; ctx.fill();
             }
         });
     }
