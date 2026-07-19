@@ -1,5 +1,5 @@
 // ==========================================================================
-// CONTROL DEL REPRODUCTOR (FOTOGRAMAS, VELOCIDAD Y SALTOS TEMPORALES)
+// CONTROL DEL REPRODUCTOR (FOTOGRAMAS, VELOCIDAD, SALTOS Y MUTE)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -23,14 +23,12 @@ window.addEventListener('keydown', function(event) {
 
     const key = event.key.toLowerCase();
 
-    // 1. BARRA ESPACIADORA: Play / Pausa
     if (event.code === 'Space') {
         event.preventDefault();
         if (videoPlayer.paused) videoPlayer.play();
         else videoPlayer.pause();
     }
 
-    // 2. VELOCIDAD (E = Bajar, R = Subir)
     if (key === 'e') {
         event.preventDefault();
         currentSpeed = Math.max(0.1, currentSpeed - 0.1);
@@ -44,7 +42,6 @@ window.addEventListener('keydown', function(event) {
         speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
     }
 
-    // 3. FOTOGRAMAS (Q = Atrás, W = Adelante)
     const frameTime = 1 / 30;
     if (key === 'q') {
         event.preventDefault();
@@ -57,7 +54,6 @@ window.addEventListener('keydown', function(event) {
         videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + frameTime);
     }
 
-    // 4. NUEVO: SALTOS DE 5 SEGUNDOS (A = Atrás, S = Adelante)
     if (key === 'a') {
         event.preventDefault();
         videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
@@ -65,5 +61,11 @@ window.addEventListener('keydown', function(event) {
     if (key === 's') {
         event.preventDefault();
         videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5);
+    }
+
+    // NUEVO ATRAJO: MUTE / UNMUTE (Tecla M)
+    if (key === 'm') {
+        event.preventDefault();
+        videoPlayer.muted = !videoPlayer.muted;
     }
 });
