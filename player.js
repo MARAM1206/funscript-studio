@@ -1,5 +1,5 @@
 // ==========================================================================
-// CONTROL DEL REPRODUCTOR V1.5: RESOLUCIÓN LIMPIA Y CÁLCULO REAL DE FPS
+// CONTROL DEL REPRODUCTOR V1.6: RESOLUCIÓN LIMPIA Y SALTO DE 5 FPS
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -9,6 +9,7 @@ const videoFilename = document.getElementById('video-filename');
 const videoSpecs = document.getElementById('video-specs');
 
 let currentSpeed = 1.0; 
+window.videoFPS = 30; // Valor por defecto global
 
 videoInput.addEventListener('change', function(event) {
     const file = event.target.files[0];
@@ -23,12 +24,10 @@ videoInput.addEventListener('change', function(event) {
     }
 });
 
-// INTERCEPTOR DE METADATOS: Mapeo de resolución limpia y detección de FPS
 videoPlayer.addEventListener('loadedmetadata', function() {
     const w = videoPlayer.videoWidth;
     const h = videoPlayer.videoHeight;
     
-    // Estandarizar etiqueta de resolución estilo comercial
     let resLabel = `${h}p`;
     if (w >= 3840 || h >= 2160) resLabel = "4K";
     else if (w >= 2560 || h >= 1440) resLabel = "1440p";
@@ -37,7 +36,6 @@ videoPlayer.addEventListener('loadedmetadata', function() {
 
     let frameTimes = [];
     
-    // Función de callback de fotogramas de alta precisión para medir deltas de tiempo reales
     function detectFPS(now, metadata) {
         if (frameTimes.length < 12) {
             frameTimes.push(metadata.mediaTime);
@@ -50,12 +48,12 @@ videoPlayer.addEventListener('loadedmetadata', function() {
             let avgDelta = deltas.reduce((a, b) => a + b, 0) / deltas.length;
             let calculatedFps = Math.round(1 / avgDelta);
             
-            // Estandarizar tasas de refresco comunes del mercado
             if (calculatedFps > 28 && calculatedFps < 32) calculatedFps = 30;
             else if (calculatedFps > 58 && calculatedFps < 62) calculatedFps = 60;
             else if (calculatedFps > 23 && calculatedFps < 26) calculatedFps = 24;
             else if (calculatedFps > 47 && calculatedFps < 52) calculatedFps = 50;
 
+            window.videoFPS = calculatedFps; // Almacenar globalmente para la línea de tiempo
             if (videoSpecs) videoSpecs.innerText = `${resLabel} @ ${calculatedFps} FPS`;
         }
     }
@@ -63,6 +61,7 @@ videoPlayer.addEventListener('loadedmetadata', function() {
     if (videoPlayer.requestVideoFrameCallback) {
         videoPlayer.requestVideoFrameCallback(detectFPS);
     } else {
+        window.videoFPS = 30;
         if (videoSpecs) videoSpecs.innerText = `${resLabel} @ 30 FPS (Est.)`;
     }
 });
@@ -87,14 +86,18 @@ window.addEventListener('keydown', function(event) {
         videoPlayer.playbackRate = currentSpeed;
         speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
     }
-    const frameTime = 1 / 30;
+
+    // AJUSTE PRE CROWD: Avanza y retrocede fluidamente saltando bloques de 5 fotogramas exactos
+    const fps = window.videoFPS || 30;
+    const stepTime = 5 / fps; 
+
     if (key === 'q') {
         event.preventDefault(); videoPlayer.pause();
-        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - frameTime);
+        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime);
     }
     if (key === 'w') {
         event.preventDefault(); videoPlayer.pause();
-        videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + frameTime);
+        videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime);
     }
     if (key === 'a') {
         event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
