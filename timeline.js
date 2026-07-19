@@ -1,5 +1,5 @@
 // ==========================================================================
-// LÍNEA DE TIEMPO INTERACTIVA V1.3: PORTAPAPELES CTRL+C/V Y FANTASMA DE DRAG&DROP
+// TIMELINE V1.4: MOTOR DE CINTA TRANSPORTADORA CONTINUA Y ZOOM ADAPTATIVO
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -10,16 +10,16 @@ let funscriptActions = [];
 let undoStack = [];
 let redoStack = [];
 const MAX_HISTORY = 50;
-
-// Portapapeles Global Interno
 let clipboard = [];
 
-// Variables Globales compartidas para el Fantasma de Arrastre de Presets
 window.timelineGhostPreset = null;
 window.timelineGhostMouseX = -1;
 
-let zoom = 1.0;
-let panX = 0;
+// CONFIGURACIÓN DE ESCALA: Ventana temporal por defecto (20 segundos en pantalla completa)
+let zoom = 1.0; 
+let basePixelsPerMs = 0.05; // Ajustado en metadata
+let panX = 0; // Desplazamiento manual temporal del centro
+
 let isSelecting = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
@@ -29,11 +29,52 @@ function resizeCanvas() {
     if (parent && parent.clientWidth > 0) {
         canvas.width = parent.clientWidth;
         canvas.height = parent.clientHeight;
+        calculateAdaptiveZoom(); // Recalcular escala adaptativa
     }
     drawTimeline();
 }
 window.addEventListener('resize', resizeCanvas);
 setTimeout(resizeCanvas, 500);
+
+// NUEVO: Zoom Inteligente adaptado a la duración del archivo
+function calculateAdaptiveZoom() {
+    if (videoPlayer && videoPlayer.duration) {
+        // En videos de menos de 1 minuto muestra el video entero. En videos largos, fija una ventana limpia de 25 segundos
+        const timeWindow = Math.min(videoPlayer.duration * 1000, 25000);
+        basePixelsPerMs = (canvas.width - 60) / timeWindow;
+    } else {
+        basePixelsPerMs = (canvas.width - 60) / 25000;
+    }
+}
+
+// ESCUCHADOR DE CARGA: Activa la adaptación visual automática del timeline
+if (videoPlayer) {
+    videoPlayer.addEventListener('loadedmetadata', () => {
+        calculateAdaptiveZoom();
+        zoom = 1.0; panX = 0;
+        drawTimeline();
+    });
+}
+
+/**
+ * NUEVAS MATEMÁTICAS DE CONVERSIÓN: Transforma tiempo en píxeles relativos al cabezal central
+ */
+function timeToX(timeMs) {
+    const center = canvas.width / 2;
+    const currentTimeMs = (videoPlayer && videoPlayer.src) ? videoPlayer.currentTime * 1000 : 0;
+    const deltaMs = timeMs - currentTimeMs;
+    return center + panX + (deltaMs * basePixelsPerMs * zoom);
+}
+
+/**
+ * Transforma una posición X del mouse de vuelta a un milisegundo exacto de la cinta
+ */
+function xToTime(xPos) {
+    const center = canvas.width / 2;
+    const currentTimeMs = (videoPlayer && videoPlayer.src) ? videoPlayer.currentTime * 1000 : 0;
+    const deltaX = xPos - center - panX;
+    return (deltaX / (basePixelsPerMs * zoom)) + currentTimeMs;
+}
 
 function getMousePos(event) {
     const rect = canvas.getBoundingClientRect();
@@ -64,31 +105,23 @@ function executeRedo() {
 }
 window.saveHistoryState = saveHistoryState;
 
-// ESCUCHADOR GLOBAL: COPIAR, PEGAR, ELIMINAR Y NÚMEROS
 window.addEventListener('keydown', function(event) {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
     const key = event.key.toLowerCase();
 
-    // CTRL + Z / CTRL + Y
     if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
     if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
 
-    // NUEVO: CTRL + C (COPIAR NODOS SELECCIONADOS)
     if (event.ctrlKey && key === 'c') {
         event.preventDefault();
         const selected = funscriptActions.filter(act => act.selected);
         if (selected.length > 0) {
             const baseTime = selected[0].at;
-            clipboard = selected.map(act => ({
-                relAt: act.at - baseTime,
-                pos: act.pos
-            }));
-            console.log(`Copiados ${clipboard.length} puntos al portapapeles.`);
+            clipboard = selected.map(act => ({ relAt: act.at - baseTime, pos: act.pos }));
         }
         return;
     }
 
-    // NUEVO: CTRL + V (PEGAR EN CABEZAL ROJO DE VIDEO)
     if (event.ctrlKey && key === 'v') {
         event.preventDefault();
         if (clipboard.length > 0 && videoPlayer.src) {
@@ -101,7 +134,6 @@ window.addEventListener('keydown', function(event) {
             });
             funscriptActions.sort((a, b) => a.at - b.at);
             updateActionsLog(); drawTimeline();
-            console.log("Puntos pegados correctamente.");
         }
         return;
     }
@@ -137,7 +169,6 @@ function addAction(timeMs, position) {
     updateActionsLog(); drawTimeline();
 }
 
-// DRAG OVER Y DROP NATIVO PARA PRESETS CON PREVISUALIZACIÓN FANTASMA
 canvas.addEventListener('dragover', function(event) {
     event.preventDefault();
     if (!window.timelineGhostPreset) return;
@@ -156,14 +187,9 @@ canvas.addEventListener('drop', function(event) {
     if (!window.timelineGhostPreset || !videoPlayer.src) return;
     
     const pos = getMousePos(event);
-    const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
-    const timelineWidth = canvas.width - 40;
-    
-    const rawX = (pos.x - 40 - panX) / zoom;
-    const targetTimeMs = Math.floor((rawX / timelineWidth) * duration);
+    const targetTimeMs = Math.floor(xToTime(pos.x));
     
     saveHistoryState();
-    
     window.timelineGhostPreset.forEach(presetAct => {
         const finalTime = targetTimeMs + presetAct.at;
         if (finalTime >= 0) {
@@ -173,28 +199,19 @@ canvas.addEventListener('drop', function(event) {
     });
     
     funscriptActions.sort((a, b) => a.at - b.at);
-    window.timelineGhostPreset = null;
-    window.timelineGhostMouseX = -1;
+    window.timelineGhostPreset = null; window.timelineGhostMouseX = -1;
     updateActionsLog(); drawTimeline();
 });
 
 canvas.addEventListener('wheel', function(event) {
     event.preventDefault();
-    const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
-    const timelineWidth = canvas.width - 40;
-    const currentTimeMs = videoPlayer.currentTime * 1000;
-    const rawPlayheadX = (currentTimeMs / duration) * timelineWidth;
 
     if (event.shiftKey) {
-        panX -= event.deltaY * 0.6; if (panX > 0) panX = 0;
+        panX -= event.deltaY * 0.7; // Navegación manual por la cinta
     } else {
-        const oldZoom = zoom; const zoomIntensity = 0.15;
-        if (event.deltaY < 0) zoom = Math.min(60.0, zoom + zoomIntensity);
-        else zoom = Math.max(1.0, zoom - zoomIntensity);
-        
+        if (event.deltaY < 0) zoom = Math.min(40.0, zoom + 0.15);
+        else zoom = Math.max(0.5, zoom - 0.15);
         if (zoom === 1.0) panX = 0;
-        else panX = panX + (rawPlayheadX * oldZoom) - (rawPlayheadX * zoom);
-        if (panX > 0) panX = 0;
     }
     drawTimeline();
 });
@@ -203,13 +220,12 @@ canvas.addEventListener('mousedown', function(event) {
     if (event.shiftKey) return;
     const pos = getMousePos(event);
     startX = pos.x; startY = pos.y;
-    const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
-    const timelineWidth = canvas.width - 40; const h = canvas.height;
+    const h = canvas.height;
     let clickedANode = false;
 
     funscriptActions.forEach(action => {
-        const rawX = (action.at / duration) * timelineWidth;
-        const renderX = 40 + (rawX * zoom) + panX; const renderY = h - (action.pos / 100) * h;
+        const renderX = timeToX(action.at);
+        const renderY = h - (action.pos / 100) * h;
 
         if (Math.abs(renderX - startX) <= 8 && Math.abs(renderY - startY) <= 8) {
             clickedANode = true;
@@ -244,13 +260,12 @@ canvas.addEventListener('mouseup', function(event) {
         currentX = pos.x; currentY = pos.y;
         const xMin = Math.min(startX, currentX); const xMax = Math.max(startX, currentX);
         const yMin = Math.min(startY, currentY); const yMax = Math.max(startY, currentY);
-        const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000;
-        const timelineWidth = canvas.width - 40; const h = canvas.height;
+        const h = canvas.height;
 
         if (xMax - xMin > 2 || yMax - yMin > 2) {
             funscriptActions.forEach(action => {
-                const rawX = (action.at / duration) * timelineWidth;
-                const renderX = 40 + (rawX * zoom) + panX; const renderY = h - (action.pos / 100) * h;
+                const renderX = timeToX(action.at);
+                const renderY = h - (action.pos / 100) * h;
                 if (renderX >= xMin && renderX <= xMax && renderY >= yMin && renderY <= yMax) action.selected = true;
             });
         }
@@ -260,38 +275,38 @@ canvas.addEventListener('mouseup', function(event) {
 
 function drawTimeline() {
     if (!canvas.width) return;
-    const h = canvas.height; const w = canvas.width; const timelineWidth = w - 40;
-    const duration = videoPlayer.duration ? videoPlayer.duration * 1000 : 60000; 
+    const h = canvas.height; const w = canvas.width;
     ctx.clearRect(0, 0, w, h);
     
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.05)'; ctx.fillRect(40, 0, timelineWidth, h * 0.30);
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.02)'; ctx.fillRect(40, h * 0.30, timelineWidth, h * 0.50);
-    ctx.fillStyle = 'rgba(239, 68, 68, 0.04)'; ctx.fillRect(40, h * 0.80, timelineWidth, h * 0.20);
+    // RENDERIZADO DE FONDOS E INTENSIDADES DE ANATOMÍA
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.05)'; ctx.fillRect(0, 0, w, h * 0.30);
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.02)'; ctx.fillRect(0, h * 0.30, w, h * 0.50);
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.04)'; ctx.fillRect(0, h * 0.80, w, h * 0.20);
 
+    // Rejilla de porcentajes
     ctx.lineWidth = 1; ctx.font = '9px monospace';
     for (let i = 0; i <= 100; i += 10) {
         const y = h - (i / 100) * h;
         ctx.setLineDash([4, 4]); ctx.strokeStyle = (i === 20 || i === 70) ? '#475569' : '#141d2b';
         if (i === 20 || i === 70) ctx.setLineDash([]);
-        ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(w, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = (i === 20 || i === 70 || i === 100 || i === 0) ? '#64748b' : '#2a374a';
         ctx.fillText(`${i}%`, 8, y + 3);
     }
 
+    // Dibujado continuo de las curvas vectoriales
     if (funscriptActions.length > 0) {
         ctx.lineWidth = 2; ctx.strokeStyle = '#38bdf8'; ctx.beginPath();
         funscriptActions.forEach((action, index) => {
-            const rawX = (action.at / duration) * timelineWidth;
-            const x = 40 + (rawX * zoom) + panX; const y = h - (action.pos / 100) * h;
+            const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
             if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.stroke();
 
         funscriptActions.forEach((action) => {
-            const rawX = (action.at / duration) * timelineWidth;
-            const x = 40 + (rawX * zoom) + panX; const y = h - (action.pos / 100) * h;
-            if (x >= 40 && x <= w) {
+            const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
+            if (x >= 0 && x <= w) {
                 ctx.beginPath(); ctx.arc(x, y, action.selected ? 6 : 4, 0, 2 * Math.PI);
                 if (action.selected) {
                     ctx.fillStyle = '#38bdf8'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
@@ -304,31 +319,17 @@ function drawTimeline() {
         });
     }
 
-    // NUEVO: RENDERIZADO VISUAL DEL FANTASMA DE PRESET AL ARRASTRAR EN EL CANVAS
-    if (window.timelineGhostPreset && window.timelineGhostMouseX >= 40) {
-        const rawXMouse = (window.timelineGhostMouseX - 40 - panX) / zoom;
-        const baseTimeMs = (rawXMouse / timelineWidth) * duration;
-        
+    // Silueta fantasma flotante de los presets en arrastre continuo
+    if (window.timelineGhostPreset && window.timelineGhostMouseX !== -1) {
+        const targetTimeMs = xToTime(window.timelineGhostMouseX);
         ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
         ctx.setLineDash([3, 3]); ctx.beginPath();
         
         window.timelineGhostPreset.forEach((action, index) => {
-            const targetTime = baseTimeMs + action.at;
-            const rX = (targetTime / duration) * timelineWidth;
-            const x = 40 + (rX * zoom) + panX; const y = h - (action.pos / 100) * h;
+            const x = timeToX(targetTimeMs + action.at); const y = h - (action.pos / 100) * h;
             if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.stroke(); ctx.setLineDash([]);
-        
-        window.timelineGhostPreset.forEach((action) => {
-            const targetTime = baseTimeMs + action.at;
-            const rX = (targetTime / duration) * timelineWidth;
-            const x = 40 + (rX * zoom) + panX; const y = h - (action.pos / 100) * h;
-            if (x >= 40 && x <= w) {
-                ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(56, 189, 248, 0.6)'; ctx.fill();
-            }
-        });
     }
 
     if (isSelecting) {
@@ -339,15 +340,15 @@ function drawTimeline() {
         ctx.setLineDash([]);
     }
 
-    if (videoPlayer.src) {
-        const currentTimeMs = videoPlayer.currentTime * 1000;
-        const rawPlayheadX = (currentTimeMs / duration) * timelineWidth;
-        const currentX = 40 + (rawPlayheadX * zoom) + panX;
-        if (currentX >= 40 && currentX <= w) {
-            ctx.lineWidth = 1.5; ctx.strokeStyle = '#f43f5e'; ctx.beginPath();
-            ctx.moveTo(currentX, 0); ctx.lineTo(currentX, h); ctx.stroke();
-        }
-    }
+    // CABEZAL ROJO FIJO EN EL CENTRO EXACTO DE LA CONVEYOR BELT
+    const centerFixedX = w / 2 + panX;
+    ctx.lineWidth = 2; ctx.strokeStyle = '#ef4444';
+    ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, h); ctx.stroke();
+    
+    // Pequeño indicador visual del cabezal
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.moveTo(centerFixedX - 6, 0); ctx.lineTo(centerFixedX + 6, 0);
+    ctx.lineTo(centerFixedX, 8); ctx.closePath(); ctx.fill();
 }
 
 function updateActionsLog() {
