@@ -1,5 +1,5 @@
 // ==========================================================================
-// CONTROL DEL REPRODUCTOR V1.7: RESOLUCIÓN LIMPIA Y SALTO DE 3 FPS
+// CONTROL DEL REPRODUCTOR V1.8: COMPATIBILIDAD CON PROGRESO EXTERNO
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -7,6 +7,7 @@ const videoPlayer = document.getElementById('video-player');
 const speedDisplay = document.getElementById('speed-display');
 const videoFilename = document.getElementById('video-filename');
 const videoSpecs = document.getElementById('video-specs');
+const videoProgress = document.getElementById('video-progress'); // Captura de barra externa
 
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
@@ -18,52 +19,50 @@ videoInput.addEventListener('change', function(event) {
         videoPlayer.src = videoURL;
         videoPlayer.load();
         videoPlayer.playbackRate = currentSpeed;
-        
         if (videoFilename) videoFilename.innerText = `📄 ${file.name}`;
         if (videoSpecs) videoSpecs.innerText = "Calculando...";
     }
 });
 
+// NUEVO: Sincronizar movimiento del video hacia la barra externa
+videoPlayer.addEventListener('timeupdate', () => {
+    if (videoPlayer.duration && videoProgress) {
+        const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+        videoProgress.value = percentage;
+    }
+});
+
+// NUEVO: Cambiar tiempo del video al arrastrar la barra con el mouse
+videoProgress?.addEventListener('input', () => {
+    if (videoPlayer.duration) {
+        const targetTime = (videoProgress.value / 100) * videoPlayer.duration;
+        videoPlayer.currentTime = targetTime;
+    }
+});
+
 videoPlayer.addEventListener('loadedmetadata', function() {
-    const w = videoPlayer.videoWidth;
-    const h = videoPlayer.videoHeight;
-    
+    const w = videoPlayer.videoWidth; const h = videoPlayer.videoHeight;
     let resLabel = `${h}p`;
     if (w >= 3840 || h >= 2160) resLabel = "4K";
-    else if (w >= 2560 || h >= 1440) resLabel = "1440p";
     else if (w >= 1920 || h >= 1080) resLabel = "1080p";
-    else if (w >= 1280 || h >= 720) resLabel = "720p";
-
-    let frameTimes = [];
     
+    let frameTimes = [];
     function detectFPS(now, metadata) {
         if (frameTimes.length < 12) {
             frameTimes.push(metadata.mediaTime);
             videoPlayer.requestVideoFrameCallback(detectFPS);
         } else {
             let deltas = [];
-            for (let i = 1; i < frameTimes.length; i++) {
-                deltas.push(frameTimes[i] - frameTimes[i - 1]);
-            }
+            for (let i = 1; i < frameTimes.length; i++) deltas.push(frameTimes[i] - frameTimes[i - 1]);
             let avgDelta = deltas.reduce((a, b) => a + b, 0) / deltas.length;
             let calculatedFps = Math.round(1 / avgDelta);
-            
             if (calculatedFps > 28 && calculatedFps < 32) calculatedFps = 30;
             else if (calculatedFps > 58 && calculatedFps < 62) calculatedFps = 60;
-            else if (calculatedFps > 23 && calculatedFps < 26) calculatedFps = 24;
-            else if (calculatedFps > 47 && calculatedFps < 52) calculatedFps = 50;
-
             window.videoFPS = calculatedFps; 
             if (videoSpecs) videoSpecs.innerText = `${resLabel} @ ${calculatedFps} FPS`;
         }
     }
-
-    if (videoPlayer.requestVideoFrameCallback) {
-        videoPlayer.requestVideoFrameCallback(detectFPS);
-    } else {
-        window.videoFPS = 30;
-        if (videoSpecs) videoSpecs.innerText = `${resLabel} @ 30 FPS (Est.)`;
-    }
+    if (videoPlayer.requestVideoFrameCallback) videoPlayer.requestVideoFrameCallback(detectFPS);
 });
 
 window.addEventListener('keydown', function(event) {
@@ -75,19 +74,13 @@ window.addEventListener('keydown', function(event) {
         if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
     }
     if (key === 'e') {
-        event.preventDefault();
-        currentSpeed = Math.max(0.1, currentSpeed - 0.1);
-        videoPlayer.playbackRate = currentSpeed;
-        speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
+        event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1);
+        videoPlayer.playbackRate = currentSpeed; speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
     }
     if (key === 'r') {
-        event.preventDefault();
-        currentSpeed = Math.min(5.0, currentSpeed + 0.1);
-        videoPlayer.playbackRate = currentSpeed;
-        speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
+        event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1);
+        videoPlayer.playbackRate = currentSpeed; speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
     }
-
-    // INTERCEPTORES DE PRECISIÓN OPTIMIZADOS: Saltos equilibrados de 3 fotogramas exactos
     const fps = window.videoFPS || 30;
     const stepTime = 3 / fps; 
 
@@ -105,7 +98,5 @@ window.addEventListener('keydown', function(event) {
     if (key === 's') {
         event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5);
     }
-    if (key === 'm') {
-        event.preventDefault(); videoPlayer.muted = !videoPlayer.muted;
-    }
+    if (key === 'm') { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
 });
