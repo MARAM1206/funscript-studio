@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.8: TRABAJO LIMPIO DE SELECCIONES, TOLERANCIA 0% Y COLORES PRO
+// TIMELINE V1.8: MOTOR CONTINUO A 60 FPS Y DESELECCIÓN INTELIGENTE
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -22,8 +22,6 @@ let panX = 0;
 let isSelecting = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
-
-// NUEVO: Bandera de control para evitar colisiones de deselección al usar B y N
 let isNavigatingBN = false;
 
 function resizeCanvas() {
@@ -33,7 +31,6 @@ function resizeCanvas() {
         canvas.height = parent.clientHeight;
         calculateAdaptiveZoom();
     }
-    drawTimeline();
 }
 window.addEventListener('resize', resizeCanvas);
 setTimeout(resizeCanvas, 500);
@@ -47,24 +44,27 @@ function calculateAdaptiveZoom() {
     }
 }
 
-// SINCRONIZADORES DE FLUJO: Deselección automática al dar Play o cambiar el tiempo libremente
-if (videoPlayer) {
-    videoPlayer.addEventListener('play', () => {
-        panX = 0;
-        funscriptActions.forEach(act => act.selected = false); // Limpia selección al reproducir
-        drawTimeline();
-    });
-    
-    videoPlayer.addEventListener('seeking', () => {
-        // Si el salto de tiempo NO fue causado por las teclas B o N, deselecciona todo por seguridad
-        if (!isNavigatingBN) {
+// NUEVO MOTOR DE REDIBUJADO CONTINUO (60 FPS fluidos estilo DaVinci Resolve)
+function startSmoothTimelineLoop() {
+    if (videoPlayer && !videoPlayer.paused) {
+        panX = 0; 
+        // Deselección automática global activa si el video corre libremente
+        if (!isNavigatingBN && funscriptActions.some(act => act.selected)) {
             funscriptActions.forEach(act => act.selected = false);
+            updateActionsLog();
         }
-        drawTimeline();
-    });
+    }
+    drawTimeline();
+    requestAnimationFrame(startSmoothTimelineLoop); // Llama al siguiente refresco de pantalla nativo
+}
+requestAnimationFrame(startSmoothTimelineLoop);
 
+if (videoPlayer) {
+    videoPlayer.addEventListener('seeking', () => {
+        if (!isNavigatingBN) funscriptActions.forEach(act => act.selected = false);
+    });
     videoPlayer.addEventListener('loadedmetadata', () => {
-        calculateAdaptiveZoom(); zoom = 1.0; panX = 0; drawTimeline();
+        calculateAdaptiveZoom(); zoom = 1.0; panX = 0;
     });
 }
 
@@ -100,14 +100,14 @@ function executeUndo() {
     if (undoStack.length === 0) return;
     redoStack.push(funscriptActions.map(act => ({ ...act })));
     funscriptActions = undoStack.pop();
-    updateActionsLog(); drawTimeline();
+    updateActionsLog();
 }
 
 function executeRedo() {
     if (redoStack.length === 0) return;
     undoStack.push(funscriptActions.map(act => ({ ...act })));
     funscriptActions = redoStack.pop();
-    updateActionsLog(); drawTimeline();
+    updateActionsLog();
 }
 window.saveHistoryState = saveHistoryState;
 
@@ -118,18 +118,17 @@ window.addEventListener('keydown', function(event) {
     if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
     if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
 
-    // TECLAS B / N CONFIGURADAS CON PROTOCOLO DE AISLAMIENTO
     if (key === 'b') {
         event.preventDefault();
         if (funscriptActions.length === 0 || !videoPlayer.src) return;
         const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
         const prevAct = [...funscriptActions].reverse().find(act => act.at < currentTimeMs - 6);
         if (prevAct) {
-            isNavigatingBN = true; // Bloquea la deselección por seeking temporalmente
+            isNavigatingBN = true;
             funscriptActions.forEach(act => act.selected = false);
             prevAct.selected = true; 
             videoPlayer.currentTime = prevAct.at / 1000;
-            updateActionsLog(); drawTimeline();
+            updateActionsLog();
             setTimeout(() => { isNavigatingBN = false; }, 80);
         }
         return;
@@ -144,7 +143,7 @@ window.addEventListener('keydown', function(event) {
             funscriptActions.forEach(act => act.selected = false);
             nextAct.selected = true; 
             videoPlayer.currentTime = nextAct.at / 1000;
-            updateActionsLog(); drawTimeline();
+            updateActionsLog();
             setTimeout(() => { isNavigatingBN = false; }, 80);
         }
         return;
@@ -162,7 +161,7 @@ window.addEventListener('keydown', function(event) {
                 if (key === 'arrowright') act.at = act.at + 100;
             });
             funscriptActions.sort((a, b) => a.at - b.at);
-            updateActionsLog(); drawTimeline();
+            updateActionsLog();
         }
         return;
     }
@@ -188,7 +187,7 @@ window.addEventListener('keydown', function(event) {
                 funscriptActions.push({ at: targetTime, pos: item.pos, selected: false });
             });
             funscriptActions.sort((a, b) => a.at - b.at);
-            updateActionsLog(); drawTimeline();
+            updateActionsLog();
         }
         return;
     }
@@ -212,7 +211,7 @@ window.addEventListener('keydown', function(event) {
         if (funscriptActions.some(act => act.selected)) {
             saveHistoryState();
             funscriptActions = funscriptActions.filter(act => !act.selected);
-            updateActionsLog(); drawTimeline();
+            updateActionsLog();
         }
     }
 });
@@ -221,7 +220,7 @@ function addAction(timeMs, position) {
     funscriptActions = funscriptActions.filter(act => act.at !== timeMs);
     funscriptActions.push({ at: timeMs, pos: position, selected: false });
     funscriptActions.sort((a, b) => a.at - b.at);
-    updateActionsLog(); drawTimeline();
+    updateActionsLog();
 }
 
 canvas.addEventListener('dragover', function(event) {
@@ -231,10 +230,9 @@ canvas.addEventListener('dragover', function(event) {
     const centerFixedX = canvas.width / 2 + panX;
     if (Math.abs(pos.x - centerFixedX) < 25) window.timelineGhostMouseX = centerFixedX;
     else window.timelineGhostMouseX = pos.x;
-    drawTimeline();
 });
 
-canvas.addEventListener('dragleave', function() { window.timelineGhostMouseX = -1; drawTimeline(); });
+canvas.addEventListener('dragleave', function() { window.timelineGhostMouseX = -1; });
 
 canvas.addEventListener('drop', function(event) {
     event.preventDefault();
@@ -252,7 +250,7 @@ canvas.addEventListener('drop', function(event) {
     });
     funscriptActions.sort((a, b) => a.at - b.at);
     window.timelineGhostPreset = null; window.timelineGhostMouseX = -1;
-    updateActionsLog(); drawTimeline();
+    updateActionsLog();
 });
 
 canvas.addEventListener('wheel', function(event) {
@@ -263,7 +261,6 @@ canvas.addEventListener('wheel', function(event) {
         else zoom = Math.max(0.5, zoom - 0.15);
         if (zoom === 1.0) panX = 0;
     }
-    drawTimeline();
 });
 
 canvas.addEventListener('mousedown', function(event) {
@@ -288,11 +285,10 @@ canvas.addEventListener('mousedown', function(event) {
     });
 
     if (clickedANode) {
-        isSelecting = false; updateActionsLog(); drawTimeline();
+        isSelecting = false; updateActionsLog();
     } else {
         isSelecting = true; currentX = startX; currentY = startY;
         if (!event.ctrlKey) funscriptActions.forEach(act => act.selected = false);
-        drawTimeline();
     }
 });
 
@@ -300,7 +296,6 @@ canvas.addEventListener('mousemove', function(event) {
     if (!isSelecting) return;
     const pos = getMousePos(event);
     currentX = pos.x; currentY = pos.y;
-    drawTimeline();
 });
 
 canvas.addEventListener('mouseup', function(event) {
@@ -316,15 +311,12 @@ canvas.addEventListener('mouseup', function(event) {
             funscriptActions.forEach(action => {
                 const renderX = timeToX(action.at);
                 const renderY = h - (action.pos / 100) * h;
-                
-                // ZONA DE CONFORT MAXIMA: Tolerancia ampliada a 30px verticales.
-                // Si arrastras cerca de los bordes inferior o superior, atrapará los nodos sin forzarte a llegar al extremo del panel.
                 if (renderX >= xMin && renderX <= xMax && renderY >= (yMin - 30) && renderY <= (yMax + 30)) {
                     action.selected = true;
                 }
             });
         }
-        updateActionsLog(); drawTimeline();
+        updateActionsLog();
     }
 });
 
@@ -349,24 +341,23 @@ function drawTimeline() {
     }
 
     if (funscriptActions.length > 0) {
-        ctx.lineWidth = 2; ctx.strokeStyle = '#2563eb'; ctx.beginPath(); // Línea conectora azul sólida
+        ctx.lineWidth = 2; ctx.strokeStyle = '#2563eb'; ctx.beginPath();
         funscriptActions.forEach((action, index) => {
             const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
             if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.stroke();
 
-        // NUEVO: IDENTIFICACIÓN POR COLOR SEGÚN REQUERIMIENTO
         funscriptActions.forEach((action) => {
             const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
             if (x >= 0 && x <= w) {
                 ctx.beginPath(); ctx.arc(x, y, action.selected ? 6 : 4, 0, 2 * Math.PI);
                 if (action.selected) {
-                    ctx.fillStyle = '#f97316'; // NARANJA RADIANTE para nodos seleccionados
+                    ctx.fillStyle = '#f97316'; 
                     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
                     ctx.fill(); ctx.stroke();
                 } else {
-                    ctx.fillStyle = '#2563eb'; // AZUL PUREZA para nodos no seleccionados
+                    ctx.fillStyle = '#2563eb'; 
                     ctx.fill();
                 }
             }
@@ -416,9 +407,4 @@ function updateActionsLog() {
             <span style="color: #2563eb; font-weight:bold;">POS: ${act.pos}%</span> 
         </div>`;
     }).join('');
-}
-
-if (videoPlayer) {
-    videoPlayer.addEventListener('timeupdate', drawTimeline);
-    videoPlayer.addEventListener('seeking', drawTimeline);
 }
