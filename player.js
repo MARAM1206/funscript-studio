@@ -1,10 +1,7 @@
-// ==========================================================================
-// CONTROL DEL REPRODUCTOR (FOTOGRAMAS, VELOCIDAD, SALTOS Y MUTE)
-// ==========================================================================
-
 const videoInput = document.getElementById('video-input');
 const videoPlayer = document.getElementById('video-player');
 const speedDisplay = document.getElementById('speed-display');
+const videoFilename = document.getElementById('video-filename');
 
 let currentSpeed = 1.0; 
 
@@ -15,6 +12,11 @@ videoInput.addEventListener('change', function(event) {
         videoPlayer.src = videoURL;
         videoPlayer.load();
         videoPlayer.playbackRate = currentSpeed;
+        
+        // Inyectar el nombre real del archivo en el contenedor inferior
+        if (videoFilename) {
+            videoFilename.innerText = `📄 ${file.name}`;
+        }
     }
 });
 
@@ -63,7 +65,6 @@ window.addEventListener('keydown', function(event) {
         videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5);
     }
 
-    // NUEVO ATRAJO: MUTE / UNMUTE (Tecla M)
     if (key === 'm') {
         event.preventDefault();
         videoPlayer.muted = !videoPlayer.muted;
