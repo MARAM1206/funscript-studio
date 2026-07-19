@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio - Editor Local</title>
-    <!-- Vinculamos el archivo de estilos que crearemos después -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-    <!-- Contenedor principal del Workspace (Móvil/Arrastrable en PC) -->
     <div id="workspace" class="workspace-container">
         
         <!-- Panel 1: Reproductor de Video -->
@@ -19,26 +17,24 @@
                 <input type="file" id="video-input" accept="video/*" class="file-selector">
                 <video id="video-player" controls disablepictureinpicture controlslist="nodownload"></video>
                 <div class="video-controls">
-                    <label for="speed-control">Velocidad:</label>
-                    <select id="speed-control">
-                        <option value="0.25">0.25x (Ultra preciso)</option>
-                        <option value="0.50" selected>0.50x (Recomendado)</option>
-                        <option value="0.75">0.75x</option>
-                        <option value="1.00">1.00x (Normal)</option>
-                    </select>
+                    <!-- Cambiado a indicador de texto dinámico -->
+                    <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
                 </div>
             </div>
         </div>
 
         <!-- Panel 2: Mapeo y Atajos de Teclado -->
         <div id="panel-keyboard" class="workspace-panel">
-            <div class="panel-header">⌨️ Atajos de Teclado (0-9)</div>
+            <div class="panel-header">⌨️ Controles del Teclado</div>
             <div class="panel-content">
-                <p>Usa los números para fijar la posición exacta:</p>
-                <ul class="hotkey-list">
-                    <li><span class="key">1</span> a <span class="key">9</span> = 10% a 90%</li>
-                    <li><span class="key">0</span> = 0% (Base total)</li>
-                    <li><span class="key">Q</span> = 100% (Cabeza total)</li>
+                <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px;">
+                    <li><span class="key">0</span> = 0% | <span class="key">1</span>-<span class="key">9</span> = 10%-90% | <span class="key">A</span> = 100%</li>
+                    <li><span class="key">Q</span> / <span class="key">W</span> = Fotograma Atrás / Adelante</li>
+                    <li><span class="key">E</span> / <span class="key">R</span> = Bajar / Subir velocidad (-/+ 0.1)</li>
+                    <li><span class="key">Supr</span> / <span class="key">Backspace</span> = Eliminar puntos seleccionados</li>
+                    <li><span class="key">Click Izg + Arrastrar</span> = Cuadro de Selección de puntos</li>
+                    <li><span class="key">Shift + Click + Arrastrar</span> = Moverse en la línea de tiempo (Pan)</li>
+                    <li><span class="key">Rueda del Ratón</span> = Zoom In / Out en la línea de tiempo</li>
                 </ul>
             </div>
         </div>
@@ -48,7 +44,6 @@
             <div class="panel-header">📊 Últimas Acciones JSON</div>
             <div class="panel-content">
                 <div id="actions-log" class="log-container">
-                    <!-- Los puntos creados aparecerán aquí dinámicamente -->
                     <span class="empty-log">Sin puntos registrados aún</span>
                 </div>
             </div>
@@ -56,23 +51,21 @@
 
         <!-- Panel 4: Gestión de Presets -->
         <div id="panel-presets" class="workspace-panel">
-            <div class="panel-header">💾 Presets de Ritmo</div>
+            <div class="panel-header">💾 Presets de Ritmo Seleccionado</div>
             <div class="panel-content">
-                <button id="save-preset-btn" class="btn">Guardar Selección como Preset</button>
-                <div id="presets-list" class="presets-grid">
-                    <!-- Aquí se listarán tus macros guardadas -->
-                </div>
+                <!-- El botón ahora guardará solo lo que selecciones con el ratón -->
+                <button id="save-preset-btn" class="btn">Guardar Puntos Seleccionados</button>
+                <div id="presets-list" class="presets-grid"></div>
             </div>
         </div>
 
-        <!-- Panel 5: Línea de Tiempo Canvas (Ocupa el ancho inferior) -->
+        <!-- Panel 5: Línea de Tiempo Canvas -->
         <div id="panel-timeline" class="workspace-panel full-width">
             <div class="panel-header">
-                <span>📈 Línea de Tiempo Vectorial</span>
-                <span id="zoom-indicator">Zoom: 1:1</span>
+                <span>📈 Línea de Tiempo Profesional</span>
+                <span id="zoom-indicator">Zoom: 1.0x | Pan: 0</span>
             </div>
             <div class="panel-content">
-                <!-- El Canvas donde pintaremos los nodos verdes y rojos -->
                 <canvas id="timeline-canvas"></canvas>
                 <div class="timeline-footer">
                     <button id="export-btn" class="btn success-btn">⬇ Exportar Archivo .funscript</button>
@@ -82,7 +75,6 @@
 
     </div>
 
-    <!-- Vinculamos los scripts lógicos independientes que darán vida a la app -->
     <script src="workspace.js"></script>
     <script src="player.js"></script>
     <script src="timeline.js"></script>
