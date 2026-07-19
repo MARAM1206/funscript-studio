@@ -1,7 +1,12 @@
+// ==========================================================================
+// CONTROL DEL REPRODUCTOR V1.5: RESOLUCIÓN LIMPIA Y CÁLCULO REAL DE FPS
+// ==========================================================================
+
 const videoInput = document.getElementById('video-input');
 const videoPlayer = document.getElementById('video-player');
 const speedDisplay = document.getElementById('speed-display');
 const videoFilename = document.getElementById('video-filename');
+const videoSpecs = document.getElementById('video-specs');
 
 let currentSpeed = 1.0; 
 
@@ -13,24 +18,63 @@ videoInput.addEventListener('change', function(event) {
         videoPlayer.load();
         videoPlayer.playbackRate = currentSpeed;
         
-        // Inyectar el nombre real del archivo en el contenedor inferior
-        if (videoFilename) {
-            videoFilename.innerText = `📄 ${file.name}`;
+        if (videoFilename) videoFilename.innerText = `📄 ${file.name}`;
+        if (videoSpecs) videoSpecs.innerText = "Calculando...";
+    }
+});
+
+// INTERCEPTOR DE METADATOS: Mapeo de resolución limpia y detección de FPS
+videoPlayer.addEventListener('loadedmetadata', function() {
+    const w = videoPlayer.videoWidth;
+    const h = videoPlayer.videoHeight;
+    
+    // Estandarizar etiqueta de resolución estilo comercial
+    let resLabel = `${h}p`;
+    if (w >= 3840 || h >= 2160) resLabel = "4K";
+    else if (w >= 2560 || h >= 1440) resLabel = "1440p";
+    else if (w >= 1920 || h >= 1080) resLabel = "1080p";
+    else if (w >= 1280 || h >= 720) resLabel = "720p";
+
+    let frameTimes = [];
+    
+    // Función de callback de fotogramas de alta precisión para medir deltas de tiempo reales
+    function detectFPS(now, metadata) {
+        if (frameTimes.length < 12) {
+            frameTimes.push(metadata.mediaTime);
+            videoPlayer.requestVideoFrameCallback(detectFPS);
+        } else {
+            let deltas = [];
+            for (let i = 1; i < frameTimes.length; i++) {
+                deltas.push(frameTimes[i] - frameTimes[i - 1]);
+            }
+            let avgDelta = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+            let calculatedFps = Math.round(1 / avgDelta);
+            
+            // Estandarizar tasas de refresco comunes del mercado
+            if (calculatedFps > 28 && calculatedFps < 32) calculatedFps = 30;
+            else if (calculatedFps > 58 && calculatedFps < 62) calculatedFps = 60;
+            else if (calculatedFps > 23 && calculatedFps < 26) calculatedFps = 24;
+            else if (calculatedFps > 47 && calculatedFps < 52) calculatedFps = 50;
+
+            if (videoSpecs) videoSpecs.innerText = `${resLabel} @ ${calculatedFps} FPS`;
         }
+    }
+
+    if (videoPlayer.requestVideoFrameCallback) {
+        videoPlayer.requestVideoFrameCallback(detectFPS);
+    } else {
+        if (videoSpecs) videoSpecs.innerText = `${resLabel} @ 30 FPS (Est.)`;
     }
 });
 
 window.addEventListener('keydown', function(event) {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
-
     const key = event.key.toLowerCase();
 
     if (event.code === 'Space') {
         event.preventDefault();
-        if (videoPlayer.paused) videoPlayer.play();
-        else videoPlayer.pause();
+        if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
     }
-
     if (key === 'e') {
         event.preventDefault();
         currentSpeed = Math.max(0.1, currentSpeed - 0.1);
@@ -43,30 +87,22 @@ window.addEventListener('keydown', function(event) {
         videoPlayer.playbackRate = currentSpeed;
         speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
     }
-
     const frameTime = 1 / 30;
     if (key === 'q') {
-        event.preventDefault();
-        videoPlayer.pause(); 
+        event.preventDefault(); videoPlayer.pause();
         videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - frameTime);
     }
     if (key === 'w') {
-        event.preventDefault();
-        videoPlayer.pause();
+        event.preventDefault(); videoPlayer.pause();
         videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + frameTime);
     }
-
     if (key === 'a') {
-        event.preventDefault();
-        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
+        event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
     }
     if (key === 's') {
-        event.preventDefault();
-        videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5);
+        event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5);
     }
-
     if (key === 'm') {
-        event.preventDefault();
-        videoPlayer.muted = !videoPlayer.muted;
+        event.preventDefault(); videoPlayer.muted = !videoPlayer.muted;
     }
 });
