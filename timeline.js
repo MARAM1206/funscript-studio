@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.8.5: OPTIMIZACIÓN DE RENDIMIENTO ASÍNCRONO EN BOTONES Q/W/A/S
+// TIMELINE V2.0: NÚCLEO VECTORIAL COMPLETO CON CTRL+A E INYECCIÓN DINÁMICA
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -24,7 +24,7 @@ let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 let isNavigatingBN = false;
 
-// Estado de control del hilo gráfico
+// Control del hilo gráfico asíncrono
 let isLoopRunning = false;
 
 function resizeCanvas() {
@@ -48,7 +48,7 @@ function calculateAdaptiveZoom() {
     }
 }
 
-// CORRECCIÓN DE BUCLE INTELIGENTE: El bucle 60 FPS SOLO corre si el video está en movimiento real
+// HILO DE RENDERIZADO OPTIMIZADO: Solo corre si el video está en reproducción real
 function smoothTimelineLoop() {
     if (videoPlayer && !videoPlayer.paused) {
         panX = 0; 
@@ -57,9 +57,9 @@ function smoothTimelineLoop() {
             updateActionsLog();
         }
         drawTimeline();
-        requestAnimationFrame(smoothTimelineLoop); // Mantiene el bucle vivo mientras corra el video
+        requestAnimationFrame(smoothTimelineLoop); 
     } else {
-        isLoopRunning = false; // Detiene el consumo de recursos al pausar
+        isLoopRunning = false; 
     }
 }
 
@@ -67,23 +67,22 @@ if (videoPlayer) {
     videoPlayer.addEventListener('play', () => {
         if (!isLoopRunning) {
             isLoopRunning = true;
-            smoothTimelineLoop(); // Arranca el bucle fluido en Play
+            smoothTimelineLoop(); 
         }
     });
     
     videoPlayer.addEventListener('pause', () => {
-        drawTimeline(); // Dibuja un último frame estático perfecto al pausar
+        drawTimeline(); // Dibuja frame estático nítido al pausar
     });
     
     videoPlayer.addEventListener('seeking', () => {
         if (!isNavigatingBN) funscriptActions.forEach(act => act.selected = false);
-        drawTimeline(); // Redibuja al instante al arrastrar barras o hacer saltos manuales
+        drawTimeline();
     });
 
     videoPlayer.addEventListener('timeupdate', () => {
-        // Si el video está pausado (ej. saltando con Q/W/A/S), redibuja solo en el cambio exacto de frame
         if (videoPlayer.paused) {
-            drawTimeline();
+            drawTimeline(); // Renderizado preciso cuadro por cuadro en pausa (Q/W)
         }
     });
 
@@ -99,6 +98,11 @@ function timeToX(timeMs) {
     const deltaMs = timeMs - currentTimeMs;
     return center + panX + (deltaMs * basePixelsPerMs * zoom);
 }
+
+document.getElementById('video-progress')?.addEventListener('input', () => {
+    funscriptActions.forEach(act => act.selected = false);
+    drawTimeline();
+});
 
 function xToTime(xPos) {
     const center = canvas.width / 2;
@@ -136,12 +140,25 @@ function executeRedo() {
 }
 window.saveHistoryState = saveHistoryState;
 
+// ==========================================================================
+// CAPTURA DE TECLADO Y ATAJOS MAESTROS
+// ==========================================================================
 window.addEventListener('keydown', function(event) {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
     const key = event.key.toLowerCase();
 
     if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
     if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
+
+    // INTEGRACIÓN MAESTRA: CTRL + A (SELECCIONAR TODO EL TIMELINE)
+    if (event.ctrlKey && key === 'a') {
+        event.preventDefault();
+        if (funscriptActions.length > 0) {
+            funscriptActions.forEach(act => act.selected = true);
+            updateActionsLog(); drawTimeline();
+        }
+        return;
+    }
 
     if (key === 'b') {
         event.preventDefault();
@@ -248,6 +265,9 @@ function addAction(timeMs, position) {
     updateActionsLog(); drawTimeline();
 }
 
+// ==========================================================================
+// DRAG & DROP E INTERACCIONES DE RATÓN
+// ==========================================================================
 canvas.addEventListener('dragover', function(event) {
     event.preventDefault();
     if (!window.timelineGhostPreset) return;
@@ -340,6 +360,8 @@ canvas.addEventListener('mouseup', function(event) {
             funscriptActions.forEach(action => {
                 const renderX = timeToX(action.at);
                 const renderY = h - (action.pos / 100) * h;
+                
+                // Zona de confort con tolerancia vertical de 30px para barrido fácil del 0%
                 if (renderX >= xMin && renderX <= xMax && renderY >= (yMin - 30) && renderY <= (yMax + 30)) {
                     action.selected = true;
                 }
@@ -349,34 +371,29 @@ canvas.addEventListener('mouseup', function(event) {
     }
 });
 
+// ==========================================================================
+// RENDERIZADO VISUAL DEL CANVAS
+// ==========================================================================
 function drawTimeline() {
     if (!canvas.width) return;
     const h = canvas.height; const w = canvas.width;
     ctx.clearRect(0, 0, w, h);
     
-    // CAPTURA PROPORCIONAL GLOBAL: Lee los contornos corporales fijados por el calibrador IA
+    // Capturar proporciones dinámicas de la IA
     const splitB = window.aiSplitBase !== undefined ? window.aiSplitBase : 20;
     const splitC = window.aiSplitCabeza !== undefined ? window.aiSplitCabeza : 70;
 
-    // Convertir porcentajes a coordenadas Y de pixeles reales dentro de la ventana
     const yCabezaLimite = h * ((100 - splitC) / 100);
     const yBaseLimite = h * ((100 - splitB) / 100);
 
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.05)'; // Cabeza (Zona Superior Personalizada)
-    ctx.fillRect(0, 0, w, yCabezaLimite);
-    
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.02)'; // Tronco (Zona Central Personalizada)
-    ctx.fillRect(0, yCabezaLimite, w, yBaseLimite - yCabezaLimite);
-    
-    ctx.fillStyle = 'rgba(239, 68, 68, 0.04)'; // Base (Zona Inferior Personalizada)
-    ctx.fillRect(0, yBaseLimite, w, h - yBaseLimite);
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.05)'; ctx.fillRect(0, 0, w, yCabezaLimite); // Cabeza
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.02)'; ctx.fillRect(0, yCabezaLimite, w, yBaseLimite - yCabezaLimite); // Tronco
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.04)'; ctx.fillRect(0, yBaseLimite, w, h - yBaseLimite); // Base
 
     ctx.lineWidth = 1; ctx.font = '9px monospace';
     for (let i = 0; i <= 100; i += 10) {
         const y = h - (i / 100) * h;
-        ctx.setLineDash([4, 4]); 
-        // Resaltar visualmente en la rejilla las líneas exactas donde cortan tus splits custom
-        ctx.strokeStyle = (i === splitB || i === splitC) ? '#4b5563' : '#141d2b';
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = (i === splitB || i === splitC) ? '#4b5563' : '#141d2b';
         if (i === splitB || i === splitC) ctx.setLineDash([]);
         
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
@@ -398,10 +415,12 @@ function drawTimeline() {
             if (x >= 0 && x <= w) {
                 ctx.beginPath(); ctx.arc(x, y, action.selected ? 6 : 4, 0, 2 * Math.PI);
                 if (action.selected) {
-                    ctx.fillStyle = '#f97316'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+                    ctx.fillStyle = '#f97316'; // Naranja brillante (Seleccionado)
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
                     ctx.fill(); ctx.stroke();
                 } else {
-                    ctx.fillStyle = '#2563eb'; ctx.fill();
+                    ctx.fillStyle = '#2563eb'; // Azul puro (No seleccionado)
+                    ctx.fill();
                 }
             }
         });
