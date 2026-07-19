@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.7: NAVEGACIÓN B/N CON AUTO-SELECCIÓN Y ACELERACIÓN DE FLECHAS
+// TIMELINE V1.8: TRABAJO LIMPIO DE SELECCIONES, TOLERANCIA 0% Y COLORES PRO
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -23,6 +23,9 @@ let isSelecting = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
+// NUEVO: Bandera de control para evitar colisiones de deselección al usar B y N
+let isNavigatingBN = false;
+
 function resizeCanvas() {
     const parent = canvas.parentElement;
     if (parent && parent.clientWidth > 0) {
@@ -44,8 +47,22 @@ function calculateAdaptiveZoom() {
     }
 }
 
+// SINCRONIZADORES DE FLUJO: Deselección automática al dar Play o cambiar el tiempo libremente
 if (videoPlayer) {
-    videoPlayer.addEventListener('play', () => { panX = 0; drawTimeline(); });
+    videoPlayer.addEventListener('play', () => {
+        panX = 0;
+        funscriptActions.forEach(act => act.selected = false); // Limpia selección al reproducir
+        drawTimeline();
+    });
+    
+    videoPlayer.addEventListener('seeking', () => {
+        // Si el salto de tiempo NO fue causado por las teclas B o N, deselecciona todo por seguridad
+        if (!isNavigatingBN) {
+            funscriptActions.forEach(act => act.selected = false);
+        }
+        drawTimeline();
+    });
+
     videoPlayer.addEventListener('loadedmetadata', () => {
         calculateAdaptiveZoom(); zoom = 1.0; panX = 0; drawTimeline();
     });
@@ -101,18 +118,19 @@ window.addEventListener('keydown', function(event) {
     if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
     if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
 
-    // NUEVAS TECLAS A RITMO: B (IR ATRÁS) Y N (IR ADELANTE) CON AUTO-SELECCIÓN Y SNAP
+    // TECLAS B / N CONFIGURADAS CON PROTOCOLO DE AISLAMIENTO
     if (key === 'b') {
         event.preventDefault();
         if (funscriptActions.length === 0 || !videoPlayer.src) return;
         const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
-        // Busca el último punto antes de la posición actual (margen de 6ms para evitar trampas)
         const prevAct = [...funscriptActions].reverse().find(act => act.at < currentTimeMs - 6);
         if (prevAct) {
+            isNavigatingBN = true; // Bloquea la deselección por seeking temporalmente
             funscriptActions.forEach(act => act.selected = false);
-            prevAct.selected = true; // Auto-selecciona el punto
-            videoPlayer.currentTime = prevAct.at / 1000; // Mueve el video
+            prevAct.selected = true; 
+            videoPlayer.currentTime = prevAct.at / 1000;
             updateActionsLog(); drawTimeline();
+            setTimeout(() => { isNavigatingBN = false; }, 80);
         }
         return;
     }
@@ -120,28 +138,28 @@ window.addEventListener('keydown', function(event) {
         event.preventDefault();
         if (funscriptActions.length === 0 || !videoPlayer.src) return;
         const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
-        // Busca el primer punto que esté por delante
         const nextAct = funscriptActions.find(act => act.at > currentTimeMs + 6);
         if (nextAct) {
+            isNavigatingBN = true;
             funscriptActions.forEach(act => act.selected = false);
-            nextAct.selected = true; // Auto-selecciona el punto
-            videoPlayer.currentTime = nextAct.at / 1000; // Mueve el video
+            nextAct.selected = true; 
+            videoPlayer.currentTime = nextAct.at / 1000;
             updateActionsLog(); drawTimeline();
+            setTimeout(() => { isNavigatingBN = false; }, 80);
         }
         return;
     }
 
-    // MICRO-AJUSTE OPTIMIZADO POR FLECHAS (ALTURA 5% Y TIEMPO ACELERADO A 100MS)
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
         const selected = funscriptActions.filter(act => act.selected);
         if (selected.length > 0) {
             event.preventDefault();
             saveHistoryState();
             selected.forEach(act => {
-                if (key === 'arrowup') act.pos = Math.min(100, act.pos + 5); // Cambiado a pasos de 5%
-                if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 5); // Cambiado a pasos de 5%
-                if (key === 'arrowleft') act.at = Math.max(0, act.at - 100); // Acelerado a saltos de 100ms
-                if (key === 'arrowright') act.at = act.at + 100; // Acelerado a saltos de 100ms
+                if (key === 'arrowup') act.pos = Math.min(100, act.pos + 5);
+                if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 5);
+                if (key === 'arrowleft') act.at = Math.max(0, act.at - 100);
+                if (key === 'arrowright') act.at = act.at + 100;
             });
             funscriptActions.sort((a, b) => a.at - b.at);
             updateActionsLog(); drawTimeline();
@@ -211,12 +229,8 @@ canvas.addEventListener('dragover', function(event) {
     if (!window.timelineGhostPreset) return;
     const pos = getMousePos(event);
     const centerFixedX = canvas.width / 2 + panX;
-    
-    if (Math.abs(pos.x - centerFixedX) < 25) {
-        window.timelineGhostMouseX = centerFixedX;
-    } else {
-        window.timelineGhostMouseX = pos.x;
-    }
+    if (Math.abs(pos.x - centerFixedX) < 25) window.timelineGhostMouseX = centerFixedX;
+    else window.timelineGhostMouseX = pos.x;
     drawTimeline();
 });
 
@@ -225,7 +239,6 @@ canvas.addEventListener('dragleave', function() { window.timelineGhostMouseX = -
 canvas.addEventListener('drop', function(event) {
     event.preventDefault();
     if (!window.timelineGhostPreset || !videoPlayer.src) return;
-    
     const dropX = (window.timelineGhostMouseX !== -1) ? window.timelineGhostMouseX : getMousePos(event).x;
     const targetTimeMs = Math.floor(xToTime(dropX));
     
@@ -237,7 +250,6 @@ canvas.addEventListener('drop', function(event) {
             funscriptActions.push({ at: finalTime, pos: presetAct.pos, selected: false });
         }
     });
-    
     funscriptActions.sort((a, b) => a.at - b.at);
     window.timelineGhostPreset = null; window.timelineGhostMouseX = -1;
     updateActionsLog(); drawTimeline();
@@ -304,7 +316,10 @@ canvas.addEventListener('mouseup', function(event) {
             funscriptActions.forEach(action => {
                 const renderX = timeToX(action.at);
                 const renderY = h - (action.pos / 100) * h;
-                if (renderX >= xMin && renderX <= xMax && renderY >= (yMin - 12) && renderY <= (yMax + 12)) {
+                
+                // ZONA DE CONFORT MAXIMA: Tolerancia ampliada a 30px verticales.
+                // Si arrastras cerca de los bordes inferior o superior, atrapará los nodos sin forzarte a llegar al extremo del panel.
+                if (renderX >= xMin && renderX <= xMax && renderY >= (yMin - 30) && renderY <= (yMax + 30)) {
                     action.selected = true;
                 }
             });
@@ -334,22 +349,24 @@ function drawTimeline() {
     }
 
     if (funscriptActions.length > 0) {
-        ctx.lineWidth = 2; ctx.strokeStyle = '#38bdf8'; ctx.beginPath();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#2563eb'; ctx.beginPath(); // Línea conectora azul sólida
         funscriptActions.forEach((action, index) => {
             const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
             if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
         ctx.stroke();
 
+        // NUEVO: IDENTIFICACIÓN POR COLOR SEGÚN REQUERIMIENTO
         funscriptActions.forEach((action) => {
             const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
             if (x >= 0 && x <= w) {
                 ctx.beginPath(); ctx.arc(x, y, action.selected ? 6 : 4, 0, 2 * Math.PI);
                 if (action.selected) {
-                    ctx.fillStyle = '#38bdf8'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+                    ctx.fillStyle = '#f97316'; // NARANJA RADIANTE para nodos seleccionados
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
                     ctx.fill(); ctx.stroke();
                 } else {
-                    ctx.fillStyle = action.pos >= 70 ? '#10b981' : (action.pos <= 20 ? '#ef4444' : '#f59e0b');
+                    ctx.fillStyle = '#2563eb'; // AZUL PUREZA para nodos no seleccionados
                     ctx.fill();
                 }
             }
@@ -358,7 +375,7 @@ function drawTimeline() {
 
     if (window.timelineGhostPreset && window.timelineGhostMouseX !== -1) {
         const targetTimeMs = xToTime(window.timelineGhostMouseX);
-        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
         ctx.setLineDash([3, 3]); ctx.beginPath();
         
         window.timelineGhostPreset.forEach((action, index) => {
@@ -393,10 +410,10 @@ function updateActionsLog() {
     const latestActions = [...funscriptActions].reverse().slice(0, 5);
     actionsLog.innerHTML = latestActions.map(act => {
         const seconds = (act.at / 1000).toFixed(3);
-        let isSelText = act.selected ? '<strong style="color:#38bdf8;">[Sel]</strong> ' : '';
+        let isSelText = act.selected ? '<strong style="color:#f97316;">[Sel]</strong> ' : '';
         return `<div style="margin-bottom: 4px;">
             ${isSelText}<span style="color: #64748b;">[${seconds}s]</span> 
-            <span style="color: #38bdf8; font-weight:bold;">POS: ${act.pos}%</span> 
+            <span style="color: #2563eb; font-weight:bold;">POS: ${act.pos}%</span> 
         </div>`;
     }).join('');
 }
