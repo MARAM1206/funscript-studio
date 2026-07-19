@@ -23,13 +23,12 @@
     <!-- CONTENEDOR FLUIDO TOTAL -->
     <div id="workspace" class="workspace-container">
         
-        <!-- Panel 1: Reproductor de Video -->
+       <!-- Panel 1: Reproductor de Video (Limpio de menús y opacidades nativas) -->
         <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
             <div class="panel-content">
-                <video id="video-player" controls disablepictureinpicture controlslist="nodownload"></video>
+                <video id="video-player" disablepictureinpicture></video>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                     <div id="video-filename" style="font-size: 0.7rem; color: #475569; margin-top: 4px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;">Sin archivo seleccionado</div>
-                    <!-- NUEVO: Contenedor para Resolución limpia y FPS -->
                     <div id="video-specs" style="font-size: 0.7rem; color: #64748b; font-family: monospace; font-weight: bold; text-align: right;"></div>
                 </div>
                 <div class="video-controls">
