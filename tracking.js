@@ -1,5 +1,5 @@
 // ==========================================================================
-// CEREBRO DE IA TRACKING V2.5: SIMETRÍA TOTAL, REPOSICIONAMIENTO Y FIJACIÓN RATÓN
+// CEREBRO DE IA TRACKING V2.6: ANCLAJE EN TRACKER 1 (AZUL MEZCLILLA) Y ROSA INTENSO
 // ==========================================================================
 
 const trackCanvas = document.getElementById('tracking-canvas');
@@ -16,9 +16,9 @@ let isDraggingSlider = null; // 'BASE' o 'CABEZA'
 let boxStart = { x: 0, y: 0 };
 let dragOffset = { x: 0, y: 0 };
 
-// Tracker 1: Hombre (Azul)
+// Tracker 1: Hombre (Azul Mezclilla)
 let trackBox1 = null; let templateData1 = null; let lastTrackedY1 = 0;
-// Tracker 2: Mujer (Rosa)
+// Tracker 2: Mujer (Rosa Intenso)
 let trackBox2 = null; let templateData2 = null; let lastTrackedY2 = 0;
 
 let initialDistanceY = 0;
@@ -57,15 +57,15 @@ function getMouseCoordinates(e) {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-// INTERCEPTOR MOUSE: Detectar Arrastre, Reposicionamiento o Edición de Líneas
+// INTERCEPTOR MOUSE: Detectar Arrastre, Reposicionamiento o Edición de Líneas en T1
 trackCanvas.addEventListener('mousedown', (e) => {
     if (!aiActive) return;
     const pos = getMouseCoordinates(e);
     
-    // 1. Verificar si clickeó dentro de la Barra Calibradora de la derecha para ajustar Base/Cabeza con Mouse
-    if (trackBox2) {
-        const barX = trackBox2.x + trackBox2.w + 8;
-        const barY = trackBox2.y + (trackBox2.h / 2) - (aiTrackingRange / 2);
+    // CORREGIDO: Clic en la barra calibradora ahora lee las coordenadas relativas al Tracker 1
+    if (trackBox1) {
+        const barX = trackBox1.x + trackBox1.w + 8;
+        const barY = trackBox1.y + (trackBox1.h / 2) - (aiTrackingRange / 2);
         if (pos.x >= barX && pos.x <= barX + 16) {
             const clickPercent = 100 - Math.round(((pos.y - barY) / aiTrackingRange) * 100);
             if (Math.abs(clickPercent - window.aiSplitBase) < 8) { isDraggingSlider = 'BASE'; return; }
@@ -73,7 +73,6 @@ trackCanvas.addEventListener('mousedown', (e) => {
         }
     }
 
-    // 2. Verificar si clickeó adentro de un cuadro existente para MOVERLO/CORREGIRLO
     if (trackBox1 && pos.x >= trackBox1.x && pos.x <= trackBox1.x + trackBox1.w && pos.y >= trackBox1.y && pos.y <= trackBox1.y + trackBox1.h) {
         isDraggingBox = 'T1'; dragOffset.x = pos.x - trackBox1.x; dragOffset.y = pos.y - trackBox1.y; return;
     }
@@ -81,16 +80,15 @@ trackCanvas.addEventListener('mousedown', (e) => {
         isDraggingBox = 'T2'; dragOffset.x = pos.x - trackBox2.x; dragOffset.y = pos.y - trackBox2.y; return;
     }
 
-    // 3. Si no clickeó nada, dibuja un cuadro nuevo
     boxStart.x = pos.x; boxStart.y = pos.y; isDrawingBox = true;
 });
 
 trackCanvas.addEventListener('mousemove', (e) => {
     const pos = getMouseCoordinates(e);
 
-    // Lógica A: Ajustar las líneas divisores con el arrastre del mouse
-    if (isDraggingSlider && trackBox2) {
-        const barY = trackBox2.y + (trackBox2.h / 2) - (aiTrackingRange / 2);
+    // CORREGIDO: Ajustar las divisorias con el mouse siguiendo el movimiento del Tracker 1
+    if (isDraggingSlider && trackBox1) {
+        const barY = trackBox1.y + (trackBox1.h / 2) - (aiTrackingRange / 2);
         let pct = 100 - Math.round(((pos.y - barY) / aiTrackingRange) * 100);
         pct = Math.max(0, Math.min(100, pct));
         
@@ -99,31 +97,30 @@ trackCanvas.addEventListener('mousemove', (e) => {
         drawConfirmedBoxes(); return;
     }
 
-    // Lógica B: Mover/Corregir posición del tracker en caliente
     if (isDraggingBox) {
         hiddenCtx.drawImage(videoPlayer, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
         if (isDraggingBox === 'T1') {
             trackBox1.x = pos.x - dragOffset.x; trackBox1.y = pos.y - dragOffset.y;
             lastTrackedY1 = trackBox1.y + trackBox1.h / 2;
             templateData1 = hiddenCtx.getImageData(trackBox1.x, trackBox1.y, trackBox1.w, trackBox1.h);
+            if (trackBox2) initialDistanceY = Math.abs(lastTrackedY2 - lastTrackedY1);
         } else {
             trackBox2.x = pos.x - dragOffset.x; trackBox2.y = pos.y - dragOffset.y;
             lastTrackedY2 = trackBox2.y + trackBox2.h / 2;
             templateData2 = hiddenCtx.getImageData(trackBox2.x, trackBox2.y, trackBox2.w, trackBox2.h);
-            initialDistanceY = Math.abs(lastTrackedY2 - lastTrackedY1); // Recalibrar distancia relativa
+            initialDistanceY = Math.abs(lastTrackedY2 - lastTrackedY1); 
         }
         drawConfirmedBoxes(); return;
     }
 
-    // Lógica C: Dibujar cuadro guía
     if (!isDrawingBox) return;
     clearTrackCanvas();
     drawConfirmedBoxes();
     
-    trackCtx.strokeStyle = !trackBox1 ? '#38bdf8' : '#f43f5e';
-    trackCtx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+    trackCtx.strokeStyle = !trackBox1 ? '#2e5b88' : '#ff007f';
+    trackCtx.lineWidth = 1.5; trackCtx.setLineDash([3, 3]);
     trackCtx.strokeRect(boxStart.x, boxStart.y, pos.x - boxStart.x, pos.y - boxStart.y);
-    ctx.setLineDash([]);
+    trackCtx.setLineDash([]);
 });
 
 trackCanvas.addEventListener('mouseup', (e) => {
@@ -153,16 +150,15 @@ trackCanvas.addEventListener('mouseup', (e) => {
 
 function drawConfirmedBoxes() {
     clearTrackCanvas();
+    
+    // Tracker 1: HOMBRE (NUEVO: AZUL MEZCLILLA OSCURO Y ANCLAJE DE BARRA)
     if (trackBox1) {
-        trackCtx.strokeStyle = '#38bdf8'; trackCtx.lineWidth = 2; // HOMBRE = AZUL ELÉCTRICO
+        trackCtx.strokeStyle = '#2e5b88'; trackCtx.lineWidth = 2; 
         trackCtx.strokeRect(trackBox1.x, trackBox1.y, trackBox1.w, trackBox1.h);
-    }
-    if (trackBox2) {
-        trackCtx.strokeStyle = '#f43f5e'; trackCtx.lineWidth = 2; // MUJER = ROSA MAGENTA
-        trackCtx.strokeRect(trackBox2.x, trackBox2.y, trackBox2.w, trackBox2.h);
 
-        const barX = trackBox2.x + trackBox2.w + 8;
-        const barY = trackBox2.y + (trackBox2.h / 2) - (aiTrackingRange / 2);
+        // NUEVO ANCLAJE: La barra calibradora ahora se renderiza pegada al Tracker 1
+        const barX = trackBox1.x + trackBox1.w + 8;
+        const barY = trackBox1.y + (trackBox1.h / 2) - (aiTrackingRange / 2);
         
         const hBase = aiTrackingRange * (window.aiSplitBase / 100);
         const hCabeza = aiTrackingRange * ((100 - window.aiSplitCabeza) / 100);
@@ -174,17 +170,26 @@ function drawConfirmedBoxes() {
 
         trackCtx.strokeStyle = '#94a3b8'; trackCtx.lineWidth = 1; trackCtx.strokeRect(barX, barY, 14, aiTrackingRange);
         
-        // Pintar manillas horizontales interactivas para que el usuario sepa que puede arrastrarlas
+        // Manillas blancas interactivas para arrastre
         trackCtx.strokeStyle = '#ffffff'; trackCtx.lineWidth = 2;
         trackCtx.beginPath(); trackCtx.moveTo(barX - 2, barY + hCabeza); trackCtx.lineTo(barX + 16, barY + hCabeza); trackCtx.stroke();
         trackCtx.beginPath(); trackCtx.moveTo(barX - 2, barY + hCabeza + hTronco); trackCtx.lineTo(barX + 16, barY + hCabeza + hTronco); trackCtx.stroke();
+        
+        trackCtx.fillStyle = '#64748b'; trackCtx.font = '10px monospace';
+        trackCtx.fillText(`Base Split: ${window.aiSplitBase}%`, trackBox1.x, trackBox1.y + trackBox1.h + 14);
+        trackCtx.fillText(`Cabeza Split: ${window.aiSplitCabeza}%`, trackBox1.x, trackBox1.y + trackBox1.h + 26);
+    }
+    
+    // Tracker 2: MUJER (NUEVO: ROSA MÁS ROSA / HOT PINK)
+    if (trackBox2) {
+        trackCtx.strokeStyle = '#ff007f'; trackCtx.lineWidth = 2; 
+        trackCtx.strokeRect(trackBox2.x, trackBox2.y, trackBox2.w, trackBox2.h);
     }
 }
 
-// OPTIMIZACIÓN QUIRÚRGICA DEL ÁREA DE BÚSQUEDA (ELIMINA LA LENTITUD POR COMPLETO)
 function scanTemplateSAD(box, template, searchYCenter) {
     const searchWidth = box.w;
-    const searchHeight = box.h + 24; // Ventana micro-ajustada (+/- 12px de predicción local local)
+    const searchHeight = box.h + 24; 
     const searchX = box.x;
     const searchY = Math.max(0, searchYCenter - searchHeight / 2);
     
@@ -194,9 +199,9 @@ function scanTemplateSAD(box, template, searchYCenter) {
     let bestY = 0; let minDiff = Infinity;
     const tData = template.data; const sData = searchData.data;
 
-    for (let y = 0; y <= searchHeight - box.h; y += 2) { // Sub-muestreo a pasos dobles para acelerar la CPU
+    for (let y = 0; y <= searchHeight - box.h; y += 2) { 
         let diff = 0;
-        for (let row = 0; row < box.h; row += 3) { // Salto de 3 filas para optimización extrema de la RTX
+        for (let row = 0; row < box.h; row += 3) { 
             const tOffset = row * box.w * 4; const sOffset = (y + row) * searchWidth * 4;
             for (let col = 0; col < box.w; col += 3) {
                 const tIdx = tOffset + col * 4; const sIdx = sOffset + col * 4;
@@ -219,8 +224,6 @@ function processTrackingFrame() {
         const newY2 = scanTemplateSAD(trackBox2, templateData2, lastTrackedY2);
         if (newY2 !== null) { trackBox2.y = newY2; lastTrackedY2 = newY2 + trackBox2.h / 2; }
 
-        // EVITAR CRUCES Y MEZCLAS EN 0% (COLISIÓN FÍSICA BLOQUEADA)
-        // Si los centros colapsan a menos de la altura mínima combinada, fijamos una distancia mínima de seguridad
         const centersDistanceY = Math.abs(lastTrackedY2 - lastTrackedY1);
         const securityGap = (trackBox1.h + trackBox2.h) * 0.45;
         const boundedDistanceY = Math.max(securityGap, centersDistanceY);
