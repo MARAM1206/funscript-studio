@@ -17,13 +17,12 @@ let isSelecting = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// SISTEMA CORREGIDO: Ajusta los píxeles reales del Canvas para evitar el efecto foto estirada
+// SISTEMA CORREGIDO: Redibuja píxeles reales adaptados al 100% del contenedor redondeado
 function resizeCanvas() {
     const parent = canvas.parentElement;
     if (parent && parent.clientWidth > 0) {
         canvas.width = parent.clientWidth;
-        // Restamos espacio suficiente para el botón verde inferior de exportación
-        canvas.height = Math.max(100, parent.clientHeight - 55); 
+        canvas.height = parent.clientHeight; // Usa todo el espacio interno ahora que no hay footer
     }
     drawTimeline();
 }
