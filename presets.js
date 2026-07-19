@@ -1,28 +1,24 @@
 // ==========================================================================
-// SISTEMA DE PRESETS VECTORIAL ADAPTADO AL HISTORIAL
+// MÓDULO DE PRESETS ADV: DIBUJO DE MINI-SVG Y ENLACE DE ARRASTRE NATIVO
 // ==========================================================================
 
 let savedPresets = {};
 const presetsBtn = document.getElementById('save-preset-btn');
 
-if (presetsBtn) {
-    presetsBtn.innerText = "💾 Guardar Nodos Seleccionados como Preset";
-}
-
 presetsBtn?.addEventListener('click', function() {
     if (!videoPlayer.src || funscriptActions.length === 0) {
-        alert("Primero carga un video y pon puntos en la línea de tiempo.");
+        alert("Primero carga un video y coloca nodos en la línea de tiempo.");
         return;
     }
 
     const actionsToSave = funscriptActions.filter(act => act.selected);
 
     if (actionsToSave.length === 0) {
-        alert("No tienes ningún punto seleccionado. Haz clic izquierdo y arrastra un cuadro sobre los puntos del Canvas que quieras guardar.");
+        alert("Selecciona primero los puntos que deseas guardar arrastrando un cuadro sobre el Canvas.");
         return;
     }
 
-    const presetName = prompt("Introduce un nombre para guardar esta selección exacta:", `Patrón Custom ${Object.keys(savedPresets).length + 1}`);
+    const presetName = prompt("Introduce un nombre para guardar este Preset:", `Patrón Custom ${Object.keys(savedPresets).length + 1}`);
     if (!presetName) return;
 
     const baseTime = actionsToSave[0].at;
@@ -35,8 +31,7 @@ presetsBtn?.addEventListener('click', function() {
     updatePresetsList();
     
     funscriptActions.forEach(act => act.selected = false);
-    drawTimeline();
-    alert(`¡Preset "${presetName}" guardado con éxito!`);
+    if (typeof drawTimeline === 'function') drawTimeline();
 });
 
 function updatePresetsList() {
@@ -49,46 +44,42 @@ function updatePresetsList() {
     }
 
     listContainer.innerHTML = Object.keys(savedPresets).map(name => {
+        const preset = savedPresets[name];
+        
+        // CÁLCULO VECTORIAL PARA MINIATURA SVG (Ancho 70, Alto 24)
+        let maxAt = Math.max(...preset.map(p => p.at)) || 1;
+        let svgPoints = preset.map(p => {
+            let x = 4 + (p.at / maxAt) * 62;
+            let y = 21 - (p.pos / 100) * 18; // Invertido vertical
+            return `${x},${y}`;
+        }).join(' ');
+
         return `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #020617; padding: 8px; border-radius: 6px; border: 1px solid #334155; margin-bottom: 6px;">
-                <span style="font-weight: 600; color: #f1f5f9; font-size: 0.85rem;">${name} <small style="color:#64748b;">(${savedPresets[name].length} pts)</small></span>
-                <button class="btn btn-stamp" data-preset="${name}" style="padding: 3px 8px; font-size: 0.75rem; background-color: #10b981;">
-                    ⚡ Estampar Aquí
-                </button>
+            <div class="preset-card" draggable="true" data-preset="${name}" style="display: flex; align-items: center; justify-content: space-between; background: #070a0f; padding: 6px 10px; border-radius: 10px; border: 1px solid #1c2330; margin-bottom: 6px; cursor: grab; user-select: none; transition: background 0.2s;">
+                <div style="display:flex; flex-direction:column; gap:1px;">
+                    <span style="font-weight: 600; color: #f1f5f9; font-size: 0.75rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span>
+                    <small style="color:#475569; font-size:0.6rem;">${preset.length} nodos</small>
+                </div>
+                <!-- Mini-gráfico de previsualización -->
+                <svg width="70" height="24" style="background:#020617; border-radius:6px; border: 1px solid #141b25;">
+                    <polyline points="${svgPoints}" stroke="#38bdf8" stroke-width="1.2" fill="none"/>
+                </svg>
             </div>
         `;
     }).join('');
 
-    document.querySelectorAll('.btn-stamp').forEach(btn => {
-        btn.addEventListener('click', function() {
+    // VINCULAR EVENTOS DRAG NATIVOS A LAS TARJETAS
+    document.querySelectorAll('.preset-card').forEach(card => {
+        card.addEventListener('dragstart', function(e) {
             const name = this.getAttribute('data-preset');
-            if (typeof stampPreset === 'function') stampPreset(name);
+            window.timelineGhostPreset = savedPresets[name];
+            this.style.background = '#1e293b';
+        });
+        
+        card.addEventListener('dragend', function() {
+            this.style.background = '#070a0f';
+            window.timelineGhostPreset = null;
+            if (typeof drawTimeline === 'function') drawTimeline();
         });
     });
-}
-
-function stampPreset(presetName) {
-    const preset = savedPresets[presetName];
-    if (!preset || !videoPlayer.src) return;
-
-    // CAPTURA DE HISTORIAL: Tomamos una sola foto antes del volcado masivo
-    if (typeof window.saveHistoryState === 'function') {
-        window.saveHistoryState();
-    }
-
-    const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
-
-    preset.forEach(presetAct => {
-        const targetTime = currentTimeMs + presetAct.at;
-        if (typeof addAction === 'function') {
-            // Inserta el nodo de forma nativa
-            funscriptActions = funscriptActions.filter(act => act.at !== targetTime);
-            funscriptActions.push({ at: targetTime, pos: presetAct.pos, selected: false });
-        }
-    });
-
-    // Ordenamos y redibujamos una sola vez al terminar el ciclo
-    funscriptActions.sort((a, b) => a.at - b.at);
-    if (typeof updateActionsLog === 'function') updateActionsLog();
-    if (typeof drawTimeline === 'function') drawTimeline();
 }
