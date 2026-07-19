@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.6: AUTO-PLAY SYNC E IMÁN DE PRESETS EN CABEZAL ROJO
+// TIMELINE V1.7: NAVEGACIÓN B/N CON AUTO-SELECCIÓN Y ACELERACIÓN DE FLECHAS
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -44,16 +44,10 @@ function calculateAdaptiveZoom() {
     }
 }
 
-// CORRECCIÓN DE REPRODUCCIÓN: Al presionar Play, la cinta se alinea automáticamente con el cabezal central
 if (videoPlayer) {
-    videoPlayer.addEventListener('play', () => {
-        panX = 0; // Resetea cualquier navegación manual previa
-        drawTimeline();
-    });
+    videoPlayer.addEventListener('play', () => { panX = 0; drawTimeline(); });
     videoPlayer.addEventListener('loadedmetadata', () => {
-        calculateAdaptiveZoom();
-        zoom = 1.0; panX = 0;
-        drawTimeline();
+        calculateAdaptiveZoom(); zoom = 1.0; panX = 0; drawTimeline();
     });
 }
 
@@ -63,10 +57,6 @@ function timeToX(timeMs) {
     const deltaMs = timeMs - currentTimeMs;
     return center + panX + (deltaMs * basePixelsPerMs * zoom);
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-    window.dispatchEvent(new Event('resize'));
-});
 
 function xToTime(xPos) {
     const center = canvas.width / 2;
@@ -111,16 +101,47 @@ window.addEventListener('keydown', function(event) {
     if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
     if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
 
+    // NUEVAS TECLAS A RITMO: B (IR ATRÁS) Y N (IR ADELANTE) CON AUTO-SELECCIÓN Y SNAP
+    if (key === 'b') {
+        event.preventDefault();
+        if (funscriptActions.length === 0 || !videoPlayer.src) return;
+        const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
+        // Busca el último punto antes de la posición actual (margen de 6ms para evitar trampas)
+        const prevAct = [...funscriptActions].reverse().find(act => act.at < currentTimeMs - 6);
+        if (prevAct) {
+            funscriptActions.forEach(act => act.selected = false);
+            prevAct.selected = true; // Auto-selecciona el punto
+            videoPlayer.currentTime = prevAct.at / 1000; // Mueve el video
+            updateActionsLog(); drawTimeline();
+        }
+        return;
+    }
+    if (key === 'n') {
+        event.preventDefault();
+        if (funscriptActions.length === 0 || !videoPlayer.src) return;
+        const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
+        // Busca el primer punto que esté por delante
+        const nextAct = funscriptActions.find(act => act.at > currentTimeMs + 6);
+        if (nextAct) {
+            funscriptActions.forEach(act => act.selected = false);
+            nextAct.selected = true; // Auto-selecciona el punto
+            videoPlayer.currentTime = nextAct.at / 1000; // Mueve el video
+            updateActionsLog(); drawTimeline();
+        }
+        return;
+    }
+
+    // MICRO-AJUSTE OPTIMIZADO POR FLECHAS (ALTURA 5% Y TIEMPO ACELERADO A 100MS)
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
         const selected = funscriptActions.filter(act => act.selected);
         if (selected.length > 0) {
             event.preventDefault();
             saveHistoryState();
             selected.forEach(act => {
-                if (key === 'arrowup') act.pos = Math.min(100, act.pos + 1);
-                if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 1);
-                if (key === 'arrowleft') act.at = Math.max(0, act.at - 10);
-                if (key === 'arrowright') act.at = act.at + 10;
+                if (key === 'arrowup') act.pos = Math.min(100, act.pos + 5); // Cambiado a pasos de 5%
+                if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 5); // Cambiado a pasos de 5%
+                if (key === 'arrowleft') act.at = Math.max(0, act.at - 100); // Acelerado a saltos de 100ms
+                if (key === 'arrowright') act.at = act.at + 100; // Acelerado a saltos de 100ms
             });
             funscriptActions.sort((a, b) => a.at - b.at);
             updateActionsLog(); drawTimeline();
@@ -185,16 +206,12 @@ function addAction(timeMs, position) {
     updateActionsLog(); drawTimeline();
 }
 
-// NUEVO: INTERCEPTOR CON IMÁN DE ACOPLAMIENTO PARA PRESETS EN LA BANDA ROJA CENTRAL
 canvas.addEventListener('dragover', function(event) {
     event.preventDefault();
     if (!window.timelineGhostPreset) return;
     const pos = getMousePos(event);
-    
-    // El eje central donde descansa fijamente la línea roja
     const centerFixedX = canvas.width / 2 + panX;
     
-    // Si la posición de arrastre está a menos de 25 píxeles de la línea roja, se engancha magnéticamente
     if (Math.abs(pos.x - centerFixedX) < 25) {
         window.timelineGhostMouseX = centerFixedX;
     } else {
@@ -203,9 +220,7 @@ canvas.addEventListener('dragover', function(event) {
     drawTimeline();
 });
 
-canvas.addEventListener('dragleave', function() {
-    window.timelineGhostMouseX = -1; drawTimeline();
-});
+canvas.addEventListener('dragleave', function() { window.timelineGhostMouseX = -1; drawTimeline(); });
 
 canvas.addEventListener('drop', function(event) {
     event.preventDefault();
@@ -230,9 +245,8 @@ canvas.addEventListener('drop', function(event) {
 
 canvas.addEventListener('wheel', function(event) {
     event.preventDefault();
-    if (event.shiftKey) {
-        panX -= event.deltaY * 0.7;
-    } else {
+    if (event.shiftKey) panX -= event.deltaY * 0.7;
+    else {
         if (event.deltaY < 0) zoom = Math.min(40.0, zoom + 0.15);
         else zoom = Math.max(0.5, zoom - 0.15);
         if (zoom === 1.0) panX = 0;
@@ -290,8 +304,6 @@ canvas.addEventListener('mouseup', function(event) {
             funscriptActions.forEach(action => {
                 const renderX = timeToX(action.at);
                 const renderY = h - (action.pos / 100) * h;
-                
-                // Zona de amortiguación vertical (+/- 12px) para atrapar con total seguridad nodos en 0% y 100%
                 if (renderX >= xMin && renderX <= xMax && renderY >= (yMin - 12) && renderY <= (yMax + 12)) {
                     action.selected = true;
                 }
