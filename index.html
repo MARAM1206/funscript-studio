@@ -27,8 +27,11 @@
         <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
             <div class="panel-content">
                 <video id="video-player" controls disablepictureinpicture controlslist="nodownload"></video>
-                <!-- NUEVO: Contenedor para el nombre del archivo en letras pequeñas -->
-                <div id="video-filename" style="font-size: 0.7rem; color: #475569; margin-top: 4px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Sin archivo seleccionado</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <div id="video-filename" style="font-size: 0.7rem; color: #475569; margin-top: 4px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;">Sin archivo seleccionado</div>
+                    <!-- NUEVO: Contenedor para Resolución limpia y FPS -->
+                    <div id="video-specs" style="font-size: 0.7rem; color: #64748b; font-family: monospace; font-weight: bold; text-align: right;"></div>
+                </div>
                 <div class="video-controls">
                     <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
                 </div>
@@ -40,13 +43,12 @@
             <div class="panel-content">
                 <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
                     <li><span class="key">0</span> = 0% | <span class="key">1</span>-<span class="key">9</span> = 10%-90% | <span class="key">Intro</span> = 100%</li>
+                    <li><span class="key">←</span> <span class="key">→</span> = Mover tiempo de puntos (-/+ 10ms)</li>
+                    <li><span class="key">↑</span> <span class="key">↓</span> = Ajustar altura de posición (-/+ 1%)</li>
                     <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
                     <li><span class="key">Q</span> / <span class="key">W</span> = Fotograma Atrás / Adelante</li>
-                    <li><span class="key">A</span> / <span class="key">S</span> = Saltar -5s / +5s en el video</li>
-                    <li><span class="key">E</span> / <span class="key">R</span> = Bajar / Subir velocidad</li>
                     <li><span class="key">M</span> = Mutear / Desmutear audio</li>
                     <li><span class="key">Supr</span> = Eliminar puntos seleccionados</li>
-                    <li><span class="key">Arrastrar Preset</span> = Suelta el preset sobre el Canvas</li>
                 </ul>
             </div>
         </div>
@@ -63,7 +65,6 @@
         <!-- Panel 4: Presets -->
         <div id="panel-presets" class="workspace-panel" data-title="💾 Presets">
             <div class="panel-content">
-                <!-- NUEVO: Nombre y emoji de disquete -->
                 <button id="save-preset-btn" class="btn">💾 Guardar Preset</button>
                 <div id="presets-list" class="presets-grid" style="margin-top: 8px; overflow-y: auto; flex-grow: 1;"></div>
             </div>
