@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.8: MOTOR CONTINUO A 60 FPS Y DESELECCIÓN INTELIGENTE
+// TIMELINE V1.8.5: OPTIMIZACIÓN DE RENDIMIENTO ASÍNCRONO EN BOTONES Q/W/A/S
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -24,6 +24,9 @@ let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 let isNavigatingBN = false;
 
+// Estado de control del hilo gráfico
+let isLoopRunning = false;
+
 function resizeCanvas() {
     const parent = canvas.parentElement;
     if (parent && parent.clientWidth > 0) {
@@ -31,6 +34,7 @@ function resizeCanvas() {
         canvas.height = parent.clientHeight;
         calculateAdaptiveZoom();
     }
+    drawTimeline();
 }
 window.addEventListener('resize', resizeCanvas);
 setTimeout(resizeCanvas, 500);
@@ -44,27 +48,48 @@ function calculateAdaptiveZoom() {
     }
 }
 
-// NUEVO MOTOR DE REDIBUJADO CONTINUO (60 FPS fluidos estilo DaVinci Resolve)
-function startSmoothTimelineLoop() {
+// CORRECCIÓN DE BUCLE INTELIGENTE: El bucle 60 FPS SOLO corre si el video está en movimiento real
+function smoothTimelineLoop() {
     if (videoPlayer && !videoPlayer.paused) {
         panX = 0; 
-        // Deselección automática global activa si el video corre libremente
         if (!isNavigatingBN && funscriptActions.some(act => act.selected)) {
             funscriptActions.forEach(act => act.selected = false);
             updateActionsLog();
         }
+        drawTimeline();
+        requestAnimationFrame(smoothTimelineLoop); // Mantiene el bucle vivo mientras corra el video
+    } else {
+        isLoopRunning = false; // Detiene el consumo de recursos al pausar
     }
-    drawTimeline();
-    requestAnimationFrame(startSmoothTimelineLoop); // Llama al siguiente refresco de pantalla nativo
 }
-requestAnimationFrame(startSmoothTimelineLoop);
 
 if (videoPlayer) {
+    videoPlayer.addEventListener('play', () => {
+        if (!isLoopRunning) {
+            isLoopRunning = true;
+            smoothTimelineLoop(); // Arranca el bucle fluido en Play
+        }
+    });
+    
+    videoPlayer.addEventListener('pause', () => {
+        drawTimeline(); // Dibuja un último frame estático perfecto al pausar
+    });
+    
     videoPlayer.addEventListener('seeking', () => {
         if (!isNavigatingBN) funscriptActions.forEach(act => act.selected = false);
+        drawTimeline(); // Redibuja al instante al arrastrar barras o hacer saltos manuales
     });
+
+    videoPlayer.addEventListener('timeupdate', () => {
+        // Si el video está pausado (ej. saltando con Q/W/A/S), redibuja solo en el cambio exacto de frame
+        if (videoPlayer.paused) {
+            drawTimeline();
+        }
+    });
+
     videoPlayer.addEventListener('loadedmetadata', () => {
         calculateAdaptiveZoom(); zoom = 1.0; panX = 0;
+        drawTimeline();
     });
 }
 
@@ -100,14 +125,14 @@ function executeUndo() {
     if (undoStack.length === 0) return;
     redoStack.push(funscriptActions.map(act => ({ ...act })));
     funscriptActions = undoStack.pop();
-    updateActionsLog();
+    updateActionsLog(); drawTimeline();
 }
 
 function executeRedo() {
     if (redoStack.length === 0) return;
     undoStack.push(funscriptActions.map(act => ({ ...act })));
     funscriptActions = redoStack.pop();
-    updateActionsLog();
+    updateActionsLog(); drawTimeline();
 }
 window.saveHistoryState = saveHistoryState;
 
@@ -128,7 +153,7 @@ window.addEventListener('keydown', function(event) {
             funscriptActions.forEach(act => act.selected = false);
             prevAct.selected = true; 
             videoPlayer.currentTime = prevAct.at / 1000;
-            updateActionsLog();
+            updateActionsLog(); drawTimeline();
             setTimeout(() => { isNavigatingBN = false; }, 80);
         }
         return;
@@ -143,7 +168,7 @@ window.addEventListener('keydown', function(event) {
             funscriptActions.forEach(act => act.selected = false);
             nextAct.selected = true; 
             videoPlayer.currentTime = nextAct.at / 1000;
-            updateActionsLog();
+            updateActionsLog(); drawTimeline();
             setTimeout(() => { isNavigatingBN = false; }, 80);
         }
         return;
@@ -161,7 +186,7 @@ window.addEventListener('keydown', function(event) {
                 if (key === 'arrowright') act.at = act.at + 100;
             });
             funscriptActions.sort((a, b) => a.at - b.at);
-            updateActionsLog();
+            updateActionsLog(); drawTimeline();
         }
         return;
     }
@@ -187,7 +212,7 @@ window.addEventListener('keydown', function(event) {
                 funscriptActions.push({ at: targetTime, pos: item.pos, selected: false });
             });
             funscriptActions.sort((a, b) => a.at - b.at);
-            updateActionsLog();
+            updateActionsLog(); drawTimeline();
         }
         return;
     }
@@ -211,7 +236,7 @@ window.addEventListener('keydown', function(event) {
         if (funscriptActions.some(act => act.selected)) {
             saveHistoryState();
             funscriptActions = funscriptActions.filter(act => !act.selected);
-            updateActionsLog();
+            updateActionsLog(); drawTimeline();
         }
     }
 });
@@ -220,7 +245,7 @@ function addAction(timeMs, position) {
     funscriptActions = funscriptActions.filter(act => act.at !== timeMs);
     funscriptActions.push({ at: timeMs, pos: position, selected: false });
     funscriptActions.sort((a, b) => a.at - b.at);
-    updateActionsLog();
+    updateActionsLog(); drawTimeline();
 }
 
 canvas.addEventListener('dragover', function(event) {
@@ -230,9 +255,10 @@ canvas.addEventListener('dragover', function(event) {
     const centerFixedX = canvas.width / 2 + panX;
     if (Math.abs(pos.x - centerFixedX) < 25) window.timelineGhostMouseX = centerFixedX;
     else window.timelineGhostMouseX = pos.x;
+    drawTimeline();
 });
 
-canvas.addEventListener('dragleave', function() { window.timelineGhostMouseX = -1; });
+canvas.addEventListener('dragleave', function() { window.timelineGhostMouseX = -1; drawTimeline(); });
 
 canvas.addEventListener('drop', function(event) {
     event.preventDefault();
@@ -250,7 +276,7 @@ canvas.addEventListener('drop', function(event) {
     });
     funscriptActions.sort((a, b) => a.at - b.at);
     window.timelineGhostPreset = null; window.timelineGhostMouseX = -1;
-    updateActionsLog();
+    updateActionsLog(); drawTimeline();
 });
 
 canvas.addEventListener('wheel', function(event) {
@@ -261,6 +287,7 @@ canvas.addEventListener('wheel', function(event) {
         else zoom = Math.max(0.5, zoom - 0.15);
         if (zoom === 1.0) panX = 0;
     }
+    drawTimeline();
 });
 
 canvas.addEventListener('mousedown', function(event) {
@@ -285,10 +312,11 @@ canvas.addEventListener('mousedown', function(event) {
     });
 
     if (clickedANode) {
-        isSelecting = false; updateActionsLog();
+        isSelecting = false; updateActionsLog(); drawTimeline();
     } else {
         isSelecting = true; currentX = startX; currentY = startY;
         if (!event.ctrlKey) funscriptActions.forEach(act => act.selected = false);
+        drawTimeline();
     }
 });
 
@@ -296,6 +324,7 @@ canvas.addEventListener('mousemove', function(event) {
     if (!isSelecting) return;
     const pos = getMousePos(event);
     currentX = pos.x; currentY = pos.y;
+    drawTimeline();
 });
 
 canvas.addEventListener('mouseup', function(event) {
@@ -316,7 +345,7 @@ canvas.addEventListener('mouseup', function(event) {
                 }
             });
         }
-        updateActionsLog();
+        updateActionsLog(); drawTimeline();
     }
 });
 
@@ -368,7 +397,6 @@ function drawTimeline() {
         const targetTimeMs = xToTime(window.timelineGhostMouseX);
         ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
         ctx.setLineDash([3, 3]); ctx.beginPath();
-        
         window.timelineGhostPreset.forEach((action, index) => {
             const x = timeToX(targetTimeMs + action.at); const y = h - (action.pos / 100) * h;
             if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
@@ -387,7 +415,6 @@ function drawTimeline() {
     const centerFixedX = w / 2 + panX;
     ctx.lineWidth = 2; ctx.strokeStyle = '#ef4444';
     ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, h); ctx.stroke();
-    
     ctx.fillStyle = '#ef4444';
     ctx.beginPath(); ctx.moveTo(centerFixedX - 6, 0); ctx.lineTo(centerFixedX + 6, 0);
     ctx.lineTo(centerFixedX, 8); ctx.closePath(); ctx.fill();
