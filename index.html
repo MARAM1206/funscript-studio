@@ -11,8 +11,8 @@
     <div id="workspace" class="workspace-container">
         
         <!-- Panel 1: Reproductor de Video -->
-        <div id="panel-video" class="workspace-panel">
-            <div class="panel-header">🎥 Reproductor Local</div>
+        <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
+            <div class="panel-header"></div>
             <div class="panel-content">
                 <input type="file" id="video-input" accept="video/*" class="file-selector">
                 <video id="video-player" controls disablepictureinpicture controlslist="nodownload"></video>
@@ -23,26 +23,27 @@
         </div>
 
         <!-- Panel 2: Controles y Atajos -->
-        <div id="panel-keyboard" class="workspace-panel">
-            <div class="panel-header">⌨️ Controles del Teclado</div>
+        <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
+            <div class="panel-header"></div>
             <div class="panel-content">
                 <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px;">
-                    <li><span class="key">0</span> = 0% | <span class="key">1</span>-<span class="key">9</span> = 10%-90% | <span class="key">Intro (Numpad)</span> = 100%</li>
+                    <li><span class="key">0</span> = 0% | <span class="key">1</span>-<span class="key">9</span> = 10%-90% | <span class="key">Intro</span> = 100%</li>
                     <li><span class="key">Q</span> / <span class="key">W</span> = Fotograma Atrás / Adelante</li>
                     <li><span class="key">A</span> / <span class="key">S</span> = Saltar -5s / +5s en el video</li>
                     <li><span class="key">E</span> / <span class="key">R</span> = Bajar / Subir velocidad (-/+ 0.1)</li>
-                    <li><span class="key">Supr</span> / <span class="key">Backspace</span> = Eliminar puntos seleccionados</li>
+                    <li><span class="key">M</span> = Mutear / Desmutear audio del video</li>
+                    <li><span class="key">Supr</span> = Eliminar puntos seleccionados</li>
                     <li><span class="key">Click Izq</span> = Seleccionar un punto individual</li>
-                    <li><span class="key">Click Izq + Arrastrar</span> = Cuadro de Selección múltiple</li>
-                    <li><span class="key">Shift + Rueda Ratón</span> = Moverse en la línea de tiempo (Pan lateral)</li>
-                    <li><span class="key">Rueda del Ratón</span> = Zoom centrado en la línea roja</li>
+                    <li><span class="key">Arrastrar Mouse</span> = Cuadro de Selección múltiple</li>
+                    <li><span class="key">Rueda del Ratón</span> = Zoom centrado en línea roja</li>
+                    <li><span class="key">Shift + Rueda Ratón</span> = Desplazamiento lateral</li>
                 </ul>
             </div>
         </div>
 
         <!-- Panel 3: Consola -->
-        <div id="panel-actions" class="workspace-panel">
-            <div class="panel-header">📊 Últimas Acciones JSON</div>
+        <div id="panel-actions" class="workspace-panel" data-title="📊 JSON Log">
+            <div class="panel-header"></div>
             <div class="panel-content">
                 <div id="actions-log" class="log-container">
                     <span class="empty-log">Sin puntos registrados aún</span>
@@ -51,8 +52,8 @@
         </div>
 
         <!-- Panel 4: Presets -->
-        <div id="panel-presets" class="workspace-panel">
-            <div class="panel-header">💾 Presets de Ritmo Seleccionado</div>
+        <div id="panel-presets" class="workspace-panel" data-title="💾 Presets">
+            <div class="panel-header"></div>
             <div class="panel-content">
                 <button id="save-preset-btn" class="btn">Guardar Puntos Seleccionados</button>
                 <div id="presets-list" class="presets-grid"></div>
@@ -60,12 +61,9 @@
         </div>
 
         <!-- Panel 5: Línea de Tiempo -->
-        <div id="panel-timeline" class="workspace-panel full-width">
-            <div class="panel-header">
-                <span>📈 Línea de Tiempo Profesional</span>
-                <span id="zoom-indicator">Zoom: 1.0x | Pan: 0</span>
-            </div>
-            <div class="panel-content">
+        <div id="panel-timeline" class="workspace-panel full-width" data-title="📈 Timeline">
+            <div class="panel-header"></div>
+            <div class="panel-content" style="height: calc(100% - 10px);">
                 <canvas id="timeline-canvas"></canvas>
                 <div class="timeline-footer">
                     <button id="export-btn" class="btn success-btn">⬇ Exportar Archivo .funscript</button>
