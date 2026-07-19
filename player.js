@@ -1,5 +1,5 @@
 // ==========================================================================
-// CONTROL DEL REPRODUCTOR V1.8: COMPATIBILIDAD CON PROGRESO EXTERNO
+// CONTROL DEL REPRODUCTOR V1.9: CORRECCIÓN COMPLETA DE INTERCEPCIÓN CTRL
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -7,7 +7,7 @@ const videoPlayer = document.getElementById('video-player');
 const speedDisplay = document.getElementById('speed-display');
 const videoFilename = document.getElementById('video-filename');
 const videoSpecs = document.getElementById('video-specs');
-const videoProgress = document.getElementById('video-progress'); // Captura de barra externa
+const videoProgress = document.getElementById('video-progress');
 
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
@@ -24,7 +24,6 @@ videoInput.addEventListener('change', function(event) {
     }
 });
 
-// NUEVO: Sincronizar movimiento del video hacia la barra externa
 videoPlayer.addEventListener('timeupdate', () => {
     if (videoPlayer.duration && videoProgress) {
         const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
@@ -32,7 +31,6 @@ videoPlayer.addEventListener('timeupdate', () => {
     }
 });
 
-// NUEVO: Cambiar tiempo del video al arrastrar la barra con el mouse
 videoProgress?.addEventListener('input', () => {
     if (videoPlayer.duration) {
         const targetTime = (videoProgress.value / 100) * videoPlayer.duration;
@@ -67,6 +65,10 @@ videoPlayer.addEventListener('loadedmetadata', function() {
 
 window.addEventListener('keydown', function(event) {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
+    
+    // FIJACIÓN DE SEGURIDAD CRÍTICA: Si se presiona Ctrl, el reproductor cede el control por completo
+    if (event.ctrlKey) return; 
+
     const key = event.key.toLowerCase();
 
     if (event.code === 'Space') {
@@ -81,6 +83,7 @@ window.addEventListener('keydown', function(event) {
         event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1);
         videoPlayer.playbackRate = currentSpeed; speedDisplay.innerText = `${currentSpeed.toFixed(1)}x`;
     }
+    
     const fps = window.videoFPS || 30;
     const stepTime = 3 / fps; 
 
