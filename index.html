@@ -23,11 +23,11 @@
     <!-- CONTENEDOR FLUIDO TOTAL -->
     <div id="workspace" class="workspace-container">
         
-        <!-- Panel 1: Reproductor de Video con Capa IA Doble -->
+        <!-- Panel 1: Reproductor de Video con Capa IA -->
         <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
             <div class="panel-content">
                 <div style="position: relative; width: 100%; flex-grow: 1; background: #000; border-radius: 8px; overflow: hidden;">
-                    <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%"></video>
+                    <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%;"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 5; cursor: crosshair; display: none;"></canvas>
                 </div>
                 
@@ -49,14 +49,14 @@
         <!-- Panel 2: Controles y Atajos -->
         <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
             <div class="panel-content">
-                <ul class="hotkey-list" style="font-size: 0.8rem; padding-left: 5px; margin: 0; gap: 4px;">
-                    <li><span class="key">Arrastrar 1</span> = Fijar Tracker 1 (Base/Anclaje)</li>
-                    <li><span class="key">Arrastrar 2</span> = Fijar Tracker 2 (Cuerpo Móvil)</li>
-                    <li><span class="key">+</span> / <span class="key">-</span> = Ajustar sensibilidad del rango IA</li>
-                    <li><span class="key">U</span> / <span class="key">I</span> = Mover la línea divisoria de la **Base** (-/+)</li>
-                    <li><span class="key">O</span> / <span class="key">P</span> = Mover la línea divisoria de la **Cabeza** (-/+)</li>
-                    <li><span class="key">B</span> / <span class="key">N</span> = Navegar entre nodos con auto-selección</li>
-                    <li><span class="key">Q</span> / <span class="key">W</span> = Salto fluido de 3 fotogramas de video</li>
+                <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
+                    <li><span class="key">Arrastrar Mouse 1</span> = Cuadro Azul (Hombre)</li>
+                    <li><span class="key">Arrastrar Mouse 2</span> = Cuadro Rosa (Mujer)</li>
+                    <li><span class="key">Click + Arrastrar dentro</span> = Mover/Corregir trackers</li>
+                    <li><span class="key">Click en Líneas de Barra</span> = Ajustar Base/Cabeza con Mouse</li>
+                    <li><span class="key">Ctrl + A</span> = Seleccionar todos los puntos de la pista</li>
+                    <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
+                    <li><span class="key">B</span> / <span class="key">N</span> = Navegar entre nodos en azul/naranja</li>
                 </ul>
             </div>
         </div>
