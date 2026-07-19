@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FunScript Studio - Editor Local</title>
+    <!-- Vinculamos el archivo de estilos que crearemos después -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Contenedor principal del Workspace (Móvil/Arrastrable en PC) -->
+    <div id="workspace" class="workspace-container">
+        
+        <!-- Panel 1: Reproductor de Video -->
+        <div id="panel-video" class="workspace-panel">
+            <div class="panel-header">🎥 Reproductor Local</div>
+            <div class="panel-content">
+                <input type="file" id="video-input" accept="video/*" class="file-selector">
+                <video id="video-player" controls disablepictureinpicture controlslist="nodownload"></video>
+                <div class="video-controls">
+                    <label for="speed-control">Velocidad:</label>
+                    <select id="speed-control">
+                        <option value="0.25">0.25x (Ultra preciso)</option>
+                        <option value="0.50" selected>0.50x (Recomendado)</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="1.00">1.00x (Normal)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel 2: Mapeo y Atajos de Teclado -->
+        <div id="panel-keyboard" class="workspace-panel">
+            <div class="panel-header">⌨️ Atajos de Teclado (0-9)</div>
+            <div class="panel-content">
+                <p>Usa los números para fijar la posición exacta:</p>
+                <ul class="hotkey-list">
+                    <li><span class="key">1</span> a <span class="key">9</span> = 10% a 90%</li>
+                    <li><span class="key">0</span> = 0% (Base total)</li>
+                    <li><span class="key">Q</span> = 100% (Cabeza total)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Panel 3: Consola de Acciones Recientes -->
+        <div id="panel-actions" class="workspace-panel">
+            <div class="panel-header">📊 Últimas Acciones JSON</div>
+            <div class="panel-content">
+                <div id="actions-log" class="log-container">
+                    <!-- Los puntos creados aparecerán aquí dinámicamente -->
+                    <span class="empty-log">Sin puntos registrados aún</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel 4: Gestión de Presets -->
+        <div id="panel-presets" class="workspace-panel">
+            <div class="panel-header">💾 Presets de Ritmo</div>
+            <div class="panel-content">
+                <button id="save-preset-btn" class="btn">Guardar Selección como Preset</button>
+                <div id="presets-list" class="presets-grid">
+                    <!-- Aquí se listarán tus macros guardadas -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel 5: Línea de Tiempo Canvas (Ocupa el ancho inferior) -->
+        <div id="panel-timeline" class="workspace-panel full-width">
+            <div class="panel-header">
+                <span>📈 Línea de Tiempo Vectorial</span>
+                <span id="zoom-indicator">Zoom: 1:1</span>
+            </div>
+            <div class="panel-content">
+                <!-- El Canvas donde pintaremos los nodos verdes y rojos -->
+                <canvas id="timeline-canvas"></canvas>
+                <div class="timeline-footer">
+                    <button id="export-btn" class="btn success-btn">⬇ Exportar Archivo .funscript</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Vinculamos los scripts lógicos independientes que darán vida a la app -->
+    <script src="workspace.js"></script>
+    <script src="player.js"></script>
+    <script src="timeline.js"></script>
+    <script src="presets.js"></script>
+    <script src="funscript.js"></script>
+</body>
+</html>
