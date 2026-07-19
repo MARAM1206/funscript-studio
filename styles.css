@@ -1,0 +1,202 @@
+/* ==========================================================================
+   1. CONFIGURACIÓN GENERAL Y TEMA OSCURO
+   ========================================================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #0f172a; /* Fondo gris oscuro/azul (Slate 900) */
+    color: #e2e8f0;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* Contenedor principal del espacio de trabajo en PC */
+.workspace-container {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 15px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* ==========================================================================
+   2. ESTILO DE LOS PANELES MODULARES
+   ========================================================================== */
+.workspace-panel {
+    background-color: #1e293b; /* Fondo de cada panel (Slate 800) */
+    border: 1px solid #334155;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Cabecera de los paneles (donde se hará clic para arrastrar en el futuro) */
+.panel-header {
+    background-color: #1e293b;
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-bottom: 1px solid #334155;
+    cursor: move; /* Indica visualmente que se puede mover */
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-content {
+    padding: 16px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ==========================================================================
+   3. ASIGNACIÓN DE TAMAÑOS EN LA REJILLA DE PC
+   ========================================================================== */
+#panel-video {
+    grid-column: span 8; /* Ocupa 8 de las 12 columnas */
+}
+
+#panel-keyboard {
+    grid-column: span 4; /* Ocupa las 4 restantes a la derecha */
+}
+
+#panel-actions {
+    grid-column: span 4;
+}
+
+#panel-presets {
+    grid-column: span 8;
+}
+
+.full-width {
+    grid-column: span 12 !important; /* La línea de tiempo ocupa todo el ancho inferior */
+}
+
+/* ==========================================================================
+   4. COMPONENTES ESPECÍFICOS (Video, Teclado, Línea de tiempo)
+   ========================================================================== */
+
+/* Reproductor de Video */
+#video-player {
+    width: 100%;
+    border-radius: 6px;
+    background-color: #020617;
+    max-height: 400px;
+    object-fit: contain;
+}
+
+.file-selector {
+    padding: 8px;
+    background: #020617;
+    border: 1px dashed #475569;
+    border-radius: 6px;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.video-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.video-controls select {
+    background: #020617;
+    color: #e2e8f0;
+    border: 1px solid #475569;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Lista de Atajos */
+.hotkey-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hotkey-list li {
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+.key {
+    background-color: #020617;
+    color: #38bdf8; /* Azul brillante para resaltar la tecla */
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-weight: bold;
+    border: 1px solid #334155;
+}
+
+/* Consola de últimas acciones JSON */
+.log-container {
+    background-color: #020617;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    height: 150px;
+    overflow-y: auto;
+    border: 1px solid #1e293b;
+}
+
+.empty-log {
+    color: #475569;
+    font-style: italic;
+}
+
+/* Botones */
+.btn {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn:hover {
+    background-color: #1d4ed8;
+}
+
+.success-btn {
+    background-color: #16a34a;
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+}
+
+.success-btn:hover {
+    background-color: #15803d;
+}
+
+/* Canvas de la Línea de Tiempo */
+#timeline-canvas {
+    width: 100%;
+    height: 120px;
+    background-color: #020617;
+    border-radius: 6px;
+    border: 1px solid #334155;
+}
+
+.timeline-footer {
+    margin-top: 10px;
+}
