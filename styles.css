@@ -16,7 +16,6 @@ body {
     width: 100vw;
 }
 
-/* CONTENEDOR CORREGIDO: Ocupa el 100% de la pantalla real sin muros artificiales */
 .workspace-container {
     position: relative;
     width: 100vw;
@@ -27,7 +26,6 @@ body {
     overflow: hidden;
 }
 
-/* Componentes de los Paneles Flotantes */
 .workspace-panel {
     position: absolute;
     background: #0f131a;
@@ -48,7 +46,53 @@ body {
     border-radius: 14px;
 }
 
-/* Consola de Acciones JSON */
+/* CORRECCIÓN DE LIENZO: Video mantiene fondo negro, Canvas IA es transparente */
+video {
+    width: 100% !important;
+    height: 100% !important;
+    background: #000;
+    border-radius: 8px;
+}
+
+#tracking-canvas {
+    background: transparent !important;
+}
+
+/* NUEVA BARRA DE PROGRESO EXTERNA ESTILIZADA */
+.progress-bar-container {
+    width: 100%;
+    margin: 4px 0;
+    display: flex;
+    align-items: center;
+}
+
+.custom-progress {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #1e293b;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.custom-progress::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #2563eb;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.custom-progress::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+    background: #3b82f6;
+}
+
 .log-container {
     background-color: #020617;
     border-radius: 8px;
@@ -60,46 +104,18 @@ body {
     border: 1px solid #141b25;
 }
 
-.empty-log {
-    color: #475569;
-    font-style: italic;
-}
+.empty-log { color: #475569; font-style: italic; }
 
-/* Botones e Interfaz */
 .btn {
-    background-color: #2563eb;
-    color: #ffffff;
-    border: none;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
+    background-color: #2563eb; color: #ffffff; border: none;
+    padding: 8px 14px; border-radius: 8px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s;
 }
+.btn:hover { background-color: #1d4ed8; }
 
-.btn:hover {
-    background-color: #1d4ed8;
-}
-
-/* Lista de atajos de teclado */
-.hotkey-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.hotkey-list li {
-    font-size: 0.85rem;
-    color: #94a3b8;
-}
-
+.hotkey-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.hotkey-list li { font-size: 0.85rem; color: #94a3b8; }
 .key {
-    background-color: #020617;
-    color: #38bdf8;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-weight: bold;
-    border: 1px solid #1e293b;
+    background-color: #020617; color: #38bdf8; padding: 2px 6px;
+    border-radius: 4px; font-family: monospace; font-weight: bold; border: 1px solid #1e293b;
 }
