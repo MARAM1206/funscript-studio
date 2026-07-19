@@ -8,13 +8,27 @@
 </head>
 <body>
 
+    <!-- MENÚ SUPERIOR UNIFICADO DE ALTA PRECISIÓN -->
+    <div class="top-bar-menu">
+        <div class="top-left-actions">
+            <button id="export-btn" class="menu-btn success-btn">⬇ Exportar Archivo .funscript</button>
+        </div>
+        <div id="top-center-toggles" class="top-center-toggles">
+            <!-- Los botones de alternar paneles se inyectan aquí -->
+        </div>
+        <div class="top-right-actions">
+            <label for="video-input" class="menu-btn select-btn">📁 Seleccionar Video</label>
+            <input type="file" id="video-input" accept="video/*" style="display: none;">
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE PANTALLA COMPLETA -->
     <div id="workspace" class="workspace-container">
         
         <!-- Panel 1: Reproductor de Video -->
         <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
             <div class="panel-header"></div>
             <div class="panel-content">
-                <input type="file" id="video-input" accept="video/*" class="file-selector">
                 <video id="video-player" controls disablepictureinpicture controlslist="nodownload"></video>
                 <div class="video-controls">
                     <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
@@ -26,7 +40,7 @@
         <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
             <div class="panel-header"></div>
             <div class="panel-content">
-                <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px;">
+                <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
                     <li><span class="key">0</span> = 0% | <span class="key">1</span>-<span class="key">9</span> = 10%-90% | <span class="key">Intro</span> = 100%</li>
                     <li><span class="key">Q</span> / <span class="key">W</span> = Fotograma Atrás / Adelante</li>
                     <li><span class="key">A</span> / <span class="key">S</span> = Saltar -5s / +5s en el video</li>
@@ -61,13 +75,10 @@
         </div>
 
         <!-- Panel 5: Línea de Tiempo -->
-        <div id="panel-timeline" class="workspace-panel full-width" data-title="📈 Timeline">
+        <div id="panel-timeline" class="workspace-panel" data-title="📈 Timeline">
             <div class="panel-header"></div>
-            <div class="panel-content" style="height: calc(100% - 10px);">
+            <div class="panel-content">
                 <canvas id="timeline-canvas"></canvas>
-                <div class="timeline-footer">
-                    <button id="export-btn" class="btn success-btn">⬇ Exportar Archivo .funscript</button>
-                </div>
             </div>
         </div>
 
