@@ -1,505 +1,89 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Creador y Editor de FunScript AI</title>
-  <style>
-    :root {
-      --bg-color: #121214;
-      --card-bg: #1e1e24;
-      --primary: #00e676;
-      --primary-dark: #00b359;
-      --accent: #29b6f6;
-      --text: #ffffff;
-      --text-dim: #a0a0a0;
-      --border: #33333c;
-    }
+<!-- MENÚ SUPERIOR INTERCAMBIADO CON IMPORTACIÓN IA INTEGRADA -->
+<div class="top-bar-menu">
+    <div class="top-left-actions" style="display: flex; align-items: center;">
+        <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Seleccionar Video</label>
+        <input type="file" id="video-input" accept="video/*" style="display: none;">
+        
+        <!-- BOTÓN VERDE MAESTRO PARA IMPORTAR LOS DATOS DE LA IA DE PYTHON -->
+        <label for="json-ia-input" class="menu-btn" style="background: #10b981; margin-left: 10px; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none; transition: background 0.2s;">📥 Importar Datos IA</label>
+        <input type="file" id="json-ia-input" accept=".json" style="display: none;">
+    </div>
+    <div id="top-center-toggles" class="top-center-toggles"></div>
+    <div class="top-right-actions">
+        <button id="export-btn" class="menu-btn success-btn">⬇ Exportar Archivo .funscript</button>
+    </div>
+</div>
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
+<!-- CONTENEDOR FLUIDO TOTAL -->
+<div id="workspace" class="workspace-container">
+    
+    <!-- Panel 1: Reproductor de Video con Capa IA -->
+    <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
+        <div class="panel-content">
+            <div style="position: relative; width: 100%; flex-grow: 1; background: #000; border-radius: 8px; overflow: hidden;">
+                <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%;"></video>
+                <canvas id="tracking-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 5; cursor: crosshair; display: none;"></canvas>
+            </div>
+            
+            <div class="progress-bar-container">
+                <input type="range" id="video-progress" class="custom-progress" min="0" max="100" value="0" step="0.05">
+            </div>
 
-    body {
-      background-color: var(--bg-color);
-      color: var(--text);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <div id="video-filename" style="font-size: 0.7rem; color: #475569; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%;">Sin archivo seleccionado</div>
+                <div id="video-specs" style="font-size: 0.7rem; color: #64748b; font-family: monospace; font-weight: bold; text-align: right;"></div>
+            </div>
+            <div class="video-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
+                <button id="toggle-ai-btn" class="btn" style="background: #7c3aed; padding: 4px 10px; font-size: 0.75rem;">🤖 Activar IA Tracking</button>
+            </div>
+        </div>
+    </div>
 
-    /* BARRA SUPERIOR */
-    header {
-      background-color: var(--card-bg);
-      padding: 12px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border);
-    }
+    <!-- Panel 2: Controles y Atajos -->
+    <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
+        <div class="panel-content">
+            <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
+                <li><span class="key">Arrastrar Mouse 1</span> = Cuadro Azul (Hombre)</li>
+                <li><span class="key">Arrastrar Mouse 2</span> = Cuadro Rosa (Mujer)</li>
+                <li><span class="key">Click + Arrastrar dentro</span> = Mover/Corregir trackers</li>
+                <li><span class="key">Click en Líneas de Barra</span> = Ajustar Base/Cabeza con Mouse</li>
+                <li><span class="key">Ctrl + A</span> = Seleccionar todos los puntos de la pista</li>
+                <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
+                <li><span class="key">B</span> / <span class="key">N</span> = Navegar entre nodos en azul/naranja</li>
+            </ul>
+        </div>
+    </div>
 
-    h1 {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: var(--primary);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    <!-- Panel 3: Consola -->
+    <div id="panel-actions" class="workspace-panel" data-title="📊 JSON Log">
+        <div class="panel-content">
+            <div id="actions-log" class="log-container">
+                <span class="empty-log">Sin puntos registrados aún</span>
+            </div>
+        </div>
+    </div>
 
-    .btn-group {
-      display: flex;
-      gap: 10px;
-    }
+    <!-- Panel 4: Presets -->
+    <div id="panel-presets" class="workspace-panel" data-title="💾 Presets">
+        <div class="panel-content">
+            <button id="save-preset-btn" class="btn">💾 Guardar Preset</button>
+            <div id="presets-list" class="presets-grid" style="margin-top: 8px; overflow-y: auto; flex-grow: 1;"></div>
+        </div>
+    </div>
 
-    button, label.btn {
-      background-color: #2a2a35;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 0.9rem;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
+    <!-- Panel 5: Línea de Tiempo -->
+    <div id="panel-timeline" class="workspace-panel" data-title="📈 Timeline">
+        <div class="panel-content">
+            <canvas id="timeline-canvas"></canvas>
+        </div>
+    </div>
 
-    button:hover, label.btn:hover {
-      background-color: #3f3f50;
-      border-color: var(--primary);
-    }
+</div>
 
-    button.primary {
-      background-color: var(--primary);
-      color: #000;
-      border: none;
-      font-weight: 600;
-    }
-
-    button.primary:hover {
-      background-color: var(--primary-dark);
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    /* CONTENEDOR PRINCIPAL */
-    main {
-      display: flex;
-      flex: 1;
-      height: calc(100vh - 60px);
-    }
-
-    /* PANEL IZQUIERDO: EDITOR Y LÍNEA DE TIEMPO */
-    .editor-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-      gap: 15px;
-      border-right: 1px solid var(--border);
-    }
-
-    .controls-bar {
-      background-color: var(--card-bg);
-      padding: 12px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      border: 1px solid var(--border);
-    }
-
-    .time-display {
-      font-family: monospace;
-      font-size: 1.1rem;
-      color: var(--accent);
-      min-width: 100px;
-    }
-
-    .canvas-container {
-      flex: 1;
-      background-color: #16161a;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      position: relative;
-      overflow: hidden;
-    }
-
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      cursor: crosshair;
-    }
-
-    /* PANEL DERECHO: VISUALIZADOR 2D (ANIMACIÓN) */
-    .visualizer-section {
-      width: 280px;
-      background-color: var(--card-bg);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      border-left: 1px solid var(--border);
-    }
-
-    .visualizer-title {
-      font-size: 0.9rem;
-      color: var(--text-dim);
-      margin-bottom: 20px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    /* SIMULADOR HANDY 2D */
-    .device-body {
-      width: 90px;
-      height: 380px;
-      background: linear-gradient(180deg, #2a2a35 0%, #1a1a22 100%);
-      border-radius: 20px;
-      border: 2px solid #444455;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    }
-
-    .device-track {
-      position: absolute;
-      top: 30px;
-      bottom: 30px;
-      width: 8px;
-      background-color: #111116;
-      border-radius: 4px;
-    }
-
-    .device-sleeve {
-      position: absolute;
-      bottom: 30px; /* Posición base (0%) */
-      width: 70px;
-      height: 70px;
-      background: linear-gradient(135deg, var(--primary) 0%, #009944 100%);
-      border-radius: 14px;
-      box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
-      transition: bottom 0.03s linear; /* Movimiento suave */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #000;
-      font-weight: bold;
-      font-size: 0.85rem;
-    }
-
-    .pos-indicator {
-      margin-top: 25px;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: var(--primary);
-      font-family: monospace;
-    }
-
-    select {
-      background: #2a2a35;
-      color: #fff;
-      border: 1px solid var(--border);
-      padding: 6px 10px;
-      border-radius: 4px;
-    }
-  </style>
-</head>
-<body>
-
-  <header>
-    <h1>⚡ FunScript Creator & Editor</h1>
-    <div class="btn-group">
-      <label class="btn">
-        📂 Importar .funscript
-        <input type="file" id="fileInput" accept=".funscript,.json">
-      </label>
-      <button class="primary" id="exportBtn">💾 Exportar .funscript</button>
-    </div>
-  </header>
-
-  <main>
-    <section class="editor-section">
-      <div class="controls-bar">
-        <button id="playBtn">▶️ Reproducir</button>
-        <button id="clearBtn">🗑️ Limpiar Todo</button>
-        <div class="time-display" id="timeDisplay">00:00.000</div>
-        
-        <label style="font-size: 0.85rem; color: var(--text-dim);">Velocidad:
-          <select id="speedSelect">
-            <option value="0.5">0.5x</option>
-            <option value="1.0" selected>1.0x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2.0">2.0x</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="canvas-container" id="canvasContainer">
-        <canvas id="scriptCanvas"></canvas>
-      </div>
-    </section>
-
-    <section class="visualizer-section">
-      <div class="visualizer-title">Vista Previa Simulador</div>
-      
-      <div class="device-body">
-        <div class="device-track"></div>
-        <div class="device-sleeve" id="sleeve">50%</div>
-      </div>
-
-      <div class="pos-indicator" id="posText">POS: 50</div>
-    </section>
-  </main>
-
-  <script>
-    // ESTADO DEL PROGRAMA
-    let actions = [
-      { at: 0, pos: 0 },
-      { at: 1000, pos: 100 },
-      { at: 2000, pos: 0 }
-    ];
-    let isPlaying = false;
-    let currentTimeMs = 0;
-    let durationMs = 10000; // 10 segundos iniciales
-    let lastTimestamp = 0;
-    let playbackSpeed = 1.0;
-
-    // ELEMENTOS DEL DOM
-    const canvas = document.getElementById('scriptCanvas');
-    const ctx = canvas.getContext('2d');
-    const container = document.getElementById('canvasContainer');
-    const playBtn = document.getElementById('playBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const fileInput = document.getElementById('fileInput');
-    const exportBtn = document.getElementById('exportBtn');
-    const timeDisplay = document.getElementById('timeDisplay');
-    const speedSelect = document.getElementById('speedSelect');
-    const sleeve = document.getElementById('sleeve');
-    const posText = document.getElementById('posText');
-
-    // AJUSTAR TAMAÑO DE CANVAS
-    function resizeCanvas() {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-      draw();
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    // DIBUJAR LÍNEA DE TIEMPO Y ACCIONES
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Dibujar cuadrícula
-      ctx.strokeStyle = '#282832';
-      ctx.lineWidth = 1;
-      for (let y = 0; y <= 100; y += 25) {
-        let canvasY = canvas.height - (y / 100 * canvas.height);
-        ctx.beginPath();
-        ctx.moveTo(0, canvasY);
-        ctx.lineTo(canvas.width, canvasY);
-        ctx.stroke();
-      }
-
-      if (actions.length === 0) return;
-
-      // Dibujar trayectoria del FunScript
-      ctx.strokeStyle = '#00e676';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-
-      actions.forEach((act, index) => {
-        let x = (act.at / durationMs) * canvas.width;
-        let y = canvas.height - (act.pos / 100 * canvas.height);
-
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-
-      // Dibujar puntos editables
-      actions.forEach(act => {
-        let x = (act.at / durationMs) * canvas.width;
-        let y = canvas.height - (act.pos / 100 * canvas.height);
-
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // Dibujar cabezal de reproducción
-      let playheadX = (currentTimeMs / durationMs) * canvas.width;
-      ctx.strokeStyle = '#29b6f6';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, canvas.height);
-      ctx.stroke();
-    }
-
-    // INTERPOLACIÓN EN TIEMPO REAL (CÁLCULO DE POSICIÓN)
-    function getCurrentPosition(timeMs) {
-      if (actions.length === 0) return 0;
-      if (timeMs <= actions[0].at) return actions[0].pos;
-      if (timeMs >= actions[actions.length - 1].at) return actions[actions.length - 1].pos;
-
-      for (let i = 0; i < actions.length - 1; i++) {
-        let a1 = actions[i];
-        let a2 = actions[i + 1];
-        if (timeMs >= a1.at && timeMs <= a2.at) {
-          let factor = (timeMs - a1.at) / (a2.at - a1.at);
-          return a1.pos + factor * (a2.pos - a1.pos);
-        }
-      }
-      return 0;
-    }
-
-    // ACTUALIZAR EL SIMULADOR 2D
-    function updateVisualizer() {
-      let currentPos = Math.round(getCurrentPosition(currentTimeMs));
-      
-      // Mapear posición (0% a 100%) al rango de altura del riel
-      // El riel mide 320px utiles (de bottom: 30px a bottom: 280px)
-      let minBottom = 30;
-      let maxBottom = 280;
-      let calculatedBottom = minBottom + (currentPos / 100) * (maxBottom - minBottom);
-
-      sleeve.style.bottom = `${calculatedBottom}px`;
-      sleeve.textContent = `${currentPos}%`;
-      posText.textContent = `POS: ${currentPos}`;
-
-      // Formato de tiempo
-      let seconds = (currentTimeMs / 1000).toFixed(3);
-      timeDisplay.textContent = `${seconds}s`;
-    }
-
-    // BUCLE DE REPRODUCCIÓN (ANIMACIÓN)
-    function animationLoop(timestamp) {
-      if (!lastTimestamp) lastTimestamp = timestamp;
-      let delta = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-
-      if (isPlaying) {
-        currentTimeMs += delta * playbackSpeed;
-        if (currentTimeMs > durationMs) {
-          currentTimeMs = 0; // Bucle
-        }
-        draw();
-        updateVisualizer();
-      }
-
-      requestAnimationFrame(animationLoop);
-    }
-    requestAnimationFrame(animationLoop);
-
-    // CONTROLES
-    playBtn.addEventListener('click', () => {
-      isPlaying = !isPlaying;
-      playBtn.textContent = isPlaying ? '⏸️ Pausar' : '▶️ Reproducir';
-      lastTimestamp = 0;
-    });
-
-    clearBtn.addEventListener('click', () => {
-      actions = [];
-      currentTimeMs = 0;
-      draw();
-      updateVisualizer();
-    });
-
-    speedSelect.addEventListener('change', (e) => {
-      playbackSpeed = parseFloat(e.target.value);
-    });
-
-    // CLICS EN EL CANVAS PARA AGREGAR/EDITAR PUNTOS
-    canvas.addEventListener('click', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-
-      let clickedAt = Math.round((clickX / canvas.width) * durationMs);
-      let clickedPos = Math.round(100 - (clickY / canvas.height) * 100);
-
-      clickedPos = Math.max(0, Math.min(100, clickedPos));
-
-      // Agregar o reemplazar punto en esa posición temporal
-      actions = actions.filter(a => Math.abs(a.at - clickedAt) > 100);
-      actions.push({ at: clickedAt, pos: clickedPos });
-      actions.sort((a, b) => a.at - b.at);
-
-      draw();
-      updateVisualizer();
-    });
-
-    // FUNCIONALIDAD 1: IMPORTAR .FUNSCRIPT
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        try {
-          const data = JSON.parse(evt.target.result);
-          if (data && data.actions && Array.isArray(data.actions)) {
-            actions = data.actions;
-            actions.sort((a, b) => a.at - b.at);
-
-            // Ajustar duración máxima según el último punto
-            if (actions.length > 0) {
-              durationMs = Math.max(10000, actions[actions.length - 1].at + 1000);
-            }
-            currentTimeMs = 0;
-            draw();
-            updateVisualizer();
-            alert(`✅ ¡FunScript importado con éxito! (${actions.length} acciones cargadas)`);
-          } else {
-            alert('❌ El archivo no tiene una estructura de FunScript válida.');
-          }
-        } catch (err) {
-          alert('❌ Error al leer el archivo JSON/FunScript.');
-        }
-      };
-      reader.readAsText(file);
-    });
-
-    // FUNCIONALIDAD 2: EXPORTAR .FUNSCRIPT
-    exportBtn.addEventListener('click', () => {
-      if (actions.length === 0) {
-        alert('⚠️ No hay acciones registradas para exportar.');
-        return;
-      }
-
-      const funscriptData = {
-        version: "1.0",
-        inverted: false,
-        range: 100,
-        actions: actions
-      };
-
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(funscriptData, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", "mi_script_editado.funscript");
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    });
-
-    // INICIALIZACIÓN
-    resizeCanvas();
-    updateVisualizer();
-  </script>
-</body>
-</html>
+<script src="workspace.js"></script>
+<script src="player.js"></script>
+<script src="timeline.js"></script>
+<script src="presets.js"></script>
+<script src="tracking.js"></script>
+<script src="funscript.js"></script>
