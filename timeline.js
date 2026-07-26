@@ -1,19 +1,17 @@
 // ==========================================================================
-// TIMELINE V2.0: NÚCLEO VECTORIAL COMPLETO CON CTRL+A E INYECCIÓN DINÁMICA
+// TIMELINE V3.0: RENDERIZADO MULTI-PISTA Y CONEXIÓN CON DESLIZADOR 5%
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas ? canvas.getContext('2d') : null;
 const actionsLog = document.getElementById('actions-log');
+const pointSlider = document.getElementById('point-slider');
+const sliderValueDisplay = document.getElementById('slider-value-display');
 
-let funscriptActions = [];
+window.funscriptActions = [];
 let undoStack = [];
 let redoStack = [];
 const MAX_HISTORY = 50;
-let clipboard = [];
-
-window.timelineGhostPreset = null;
-window.timelineGhostMouseX = -1;
 
 let zoom = 1.0; 
 let basePixelsPerMs = 0.05; 
@@ -22,12 +20,9 @@ let panX = 0;
 let isSelecting = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
-let isNavigatingBN = false;
-
-// Control del hilo gráfico asíncrono
-let isLoopRunning = false;
 
 function resizeCanvas() {
+    if (!canvas) return;
     const parent = canvas.parentElement;
     if (parent && parent.clientWidth > 0) {
         canvas.width = parent.clientWidth;
@@ -37,434 +32,369 @@ function resizeCanvas() {
     drawTimeline();
 }
 window.addEventListener('resize', resizeCanvas);
-setTimeout(resizeCanvas, 500);
+setTimeout(resizeCanvas, 300);
 
 function calculateAdaptiveZoom() {
-    if (videoPlayer && videoPlayer.duration) {
-        const timeWindow = Math.min(videoPlayer.duration * 1000, 25000);
+    if (!canvas) return;
+    if (window.videoPlayer && window.videoPlayer.duration) {
+        const timeWindow = Math.min(window.videoPlayer.duration * 1000, 25000);
         basePixelsPerMs = (canvas.width - 60) / timeWindow;
-    } else {
-        basePixelsPerMs = (canvas.width - 60) / 25000;
     }
-}
-
-// HILO DE RENDERIZADO OPTIMIZADO: Solo corre si el video está en reproducción real
-function smoothTimelineLoop() {
-    if (videoPlayer && !videoPlayer.paused) {
-        panX = 0; 
-        if (!isNavigatingBN && funscriptActions.some(act => act.selected)) {
-            funscriptActions.forEach(act => act.selected = false);
-            updateActionsLog();
-        }
-        drawTimeline();
-        requestAnimationFrame(smoothTimelineLoop); 
-    } else {
-        isLoopRunning = false; 
-    }
-}
-
-if (videoPlayer) {
-    videoPlayer.addEventListener('play', () => {
-        if (!isLoopRunning) {
-            isLoopRunning = true;
-            smoothTimelineLoop(); 
-        }
-    });
-    
-    videoPlayer.addEventListener('pause', () => {
-        drawTimeline(); // Dibuja frame estático nítido al pausar
-    });
-    
-    videoPlayer.addEventListener('seeking', () => {
-        if (!isNavigatingBN) funscriptActions.forEach(act => act.selected = false);
-        drawTimeline();
-    });
-
-    videoPlayer.addEventListener('timeupdate', () => {
-        if (videoPlayer.paused) {
-            drawTimeline(); // Renderizado preciso cuadro por cuadro en pausa (Q/W)
-        }
-    });
-
-    videoPlayer.addEventListener('loadedmetadata', () => {
-        calculateAdaptiveZoom(); zoom = 1.0; panX = 0;
-        drawTimeline();
-    });
-}
-
-function timeToX(timeMs) {
-    const center = canvas.width / 2;
-    const currentTimeMs = (videoPlayer && videoPlayer.src) ? videoPlayer.currentTime * 1000 : 0;
-    const deltaMs = timeMs - currentTimeMs;
-    return center + panX + (deltaMs * basePixelsPerMs * zoom);
-}
-
-document.getElementById('video-progress')?.addEventListener('input', () => {
-    funscriptActions.forEach(act => act.selected = false);
-    drawTimeline();
-});
-
-function xToTime(xPos) {
-    const center = canvas.width / 2;
-    const currentTimeMs = (videoPlayer && videoPlayer.src) ? videoPlayer.currentTime * 1000 : 0;
-    const deltaX = xPos - center - panX;
-    return (deltaX / (basePixelsPerMs * zoom)) + currentTimeMs;
-}
-
-function getMousePos(event) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-        x: (event.clientX - rect.left) * (canvas.width / rect.width),
-        y: (event.clientY - rect.top) * (canvas.height / rect.height)
-    };
 }
 
 function saveHistoryState() {
-    undoStack.push(funscriptActions.map(act => ({ ...act })));
+    undoStack.push(JSON.stringify(window.funscriptActions));
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
     redoStack = [];
 }
 
-function executeUndo() {
-    if (undoStack.length === 0) return;
-    redoStack.push(funscriptActions.map(act => ({ ...act })));
-    funscriptActions = undoStack.pop();
-    updateActionsLog(); drawTimeline();
-}
-
-function executeRedo() {
-    if (redoStack.length === 0) return;
-    undoStack.push(funscriptActions.map(act => ({ ...act })));
-    funscriptActions = redoStack.pop();
-    updateActionsLog(); drawTimeline();
-}
-window.saveHistoryState = saveHistoryState;
-
-// ==========================================================================
-// CAPTURA DE TECLADO Y ATAJOS MAESTROS
-// ==========================================================================
-window.addEventListener('keydown', function(event) {
-    if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') return;
-    const key = event.key.toLowerCase();
-
-    if (event.ctrlKey && key === 'z') { event.preventDefault(); executeUndo(); return; }
-    if (event.ctrlKey && key === 'y') { event.preventDefault(); executeRedo(); return; }
-
-    // INTEGRACIÓN MAESTRA: CTRL + A (SELECCIONAR TODO EL TIMELINE)
-    if (event.ctrlKey && key === 'a') {
-        event.preventDefault();
-        if (funscriptActions.length > 0) {
-            funscriptActions.forEach(act => act.selected = true);
-            updateActionsLog(); drawTimeline();
-        }
-        return;
-    }
-
-    if (key === 'b') {
-        event.preventDefault();
-        if (funscriptActions.length === 0 || !videoPlayer.src) return;
-        const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
-        const prevAct = [...funscriptActions].reverse().find(act => act.at < currentTimeMs - 6);
-        if (prevAct) {
-            isNavigatingBN = true;
-            funscriptActions.forEach(act => act.selected = false);
-            prevAct.selected = true; 
-            videoPlayer.currentTime = prevAct.at / 1000;
-            updateActionsLog(); drawTimeline();
-            setTimeout(() => { isNavigatingBN = false; }, 80);
-        }
-        return;
-    }
-    if (key === 'n') {
-        event.preventDefault();
-        if (funscriptActions.length === 0 || !videoPlayer.src) return;
-        const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
-        const nextAct = funscriptActions.find(act => act.at > currentTimeMs + 6);
-        if (nextAct) {
-            isNavigatingBN = true;
-            funscriptActions.forEach(act => act.selected = false);
-            nextAct.selected = true; 
-            videoPlayer.currentTime = nextAct.at / 1000;
-            updateActionsLog(); drawTimeline();
-            setTimeout(() => { isNavigatingBN = false; }, 80);
-        }
-        return;
-    }
-
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
-        const selected = funscriptActions.filter(act => act.selected);
-        if (selected.length > 0) {
-            event.preventDefault();
-            saveHistoryState();
-            selected.forEach(act => {
-                if (key === 'arrowup') act.pos = Math.min(100, act.pos + 5);
-                if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 5);
-                if (key === 'arrowleft') act.at = Math.max(0, act.at - 100);
-                if (key === 'arrowright') act.at = act.at + 100;
-            });
-            funscriptActions.sort((a, b) => a.at - b.at);
-            updateActionsLog(); drawTimeline();
-        }
-        return;
-    }
-
-    if (event.ctrlKey && key === 'c') {
-        event.preventDefault();
-        const selected = funscriptActions.filter(act => act.selected);
-        if (selected.length > 0) {
-            const baseTime = selected[0].at;
-            clipboard = selected.map(act => ({ relAt: act.at - baseTime, pos: act.pos }));
-        }
-        return;
-    }
-
-    if (event.ctrlKey && key === 'v') {
-        event.preventDefault();
-        if (clipboard.length > 0 && videoPlayer.src) {
-            saveHistoryState();
-            const currentTimeMs = Math.floor(videoPlayer.currentTime * 1000);
-            clipboard.forEach(item => {
-                const targetTime = currentTimeMs + item.relAt;
-                funscriptActions = funscriptActions.filter(act => act.at !== targetTime);
-                funscriptActions.push({ at: targetTime, pos: item.pos, selected: false });
-            });
-            funscriptActions.sort((a, b) => a.at - b.at);
-            updateActionsLog(); drawTimeline();
-        }
-        return;
-    }
-
-    let position = null;
-    if (key >= '1' && key <= '9') position = parseInt(key) * 10;
-    else if (key === '0') position = 0;
-    else if (event.code === 'NumpadEnter' || event.key === 'Enter') {
-        event.preventDefault(); position = 100;
-    }
-
-    if (position !== null && videoPlayer.src) {
-        event.preventDefault();
-        saveHistoryState();
-        const timeMs = Math.floor(videoPlayer.currentTime * 1000);
-        addAction(timeMs, position);
-    }
-
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault();
-        if (funscriptActions.some(act => act.selected)) {
-            saveHistoryState();
-            funscriptActions = funscriptActions.filter(act => !act.selected);
-            updateActionsLog(); drawTimeline();
-        }
-    }
-});
-
-function addAction(timeMs, position) {
-    funscriptActions = funscriptActions.filter(act => act.at !== timeMs);
-    funscriptActions.push({ at: timeMs, pos: position, selected: false });
-    funscriptActions.sort((a, b) => a.at - b.at);
-    updateActionsLog(); drawTimeline();
-}
-
-// ==========================================================================
-// DRAG & DROP E INTERACCIONES DE RATÓN
-// ==========================================================================
-canvas.addEventListener('dragover', function(event) {
-    event.preventDefault();
-    if (!window.timelineGhostPreset) return;
-    const pos = getMousePos(event);
-    const centerFixedX = canvas.width / 2 + panX;
-    if (Math.abs(pos.x - centerFixedX) < 25) window.timelineGhostMouseX = centerFixedX;
-    else window.timelineGhostMouseX = pos.x;
-    drawTimeline();
-});
-
-canvas.addEventListener('dragleave', function() { window.timelineGhostMouseX = -1; drawTimeline(); });
-
-canvas.addEventListener('drop', function(event) {
-    event.preventDefault();
-    if (!window.timelineGhostPreset || !videoPlayer.src) return;
-    const dropX = (window.timelineGhostMouseX !== -1) ? window.timelineGhostMouseX : getMousePos(event).x;
-    const targetTimeMs = Math.floor(xToTime(dropX));
-    
-    saveHistoryState();
-    window.timelineGhostPreset.forEach(presetAct => {
-        const finalTime = targetTimeMs + presetAct.at;
-        if (finalTime >= 0) {
-            funscriptActions = funscriptActions.filter(act => act.at !== finalTime);
-            funscriptActions.push({ at: finalTime, pos: presetAct.pos, selected: false });
-        }
-    });
-    funscriptActions.sort((a, b) => a.at - b.at);
-    window.timelineGhostPreset = null; window.timelineGhostMouseX = -1;
-    updateActionsLog(); drawTimeline();
-});
-
-canvas.addEventListener('wheel', function(event) {
-    event.preventDefault();
-    if (event.shiftKey) panX -= event.deltaY * 0.7;
-    else {
-        if (event.deltaY < 0) zoom = Math.min(40.0, zoom + 0.15);
-        else zoom = Math.max(0.5, zoom - 0.15);
-        if (zoom === 1.0) panX = 0;
-    }
-    drawTimeline();
-});
-
-canvas.addEventListener('mousedown', function(event) {
-    if (event.shiftKey) return;
-    const pos = getMousePos(event);
-    startX = pos.x; startY = pos.y;
-    const h = canvas.height;
-    let clickedANode = false;
-
-    funscriptActions.forEach(action => {
-        const renderX = timeToX(action.at);
-        const renderY = h - (action.pos / 100) * h;
-
-        if (Math.abs(renderX - startX) <= 8 && Math.abs(renderY - startY) <= 8) {
-            clickedANode = true;
-            if (event.ctrlKey) action.selected = !action.selected;
-            else {
-                funscriptActions.forEach(act => act.selected = false);
-                action.selected = true;
-            }
-        }
-    });
-
-    if (clickedANode) {
-        isSelecting = false; updateActionsLog(); drawTimeline();
-    } else {
-        isSelecting = true; currentX = startX; currentY = startY;
-        if (!event.ctrlKey) funscriptActions.forEach(act => act.selected = false);
+function undo() {
+    if (undoStack.length > 0) {
+        redoStack.push(JSON.stringify(window.funscriptActions));
+        window.funscriptActions = JSON.parse(undoStack.pop());
         drawTimeline();
+        updateActionsLog();
+        syncSliderWithSelection();
     }
-});
+}
 
-canvas.addEventListener('mousemove', function(event) {
-    if (!isSelecting) return;
-    const pos = getMousePos(event);
-    currentX = pos.x; currentY = pos.y;
-    drawTimeline();
-});
-
-canvas.addEventListener('mouseup', function(event) {
-    if (isSelecting) {
-        isSelecting = false;
-        const pos = getMousePos(event);
-        currentX = pos.x; currentY = pos.y;
-        const xMin = Math.min(startX, currentX); const xMax = Math.max(startX, currentX);
-        const yMin = Math.min(startY, currentY); const yMax = Math.max(startY, currentY);
-        const h = canvas.height;
-
-        if (xMax - xMin > 2 || yMax - yMin > 2) {
-            funscriptActions.forEach(action => {
-                const renderX = timeToX(action.at);
-                const renderY = h - (action.pos / 100) * h;
-                
-                // Zona de confort con tolerancia vertical de 30px para barrido fácil del 0%
-                if (renderX >= xMin && renderX <= xMax && renderY >= (yMin - 30) && renderY <= (yMax + 30)) {
-                    action.selected = true;
-                }
-            });
-        }
-        updateActionsLog(); drawTimeline();
+function redo() {
+    if (redoStack.length > 0) {
+        undoStack.push(JSON.stringify(window.funscriptActions));
+        window.funscriptActions = JSON.parse(redoStack.pop());
+        drawTimeline();
+        updateActionsLog();
+        syncSliderWithSelection();
     }
-});
+}
 
-// ==========================================================================
-// RENDERIZADO VISUAL DEL CANVAS
-// ==========================================================================
+// Convertidores de coordenadas
+function timeToX(timeMs) {
+    const centerFixedX = canvas.width / 2;
+    const currentTimeMs = (window.videoPlayer ? window.videoPlayer.currentTime : 0) * 1000;
+    return centerFixedX + (timeMs - currentTimeMs) * (basePixelsPerMs * zoom) + panX;
+}
+
+function xToTime(x) {
+    const centerFixedX = canvas.width / 2;
+    const currentTimeMs = (window.videoPlayer ? window.videoPlayer.currentTime : 0) * 1000;
+    return currentTimeMs + (x - centerFixedX - panX) / (basePixelsPerMs * zoom);
+}
+
+function posToY(pos) {
+    const padding = 20;
+    const usableHeight = canvas.height - (padding * 2);
+    return canvas.height - padding - (pos / 100) * usableHeight;
+}
+
+function yToPos(y) {
+    const padding = 20;
+    const usableHeight = canvas.height - (padding * 2);
+    const rawPos = ((canvas.height - padding - y) / usableHeight) * 100;
+    return Math.max(0, Math.min(100, Math.round(rawPos)));
+}
+
+// DIBUJO DE LA LÍNEA DE TIEMPO
 function drawTimeline() {
-    if (!canvas.width) return;
-    const h = canvas.height; const w = canvas.width;
-    ctx.clearRect(0, 0, w, h);
-    
-    // Capturar proporciones dinámicas de la IA
-    const splitB = window.aiSplitBase !== undefined ? window.aiSplitBase : 20;
-    const splitC = window.aiSplitCabeza !== undefined ? window.aiSplitCabeza : 70;
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const yCabezaLimite = h * ((100 - splitC) / 100);
-    const yBaseLimite = h * ((100 - splitB) / 100);
+    // Fondo y cuadrícula
+    ctx.fillStyle = '#06090e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.05)'; ctx.fillRect(0, 0, w, yCabezaLimite); // Cabeza
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.02)'; ctx.fillRect(0, yCabezaLimite, w, yBaseLimite - yCabezaLimite); // Tronco
-    ctx.fillStyle = 'rgba(239, 68, 68, 0.04)'; ctx.fillRect(0, yBaseLimite, w, h - yBaseLimite); // Base
+    // Líneas horizontales de porcentaje (0%, 25%, 50%, 75%, 100%)
+    ctx.lineWidth = 1;
+    [0, 25, 50, 75, 100].forEach(p => {
+        const y = posToY(p);
+        ctx.strokeStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
 
-    ctx.lineWidth = 1; ctx.font = '9px monospace';
-    for (let i = 0; i <= 100; i += 10) {
-        const y = h - (i / 100) * h;
-        ctx.setLineDash([4, 4]); ctx.strokeStyle = (i === splitB || i === splitC) ? '#4b5563' : '#141d2b';
-        if (i === splitB || i === splitC) ctx.setLineDash([]);
-        
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = (i === splitB || i === splitC || i === 100 || i === 0) ? '#94a3b8' : '#2a374a';
-        ctx.fillText(`${i}%`, 8, y + 3);
+        ctx.fillStyle = '#475569';
+        ctx.font = '10px monospace';
+        ctx.fillText(`${p}%`, 6, y - 3);
+    });
+
+    // 1. DIBUJAR PISTAS SECUNDARIAS CARGADAS (PARA COMPARACIÓN)
+    if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
+        window.loadedFunscriptTracks.forEach(track => {
+            // Dibujar solo si la pista es visible y NO es la principal actual
+            if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = track.color + '88'; // Semitransparente para mejor contraste
+
+                ctx.beginPath();
+                let started = false;
+                track.actions.forEach(act => {
+                    const x = timeToX(act.at);
+                    const y = posToY(act.pos);
+                    if (x >= -50 && x <= canvas.width + 50) {
+                        if (!started) { ctx.moveTo(x, y); started = true; }
+                        else { ctx.lineTo(x, y); }
+                    }
+                });
+                ctx.stroke();
+
+                // Puntos pequeños de la pista secundaria
+                track.actions.forEach(act => {
+                    const x = timeToX(act.at);
+                    if (x >= -10 && x <= canvas.width + 10) {
+                        const y = posToY(act.pos);
+                        ctx.fillStyle = track.color;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+            }
+        });
     }
 
-    if (funscriptActions.length > 0) {
-        ctx.lineWidth = 2; ctx.strokeStyle = '#2563eb'; ctx.beginPath();
-        funscriptActions.forEach((action, index) => {
-            const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
-            if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    // 2. DIBUJAR PISTA PRINCIPAL (EDITABLE)
+    if (window.funscriptActions && window.funscriptActions.length > 0) {
+        // Línea conectora principal
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.beginPath();
+        let started = false;
+        window.funscriptActions.forEach(act => {
+            const x = timeToX(act.at);
+            const y = posToY(act.pos);
+            if (x >= -50 && x <= canvas.width + 50) {
+                if (!started) { ctx.moveTo(x, y); started = true; }
+                else { ctx.lineTo(x, y); }
+            }
         });
         ctx.stroke();
 
-        funscriptActions.forEach((action) => {
-            const x = timeToX(action.at); const y = h - (action.pos / 100) * h;
-            if (x >= 0 && x <= w) {
-                ctx.beginPath(); ctx.arc(x, y, action.selected ? 6 : 4, 0, 2 * Math.PI);
-                if (action.selected) {
-                    ctx.fillStyle = '#f97316'; // Naranja brillante (Seleccionado)
-                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
-                    ctx.fill(); ctx.stroke();
-                } else {
-                    ctx.fillStyle = '#2563eb'; // Azul puro (No seleccionado)
-                    ctx.fill();
-                }
+        // Nodos interactivos
+        window.funscriptActions.forEach(act => {
+            const x = timeToX(act.at);
+            if (x >= -10 && x <= canvas.width + 10) {
+                const y = posToY(act.pos);
+                ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
             }
         });
     }
 
-    if (window.timelineGhostPreset && window.timelineGhostMouseX !== -1) {
-        const targetTimeMs = xToTime(window.timelineGhostMouseX);
-        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
-        ctx.setLineDash([3, 3]); ctx.beginPath();
-        window.timelineGhostPreset.forEach((action, index) => {
-            const x = timeToX(targetTimeMs + action.at); const y = h - (action.pos / 100) * h;
-            if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.stroke(); ctx.setLineDash([]);
-    }
-
+    // Cuadro de selección
     if (isSelecting) {
-        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-        ctx.setLineDash([2, 2]); ctx.beginPath();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
         ctx.fillRect(startX, startY, currentX - startX, currentY - startY);
         ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
         ctx.setLineDash([]);
     }
 
-    const centerFixedX = w / 2 + panX;
-    ctx.lineWidth = 2; ctx.strokeStyle = '#ef4444';
-    ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, h); ctx.stroke();
+    // Línea roja central (Tiempo actual del video)
+    const centerFixedX = canvas.width / 2 + panX;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(centerFixedX, 0);
+    ctx.lineTo(centerFixedX, canvas.height);
+    ctx.stroke();
+
     ctx.fillStyle = '#ef4444';
-    ctx.beginPath(); ctx.moveTo(centerFixedX - 6, 0); ctx.lineTo(centerFixedX + 6, 0);
-    ctx.lineTo(centerFixedX, 8); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(centerFixedX - 6, 0);
+    ctx.lineTo(centerFixedX + 6, 0);
+    ctx.lineTo(centerFixedX, 8);
+    ctx.closePath();
+    ctx.fill();
 }
 
+window.drawTimeline = drawTimeline;
+
+// ACTUALIZAR REGISTRO DE ACCIONES EN CONSOLA UI
 function updateActionsLog() {
-    if (funscriptActions.length === 0) {
+    if (!actionsLog) return;
+    if (!window.funscriptActions || window.funscriptActions.length === 0) {
         actionsLog.innerHTML = '<span class="empty-log">Sin puntos registrados aún</span>';
         return;
     }
-    const latestActions = [...funscriptActions].reverse().slice(0, 5);
+    const latestActions = [...window.funscriptActions].reverse().slice(0, 8);
     actionsLog.innerHTML = latestActions.map(act => {
-        const seconds = (act.at / 1000).toFixed(3);
-        let isSelText = act.selected ? '<strong style="color:#f97316;">[Sel]</strong> ' : '';
-        return `<div style="margin-bottom: 4px;">
-            ${isSelText}<span style="color: #64748b;">[${seconds}s]</span> 
-            <span style="color: #2563eb; font-weight:bold;">POS: ${act.pos}%</span> 
-        </div>`;
+        const sec = (act.at / 1000).toFixed(2);
+        return `<div style="margin-bottom: 2px;">⏱️ <strong>${sec}s</strong> -> Pos: <span style="color:#38bdf8">${act.pos}%</span></div>`;
     }).join('');
 }
+window.updateActionsLog = updateActionsLog;
+
+// SINCRONIZAR EL DESLIZADOR VERTICAL CON EL PUNTO SELECCIONADO
+function syncSliderWithSelection() {
+    if (!pointSlider || !window.funscriptActions) return;
+    const selected = window.funscriptActions.filter(act => act.selected);
+    if (selected.length > 0) {
+        const lastSelected = selected[selected.length - 1];
+        // Redondear a múltiplo de 5
+        const steppedValue = Math.round(lastSelected.pos / 5) * 5;
+        pointSlider.value = steppedValue;
+        if (sliderValueDisplay) sliderValueDisplay.innerText = `${steppedValue}%`;
+    }
+}
+
+// EVENTO DEL DESLIZADOR VERTICAL (PASOS DE 5% EN 5%)
+pointSlider?.addEventListener('input', function() {
+    const val = parseInt(this.value, 10);
+    if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
+
+    if (window.funscriptActions && window.funscriptActions.length > 0) {
+        const selected = window.funscriptActions.filter(act => act.selected);
+        if (selected.length > 0) {
+            saveHistoryState();
+            selected.forEach(act => {
+                act.pos = val;
+            });
+            drawTimeline();
+            updateActionsLog();
+        }
+    }
+});
+
+// INTERACCIONES CON EL CANVAS DE LÍNEA DE TIEMPO
+let isDraggingNode = false;
+let draggedNode = null;
+
+canvas?.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    if (e.button === 0) { // Click izquierdo
+        // Comprobar si se hizo clic en un nodo existente
+        let clickedNode = null;
+        for (let act of window.funscriptActions) {
+            const nx = timeToX(act.at);
+            const ny = posToY(act.pos);
+            const dist = Math.hypot(clickX - nx, clickY - ny);
+            if (dist <= 8) {
+                clickedNode = act;
+                break;
+            }
+        }
+
+        if (clickedNode) {
+            saveHistoryState();
+            if (!e.ctrlKey && !clickedNode.selected) {
+                window.funscriptActions.forEach(a => a.selected = false);
+            }
+            clickedNode.selected = true;
+            isDraggingNode = true;
+            draggedNode = clickedNode;
+            syncSliderWithSelection();
+        } else {
+            // Si hace clic en espacio vacío, deseleccionar o iniciar selección por caja
+            if (!e.ctrlKey) window.funscriptActions.forEach(a => a.selected = false);
+            isSelecting = true;
+            startX = clickX;
+            startY = clickY;
+            currentX = clickX;
+            currentY = clickY;
+
+            // Crear punto si hace clic
+            const clickTime = Math.max(0, Math.round(xToTime(clickX)));
+            const clickPos = yToPos(clickY);
+            
+            saveHistoryState();
+            window.funscriptActions.push({ at: clickTime, pos: clickPos, selected: true });
+            window.funscriptActions.sort((a, b) => a.at - b.at);
+            syncSliderWithSelection();
+        }
+        drawTimeline();
+        updateActionsLog();
+    } else if (e.button === 2) { // Click derecho: Eliminar nodo
+        e.preventDefault();
+        saveHistoryState();
+        window.funscriptActions = window.funscriptActions.filter(act => {
+            const nx = timeToX(act.at);
+            const ny = posToY(act.pos);
+            return Math.hypot(clickX - nx, clickY - ny) > 10;
+        });
+        drawTimeline();
+        updateActionsLog();
+    }
+});
+
+canvas?.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (isDraggingNode && draggedNode) {
+        draggedNode.pos = yToPos(mouseY);
+        drawTimeline();
+        syncSliderWithSelection();
+    } else if (isSelecting) {
+        currentX = mouseX;
+        currentY = mouseY;
+
+        const minX = Math.min(startX, currentX);
+        const maxX = Math.max(startX, currentX);
+        const minY = Math.min(startY, currentY);
+        const maxY = Math.max(startY, currentY);
+
+        window.funscriptActions.forEach(act => {
+            const nx = timeToX(act.at);
+            const ny = posToY(act.pos);
+            act.selected = (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY);
+        });
+
+        drawTimeline();
+        syncSliderWithSelection();
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    isDraggingNode = false;
+    draggedNode = null;
+    isSelecting = false;
+    drawTimeline();
+});
+
+canvas?.addEventListener('contextmenu', e => e.preventDefault());
+
+// BUCLE DE RENDERIZADO EN TIEMPO REAL AL REPRODUCIR VIDEO
+function animationLoop() {
+    if (window.videoPlayer && !window.videoPlayer.paused) {
+        drawTimeline();
+    }
+    requestAnimationFrame(animationLoop);
+}
+requestAnimationFrame(animationLoop);
+
+// ATAJOS DE TECLADO
+window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault(); undo();
+    }
+    if (e.ctrlKey && e.key.toLowerCase() === 'y') {
+        e.preventDefault(); redo();
+    }
+    if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        window.funscriptActions.forEach(a => a.selected = true);
+        drawTimeline();
+        syncSliderWithSelection();
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        saveHistoryState();
+        window.funscriptActions = window.funscriptActions.filter(a => !a.selected);
+        drawTimeline();
+        updateActionsLog();
+    }
+});
