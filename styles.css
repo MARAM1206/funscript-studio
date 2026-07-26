@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CONFIGURACIÓN GENERAL TEMA OSCURO (MODO LÍQUIDO UNIVERSAL)
+   CONFIGURACIÓN GENERAL TEMA OSCURO Y MANIJAS DE REDIMENSIONADO
    ========================================================================== */
 * {
     margin: 0;
@@ -26,11 +26,6 @@ body {
     padding: 0 16px;
     z-index: 9999;
     position: relative;
-}
-
-.top-center-toggles {
-    display: flex;
-    gap: 6px;
 }
 
 .menu-btn {
@@ -93,7 +88,39 @@ body {
     flex-direction: column;
     box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
     border: 1px solid #1e293b;
+    overflow: hidden;
 }
+
+/* ENCABEZADO DE ARRASTRE DE PANELES */
+.panel-header {
+    background: #141b26;
+    color: #94a3b8;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    cursor: move;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #1e293b;
+}
+
+/* MANIJAS DE REDIMENSIONADO (8 DIRECCIONES) */
+.resize-handle {
+    position: absolute;
+    z-index: 20;
+}
+.resize-handle-n  { top: 0; left: 0; width: 100%; height: 6px; cursor: ns-resize; }
+.resize-handle-s  { bottom: 0; left: 0; width: 100%; height: 6px; cursor: ns-resize; }
+.resize-handle-e  { right: 0; top: 0; width: 6px; height: 100%; cursor: ew-resize; }
+.resize-handle-w  { left: 0; top: 0; width: 6px; height: 100%; cursor: ew-resize; }
+.resize-handle-ne { top: 0; right: 0; width: 10px; height: 10px; cursor: ne-resize; z-index: 21; }
+.resize-handle-nw { top: 0; left: 0; width: 10px; height: 10px; cursor: nw-resize; z-index: 21; }
+.resize-handle-se { bottom: 0; right: 0; width: 10px; height: 10px; cursor: se-resize; z-index: 21; }
+.resize-handle-sw { bottom: 0; left: 0; width: 10px; height: 10px; cursor: sw-resize; z-index: 21; }
 
 .panel-content {
     padding: 12px;
@@ -102,11 +129,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    height: 100%;
-    border-radius: 14px;
+    height: calc(100% - 32px);
 }
 
-/* LISTA DE PISTAS DE FUNSCRIPT */
+/* LISTA DE PISTAS */
 .tracks-list-container {
     background-color: #020617;
     border-radius: 8px;
@@ -136,7 +162,6 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    transition: border-color 0.2s;
 }
 
 .track-item.is-primary {
@@ -182,11 +207,6 @@ body {
     font-size: 0.85rem;
     padding: 2px 4px;
     border-radius: 4px;
-    transition: opacity 0.2s, background 0.2s;
-}
-
-.track-btn:hover {
-    background: rgba(255,255,255,0.1);
 }
 
 .primary-badge {
@@ -199,13 +219,13 @@ body {
     text-transform: uppercase;
 }
 
-/* DESLIZADOR VERTICAL PARA AJUSTE DE PUNTO */
+/* DESLIZADOR VERTICAL */
 .vertical-slider-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    height: calc(100% - 30px);
+    height: calc(100% - 20px);
     justify-content: center;
 }
 
@@ -216,7 +236,6 @@ body {
     font-size: 0.9rem;
     padding: 4px 10px;
     border-radius: 6px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
 }
 
 .vertical-range-input {
@@ -245,7 +264,6 @@ body {
     font-style: italic;
 }
 
-/* ESTILO DEL CANVAS EN LA LÍNEA DE TIEMPO */
 #timeline-canvas {
     width: 100%;
     height: 100%;
