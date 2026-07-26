@@ -1,89 +1,110 @@
-<!-- MENÚ SUPERIOR INTERCAMBIADO CON IMPORTACIÓN IA INTEGRADA -->
-<div class="top-bar-menu">
-    <div class="top-left-actions" style="display: flex; align-items: center;">
-        <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Seleccionar Video</label>
-        <input type="file" id="video-input" accept="video/*" style="display: none;">
-        
-        <!-- BOTÓN VERDE MAESTRO PARA IMPORTAR LOS DATOS DE LA IA DE PYTHON -->
-        <label for="json-ia-input" class="menu-btn" style="background: #10b981; margin-left: 10px; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none; transition: background 0.2s;">📥 Importar Datos IA</label>
-        <input type="file" id="json-ia-input" accept=".json" style="display: none;">
-    </div>
-    <div id="top-center-toggles" class="top-center-toggles"></div>
-    <div class="top-right-actions">
-        <button id="export-btn" class="menu-btn success-btn">⬇ Exportar Archivo .funscript</button>
-    </div>
-</div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FunScript Studio</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
-<!-- CONTENEDOR FLUIDO TOTAL -->
-<div id="workspace" class="workspace-container">
-    
-    <!-- Panel 1: Reproductor de Video con Capa IA -->
-    <div id="panel-video" class="workspace-panel" data-title="🎥 Reproductor">
-        <div class="panel-content">
-            <div style="position: relative; width: 100%; flex-grow: 1; background: #000; border-radius: 8px; overflow: hidden;">
-                <video id="video-player" disablepictureinpicture style="position: absolute; top:0; left:0; width:100%; height:100%;"></video>
-                <canvas id="tracking-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 5; cursor: crosshair; display: none;"></canvas>
-            </div>
-            
-            <div class="progress-bar-container">
-                <input type="range" id="video-progress" class="custom-progress" min="0" max="100" value="0" step="0.05">
-            </div>
+    <div class="top-bar-menu">
+        <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
+            <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Seleccionar Video</label>
+            <input type="file" id="video-input" accept="video/*" style="display: none;">
+            
+            <label for="funscript-input" class="menu-btn" style="background: #2563eb; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none; transition: background 0.2s;">📂 Importar FunScripts</label>
+            <input type="file" id="funscript-input" accept=".funscript, .json" multiple style="display: none;">
+        </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                <div id="video-filename" style="font-size: 0.7rem; color: #475569; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%;">Sin archivo seleccionado</div>
-                <div id="video-specs" style="font-size: 0.7rem; color: #64748b; font-family: monospace; font-weight: bold; text-align: right;"></div>
-            </div>
-            <div class="video-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                <span class="speed-label">Velocidad actual: <strong id="speed-display">1.0x</strong></span>
-                <button id="toggle-ai-btn" class="btn" style="background: #7c3aed; padding: 4px 10px; font-size: 0.75rem;">🤖 Activar IA Tracking</button>
-            </div>
-        </div>
-    </div>
+        <div id="top-center-toggles" class="top-center-toggles"></div>
 
-    <!-- Panel 2: Controles y Atajos -->
-    <div id="panel-keyboard" class="workspace-panel" data-title="⌨️ Controles">
-        <div class="panel-content">
-            <ul class="hotkey-list" style="font-size: 0.85rem; padding-left: 10px; margin: 0;">
-                <li><span class="key">Arrastrar Mouse 1</span> = Cuadro Azul (Hombre)</li>
-                <li><span class="key">Arrastrar Mouse 2</span> = Cuadro Rosa (Mujer)</li>
-                <li><span class="key">Click + Arrastrar dentro</span> = Mover/Corregir trackers</li>
-                <li><span class="key">Click en Líneas de Barra</span> = Ajustar Base/Cabeza con Mouse</li>
-                <li><span class="key">Ctrl + A</span> = Seleccionar todos los puntos de la pista</li>
-                <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
-                <li><span class="key">B</span> / <span class="key">N</span> = Navegar entre nodos en azul/naranja</li>
-            </ul>
-        </div>
-    </div>
+        <div class="top-right-actions">
+            <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
+        </div>
+    </div>
 
-    <!-- Panel 3: Consola -->
-    <div id="panel-actions" class="workspace-panel" data-title="📊 JSON Log">
-        <div class="panel-content">
-            <div id="actions-log" class="log-container">
-                <span class="empty-log">Sin puntos registrados aún</span>
-            </div>
-        </div>
-    </div>
+    <div class="workspace-container">
 
-    <!-- Panel 4: Presets -->
-    <div id="panel-presets" class="workspace-panel" data-title="💾 Presets">
-        <div class="panel-content">
-            <button id="save-preset-btn" class="btn">💾 Guardar Preset</button>
-            <div id="presets-list" class="presets-grid" style="margin-top: 8px; overflow-y: auto; flex-grow: 1;"></div>
-        </div>
-    </div>
+        <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
+            <div class="panel-content">
+                <div class="video-container" style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #000;">
+                    <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
+                    <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+                </div>
+            </div>
+        </div>
 
-    <!-- Panel 5: Línea de Tiempo -->
-    <div id="panel-timeline" class="workspace-panel" data-title="📈 Timeline">
-        <div class="panel-content">
-            <canvas id="timeline-canvas"></canvas>
-        </div>
-    </div>
+        <div id="panel-controls" class="workspace-panel" data-title="⌨️ Controles">
+            <div class="panel-content">
+                <div class="controls-info">
+                    <p><strong>Info Video:</strong> <span id="video-filename">Sin video</span> (<span id="video-specs">-- fps</span>)</p>
+                    <p><strong>Velocidad:</strong> <span id="speed-display">1.0x</span></p>
+                    <hr style="border-color: #1e293b; margin: 8px 0;">
+                    <p><strong>Atajos:</strong></p>
+                    <ul style="list-style: none; padding-left: 0; font-size: 0.8rem; line-height: 1.5; color: #94a3b8;">
+                        <li><span class="key">Espacio</span> = Play / Pausa</li>
+                        <li><span class="key">E</span> / <span class="key">R</span> = Disminuir / Aumentar Velocidad</li>
+                        <li><span class="key">Q</span> / <span class="key">W</span> = Retroceder / Avanzar 1 Frame</li>
+                        <li><span class="key">A</span> / <span class="key">S</span> = Retroceder / Avanzar 5 Segundos</li>
+                        <li><span class="key">Click Izquierdo</span> = Crear / Seleccionar Punto</li>
+                        <li><span class="key">Click Derecho</span> = Eliminar Punto</li>
+                        <li><span class="key">Ctrl + A</span> = Seleccionar Todos los Puntos</li>
+                        <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
+                        <li><span class="key">Ctrl + Z</span> / <span class="key">Ctrl + Y</span> = Deshacer / Rehacer</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
-</div>
+        <div id="panel-tracks" class="workspace-panel" data-title="📑 Pistas FunScript">
+            <div class="panel-content">
+                <div id="tracks-list" class="tracks-list-container">
+                    <span class="empty-tracks-msg">No hay pistas cargadas. Haz clic en "📂 Importar FunScripts" para agregar pistas.</span>
+                </div>
+            </div>
+        </div>
 
-<script src="workspace.js"></script>
-<script src="player.js"></script>
-<script src="timeline.js"></script>
-<script src="presets.js"></script>
-<script src="tracking.js"></script>
-<script src="funscript.js"></script>
+        <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste de Punto">
+            <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                <div class="vertical-slider-wrapper">
+                    <span id="slider-value-display" class="slider-badge">50%</span>
+                    <input type="range" id="point-slider" min="0" max="100" step="5" value="50" class="vertical-range-input">
+                </div>
+                <span style="font-size: 0.75rem; color: #64748b; margin-top: 8px; text-align: center;">Pasos de 5% en 5%</span>
+            </div>
+        </div>
+
+        <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets Guardados">
+            <div class="panel-content">
+                <button id="save-preset-btn" class="menu-btn" style="background: #8b5cf6; width: 100%; margin-bottom: 8px; cursor: pointer;">⭐ Guardar Selección como Preset</button>
+                <div id="presets-list" class="presets-list-container">
+                    <span class="empty-log">No hay presets guardados aún.</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-actions" class="workspace-panel" data-title="📊 JSON Log">
+            <div class="panel-content">
+                <div id="actions-log" class="log-container">
+                    <span class="empty-log">Sin puntos registrados aún</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
+            <div class="panel-content" style="position: relative; padding: 0;">
+                <canvas id="timeline-canvas"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="workspace.js"></script>
+    <script src="player.js"></script>
+    <script src="tracking.js"></script>
+    <script src="presets.js"></script>
+    <script src="funscript.js"></script>
+    <script src="timeline.js"></script>
+</body>
+</html>
