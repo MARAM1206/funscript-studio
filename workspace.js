@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V3.6: MEMORIA DE POSICIONES DESBLOQUEADA Y REPARADA
+// WORKSPACE V4.0: MEMORIA SANA Y ACOMODO DE 9 PANELES (INCLUYE THE HANDY)
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,10 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     panels.forEach(panel => {
         const title = panel.getAttribute("data-title") || panel.id;
-        
-        if (panelVisibility[panel.id] === undefined) {
-            panelVisibility[panel.id] = true;
-        }
+        if (panelVisibility[panel.id] === undefined) panelVisibility[panel.id] = true;
 
         const btn = document.createElement("button");
         btn.className = `toggle-panel-btn ${panelVisibility[panel.id] ? 'active' : ''}`;
@@ -31,30 +28,31 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem("funscript_panel_visibility", JSON.stringify(panelVisibility));
         };
         toggleContainer.appendChild(btn);
-
         panel.style.display = panelVisibility[panel.id] ? 'flex' : 'none';
     });
 
     const w = container.clientWidth;
     const h = container.clientHeight;
     
+    // Distribución optimizada para 9 PANELES (Arriba 5, Abajo 4)
     const defaultLayout = {
-        "panel-video":    { left: GAP, top: GAP, width: (w * 0.42) - GAP*1.5, height: (h * 0.5) - GAP*1.5 },
-        "panel-slider":   { left: (w * 0.42) + GAP/2, top: GAP, width: (w * 0.10) - GAP, height: (h * 0.5) - GAP*1.5 },
-        "panel-quick":    { left: (w * 0.52) + GAP/2, top: GAP, width: (w * 0.20) - GAP, height: (h * 0.5) - GAP*1.5 },
-        "panel-presets":  { left: (w * 0.72) + GAP/2, top: GAP, width: (w * 0.14) - GAP, height: (h * 0.5) - GAP*1.5 },
-        "panel-actions":  { left: (w * 0.86) + GAP/2, top: GAP, width: (w * 0.14) - GAP*1.5, height: (h * 0.5) - GAP*1.5 },
+        "panel-video":    { left: GAP, top: GAP, width: (w * 0.38) - GAP, height: (h * 0.45) - GAP },
+        "panel-slider":   { left: (w * 0.38) + GAP, top: GAP, width: (w * 0.08) - GAP, height: (h * 0.45) - GAP },
+        "panel-quick":    { left: (w * 0.46) + GAP, top: GAP, width: (w * 0.18) - GAP, height: (h * 0.45) - GAP },
+        "panel-handy":    { left: (w * 0.64) + GAP, top: GAP, width: (w * 0.18) - GAP, height: (h * 0.45) - GAP },
+        "panel-presets":  { left: (w * 0.82) + GAP, top: GAP, width: (w * 0.18) - GAP*2, height: (h * 0.45) - GAP },
         
-        "panel-controls": { left: GAP, top: (h * 0.5) + GAP/2, width: (w * 0.22) - GAP*1.5, height: (h * 0.5) - GAP*1.5 },
-        "panel-tracks":   { left: (w * 0.22) + GAP/2, top: (h * 0.5) + GAP/2, width: (w * 0.20) - GAP, height: (h * 0.5) - GAP*1.5 },
-        "panel-timeline": { left: (w * 0.42) + GAP/2, top: (h * 0.5) + GAP/2, width: (w * 0.58) - GAP*1.5, height: (h * 0.5) - GAP*1.5 }
+        "panel-controls": { left: GAP, top: (h * 0.45) + GAP, width: (w * 0.20) - GAP, height: (h * 0.55) - GAP*2 },
+        "panel-tracks":   { left: (w * 0.20) + GAP, top: (h * 0.45) + GAP, width: (w thereunder * 0.20) - GAP, height: (h * 0.55) - GAP*2 },
+        "panel-actions":  { left: (w * 0.40) + GAP, top: (h * 0.45) + GAP, width: (w * 0.15) - GAP, height: (h * 0.55) - GAP*2 },
+        "panel-timeline": { left: (w * 0.55) + GAP, top: (h * 0.45) + GAP, width: (w * 0.45) - GAP*2, height: (h * 0.55) - GAP*2 }
     };
 
-    const STORAGE_KEY = "funscript_workspace_layout_v4";
+    const STORAGE_KEY = "funscript_workspace_layout_v5";
     let savedLayout = null;
     try { savedLayout = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){}
 
-    if (!savedLayout || Object.keys(savedLayout).length < 8) {
+    if (!savedLayout || Object.keys(savedLayout).length < 9) {
         savedLayout = {};
         for (let id in defaultLayout) {
             savedLayout[id] = {
