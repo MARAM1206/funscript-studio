@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR Y EXPORTADOR MULTI-PISTA (CON SOPORTE DRAG & DROP EXTERNO)
+// GESTOR Y EXPORTADOR MULTI-PISTA (SOPORTE DE LECTURA DE ALTA PRECISIÓN)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -8,7 +8,6 @@ const funscriptInput = document.getElementById('funscript-input');
 const exportBtn = document.getElementById('export-btn');
 const tracksListContainer = document.getElementById('tracks-list');
 
-// EXPORTAMOS LA FUNCIÓN PARA QUE PLAYER.JS PUEDA MANDARLE ARCHIVOS AL SOLTARLOS
 window.loadFunscriptFiles = function(filesArray) {
     if (filesArray.length === 0) return;
     let loadedCount = 0;
@@ -19,11 +18,14 @@ window.loadFunscriptFiles = function(filesArray) {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data && Array.isArray(data.actions)) {
+                    
+                    // LECTURA DE ALTA PRECISIÓN: Forzamos la lectura a números (Number) para 
+                    // asegurar que no se pierdan puntos si otros usan formatos raros
                     const actions = data.actions.map(act => ({
-                        at: Math.round(act.at),
-                        pos: Math.max(0, Math.min(100, Math.round(act.pos))),
+                        at: Math.round(Number(act.at)),
+                        pos: Math.max(0, Math.min(100, Math.round(Number(act.pos)))),
                         selected: false
-                    })).sort((a, b) => a.at - b.at);
+                    })).filter(act => !isNaN(act.at) && !isNaN(act.pos)).sort((a, b) => a.at - b.at);
 
                     const colorIndex = window.loadedFunscriptTracks.length % TRACK_COLORS.length;
                     const isFirst = window.loadedFunscriptTracks.length === 0;
@@ -52,7 +54,6 @@ window.loadFunscriptFiles = function(filesArray) {
     });
 };
 
-// Escucha el botón clásico de importar
 funscriptInput?.addEventListener('change', function(event) {
     window.loadFunscriptFiles(Array.from(event.target.files || []));
     event.target.value = '';
@@ -99,10 +100,13 @@ function updateTracksListUI() {
         if (idx === -1) return;
         const wasPrimary = window.loadedFunscriptTracks[idx].isPrimary;
         window.loadedFunscriptTracks.splice(idx, 1);
+        
         if (wasPrimary && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks[0].isPrimary = true;
             window.funscriptActions = JSON.parse(JSON.stringify(window.loadedFunscriptTracks[0].actions));
-        } else if (window.loadedFunscriptTracks.length === 0) { window.funscriptActions = []; }
+        } else if (window.loadedFunscriptTracks.length === 0) { 
+            window.funscriptActions = []; 
+        }
         updateTracksListUI(); if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }));
 }
