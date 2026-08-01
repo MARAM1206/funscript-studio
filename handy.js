@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V2: CONEXIÓN WI-FI, SINCRONIZACIÓN Y AUTO-SUBIDA A LA NUBE
+// THE HANDY API V3: INTEGRACIÓN COMPACTA EN BARRA SUPERIOR
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -17,42 +17,35 @@ const handyStatus = document.getElementById('handy-status');
 
 if (handyKeyInput) handyKeyInput.value = handyKey;
 
-// 1. CONECTAR Y CALCULAR TIEMPO
 handyConnectBtn?.addEventListener('click', async () => {
     const key = handyKeyInput.value.trim();
-    if (!key) { alert("Por favor ingresa tu Connection Key."); return; }
+    if (!key) { alert("Ingresa tu Connection Key en el recuadro."); return; }
     
     handyKey = key;
     localStorage.setItem('funscript_handy_key', handyKey);
-    handyStatus.innerText = "⏳ Conectando...";
-    handyStatus.style.color = "#f59e0b";
+    handyStatus.innerText = "⏳";
+    handyStatus.title = "Conectando...";
 
     try {
-        // Verificar conexión
         const res = await fetch(`${HANDY_API_BASE}/connected`, { headers: { 'X-Connection-Key': handyKey } });
         const data = await res.json();
         
         if (data.connected) {
             isHandyConnected = true;
-            handyStatus.innerText = "✅ Conectado";
-            handyStatus.style.color = "#10b981";
+            handyStatus.innerText = "🟢";
+            handyStatus.title = "Conectado";
             await syncServerTime();
-            // Subir script inicial si hay puntos
-            if (window.funscriptActions && window.funscriptActions.length > 0) {
-                triggerHandyUpdate();
-            }
+            if (window.funscriptActions && window.funscriptActions.length > 0) triggerHandyUpdate();
         } else {
-            throw new Error("El juguete está apagado o desconectado del Wi-Fi.");
+            throw new Error("Juguete apagado o desconectado.");
         }
     } catch (err) {
         isHandyConnected = false;
-        handyStatus.innerText = "❌ Error de conexión";
-        handyStatus.style.color = "#ef4444";
-        console.error(err);
+        handyStatus.innerText = "❌";
+        handyStatus.title = "Error de conexión";
     }
 });
 
-// Calcula la diferencia de tiempo entre tu computadora y los servidores de The Handy
 async function syncServerTime() {
     let sumOffset = 0;
     for (let i = 0; i < 3; i++) {
@@ -67,30 +60,23 @@ async function syncServerTime() {
     serverTimeOffset = Math.round(sumOffset / 3);
 }
 
-// 2. CONVERTIR A FORMATO LIGERO (CSV) Y SUBIR
 async function uploadScriptToHandyCloud() {
     if (!window.funscriptActions || window.funscriptActions.length === 0) return null;
-    
-    // Traducir a CSV ligero
     let csvString = window.funscriptActions.map(act => `${act.at},${act.pos}`).join('\n');
     const blob = new Blob([csvString], { type: 'text/csv' });
     const formData = new FormData();
     formData.append('syncFile', blob, 'script.csv');
 
-    handyStatus.innerText = "☁️ Subiendo a la nube...";
-    handyStatus.style.color = "#38bdf8";
+    handyStatus.innerText = "☁️";
+    handyStatus.title = "Subiendo a la nube...";
 
     try {
         const res = await fetch(HANDY_UPLOAD_URL, { method: 'POST', body: formData });
         const data = await res.json();
         return data.url;
-    } catch (err) {
-        console.error("Error al subir a HandyFeeling:", err);
-        return null;
-    }
+    } catch (err) { return null; }
 }
 
-// 3. ENVIAR A THE HANDY Y SINCRONIZAR
 async function setupHandyScript(url) {
     try {
         await fetch(`${HANDY_API_BASE}/hssp/setup`, {
@@ -98,14 +84,11 @@ async function setupHandyScript(url) {
             headers: { 'X-Connection-Key': handyKey, 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: url })
         });
-        handyStatus.innerText = "✅ Sincronizado";
-        handyStatus.style.color = "#10b981";
-    } catch (err) {
-        console.error("Error en Setup de The Handy:", err);
-    }
+        handyStatus.innerText = "🟢";
+        handyStatus.title = "Sincronizado";
+    } catch (err) {}
 }
 
-// 4. FUNCIONES DE PLAY / PAUSA
 window.playHandy = async function(videoCurrentTimeMs) {
     if (!isHandyConnected) return;
     try {
@@ -125,24 +108,24 @@ window.stopHandy = async function() {
     } catch (err) {}
 };
 
-// 5. DISPARADOR INTELIGENTE (Se llama cada que cambias un punto)
 window.triggerHandyUpdate = function() {
     if (!isHandyConnected) return;
-    
-    // Si modificas puntos muy rápido, cancela el contador y empieza de nuevo
     clearTimeout(autoUpdateTimeout);
     
-    // Espera 1 segundo de inactividad antes de subir a la nube
+    handyStatus.innerText = "⌛";
+    handyStatus.title = "Esperando inactividad para subir...";
+    
     autoUpdateTimeout = setTimeout(async () => {
         const scriptUrl = await uploadScriptToHandyCloud();
         if (scriptUrl) {
             await setupHandyScript(scriptUrl);
-            
-            // Si el video está reproduciéndose, arranca el juguete en automático en ese punto exacto
             const videoNode = document.getElementById('video-player');
             if (videoNode && !videoNode.paused) {
                 window.playHandy(videoNode.currentTime * 1000);
             }
+        } else {
+            handyStatus.innerText = "🟢";
+            handyStatus.title = "Conectado";
         }
     }, 1000);
 };
