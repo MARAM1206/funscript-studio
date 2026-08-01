@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS Y MULTI-PISTA V4.0
+// GESTOR DE ARCHIVOS Y MULTI-PISTA V4.1 (SINCRONIZACIÓN AUTOMÁTICA EN VIVO)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -45,6 +45,9 @@ window.loadFunscriptFiles = function(filesArray) {
                 window.updateFileManagerUI();
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
                 if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+                
+                // ☁️ AVISO A LA NUBE: Archivo nuevo cargado, mandar al The Handy
+                if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
             }
         };
         reader.readAsText(file);
@@ -56,13 +59,13 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
-// NUEVO: GESTOR DE ARCHIVOS GLOBAL (MUESTRA VIDEO Y PISTAS)
+// GESTOR DE ARCHIVOS GLOBAL
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
     
     let htmlContent = '';
 
-    // 1. Mostrar Video si existe
+    // 1. Mostrar Video
     if (window.currentVideoName) {
         htmlContent += `
             <div class="track-item" style="border-color: #f59e0b; background: #1e293b;">
@@ -78,7 +81,7 @@ window.updateFileManagerUI = function() {
         `;
     }
 
-    // 2. Mostrar Pistas FunScript
+    // 2. Mostrar Pistas
     if (window.loadedFunscriptTracks.length === 0) {
         if (!window.currentVideoName) {
             htmlContent += `<span class="empty-tracks-msg">No hay archivos cargados aún. Importa un Video o FunScript.</span>`;
@@ -122,7 +125,12 @@ window.updateFileManagerUI = function() {
         const newPrimary = window.loadedFunscriptTracks.find(t => t.isPrimary);
         if (newPrimary) window.funscriptActions = JSON.parse(JSON.stringify(newPrimary.actions));
         
-        window.updateFileManagerUI(); if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        window.updateFileManagerUI(); 
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        
+        // ☁️ AVISO A LA NUBE: Cambio de pista principal
+        if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
     }));
 
     document.querySelectorAll('.toggle-vis-btn').forEach(btn => btn.addEventListener('click', function() {
@@ -142,7 +150,12 @@ window.updateFileManagerUI = function() {
         } else if (window.loadedFunscriptTracks.length === 0) { 
             window.funscriptActions = []; 
         }
-        window.updateFileManagerUI(); if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        window.updateFileManagerUI(); 
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        
+        // ☁️ AVISO A LA NUBE: Pista eliminada
+        if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
     }));
 };
 
