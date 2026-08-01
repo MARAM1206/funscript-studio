@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V8.0: PANEO HIPER-RÁPIDO DINÁMICO Y NUDGE DE PUNTOS
+// TIMELINE V8.1: RADAR ÓPTICO DE PORCENTAJE (SOLO EN PAUSA)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -29,29 +29,20 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// ==================================================
-// CONTROLES DE ZOOM Y PANEO (RUEDA DEL RATÓN DINÁMICA)
-// ==================================================
+// CONTROLES DE ZOOM Y PANEO
 canvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.shiftKey) {
-        // MODO ZOOM (Shift + Ruedita)
         if (e.deltaY < 0) zoom *= 1.15; 
         else zoom /= 1.15; 
         zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
     } else {
-        // MODO PANEO INTELIGENTE (HIPER-RÁPIDO)
         if (videoNode && videoNode.paused) {
-            // Calcula cuánto tiempo (en ms) estás viendo actualmente en la pantalla
             const visibleTimeMs = canvas.width / (basePixelsPerMs * zoom);
-            // El salto será del 15% de toda la pantalla visible (Ultra rápido para videos largos)
             const panStep = visibleTimeMs * 0.15; 
             
-            if (e.deltaY < 0) {
-                timelineTimeOffset += panStep; // Avanza el tiempo
-            } else {
-                timelineTimeOffset -= panStep; // Retrocede el tiempo
-            }
+            if (e.deltaY < 0) timelineTimeOffset += panStep; 
+            else timelineTimeOffset -= panStep; 
         }
     }
     drawTimeline();
@@ -62,9 +53,7 @@ window.addEventListener('videoPlay', () => {
     drawTimeline();
 });
 
-// ==================================================
 // LÓGICA DEL PANEL "INYECTOR RÁPIDO"
-// ==================================================
 const sliderA = document.getElementById('min-slider');
 const sliderB = document.getElementById('max-slider');
 const dualFill = document.getElementById('dual-slider-fill');
@@ -136,21 +125,18 @@ window.addEventListener('injectPoint', function(e) {
     drawTimeline();
 });
 
-// 🎯 RECEPTOR 2: EMPUJAR PUNTOS SELECCIONADOS (NUDGE)
+// RECEPTOR 2: EMPUJAR PUNTOS SELECCIONADOS (NUDGE)
 window.addEventListener('nudgePoints', function(e) {
     const actions = getSafeActions();
-    const dir = e.detail; // 'up', 'down', 'left', 'right'
+    const dir = e.detail; 
     let moved = false;
 
     saveHistoryState();
 
     actions.forEach(act => {
         if (act.selected) {
-            // Arriba y Abajo mueve el Pos de 5% en 5%
             if (dir === 'up') act.pos = Math.min(100, act.pos + 5);
             if (dir === 'down') act.pos = Math.max(0, act.pos - 5);
-            
-            // Izquierda y Derecha mueve el Tiempo por 50ms para micro-ajustes
             if (dir === 'left') act.at = Math.max(0, act.at - 50); 
             if (dir === 'right') act.at = act.at + 50; 
             moved = true;
@@ -158,7 +144,6 @@ window.addEventListener('nudgePoints', function(e) {
     });
 
     if (moved) {
-        // Solo reordenar si se movieron en el tiempo
         if (dir === 'left' || dir === 'right') actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
@@ -301,6 +286,7 @@ function drawTimeline() {
             ctx.setLineDash([]);
         }
 
+        // LA AGUJA DEL REPRODUCTOR (Línea Naranja)
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         const playheadX = timeToX(actualVideoTimeMs);
         
@@ -309,6 +295,38 @@ function drawTimeline() {
         ctx.fillStyle = '#f97316';
         ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0);
         ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
+
+        // 🎯 NUEVO: RADAR ÓPTICO DE PORCENTAJE (SOLO EN PAUSA)
+        if (videoNode && videoNode.paused) {
+            actions.forEach(act => {
+                const px = timeToX(act.at);
+                // Si el punto está tocando o muy cerca de la aguja naranja (margen de 4px)
+                if (Math.abs(px - playheadX) <= 4) {
+                    const py = posToY(act.pos);
+                    
+                    // Coordenadas de la etiqueta (por defecto arriba a la derecha del punto)
+                    let tooltipX = px + 8;
+                    let tooltipY = py - 18;
+                    
+                    // Si el punto está muy arriba y se corta, lo dibujamos por abajo
+                    if (tooltipY < 5) tooltipY = py + 8;
+
+                    // Dibujar fondo oscuro semi-transparente
+                    ctx.fillStyle = 'rgba(11, 15, 23, 0.85)';
+                    ctx.fillRect(tooltipX, tooltipY, 34, 16);
+                    
+                    // Borde Naranja sutil
+                    ctx.strokeStyle = '#f97316';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(tooltipX, tooltipY, 34, 16);
+
+                    // Texto del Porcentaje
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.font = 'bold 10px monospace';
+                    ctx.fillText(`${act.pos}%`, tooltipX + 4, tooltipY + 12);
+                }
+            });
+        }
 
     } catch (err) {}
 }
