@@ -18,7 +18,7 @@ let currentSpeed = 1.0;
 window.videoFPS = 30; 
 
 // 1. CARGA DE VIDEO
-videoInput.addEventListener('change', function(event) {
+videoInput?.addEventListener('change', function(event) {
     const file = event.target.files[0];
     if (file) loadVideoFile(file);
 });
@@ -34,11 +34,9 @@ function loadVideoFile(file) {
 // 2. SINCRONIZACIÓN DE LA NUEVA BARRA DE LÍNEA DE TIEMPO
 let isSeeking = false;
 
-// Cuando el usuario presiona la barra, evitamos que el video la jale a la fuerza
 videoProgress?.addEventListener('mousedown', () => isSeeking = true);
 videoProgress?.addEventListener('mouseup', () => isSeeking = false);
 
-// Cuando el usuario arrastra la bolita de progreso
 videoProgress?.addEventListener('input', () => {
     if (videoPlayer.duration) {
         const targetTime = (videoProgress.value / 100) * videoPlayer.duration;
@@ -47,20 +45,19 @@ videoProgress?.addEventListener('input', () => {
     }
 });
 
-// Cuando el video avanza normalmente, la bolita lo sigue
-videoPlayer.addEventListener('timeupdate', () => {
+videoPlayer?.addEventListener('timeupdate', () => {
     if (!isSeeking && videoPlayer.duration && videoProgress) {
         videoProgress.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
     }
 });
 
-videoPlayer.addEventListener('loadedmetadata', () => {
+videoPlayer?.addEventListener('loadedmetadata', () => {
     if (vRes) vRes.innerText = `📏 ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
     if (vFps) vFps.innerText = `⏱️ ~30 fps`; 
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
 });
 
-videoPlayer.addEventListener('volumechange', () => {
+videoPlayer?.addEventListener('volumechange', () => {
     if (vMute) {
         vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Muteado" : "🔊 Sonido On";
         vMute.style.color = videoPlayer.muted || videoPlayer.volume === 0 ? "#ef4444" : "#38bdf8";
@@ -95,16 +92,24 @@ window.addEventListener('keydown', (event) => {
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    // ⚡ GENERADOR RÁPIDO
+    // ⚡ GENERADOR RÁPIDO CON SEGURO ANTI-UNDEFINED
     if (key === 'arrowup') {
         event.preventDefault();
         const maxVal = document.getElementById('max-slider')?.value || 100;
-        if (typeof window.insertQuickPoint === 'function') window.insertQuickPoint(maxVal);
+        if (window.insertQuickPoint && typeof window.insertQuickPoint === 'function') {
+            window.insertQuickPoint(maxVal);
+        } else {
+            console.warn("Aviso: La línea de tiempo todavía se está cargando.");
+        }
     }
     if (key === 'arrowdown') {
         event.preventDefault();
         const minVal = document.getElementById('min-slider')?.value || 0;
-        if (typeof window.insertQuickPoint === 'function') window.insertQuickPoint(minVal);
+        if (window.insertQuickPoint && typeof window.insertQuickPoint === 'function') {
+            window.insertQuickPoint(minVal);
+        } else {
+            console.warn("Aviso: La línea de tiempo todavía se está cargando.");
+        }
     }
 
     if (event.code === 'Space') {
