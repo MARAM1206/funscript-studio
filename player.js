@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V7.0 (IMÁN DE TIEMPO Y FLECHAS REPARADAS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V8.0 (ANTI-COLISIÓN DE ARRASTRE DE PRESETS)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -28,7 +28,6 @@ function loadVideoFile(file) {
     videoPlayer.src = videoURL;
     videoPlayer.load();
     videoPlayer.playbackRate = currentSpeed;
-    
     window.currentVideoName = file.name;
     if (vName) vName.innerText = `📄 ${file.name}`;
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
@@ -62,9 +61,7 @@ videoPlayer?.addEventListener('pause', () => {
 });
 
 videoPlayer?.addEventListener('seeked', () => {
-    if (!videoPlayer.paused && typeof window.playHandy === 'function') {
-        window.playHandy(videoPlayer.currentTime * 1000);
-    }
+    if (!videoPlayer.paused && typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
 videoPlayer?.addEventListener('loadedmetadata', () => {
@@ -80,13 +77,25 @@ videoPlayer?.addEventListener('volumechange', () => {
     }
 });
 
+// 🛡️ MOTOR DE ARRASTRE CORREGIDO (IGNORAR PRESETS)
 const dragOverlay = document.getElementById('drag-drop-overlay');
 let dragCounter = 0;
-window.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; dragOverlay?.classList.add('active'); });
-window.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter === 0) dragOverlay?.classList.remove('active'); });
-window.addEventListener('dragover', (e) => { e.preventDefault(); });
+
+window.addEventListener('dragenter', (e) => { 
+    if (window.isDraggingPreset) return; // Si es un preset tuyo, no pongas pantalla azul
+    e.preventDefault(); dragCounter++; dragOverlay?.classList.add('active'); 
+});
+window.addEventListener('dragleave', (e) => { 
+    if (window.isDraggingPreset) return; 
+    e.preventDefault(); dragCounter--; if (dragCounter === 0) dragOverlay?.classList.remove('active'); 
+});
+window.addEventListener('dragover', (e) => { 
+    if (window.isDraggingPreset) return; 
+    e.preventDefault(); 
+});
 
 window.addEventListener('drop', (e) => {
+    if (window.isDraggingPreset) return; 
     e.preventDefault(); dragCounter = 0; dragOverlay?.classList.remove('active');
     const files = Array.from(e.dataTransfer.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
@@ -96,7 +105,6 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// ATAJOS DE TECLADO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
@@ -105,51 +113,32 @@ window.addEventListener('keydown', (event) => {
     const fps = window.videoFPS;
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
-    
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 REGLA DE ORO PARA LAS FLECHAS
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); 
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
 
         if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
-            // MODO 1: GRABACIÓN EN VIVO (Si el video corre, siempre inyecta, ignora si hay seleccionados)
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
         } 
         else if (!isPlaying && hasSelection) {
-            // MODO 2: EMPUJAR PUNTOS (Solo si está pausado y tienes puntos azules seleccionados)
             const dirMap = { 'arrowup': 'up', 'arrowdown': 'down', 'arrowleft': 'left', 'arrowright': 'right' };
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dirMap[key] }));
         } 
         else if (!isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
-            // MODO 3: INYECTOR ESTÁTICO (Está pausado pero no hay nada seleccionado)
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
         }
     }
 
-    // 🧲 TECLA C: IMÁN TEMPORAL
-    if (key === 'c' && hasSelection) {
-        event.preventDefault();
-        window.dispatchEvent(new CustomEvent('magnetPoint'));
-    }
-
-    if (event.code === 'Space') {
-        event.preventDefault();
-        if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
-    }
+    if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
+    if (event.code === 'Space') { event.preventDefault(); if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); }
     if (key === 'm') { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
-    if (key === 'e') {
-        event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1);
-        videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`;
-    }
-    if (key === 'r') {
-        event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1);
-        videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`;
-    }
+    if (key === 'e') { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'r') { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'q') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); }
     if (key === 'w') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); }
     if (key === 'a') { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); }
