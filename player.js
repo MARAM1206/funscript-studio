@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS (CON BARRA DE LÍNEA DE TIEMPO INTERACTIVA)
+// REPRODUCTOR Y MOTOR DE ATAJOS (COMUNICACIÓN SEGURA POR EVENTOS)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -17,7 +17,6 @@ const vMute = document.getElementById('v-mute');
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
 
-// 1. CARGA DE VIDEO
 videoInput?.addEventListener('change', function(event) {
     const file = event.target.files[0];
     if (file) loadVideoFile(file);
@@ -31,9 +30,7 @@ function loadVideoFile(file) {
     if (vName) vName.innerText = `📄 ${file.name}`;
 }
 
-// 2. SINCRONIZACIÓN DE LA NUEVA BARRA DE LÍNEA DE TIEMPO
 let isSeeking = false;
-
 videoProgress?.addEventListener('mousedown', () => isSeeking = true);
 videoProgress?.addEventListener('mouseup', () => isSeeking = false);
 
@@ -64,7 +61,6 @@ videoPlayer?.addEventListener('volumechange', () => {
     }
 });
 
-// 3. DRAG AND DROP
 const dragOverlay = document.getElementById('drag-drop-overlay');
 let dragCounter = 0;
 
@@ -82,7 +78,7 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 4. ATAJOS DE TECLADO
+// ATAJOS DE TECLADO
 window.addEventListener('keydown', (event) => {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
@@ -92,24 +88,16 @@ window.addEventListener('keydown', (event) => {
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    // ⚡ GENERADOR RÁPIDO CON SEGURO ANTI-UNDEFINED
+    // 🛡️ NUEVO: DISPARADOR DESACOPLADO (Imposible que cause error "is not a function")
     if (key === 'arrowup') {
         event.preventDefault();
         const maxVal = document.getElementById('max-slider')?.value || 100;
-        if (window.insertQuickPoint && typeof window.insertQuickPoint === 'function') {
-            window.insertQuickPoint(maxVal);
-        } else {
-            console.warn("Aviso: La línea de tiempo todavía se está cargando.");
-        }
+        window.dispatchEvent(new CustomEvent('injectPoint', { detail: maxVal }));
     }
     if (key === 'arrowdown') {
         event.preventDefault();
         const minVal = document.getElementById('min-slider')?.value || 0;
-        if (window.insertQuickPoint && typeof window.insertQuickPoint === 'function') {
-            window.insertQuickPoint(minVal);
-        } else {
-            console.warn("Aviso: La línea de tiempo todavía se está cargando.");
-        }
+        window.dispatchEvent(new CustomEvent('injectPoint', { detail: minVal }));
     }
 
     if (event.code === 'Space') {
