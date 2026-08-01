@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V9.0: IMÁN DE TIEMPO, ZONAS ANATÓMICAS Y ANTI-COLISIÓN
+// TIMELINE V9.1: GRID DE 10%, ZONAS FUERTES Y REPARACIÓN DEL INYECTOR
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -77,6 +77,7 @@ sliderA?.addEventListener('mouseup', blurSliders);
 sliderB?.addEventListener('mouseup', blurSliders);
 updateDualSlider(); 
 
+// 🎯 REPARACIÓN INYECTOR: No seleccionar el punto al inyectar para evitar conflictos
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
@@ -91,14 +92,20 @@ window.addEventListener('injectPoint', function(e) {
     } else pos = parseInt(e.detail, 10);
 
     saveHistoryState();
+    
+    // Deseleccionamos todo el resto
+    actions.forEach(a => { a.selected = false; });
+    
     const existingIdx = actions.findIndex(a => a.at === timeMs);
-    if (existingIdx !== -1) { actions[existingIdx].pos = pos; actions[existingIdx].selected = true; } 
-    else actions.push({ at: timeMs, pos: pos, selected: true });
+    if (existingIdx !== -1) { 
+        actions[existingIdx].pos = pos; 
+        actions[existingIdx].selected = false; // El candado crucial
+    } 
+    else {
+        actions.push({ at: timeMs, pos: pos, selected: false }); // El candado crucial
+    }
     
-    actions.forEach(a => { if (a.at !== timeMs) a.selected = false; });
     actions.sort((a, b) => a.at - b.at);
-    
-    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
     drawTimeline();
     notifyCloud(); 
@@ -129,7 +136,6 @@ window.addEventListener('nudgePoints', function(e) {
     }
 });
 
-// 🧲 RECEPTOR 3: IMÁN TEMPORAL (Atraer punto a tiempo actual)
 window.addEventListener('magnetPoint', function() {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
@@ -138,18 +144,14 @@ window.addEventListener('magnetPoint', function() {
     saveHistoryState();
 
     actions.forEach(act => {
-        if (act.selected) {
-            act.at = timeMs;
-            moved = true;
-        }
+        if (act.selected) { act.at = timeMs; moved = true; }
     });
 
     if (moved) {
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        drawTimeline();
-        notifyCloud();
+        drawTimeline(); notifyCloud();
     }
 });
 
@@ -221,43 +223,41 @@ function drawTimeline() {
         ctx.fillStyle = '#06090e'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 2. 📏 ZONAS ANATÓMICAS SUTILES
+        // 2. 📏 ZONAS ANATÓMICAS (MÁS VISIBLES Y GRUESAS)
         const y100 = posToY(100);
         const y70 = posToY(70);
         const y20 = posToY(20);
         const y0 = posToY(0);
 
-        // Glande (100% a 70%) - Rosa tenue
-        ctx.fillStyle = 'rgba(236, 72, 153, 0.03)';
+        // Glande (100% a 70%)
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.08)';
         ctx.fillRect(0, y100, canvas.width, y70 - y100);
         
-        // Cuerpo (70% a 20%) - Azul tenue
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.02)';
+        // Cuerpo (70% a 20%)
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.05)';
         ctx.fillRect(0, y70, canvas.width, y20 - y70);
         
-        // Base (20% a 0%) - Verde tenue
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.03)';
+        // Base (20% a 0%)
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
         ctx.fillRect(0, y20, canvas.width, y0 - y20);
 
-        // Líneas Divisorias Punteadas (Fronteras anatómicas)
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]); // Guiones cortos
+        // Líneas Divisorias Punteadas
+        ctx.lineWidth = 2; 
+        ctx.setLineDash([5, 5]); 
         
-        // Frontera Glande/Cuerpo (70%)
-        ctx.strokeStyle = 'rgba(236, 72, 153, 0.3)';
+        ctx.strokeStyle = 'rgba(236, 72, 153, 0.8)';
         ctx.beginPath(); ctx.moveTo(0, y70); ctx.lineTo(canvas.width, y70); ctx.stroke();
         
-        // Frontera Cuerpo/Base (20%)
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
         ctx.beginPath(); ctx.moveTo(0, y20); ctx.lineTo(canvas.width, y20); ctx.stroke();
 
-        ctx.setLineDash([]); // Resetear guiones para el resto del dibujo
+        ctx.setLineDash([]); 
 
-        // 3. Grid Horizontal Estándar
+        // 3. Grid Horizontal (DE 10% EN 10%)
         ctx.lineWidth = 1;
-        [0, 25, 50, 75, 100].forEach(p => {
+        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
             const y = posToY(p);
-            ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)'; // Líneas grises originales pero más transparentes
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
             ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
         });
