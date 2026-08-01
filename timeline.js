@@ -1,6 +1,17 @@
 // ==========================================================================
-// TIMELINE V4.1: MEMORIA ORGÁNICA Y DESLIZADOR HÍBRIDO (SIN APLASTAR PUNTOS)
+// TIMELINE V5.0: INICIALIZACIÓN GLOBAL ABSOLUTA Y DESLIZADOR HÍBRIDO
 // ==========================================================================
+
+// 🛡️ PILAR CERO: Creamos la memoria en el milisegundo 1. 
+// Ningún archivo volverá a decir que esto es "undefined".
+window.funscriptActions = window.funscriptActions || [];
+
+function getSafeActions() {
+    if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) {
+        window.funscriptActions = [];
+    }
+    return window.funscriptActions;
+}
 
 const canvas = document.getElementById('timeline-canvas');
 const ctx = canvas ? canvas.getContext('2d') : null;
@@ -9,15 +20,6 @@ const pointSlider = document.getElementById('point-slider');
 const sliderValueDisplay = document.getElementById('slider-value-display');
 
 const videoNode = document.getElementById('video-player');
-
-// 🛡️ NUEVO: PURIFICADOR DE MEMORIA ORGÁNICO
-// Sustituye al escudo estricto. Siempre devuelve una lista sana sin romper el navegador.
-function getActions() {
-    if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) {
-        window.funscriptActions = [];
-    }
-    return window.funscriptActions;
-}
 
 let undoStack = [];
 let redoStack = [];
@@ -57,14 +59,14 @@ window.calculateAdaptiveZoom = function() {
 };
 
 function saveHistoryState() {
-    undoStack.push(JSON.stringify(getActions()));
+    undoStack.push(JSON.stringify(getSafeActions()));
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
     redoStack = [];
 }
 
 function undo() {
     if (undoStack.length > 0) {
-        redoStack.push(JSON.stringify(getActions()));
+        redoStack.push(JSON.stringify(getSafeActions()));
         const poppedState = JSON.parse(undoStack.pop());
         window.funscriptActions = Array.isArray(poppedState) ? poppedState : [];
         syncSliderWithSelection(); updateActionsLog();
@@ -73,7 +75,7 @@ function undo() {
 
 function redo() {
     if (redoStack.length > 0) {
-        undoStack.push(JSON.stringify(getActions()));
+        undoStack.push(JSON.stringify(getSafeActions()));
         const poppedState = JSON.parse(redoStack.pop());
         window.funscriptActions = Array.isArray(poppedState) ? poppedState : [];
         syncSliderWithSelection(); updateActionsLog();
@@ -120,6 +122,7 @@ function drawTimeline() {
             ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
         });
 
+        // Pistas Fantasmas (Guías importadas)
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
                 if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
@@ -144,7 +147,8 @@ function drawTimeline() {
             });
         }
 
-        const actions = getActions();
+        // Pista Principal
+        const actions = getSafeActions();
         if (actions.length > 0) {
             ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8';
             ctx.beginPath(); let started = false;
@@ -167,6 +171,7 @@ function drawTimeline() {
             });
         }
 
+        // Cuadro de selección
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
             ctx.setLineDash([2, 2]); ctx.beginPath();
@@ -175,6 +180,7 @@ function drawTimeline() {
             ctx.setLineDash([]);
         }
 
+        // Línea Central
         const centerFixedX = canvas.width / 2 + panX;
         ctx.lineWidth = 2; ctx.strokeStyle = '#f97316';
         ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, canvas.height); ctx.stroke();
@@ -184,14 +190,14 @@ function drawTimeline() {
         ctx.lineTo(centerFixedX, 8); ctx.closePath(); ctx.fill();
 
     } catch (err) {
-        console.error("Error controlado en timeline:", err);
+        console.error("Error visual (ignorado para evitar crash):", err);
     }
 }
 window.drawTimeline = drawTimeline;
 
 function updateActionsLog() {
     if (!actionsLog) return;
-    const actions = getActions();
+    const actions = getSafeActions();
     if (actions.length === 0) {
         actionsLog.innerHTML = '<span class="empty-log">Sin puntos registrados aún</span>'; return;
     }
@@ -202,14 +208,12 @@ window.updateActionsLog = updateActionsLog;
 
 function syncSliderWithSelection() {
     if (!pointSlider) return;
-    const actions = getActions();
+    const actions = getSafeActions();
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         const lastSelected = selected[selected.length - 1];
         
-        // 🚨 SOLUCIÓN HÍBRIDA APLICADA AQUÍ 🚨
-        // Mostramos el porcentaje exacto (ej. 62%) SIN forzarlo a ser múltiplo de 5. 
-        // Respeta la forma en que trabajan otros escripteros.
+        // Deslizador Híbrido: No altera el porcentaje original
         pointSlider.value = lastSelected.pos;
         if (sliderValueDisplay) sliderValueDisplay.innerText = `${lastSelected.pos}%`;
     }
@@ -220,11 +224,11 @@ pointSlider?.addEventListener('input', function() {
     const val = parseInt(this.value, 10);
     if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
 
-    const actions = getActions();
+    const actions = getSafeActions();
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         saveHistoryState();
-        selected.forEach(act => act.pos = val);
+        selected.forEach(act => act.pos = val); // Solo redondea si el usuario mueve la barra manualmente
         updateActionsLog();
     }
 });
@@ -243,7 +247,7 @@ let isDraggingNode = false;
 let draggedNode = null;
 
 canvas?.addEventListener('mousedown', (e) => {
-    const actions = getActions();
+    const actions = getSafeActions();
     const pos = getMousePos(e);
     const clickX = pos.x;
     const clickY = pos.y;
@@ -276,7 +280,7 @@ canvas?.addEventListener('mousedown', (e) => {
 });
 
 canvas?.addEventListener('mousemove', (e) => {
-    const actions = getActions();
+    const actions = getSafeActions();
     const pos = getMousePos(e);
     const mouseX = pos.x;
     const mouseY = pos.y;
@@ -286,10 +290,7 @@ canvas?.addEventListener('mousemove', (e) => {
         syncSliderWithSelection();
     } else if (isSelecting) {
         currentX = mouseX; currentY = mouseY;
-        
-        if (Math.hypot(currentX - startX, currentY - startY) > 5) {
-            hasDraggedSelection = true;
-        }
+        if (Math.hypot(currentX - startX, currentY - startY) > 5) hasDraggedSelection = true;
 
         const minX = Math.min(startX, currentX); const maxX = Math.max(startX, currentX);
         const minY = Math.min(startY, currentY); const maxY = Math.max(startY, currentY);
@@ -303,7 +304,7 @@ canvas?.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
-    const actions = getActions();
+    const actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         const clickTime = Math.max(0, Math.round(xToTime(startX)));
         const clickPos = yToPos(startY);
@@ -326,7 +327,7 @@ function animationLoop() {
 requestAnimationFrame(animationLoop);
 
 window.addEventListener('keydown', (e) => {
-    const actions = getActions();
+    const actions = getSafeActions();
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
     if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
