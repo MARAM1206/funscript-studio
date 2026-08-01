@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V8.2: COMUNICACIÓN DE DATOS CON LA NUBE DE THE HANDY
+// TIMELINE V9.0: IMÁN DE TIEMPO, ZONAS ANATÓMICAS Y ANTI-COLISIÓN
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -28,7 +28,6 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// Avisar a la nube que modifiqué algo (Solo se dispara al terminar la acción)
 function notifyCloud() {
     if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
 }
@@ -102,7 +101,7 @@ window.addEventListener('injectPoint', function(e) {
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
     drawTimeline();
-    notifyCloud(); // ☁️ AVISO A LA NUBE
+    notifyCloud(); 
 });
 
 window.addEventListener('nudgePoints', function(e) {
@@ -126,9 +125,34 @@ window.addEventListener('nudgePoints', function(e) {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
         drawTimeline();
-        notifyCloud(); // ☁️ AVISO A LA NUBE
+        notifyCloud(); 
     }
 });
+
+// 🧲 RECEPTOR 3: IMÁN TEMPORAL (Atraer punto a tiempo actual)
+window.addEventListener('magnetPoint', function() {
+    const actions = getSafeActions();
+    const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    let moved = false;
+    
+    saveHistoryState();
+
+    actions.forEach(act => {
+        if (act.selected) {
+            act.at = timeMs;
+            moved = true;
+        }
+    });
+
+    if (moved) {
+        actions.sort((a, b) => a.at - b.at);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        drawTimeline();
+        notifyCloud();
+    }
+});
+
 
 function ensureCanvasSize() {
     if (!canvas) return;
@@ -155,7 +179,7 @@ function undo() {
         window.funscriptActions = JSON.parse(undoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        notifyCloud(); // ☁️ AVISO A LA NUBE
+        notifyCloud(); 
     }
 }
 
@@ -165,7 +189,7 @@ function redo() {
         window.funscriptActions = JSON.parse(redoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        notifyCloud(); // ☁️ AVISO A LA NUBE
+        notifyCloud(); 
     }
 }
 
@@ -192,16 +216,53 @@ function drawTimeline() {
         if (!ctx || !canvas) return;
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. Fondo Oscuro Principal
+        ctx.fillStyle = '#06090e'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // 2. 📏 ZONAS ANATÓMICAS SUTILES
+        const y100 = posToY(100);
+        const y70 = posToY(70);
+        const y20 = posToY(20);
+        const y0 = posToY(0);
+
+        // Glande (100% a 70%) - Rosa tenue
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.03)';
+        ctx.fillRect(0, y100, canvas.width, y70 - y100);
+        
+        // Cuerpo (70% a 20%) - Azul tenue
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.02)';
+        ctx.fillRect(0, y70, canvas.width, y20 - y70);
+        
+        // Base (20% a 0%) - Verde tenue
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.03)';
+        ctx.fillRect(0, y20, canvas.width, y0 - y20);
+
+        // Líneas Divisorias Punteadas (Fronteras anatómicas)
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]); // Guiones cortos
+        
+        // Frontera Glande/Cuerpo (70%)
+        ctx.strokeStyle = 'rgba(236, 72, 153, 0.3)';
+        ctx.beginPath(); ctx.moveTo(0, y70); ctx.lineTo(canvas.width, y70); ctx.stroke();
+        
+        // Frontera Cuerpo/Base (20%)
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+        ctx.beginPath(); ctx.moveTo(0, y20); ctx.lineTo(canvas.width, y20); ctx.stroke();
+
+        ctx.setLineDash([]); // Resetear guiones para el resto del dibujo
+
+        // 3. Grid Horizontal Estándar
         ctx.lineWidth = 1;
         [0, 25, 50, 75, 100].forEach(p => {
             const y = posToY(p);
-            ctx.strokeStyle = '#1e293b';
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)'; // Líneas grises originales pero más transparentes
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
             ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
         });
 
+        // 4. Pistas Fantasmas
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
                 if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
@@ -214,6 +275,7 @@ function drawTimeline() {
             });
         }
 
+        // 5. Pista Principal
         const actions = getSafeActions();
         if (actions.length > 0) {
             ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8';
@@ -230,17 +292,20 @@ function drawTimeline() {
             });
         }
 
+        // 6. Cuadro de selección
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
             ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
+        // 7. Línea Naranja del Reproductor
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         const playheadX = timeToX(actualVideoTimeMs);
         
         ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
         ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
 
+        // 8. Radar de Porcentaje (Solo en Pausa)
         if (videoNode && videoNode.paused) {
             actions.forEach(act => {
                 const px = timeToX(act.at);
@@ -285,11 +350,14 @@ pointSlider?.addEventListener('change', function() {
         saveHistoryState();
         selected.forEach(act => act.pos = val); 
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        notifyCloud(); // ☁️ AVISO A LA NUBE
+        notifyCloud(); 
     }
 });
 
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
+
+let isDraggingNode = false;
+let draggedNode = null;
 
 canvas?.addEventListener('mousedown', (e) => {
     const actions = getSafeActions();
@@ -317,7 +385,7 @@ canvas?.addEventListener('mousedown', (e) => {
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        notifyCloud(); // ☁️ AVISO A LA NUBE
+        notifyCloud(); 
     }
 });
 
@@ -352,9 +420,9 @@ window.addEventListener('mouseup', (e) => {
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        notifyCloud(); // ☁️ AVISO A LA NUBE (Punto nuevo)
+        notifyCloud(); 
     } else if (isDraggingNode || hasDraggedSelection) {
-        notifyCloud(); // ☁️ AVISO A LA NUBE (Arrastre terminado)
+        notifyCloud(); 
     }
     isDraggingNode = false; draggedNode = null; isSelecting = false;
 });
@@ -372,6 +440,6 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Delete' || e.key === 'Backspace') { 
         saveHistoryState(); window.funscriptActions = actions.filter(a => !a.selected); 
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); 
-        notifyCloud(); // ☁️ AVISO A LA NUBE
+        notifyCloud(); 
     }
 });
