@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V11.0: PRESETS CON ARRASTRE VERTICAL E IMÁN AL 5%
+// TIMELINE V12.0: PURIFICACIÓN DEL INYECTOR Y EMPUJE EN EL TIEMPO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -47,10 +47,7 @@ canvas?.addEventListener('wheel', (e) => {
 
 window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
-// ==================================================
-// ARRASTRE DE PRESETS (AHORA CON ALTURA VERTICAL 5%)
-// ==================================================
-
+// ARRASTRE DE PRESETS CON IMÁN DE ALTURA 5%
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -58,23 +55,15 @@ canvas?.addEventListener('dragover', (e) => {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
-        // 🧲 Imán de Tiempo (Busca puntos cercanos a 250ms)
         const snapDistMs = 250; 
         const actions = getSafeActions();
         for (let act of actions) {
-            if (Math.abs(act.at - hoverTimeMs) < snapDistMs) {
-                hoverTimeMs = act.at; 
-                break;
-            }
+            if (Math.abs(act.at - hoverTimeMs) < snapDistMs) { hoverTimeMs = act.at; break; }
         }
         
-        // 🧲 Imán de Altura (Redondeo puro de 5% en 5%)
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
-        
-        // Cálculo del Delta: Cuánto se movió respecto a la posición base del Preset
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
-        
         window.timelineGhostTimeMs = hoverTimeMs;
         drawTimeline();
     }
@@ -96,12 +85,10 @@ canvas?.addEventListener('drop', (e) => {
 
         saveHistoryState();
         
-        // 💥 Destrucción automática de basura que estorbe en el bloque
         let actions = getSafeActions();
         window.funscriptActions = actions.filter(act => act.at < dropTimeMs || act.at > endTimeMs);
         window.funscriptActions.forEach(a => a.selected = false); 
 
-        // 🟢 Inserción del Preset con el Delta Vertical calculado (Limitado entre 0 y 100)
         const newActions = window.timelineGhostPreset.map(act => ({
             at: dropTimeMs + act.at,
             pos: Math.max(0, Math.min(100, act.pos + deltaY)),
@@ -111,10 +98,7 @@ canvas?.addEventListener('drop', (e) => {
         window.funscriptActions.push(...newActions);
         window.funscriptActions.sort((a, b) => a.at - b.at);
         
-        window.isDraggingPreset = false;
-        window.timelineGhostPreset = null;
-        window.timelineGhostTimeMs = null;
-        window.timelineGhostDeltaPos = 0;
+        window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
@@ -122,7 +106,6 @@ canvas?.addEventListener('drop', (e) => {
     }
 });
 
-// SLIDERS DUALES
 const sliderA = document.getElementById('min-slider'); const sliderB = document.getElementById('max-slider');
 const dualFill = document.getElementById('dual-slider-fill'); const minLabel = document.getElementById('min-label'); const maxLabel = document.getElementById('max-label');
 
@@ -138,41 +121,58 @@ sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener(
 sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
+// 🎯 RECEPTOR 1: EL INYECTOR SUPREMO (ARRIBA Y ABAJO)
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    
     const valA = parseInt(sliderA?.value || '15', 10); const valB = parseInt(sliderB?.value || '85', 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
 
-    let pos = 50;
-    if (typeof e.detail === 'object') { if (e.detail.dir === 'up') pos = currentMax; else if (e.detail.dir === 'down') pos = currentMin; } else pos = parseInt(e.detail, 10);
+    let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
 
     saveHistoryState();
-    actions.forEach(a => { a.selected = false; }); 
-    
-    const existingIdx = actions.findIndex(a => a.at === timeMs);
-    if (existingIdx !== -1) { actions[existingIdx].pos = pos; actions[existingIdx].selected = false; } 
-    else actions.push({ at: timeMs, pos: pos, selected: false });
+    const isPlaying = videoNode && !videoNode.paused;
+    const hasSelection = actions.some(a => a.selected);
+
+    // Si el video está en Pausa y tienes puntos seleccionados, se ajustan a ese tope mágico instantáneamente.
+    if (!isPlaying && hasSelection) {
+        actions.forEach(a => { if (a.selected) a.pos = pos; });
+    } 
+    // Si el video Corre o no hay nada seleccionado, inyectamos a la fuerza
+    else {
+        actions.forEach(a => { a.selected = false; }); 
+        const existingIdx = actions.findIndex(a => a.at === timeMs);
+        if (existingIdx !== -1) { 
+            actions[existingIdx].pos = pos; 
+            actions[existingIdx].selected = false; 
+        } 
+        else {
+            actions.push({ at: timeMs, pos: pos, selected: false });
+        }
+    }
     
     actions.sort((a, b) => a.at - b.at);
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
     drawTimeline(); notifyCloud(); 
 });
 
-window.addEventListener('nudgePoints', function(e) {
+// 🎯 RECEPTOR 2: EMPUJE DE TIEMPO (IZQUIERDA Y DERECHA)
+window.addEventListener('nudgeTime', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
+    
     actions.forEach(act => {
         if (act.selected) {
-            if (dir === 'up') act.pos = Math.min(100, act.pos + 5);
-            if (dir === 'down') act.pos = Math.max(0, act.pos - 5);
             if (dir === 'left') act.at = Math.max(0, act.at - 50); 
             if (dir === 'right') act.at = act.at + 50; 
             moved = true;
         }
     });
+
     if (moved) {
-        if (dir === 'left' || dir === 'right') actions.sort((a, b) => a.at - b.at);
+        actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
         drawTimeline(); notifyCloud(); 
@@ -286,7 +286,7 @@ function drawTimeline() {
             });
         }
 
-        // 🟢 FANTASMA Y DESPLAZAMIENTO VERTICAL
+        // FANTASMA DE PRESETS (CON DESPLAZAMIENTO VERTICAL)
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
@@ -294,7 +294,7 @@ function drawTimeline() {
             ctx.beginPath();
             window.timelineGhostPreset.forEach((act, index) => {
                 const x = timeToX(window.timelineGhostTimeMs + act.at);
-                const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); // Se le suma la altura arrastrada
+                const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
                 if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             });
             ctx.stroke();
@@ -428,8 +428,7 @@ window.addEventListener('mouseup', (e) => {
         actions.push({ at: clickTime, pos: clickPos, selected: true });
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        notifyCloud(); 
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
     } else if (isDraggingNode || hasDraggedSelection) { notifyCloud(); }
     isDraggingNode = false; draggedNode = null; isSelecting = false;
 });
