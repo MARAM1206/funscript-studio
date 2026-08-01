@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V4.0
+// REPRODUCTOR Y MOTOR DE ATAJOS V5.0 (DOBLE FUNCIÓN DE FLECHAS)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -7,7 +7,7 @@ const videoPlayer = document.getElementById('video-player');
 const videoProgress = document.getElementById('video-progress');
 
 window.videoPlayer = videoPlayer;
-window.currentVideoName = null; // Memoria del Gestor
+window.currentVideoName = null; 
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -32,7 +32,6 @@ function loadVideoFile(file) {
     window.currentVideoName = file.name;
     if (vName) vName.innerText = `📄 ${file.name}`;
     
-    // Avisar al gestor de archivos que hay un video nuevo
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
 }
 
@@ -54,7 +53,6 @@ videoPlayer?.addEventListener('timeupdate', () => {
     }
 });
 
-// CUANDO EL VIDEO REPRODUCE, AVISAMOS PARA RESETEAR EL PANEO DE LA LÍNEA DEL TIEMPO
 videoPlayer?.addEventListener('play', () => {
     window.dispatchEvent(new Event('videoPlay'));
 });
@@ -99,11 +97,24 @@ window.addEventListener('keydown', (event) => {
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    if (key === 'arrowup' || key === 'arrowdown') {
-        event.preventDefault(); 
-        if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
-        const dir = (key === 'arrowup') ? 'up' : 'down';
-        window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+    // 🎯 NUEVO: CEREBRO DUAL PARA LAS FLECHAS
+    const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
+
+    if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
+        
+        if (hasSelection) {
+            // MODO 1: EMPUJAR PUNTOS SELECCIONADOS
+            event.preventDefault(); 
+            const dirMap = { 'arrowup': 'up', 'arrowdown': 'down', 'arrowleft': 'left', 'arrowright': 'right' };
+            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dirMap[key] }));
+        } 
+        else if (key === 'arrowup' || key === 'arrowdown') {
+            // MODO 2: INYECTOR RÁPIDO (Solo Arriba y Abajo)
+            event.preventDefault(); 
+            if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
+            const dir = (key === 'arrowup') ? 'up' : 'down';
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+        }
     }
 
     if (event.code === 'Space') {
