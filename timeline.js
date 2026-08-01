@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V8.1: RADAR ÓPTICO DE PORCENTAJE (SOLO EN PAUSA)
+// TIMELINE V8.2: COMUNICACIÓN DE DATOS CON LA NUBE DE THE HANDY
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -23,13 +23,16 @@ const MAX_HISTORY = 50;
 let zoom = 1.0; 
 let basePixelsPerMs = 0.05; 
 let timelineTimeOffset = 0; 
-
 let isSelecting = false;
 let hasDraggedSelection = false; 
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// CONTROLES DE ZOOM Y PANEO
+// Avisar a la nube que modifiqué algo (Solo se dispara al terminar la acción)
+function notifyCloud() {
+    if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
+}
+
 canvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.shiftKey) {
@@ -40,7 +43,6 @@ canvas?.addEventListener('wheel', (e) => {
         if (videoNode && videoNode.paused) {
             const visibleTimeMs = canvas.width / (basePixelsPerMs * zoom);
             const panStep = visibleTimeMs * 0.15; 
-            
             if (e.deltaY < 0) timelineTimeOffset += panStep; 
             else timelineTimeOffset -= panStep; 
         }
@@ -48,12 +50,8 @@ canvas?.addEventListener('wheel', (e) => {
     drawTimeline();
 }, { passive: false });
 
-window.addEventListener('videoPlay', () => {
-    timelineTimeOffset = 0;
-    drawTimeline();
-});
+window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
-// LÓGICA DEL PANEL "INYECTOR RÁPIDO"
 const sliderA = document.getElementById('min-slider');
 const sliderB = document.getElementById('max-slider');
 const dualFill = document.getElementById('dual-slider-fill');
@@ -66,20 +64,11 @@ function updateDualSlider() {
     const valB = parseInt(sliderB.value, 10);
     const currentMin = Math.min(valA, valB);
     const currentMax = Math.max(valA, valB);
-
     if (minLabel) minLabel.innerText = `⬇️ Mínimo: ${currentMin}%`;
     if (maxLabel) maxLabel.innerText = `⬆️ Máximo: ${currentMax}%`;
-
-    if (dualFill) {
-        dualFill.style.left = `${currentMin}%`;
-        dualFill.style.width = `${currentMax - currentMin}%`;
-    }
+    if (dualFill) { dualFill.style.left = `${currentMin}%`; dualFill.style.width = `${currentMax - currentMin}%`; }
 }
-
-function blurSliders() {
-    if (sliderA) sliderA.blur();
-    if (sliderB) sliderB.blur();
-}
+function blurSliders() { if (sliderA) sliderA.blur(); if (sliderB) sliderB.blur(); }
 
 sliderA?.addEventListener('input', updateDualSlider);
 sliderB?.addEventListener('input', updateDualSlider);
@@ -89,11 +78,9 @@ sliderA?.addEventListener('mouseup', blurSliders);
 sliderB?.addEventListener('mouseup', blurSliders);
 updateDualSlider(); 
 
-// RECEPTOR 1: INYECTAR PUNTO
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
-    
     const valA = parseInt(sliderA?.value || '15', 10);
     const valB = parseInt(sliderB?.value || '85', 10);
     const currentMin = Math.min(valA, valB);
@@ -101,21 +88,13 @@ window.addEventListener('injectPoint', function(e) {
 
     let pos = 50;
     if (typeof e.detail === 'object') {
-        if (e.detail.dir === 'up') pos = currentMax;
-        else if (e.detail.dir === 'down') pos = currentMin;
-    } else {
-        pos = parseInt(e.detail, 10);
-    }
+        if (e.detail.dir === 'up') pos = currentMax; else if (e.detail.dir === 'down') pos = currentMin;
+    } else pos = parseInt(e.detail, 10);
 
     saveHistoryState();
-    
     const existingIdx = actions.findIndex(a => a.at === timeMs);
-    if (existingIdx !== -1) {
-        actions[existingIdx].pos = pos;
-        actions[existingIdx].selected = true;
-    } else {
-        actions.push({ at: timeMs, pos: pos, selected: true });
-    }
+    if (existingIdx !== -1) { actions[existingIdx].pos = pos; actions[existingIdx].selected = true; } 
+    else actions.push({ at: timeMs, pos: pos, selected: true });
     
     actions.forEach(a => { if (a.at !== timeMs) a.selected = false; });
     actions.sort((a, b) => a.at - b.at);
@@ -123,14 +102,13 @@ window.addEventListener('injectPoint', function(e) {
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
     drawTimeline();
+    notifyCloud(); // ☁️ AVISO A LA NUBE
 });
 
-// RECEPTOR 2: EMPUJAR PUNTOS SELECCIONADOS (NUDGE)
 window.addEventListener('nudgePoints', function(e) {
     const actions = getSafeActions();
     const dir = e.detail; 
     let moved = false;
-
     saveHistoryState();
 
     actions.forEach(act => {
@@ -148,10 +126,10 @@ window.addEventListener('nudgePoints', function(e) {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
         drawTimeline();
+        notifyCloud(); // ☁️ AVISO A LA NUBE
     }
 });
 
-// MOTOR GRÁFICO 
 function ensureCanvasSize() {
     if (!canvas) return;
     const parent = canvas.parentElement;
@@ -169,11 +147,7 @@ window.calculateAdaptiveZoom = function() {
     } else { basePixelsPerMs = 0.05; }
 };
 
-function saveHistoryState() {
-    undoStack.push(JSON.stringify(getSafeActions()));
-    if (undoStack.length > MAX_HISTORY) undoStack.shift();
-    redoStack = [];
-}
+function saveHistoryState() { undoStack.push(JSON.stringify(getSafeActions())); if (undoStack.length > MAX_HISTORY) undoStack.shift(); redoStack = []; }
 
 function undo() {
     if (undoStack.length > 0) {
@@ -181,6 +155,7 @@ function undo() {
         window.funscriptActions = JSON.parse(undoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        notifyCloud(); // ☁️ AVISO A LA NUBE
     }
 }
 
@@ -190,6 +165,7 @@ function redo() {
         window.funscriptActions = JSON.parse(redoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        notifyCloud(); // ☁️ AVISO A LA NUBE
     }
 }
 
@@ -207,16 +183,8 @@ function xToTime(x) {
     return screenCenterTime + (x - centerFixedX) / (basePixelsPerMs * zoom);
 }
 
-function posToY(pos) {
-    const padding = 20; const usableHeight = canvas.height - (padding * 2);
-    return canvas.height - padding - (pos / 100) * usableHeight;
-}
-
-function yToPos(y) {
-    const padding = 20; const usableHeight = canvas.height - (padding * 2);
-    const rawPos = ((canvas.height - padding - y) / usableHeight) * 100;
-    return Math.max(0, Math.min(100, Math.round(rawPos)));
-}
+function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
+function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
 function drawTimeline() {
     try {
@@ -239,20 +207,9 @@ function drawTimeline() {
                 if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
                     ctx.lineWidth = 2; ctx.strokeStyle = track.color + '88';
                     ctx.beginPath();
-                    track.actions.forEach((act, index) => {
-                        const x = timeToX(act.at); const y = posToY(act.pos);
-                        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                    });
+                    track.actions.forEach((act, index) => { const x = timeToX(act.at); const y = posToY(act.pos); if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
                     ctx.stroke();
-
-                    track.actions.forEach(act => {
-                        const x = timeToX(act.at);
-                        if (x >= -20 && x <= canvas.width + 20) {
-                            const y = posToY(act.pos);
-                            ctx.fillStyle = track.color;
-                            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
-                        }
-                    });
+                    track.actions.forEach(act => { const x = timeToX(act.at); if (x >= -20 && x <= canvas.width + 20) { const y = posToY(act.pos); ctx.fillStyle = track.color; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); } });
                 }
             });
         }
@@ -261,17 +218,12 @@ function drawTimeline() {
         if (actions.length > 0) {
             ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8';
             ctx.beginPath();
-            actions.forEach((act, index) => {
-                const x = timeToX(act.at); const y = posToY(act.pos);
-                if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            });
+            actions.forEach((act, index) => { const x = timeToX(act.at); const y = posToY(act.pos); if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
             ctx.stroke();
-
             actions.forEach(act => {
                 const x = timeToX(act.at);
                 if (x >= -20 && x <= canvas.width + 20) {
-                    const y = posToY(act.pos);
-                    ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
+                    const y = posToY(act.pos); ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
                     ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
                     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                 }
@@ -280,54 +232,28 @@ function drawTimeline() {
 
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-            ctx.setLineDash([2, 2]); ctx.beginPath();
-            ctx.fillRect(startX, startY, currentX - startX, currentY - startY);
-            ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
-            ctx.setLineDash([]);
+            ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
-        // LA AGUJA DEL REPRODUCTOR (Línea Naranja)
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         const playheadX = timeToX(actualVideoTimeMs);
         
-        ctx.lineWidth = 2; ctx.strokeStyle = '#f97316';
-        ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
-        ctx.fillStyle = '#f97316';
-        ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0);
-        ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
+        ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
 
-        // 🎯 NUEVO: RADAR ÓPTICO DE PORCENTAJE (SOLO EN PAUSA)
         if (videoNode && videoNode.paused) {
             actions.forEach(act => {
                 const px = timeToX(act.at);
-                // Si el punto está tocando o muy cerca de la aguja naranja (margen de 4px)
                 if (Math.abs(px - playheadX) <= 4) {
                     const py = posToY(act.pos);
-                    
-                    // Coordenadas de la etiqueta (por defecto arriba a la derecha del punto)
-                    let tooltipX = px + 8;
-                    let tooltipY = py - 18;
-                    
-                    // Si el punto está muy arriba y se corta, lo dibujamos por abajo
+                    let tooltipX = px + 8; let tooltipY = py - 18;
                     if (tooltipY < 5) tooltipY = py + 8;
-
-                    // Dibujar fondo oscuro semi-transparente
-                    ctx.fillStyle = 'rgba(11, 15, 23, 0.85)';
-                    ctx.fillRect(tooltipX, tooltipY, 34, 16);
-                    
-                    // Borde Naranja sutil
-                    ctx.strokeStyle = '#f97316';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(tooltipX, tooltipY, 34, 16);
-
-                    // Texto del Porcentaje
-                    ctx.fillStyle = '#e2e8f0';
-                    ctx.font = 'bold 10px monospace';
-                    ctx.fillText(`${act.pos}%`, tooltipX + 4, tooltipY + 12);
+                    ctx.fillStyle = 'rgba(11, 15, 23, 0.85)'; ctx.fillRect(tooltipX, tooltipY, 34, 16);
+                    ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1; ctx.strokeRect(tooltipX, tooltipY, 34, 16);
+                    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 10px monospace'; ctx.fillText(`${act.pos}%`, tooltipX + 4, tooltipY + 12);
                 }
             });
         }
-
     } catch (err) {}
 }
 
@@ -350,7 +276,7 @@ window.syncSliderWithSelection = function() {
     }
 };
 
-pointSlider?.addEventListener('input', function() {
+pointSlider?.addEventListener('change', function() {
     const val = parseInt(this.value, 10);
     if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
     const actions = getSafeActions();
@@ -359,16 +285,11 @@ pointSlider?.addEventListener('input', function() {
         saveHistoryState();
         selected.forEach(act => act.pos = val); 
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        notifyCloud(); // ☁️ AVISO A LA NUBE
     }
 });
 
-function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
-    return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
-}
-
-let isDraggingNode = false;
-let draggedNode = null;
+function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
 canvas?.addEventListener('mousedown', (e) => {
     const actions = getSafeActions();
@@ -396,6 +317,7 @@ canvas?.addEventListener('mousedown', (e) => {
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        notifyCloud(); // ☁️ AVISO A LA NUBE
     }
 });
 
@@ -430,12 +352,14 @@ window.addEventListener('mouseup', (e) => {
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        notifyCloud(); // ☁️ AVISO A LA NUBE (Punto nuevo)
+    } else if (isDraggingNode || hasDraggedSelection) {
+        notifyCloud(); // ☁️ AVISO A LA NUBE (Arrastre terminado)
     }
     isDraggingNode = false; draggedNode = null; isSelecting = false;
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
-
 function animationLoop() { drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
 
@@ -444,12 +368,10 @@ window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
     if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 'a') { 
-        e.preventDefault(); actions.forEach(a => a.selected = true); 
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); 
-    }
+    if (e.ctrlKey && e.key.toLowerCase() === 'a') { e.preventDefault(); actions.forEach(a => a.selected = true); if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); }
     if (e.key === 'Delete' || e.key === 'Backspace') { 
         saveHistoryState(); window.funscriptActions = actions.filter(a => !a.selected); 
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); 
+        notifyCloud(); // ☁️ AVISO A LA NUBE
     }
 });
