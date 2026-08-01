@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V5.6: DIBUJO CONTINUO, GENERADOR RÁPIDO Y MEMORIA SANA
+// TIMELINE V6.0: COMUNICACIÓN POR EVENTOS Y ANTI-CACHÉ
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -28,9 +28,7 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// ==================================================
 // LÓGICA DEL PANEL "GENERADOR RÁPIDO" (SLIDER DOBLE)
-// ==================================================
 const minSliderGen = document.getElementById('min-slider');
 const maxSliderGen = document.getElementById('max-slider');
 const dualFill = document.getElementById('dual-slider-fill');
@@ -42,7 +40,6 @@ function updateDualSlider() {
     let minVal = parseInt(minSliderGen.value);
     let maxVal = parseInt(maxSliderGen.value);
 
-    // Evita que el tope inferior cruce al superior
     if (minVal > maxVal) {
         let tmp = minVal;
         minSliderGen.value = maxVal;
@@ -61,17 +58,16 @@ function updateDualSlider() {
 }
 minSliderGen?.addEventListener('input', updateDualSlider);
 maxSliderGen?.addEventListener('input', updateDualSlider);
-updateDualSlider(); // Inicializar
+updateDualSlider(); 
 
-// 🛡️ EXPORTACIÓN GLOBAL PROTEGIDA DEL GENERADOR
-window.insertQuickPoint = function(porcentajeStr) {
+// 🛡️ RECEPTOR GLOBAL DE LA SEÑAL (Atrapa las flechas sin causar errores)
+window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
-    const pos = parseInt(porcentajeStr, 10);
+    const pos = parseInt(e.detail, 10);
 
     saveHistoryState();
     
-    // Si ya existe un punto en este milisegundo exacto, lo actualiza, sino lo crea.
     const existingIdx = actions.findIndex(a => a.at === timeMs);
     if (existingIdx !== -1) {
         actions[existingIdx].pos = pos;
@@ -80,20 +76,15 @@ window.insertQuickPoint = function(porcentajeStr) {
         actions.push({ at: timeMs, pos: pos, selected: true });
     }
     
-    // Deselecciona el resto
     actions.forEach(a => { if (a.at !== timeMs) a.selected = false; });
-    
     actions.sort((a, b) => a.at - b.at);
     
-    // Actualizamos visuales solo si las funciones están disponibles
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-};
+    drawTimeline();
+});
 
-// ==================================================
 // MOTOR GRÁFICO 
-// ==================================================
-
 function ensureCanvasSize() {
     if (!canvas) return;
     const parent = canvas.parentElement;
