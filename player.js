@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V8.0 (ANTI-COLISIÓN DE ARRASTRE DE PRESETS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V9.0 (Q/W FIX Y CAPTURA ABSOLUTA DE FLECHAS)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -77,12 +77,11 @@ videoPlayer?.addEventListener('volumechange', () => {
     }
 });
 
-// 🛡️ MOTOR DE ARRASTRE CORREGIDO (IGNORAR PRESETS)
 const dragOverlay = document.getElementById('drag-drop-overlay');
 let dragCounter = 0;
 
 window.addEventListener('dragenter', (e) => { 
-    if (window.isDraggingPreset) return; // Si es un preset tuyo, no pongas pantalla azul
+    if (window.isDraggingPreset) return; 
     e.preventDefault(); dragCounter++; dragOverlay?.classList.add('active'); 
 });
 window.addEventListener('dragleave', (e) => { 
@@ -105,6 +104,8 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
+// 🛡️ MODO CAPTURA (true) EN TECLADO:
+// Intercepta las flechas ANTES de que los deslizadores de Windows puedan robar la señal.
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
@@ -118,8 +119,7 @@ window.addEventListener('keydown', (event) => {
 
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); 
-        if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
-
+        
         if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
@@ -139,8 +139,11 @@ window.addEventListener('keydown', (event) => {
     if (key === 'm') { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
     if (key === 'e') { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r') { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
-    if (key === 'q') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); }
-    if (key === 'w') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); }
+    
+    // 🛡️ REPARACIÓN Q/W: Avisar a drawTimeline() que debe redibujar
+    if (key === 'q') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'w') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    
     if (key === 'a') { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); }
     if (key === 's') { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); }
 
@@ -170,4 +173,4 @@ window.addEventListener('keydown', (event) => {
             }
         }
     }
-});
+}, true); // <---- Cierre con 'true' activa la Captura Absoluta
