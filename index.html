@@ -12,8 +12,7 @@
         <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
             <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Seleccionar Video</label>
             <input type="file" id="video-input" accept="video/*" style="display: none;">
-            
-            <label for="funscript-input" class="menu-btn" style="background: #2563eb; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none; transition: background 0.2s;">📂 Importar FunScripts</label>
+            <label for="funscript-input" class="menu-btn" style="background: #2563eb; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none;">📂 Importar FunScripts</label>
             <input type="file" id="funscript-input" accept=".funscript, .json" multiple style="display: none;">
         </div>
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -27,7 +26,6 @@
     </div>
 
     <div class="workspace-container">
-
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-content" style="padding: 0; display: flex; flex-direction: column; background: #000;">
                 <div class="video-container" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
@@ -60,7 +58,6 @@
                         <li><span class="key">Flecha ⬆/⬇</span> = Inyectar Punto (si no hay selección)</li>
                         <li><span class="key">B</span> / <span class="key">N</span> = Punto Anterior / Siguiente</li>
                         <li><span class="key">Espacio</span> = Play / Pausa</li>
-                        <li><span class="key">Q</span> / <span class="key">W</span> = Frame Atrás / Adelante</li>
                         <li><span class="key">Click Izq</span> / <span class="key">Der</span> = Crear / Borrar Punto</li>
                     </ul>
                 </div>
@@ -69,9 +66,7 @@
 
         <div id="panel-tracks" class="workspace-panel" data-title="📂 Gestor de Archivos">
             <div class="panel-content">
-                <div id="tracks-list" class="tracks-list-container">
-                    <span class="empty-tracks-msg">No hay archivos cargados aún.</span>
-                </div>
+                <div id="tracks-list" class="tracks-list-container"><span class="empty-tracks-msg">No hay archivos cargados.</span></div>
             </div>
         </div>
 
@@ -86,63 +81,49 @@
 
         <div id="panel-quick" class="workspace-panel" data-title="⚡ Inyector Rápido">
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 15px;">Ajusta los topes libremente y usa las <strong>Flechas Arriba/Abajo</strong> del teclado para inyectar puntos en vivo.</p>
+                <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
                 <div class="dual-slider-labels">
-                    <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 15%</span>
-                    <span id="max-label" style="color: #f97316;">⬆️ Máximo: 85%</span>
+                    <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 15%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 85%</span>
                 </div>
                 <div class="dual-slider-container">
-                    <div class="dual-slider-track"></div>
-                    <div id="dual-slider-fill" class="dual-slider-fill"></div>
+                    <div class="dual-slider-track"></div><div id="dual-slider-fill" class="dual-slider-fill"></div>
                     <input type="range" id="min-slider" class="dual-range" min="0" max="100" step="5" value="15">
                     <input type="range" id="max-slider" class="dual-range" min="0" max="100" step="5" value="85">
                 </div>
             </div>
         </div>
 
-        <div id="panel-handy" class="workspace-panel" data-title="🔌 Conexión The Handy">
-            <div class="panel-content" style="justify-content: center; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px; background: #0b0f17; padding: 8px 12px; border-radius: 8px; border: 1px solid #1e293b;">
-                    <span id="handy-dot" style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></span>
-                    <span id="handy-status-text" style="font-size: 0.8rem; font-weight: bold; color: #e2e8f0;">Desconectado</span>
-                </div>
-                <input type="text" id="handy-key-input" placeholder="Ingresa tu Llave de Conexión" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: white; text-align: center; font-family: monospace;">
-                <div style="display: flex; gap: 6px;">
-                    <button id="handy-connect-btn" class="menu-btn select-btn" style="flex-grow: 1;">🔗 Conectar</button>
-                    <button id="handy-sync-btn" class="menu-btn" style="background: #a855f7; flex-grow: 1;">🚀 Subir Script</button>
-                </div>
-                <p style="font-size: 0.7rem; color: #64748b; text-align: center; margin-top: 4px;">Recuerda hacer clic en "Subir Script" cada vez que modifiques los puntos antes de dar Play.</p>
+        <div id="panel-handy" class="workspace-panel" data-title="🍆 The Handy (Nube)">
+            <div class="panel-content" style="align-items: center; justify-content: center; text-align: center;">
+                <p style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px;">Control en vivo mediante Wi-Fi</p>
+                <input type="text" id="handy-key" placeholder="Tu Connection Key" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; text-align: center; margin-bottom: 8px;">
+                <button id="handy-connect-btn" class="menu-btn" style="background:#10b981; width: 100%;">🔌 Conectar</button>
+                <span id="handy-status" style="margin-top:10px; font-size:0.85rem; color:#64748b; font-weight: bold;">Desconectado</span>
             </div>
         </div>
 
         <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
             <div class="panel-content">
                 <button id="save-preset-btn" class="menu-btn" style="background: #8b5cf6; width: 100%; margin-bottom: 8px; cursor: pointer;">Guardar Selección</button>
-                <div id="presets-list" class="presets-list-container">
-                    <span class="empty-log">No hay presets aún.</span>
-                </div>
+                <div id="presets-list" class="presets-list-container"><span class="empty-log">No hay presets aún.</span></div>
             </div>
         </div>
 
         <div id="panel-actions" class="workspace-panel" data-title="📊 Registro">
             <div class="panel-content">
-                <div id="actions-log" class="log-container">
-                    <span class="empty-log">Sin puntos registrados aún</span>
-                </div>
+                <div id="actions-log" class="log-container"><span class="empty-log">Sin puntos registrados aún</span></div>
             </div>
         </div>
 
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
-            <div class="panel-content" style="position: relative; padding: 0;">
-                <canvas id="timeline-canvas"></canvas>
-            </div>
+            <div class="panel-content" style="position: relative; padding: 0;"><canvas id="timeline-canvas"></canvas></div>
         </div>
 
     </div>
 
     <script src="workspace.js?v=6"></script>
-    <script src="funscript.js?v=6"></script>
-    <script src="handy.js?v=6"></script> <script src="player.js?v=6"></script>
+    <script src="handy.js?v=6"></script> <script src="funscript.js?v=6"></script>
+    <script src="player.js?v=6"></script>
     <script src="tracking.js?v=6"></script>
     <script src="presets.js?v=6"></script>
     <script src="timeline.js?v=6"></script>
