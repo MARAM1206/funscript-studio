@@ -24,11 +24,24 @@
         </div>
     </div>
 
+    <div id="drag-drop-overlay" class="drag-drop-overlay">
+        <div class="drag-drop-message">📂 Suelta tu Video o archivos FunScript aquí</div>
+    </div>
+
     <div class="workspace-container">
 
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
-            <div class="panel-content">
-                <div class="video-container" style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #000;">
+            <div class="panel-content" style="position: relative; padding: 0; background: #000;">
+                
+                <div class="video-info-overlay">
+                    <span id="v-name">Sin video</span> | 
+                    <span id="v-res">--x--</span> | 
+                    <span id="v-fps">-- fps</span> | 
+                    <span id="v-speed">Vel: 1.0x</span> | 
+                    <span id="v-mute">🔊 Sonido On</span>
+                </div>
+
+                <div class="video-container" style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
                     <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
                 </div>
@@ -38,19 +51,16 @@
         <div id="panel-controls" class="workspace-panel" data-title="⌨️ Controles">
             <div class="panel-content">
                 <div class="controls-info">
-                    <p><strong>Info Video:</strong> <span id="video-filename">Sin video</span> (<span id="video-specs">-- fps</span>)</p>
-                    <p><strong>Velocidad:</strong> <span id="speed-display">1.0x</span></p>
-                    <hr style="border-color: #1e293b; margin: 8px 0;">
-                    <p><strong>Atajos:</strong></p>
-                    <ul style="list-style: none; padding-left: 0; font-size: 0.8rem; line-height: 1.5; color: #94a3b8;">
+                    <p style="margin-bottom: 8px; color: #e2e8f0; font-weight: bold;">Atajos del Teclado:</p>
+                    <ul style="list-style: none; padding-left: 0; font-size: 0.8rem; line-height: 1.6; color: #94a3b8;">
                         <li><span class="key">Espacio</span> = Play / Pausa</li>
-                        <li><span class="key">E</span> / <span class="key">R</span> = Disminuir / Aumentar Velocidad</li>
-                        <li><span class="key">Q</span> / <span class="key">W</span> = Retroceder / Avanzar 1 Frame</li>
-                        <li><span class="key">A</span> / <span class="key">S</span> = Retroceder / Avanzar 5 Segundos</li>
-                        <li><span class="key">Click Izquierdo</span> = Crear / Seleccionar Punto</li>
-                        <li><span class="key">Click Derecho</span> = Eliminar Punto</li>
-                        <li><span class="key">Ctrl + A</span> = Seleccionar Todos los Puntos</li>
-                        <li><span class="key">Ctrl + C</span> / <span class="key">Ctrl + V</span> = Copiar / Pegar Puntos</li>
+                        <li><span class="key">M</span> = Mutear / Desmutear</li>
+                        <li><span class="key">E</span> / <span class="key">R</span> = Velocidad - / +</li>
+                        <li><span class="key">Q</span> / <span class="key">W</span> = Frame Atrás / Adelante</li>
+                        <li><span class="key">A</span> / <span class="key">S</span> = 5s Atrás / Adelante</li>
+                        <li><span class="key">Click Izq</span> = Crear / Seleccionar Punto</li>
+                        <li><span class="key">Click Der</span> = Eliminar Punto</li>
+                        <li><span class="key">Ctrl + A</span> = Seleccionar Todos</li>
                         <li><span class="key">Ctrl + Z</span> / <span class="key">Ctrl + Y</span> = Deshacer / Rehacer</li>
                     </ul>
                 </div>
@@ -60,31 +70,31 @@
         <div id="panel-tracks" class="workspace-panel" data-title="📑 Pistas FunScript">
             <div class="panel-content">
                 <div id="tracks-list" class="tracks-list-container">
-                    <span class="empty-tracks-msg">No hay pistas cargadas. Haz clic en "📂 Importar FunScripts" para agregar pistas.</span>
+                    <span class="empty-tracks-msg">No hay pistas cargadas. Importa o arrastra archivos.</span>
                 </div>
             </div>
         </div>
 
-        <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste de Punto">
+        <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste">
             <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                 <div class="vertical-slider-wrapper">
                     <span id="slider-value-display" class="slider-badge">50%</span>
                     <input type="range" id="point-slider" min="0" max="100" step="5" value="50" class="vertical-range-input">
                 </div>
-                <span style="font-size: 0.75rem; color: #64748b; margin-top: 8px; text-align: center;">Pasos de 5% en 5%</span>
+                <span style="font-size: 0.75rem; color: #64748b; margin-top: 8px; text-align: center;">Pasos del 5%</span>
             </div>
         </div>
 
-        <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets Guardados">
+        <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
             <div class="panel-content">
-                <button id="save-preset-btn" class="menu-btn" style="background: #8b5cf6; width: 100%; margin-bottom: 8px; cursor: pointer;">⭐ Guardar Selección como Preset</button>
+                <button id="save-preset-btn" class="menu-btn" style="background: #8b5cf6; width: 100%; margin-bottom: 8px; cursor: pointer;">Guardar Selección</button>
                 <div id="presets-list" class="presets-list-container">
-                    <span class="empty-log">No hay presets guardados aún.</span>
+                    <span class="empty-log">No hay presets aún.</span>
                 </div>
             </div>
         </div>
 
-        <div id="panel-actions" class="workspace-panel" data-title="📊 JSON Log">
+        <div id="panel-actions" class="workspace-panel" data-title="📊 Registro">
             <div class="panel-content">
                 <div id="actions-log" class="log-container">
                     <span class="empty-log">Sin puntos registrados aún</span>
@@ -101,10 +111,10 @@
     </div>
 
     <script src="workspace.js"></script>
+    <script src="funscript.js"></script>
     <script src="player.js"></script>
     <script src="tracking.js"></script>
     <script src="presets.js"></script>
-    <script src="funscript.js"></script>
     <script src="timeline.js"></script>
 </body>
 </html>
