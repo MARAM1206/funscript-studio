@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS (COMUNICACIÓN SEGURA POR EVENTOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS (CON INYECCIÓN DE TECLADO LIBRE)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -80,7 +80,8 @@ window.addEventListener('drop', (e) => {
 
 // ATAJOS DE TECLADO
 window.addEventListener('keydown', (event) => {
-    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+    // Si el usuario escribe en un input de texto real, ignorar
+    if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
 
     const key = event.key.toLowerCase();
@@ -88,16 +89,16 @@ window.addEventListener('keydown', (event) => {
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    // 🛡️ NUEVO: DISPARADOR DESACOPLADO (Imposible que cause error "is not a function")
-    if (key === 'arrowup') {
-        event.preventDefault();
-        const maxVal = document.getElementById('max-slider')?.value || 100;
-        window.dispatchEvent(new CustomEvent('injectPoint', { detail: maxVal }));
-    }
-    if (key === 'arrowdown') {
-        event.preventDefault();
-        const minVal = document.getElementById('min-slider')?.value || 0;
-        window.dispatchEvent(new CustomEvent('injectPoint', { detail: minVal }));
+    // ⚡ INYECTOR RÁPIDO: FLECHAS ARRIBA Y ABAJO
+    if (key === 'arrowup' || key === 'arrowdown') {
+        event.preventDefault(); // Previene scroll o movimiento de foco en sliders
+        
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur(); // Libera inmediatamente el foco del deslizador
+        }
+
+        const dir = (key === 'arrowup') ? 'up' : 'down';
+        window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
     }
 
     if (event.code === 'Space') {
