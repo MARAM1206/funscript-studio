@@ -1,155 +1,142 @@
 // ==========================================================================
-// MOTOR THE HANDY V1.0: CONEXIÓN WI-FI Y SINCRONIZACIÓN EN LA NUBE
+// THE HANDY API V2: CONEXIÓN WI-FI, SINCRONIZACIÓN Y AUTO-SUBIDA A LA NUBE
 // ==========================================================================
 
-window.Handy = {
-    isConnected: false,
-    key: '',
-    serverOffset: 0,
-    apiUrl: 'https://www.handyfeeling.com/api/handy/v2',
+const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
+const HANDY_UPLOAD_URL = "https://www.handyfeeling.com/api/sync/upload";
 
-    // Referencias UI
-    statusDot: null,
-    statusText: null,
+let handyKey = localStorage.getItem('funscript_handy_key') || "";
+let isHandyConnected = false;
+let serverTimeOffset = 0;
+let autoUpdateTimeout = null;
 
-    init() {
-        this.statusDot = document.getElementById('handy-dot');
-        this.statusText = document.getElementById('handy-status-text');
-        const keyInput = document.getElementById('handy-key-input');
-        const connectBtn = document.getElementById('handy-connect-btn');
-        const syncBtn = document.getElementById('handy-sync-btn');
+// Referencias UI
+const handyKeyInput = document.getElementById('handy-key');
+const handyConnectBtn = document.getElementById('handy-connect-btn');
+const handyStatus = document.getElementById('handy-status');
 
-        // Cargar llave guardada en memoria
-        const savedKey = localStorage.getItem('funscript_handy_key');
-        if (savedKey && keyInput) keyInput.value = savedKey;
+if (handyKeyInput) handyKeyInput.value = handyKey;
 
-        connectBtn?.addEventListener('click', async () => {
-            const key = keyInput.value.trim();
-            if (!key) { alert("Por favor ingresa tu Llave de Conexión de The Handy."); return; }
-            localStorage.setItem('funscript_handy_key', key);
-            this.key = key;
-            await this.connect();
-        });
+// 1. CONECTAR Y CALCULAR TIEMPO
+handyConnectBtn?.addEventListener('click', async () => {
+    const key = handyKeyInput.value.trim();
+    if (!key) { alert("Por favor ingresa tu Connection Key."); return; }
+    
+    handyKey = key;
+    localStorage.setItem('funscript_handy_key', handyKey);
+    handyStatus.innerText = "⏳ Conectando...";
+    handyStatus.style.color = "#f59e0b";
 
-        syncBtn?.addEventListener('click', async () => {
-            await this.uploadAndSetup();
-        });
-    },
-
-    updateUI(state, message) {
-        if (!this.statusDot || !this.statusText) return;
-        this.statusText.innerText = message;
-        if (state === 'error') this.statusDot.style.background = '#ef4444'; // Rojo
-        else if (state === 'wait') this.statusDot.style.background = '#f59e0b'; // Amarillo
-        else if (state === 'ok') this.statusDot.style.background = '#10b981'; // Verde
-    },
-
-    async fetchAPI(endpoint, options = {}) {
-        const headers = {
-            'X-Connection-Key': this.key,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
-        const res = await fetch(`${this.apiUrl}${endpoint}`, { ...options, headers });
-        if (!res.ok) throw new Error(`Error API: ${res.status}`);
-        return res.json();
-    },
-
-    async connect() {
-        try {
-            this.updateUI('wait', 'Conectando...');
-            
-            // 1. Verificar si el dispositivo está en línea
-            const status = await this.fetchAPI('/connected');
-            if (!status.connected) throw new Error("The Handy está apagado o sin Wi-Fi.");
-
-            // 2. Sincronizar Relojes (Para que no haya lag)
-            let offsets = [];
-            for (let i = 0; i < 3; i++) {
-                const start = Date.now();
-                const timeData = await this.fetchAPI('/servertime');
-                const end = Date.now();
-                const rtt = end - start;
-                offsets.push(timeData.serverTime + rtt / 2 - end);
+    try {
+        // Verificar conexión
+        const res = await fetch(`${HANDY_API_BASE}/connected`, { headers: { 'X-Connection-Key': handyKey } });
+        const data = await res.json();
+        
+        if (data.connected) {
+            isHandyConnected = true;
+            handyStatus.innerText = "✅ Conectado";
+            handyStatus.style.color = "#10b981";
+            await syncServerTime();
+            // Subir script inicial si hay puntos
+            if (window.funscriptActions && window.funscriptActions.length > 0) {
+                triggerHandyUpdate();
             }
-            this.serverOffset = Math.round(offsets.reduce((a, b) => a + b) / offsets.length);
-
-            // 3. Poner en Modo Sync
-            await this.fetchAPI('/mode/sync', { method: 'PUT' });
-
-            this.isConnected = true;
-            this.updateUI('ok', '¡Conectado y Listo!');
-        } catch (error) {
-            console.error(error);
-            this.isConnected = false;
-            this.updateUI('error', 'Fallo al conectar');
-            alert("No se pudo conectar a The Handy. Revisa tu llave y que el dispositivo esté en modo Wi-Fi.");
+        } else {
+            throw new Error("El juguete está apagado o desconectado del Wi-Fi.");
         }
-    },
-
-    async uploadAndSetup() {
-        if (!this.isConnected) { alert("Primero conecta The Handy."); return; }
-        const actions = window.funscriptActions || [];
-        if (actions.length === 0) { alert("No hay puntos en la línea de tiempo para subir."); return; }
-
-        try {
-            this.updateUI('wait', 'Subiendo Script...');
-
-            // 1. Convertir Puntos a Formato CSV de The Handy
-            const csvText = actions.map(act => `${act.at},${act.pos}`).join('\\n');
-            const blob = new Blob([csvText], { type: 'text/csv' });
-            const formData = new FormData();
-            formData.append('syncFile', blob, 'script.csv');
-
-            // 2. Subir archivo a la nube temporal de Handyfeeling
-            const uploadRes = await fetch(`https://www.handyfeeling.com/api/sync/upload?connectionKey=${this.key}`, {
-                method: 'POST', body: formData
-            });
-            const uploadData = await uploadRes.json();
-            
-            if (!uploadData.url) throw new Error("No se generó URL de descarga");
-
-            // 3. Enviar la orden al juguete de que descargue el script
-            await this.fetchAPI('/mode/sync/setup', {
-                method: 'PUT',
-                body: JSON.stringify({ url: uploadData.url })
-            });
-
-            this.updateUI('ok', '¡Script Cargado!');
-            alert("¡Script subido exitosamente a The Handy! Ya puedes darle Play al video.");
-        } catch (error) {
-            console.error(error);
-            this.updateUI('error', 'Error al subir');
-            alert("Hubo un error al enviar el script al juguete.");
-        }
-    },
-
-    async play(videoTimeMs) {
-        if (!this.isConnected) return;
-        try {
-            const serverTime = Date.now() + this.serverOffset;
-            await this.fetchAPI('/mode/sync/play', {
-                method: 'PUT',
-                body: JSON.stringify({
-                    estimatedServerTime: serverTime,
-                    startTime: Math.round(videoTimeMs)
-                })
-            });
-            this.updateUI('ok', 'Jugando...');
-        } catch (e) { console.error("Error Play Handy", e); }
-    },
-
-    async pause() {
-        if (!this.isConnected) return;
-        try {
-            await this.fetchAPI('/mode/sync/pause', { method: 'PUT' });
-            this.updateUI('ok', 'En pausa');
-        } catch (e) { console.error("Error Pause Handy", e); }
+    } catch (err) {
+        isHandyConnected = false;
+        handyStatus.innerText = "❌ Error de conexión";
+        handyStatus.style.color = "#ef4444";
+        console.error(err);
     }
+});
+
+// Calcula la diferencia de tiempo entre tu computadora y los servidores de The Handy
+async function syncServerTime() {
+    let sumOffset = 0;
+    for (let i = 0; i < 3; i++) {
+        const sendTime = Date.now();
+        const res = await fetch(`${HANDY_API_BASE}/servertime`, { headers: { 'X-Connection-Key': handyKey } });
+        const data = await res.json();
+        const receiveTime = Date.now();
+        const rtt = receiveTime - sendTime;
+        const estimatedServerTime = data.serverTime + (rtt / 2);
+        sumOffset += (estimatedServerTime - receiveTime);
+    }
+    serverTimeOffset = Math.round(sumOffset / 3);
+}
+
+// 2. CONVERTIR A FORMATO LIGERO (CSV) Y SUBIR
+async function uploadScriptToHandyCloud() {
+    if (!window.funscriptActions || window.funscriptActions.length === 0) return null;
+    
+    // Traducir a CSV ligero
+    let csvString = window.funscriptActions.map(act => `${act.at},${act.pos}`).join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const formData = new FormData();
+    formData.append('syncFile', blob, 'script.csv');
+
+    handyStatus.innerText = "☁️ Subiendo a la nube...";
+    handyStatus.style.color = "#38bdf8";
+
+    try {
+        const res = await fetch(HANDY_UPLOAD_URL, { method: 'POST', body: formData });
+        const data = await res.json();
+        return data.url;
+    } catch (err) {
+        console.error("Error al subir a HandyFeeling:", err);
+        return null;
+    }
+}
+
+// 3. ENVIAR A THE HANDY Y SINCRONIZAR
+async function setupHandyScript(url) {
+    try {
+        await fetch(`${HANDY_API_BASE}/hssp/setup`, {
+            method: 'PUT',
+            headers: { 'X-Connection-Key': handyKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url })
+        });
+        handyStatus.innerText = "✅ Sincronizado";
+        handyStatus.style.color = "#10b981";
+    } catch (err) {
+        console.error("Error en Setup de The Handy:", err);
+    }
+}
+
+// 4. FUNCIONES DE PLAY / PAUSA
+window.playHandy = async function(videoCurrentTimeMs) {
+    if (!isHandyConnected) return;
+    try {
+        const serverTime = Date.now() + serverTimeOffset;
+        await fetch(`${HANDY_API_BASE}/hssp/play`, {
+            method: 'PUT',
+            headers: { 'X-Connection-Key': handyKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estimatedServerTime: serverTime, startTime: Math.round(videoCurrentTimeMs) })
+        });
+    } catch (err) {}
 };
 
-// Iniciar módulo al cargar la página
-document.addEventListener("DOMContentLoaded", () => {
-    window.Handy.init();
-});
+window.stopHandy = async function() {
+    if (!isHandyConnected) return;
+    try {
+        await fetch(`${HANDY_API_BASE}/hssp/stop`, { method: 'PUT', headers: { 'X-Connection-Key': handyKey } });
+    } catch (err) {}
+};
+
+// 5. DISPARADOR INTELIGENTE (Se llama cada que cambias un punto)
+window.triggerHandyUpdate = function() {
+    if (!isHandyConnected) return;
+    
+    // Si modificas puntos muy rápido, cancela el contador y empieza de nuevo
+    clearTimeout(autoUpdateTimeout);
+    
+    // Espera 1 segundo de inactividad antes de subir a la nube
+    autoUpdateTimeout = setTimeout(async () => {
+        const scriptUrl = await uploadScriptToHandyCloud();
+        if (scriptUrl) {
+            await setupHandyScript(scriptUrl);
+            
+            // Si el video está reproduciéndose, arranca el juguete en automático en ese punto exacto
+            const videoNode = document.getElementById('video-player');
