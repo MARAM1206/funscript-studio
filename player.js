@@ -5,6 +5,9 @@
 const videoInput = document.getElementById('video-input');
 const videoPlayer = document.getElementById('video-player');
 
+// ¡ESTE ES EL PUENTE! Lo hacemos global para que la línea de tiempo no se congele
+window.videoPlayer = videoPlayer;
+
 // Etiquetas de información inferior
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -47,18 +50,18 @@ const dragOverlay = document.getElementById('drag-drop-overlay');
 let dragCounter = 0;
 
 window.addEventListener('dragenter', (e) => {
-    e.preventDefault(); dragCounter++; dragOverlay.classList.add('active');
+    e.preventDefault(); dragCounter++; dragOverlay?.classList.add('active');
 });
 
 window.addEventListener('dragleave', (e) => {
     e.preventDefault(); dragCounter--;
-    if (dragCounter === 0) dragOverlay.classList.remove('active');
+    if (dragCounter === 0) dragOverlay?.classList.remove('active');
 });
 
 window.addEventListener('dragover', (e) => { e.preventDefault(); });
 
 window.addEventListener('drop', (e) => {
-    e.preventDefault(); dragCounter = 0; dragOverlay.classList.remove('active');
+    e.preventDefault(); dragCounter = 0; dragOverlay?.classList.remove('active');
     const files = Array.from(e.dataTransfer.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
@@ -76,8 +79,6 @@ window.addEventListener('keydown', (event) => {
     const fps = window.videoFPS;
     const stepTime = 3 / fps; 
 
-    // Funciones Helper de actualización
-    const forceRedraw = () => { if (typeof window.drawTimeline === 'function') window.drawTimeline(); };
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
     // Play / Pausa / Mute
@@ -99,20 +100,20 @@ window.addEventListener('keydown', (event) => {
         videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`;
     }
     
-    // Navegación de tiempo manual (Refleja en Timeline)
+    // Navegación de tiempo manual
     if (key === 'q') {
         event.preventDefault(); videoPlayer.pause();
-        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forceRedraw();
+        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime);
     }
     if (key === 'w') {
         event.preventDefault(); videoPlayer.pause();
-        videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forceRedraw();
+        videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime);
     }
     if (key === 'a') {
-        event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forceRedraw();
+        event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
     }
     if (key === 's') {
-        event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forceRedraw();
+        event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5);
     }
 
     // NAVEGACIÓN ENTRE PUNTOS (B = Anterior, N = Siguiente)
@@ -120,14 +121,13 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
             const currentTimeMs = videoPlayer.currentTime * 1000;
-            // Busca el punto más cercano hacia atrás (margen de 15ms para evitar atorarse)
             const prevPoints = window.funscriptActions.filter(act => act.at < currentTimeMs - 15);
             if (prevPoints.length > 0) {
-                const target = prevPoints[prevPoints.length - 1]; // El último de los anteriores
+                const target = prevPoints[prevPoints.length - 1];
                 videoPlayer.currentTime = target.at / 1000;
                 window.funscriptActions.forEach(a => a.selected = false);
                 target.selected = true;
-                syncSlider(); forceRedraw();
+                syncSlider();
             }
         }
     }
@@ -135,14 +135,13 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
             const currentTimeMs = videoPlayer.currentTime * 1000;
-            // Busca el primer punto hacia adelante
             const nextPoints = window.funscriptActions.filter(act => act.at > currentTimeMs + 15);
             if (nextPoints.length > 0) {
                 const target = nextPoints[0];
                 videoPlayer.currentTime = target.at / 1000;
                 window.funscriptActions.forEach(a => a.selected = false);
                 target.selected = true;
-                syncSlider(); forceRedraw();
+                syncSlider();
             }
         }
     }
