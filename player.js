@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS (CON INYECCIÓN DE TECLADO LIBRE)
+// REPRODUCTOR Y MOTOR DE ATAJOS V4.0
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -7,6 +7,7 @@ const videoPlayer = document.getElementById('video-player');
 const videoProgress = document.getElementById('video-progress');
 
 window.videoPlayer = videoPlayer;
+window.currentVideoName = null; // Memoria del Gestor
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -27,7 +28,12 @@ function loadVideoFile(file) {
     videoPlayer.src = videoURL;
     videoPlayer.load();
     videoPlayer.playbackRate = currentSpeed;
+    
+    window.currentVideoName = file.name;
     if (vName) vName.innerText = `📄 ${file.name}`;
+    
+    // Avisar al gestor de archivos que hay un video nuevo
+    if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
 }
 
 let isSeeking = false;
@@ -46,6 +52,11 @@ videoPlayer?.addEventListener('timeupdate', () => {
     if (!isSeeking && videoPlayer.duration && videoProgress) {
         videoProgress.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
     }
+});
+
+// CUANDO EL VIDEO REPRODUCE, AVISAMOS PARA RESETEAR EL PANEO DE LA LÍNEA DEL TIEMPO
+videoPlayer?.addEventListener('play', () => {
+    window.dispatchEvent(new Event('videoPlay'));
 });
 
 videoPlayer?.addEventListener('loadedmetadata', () => {
@@ -80,7 +91,6 @@ window.addEventListener('drop', (e) => {
 
 // ATAJOS DE TECLADO
 window.addEventListener('keydown', (event) => {
-    // Si el usuario escribe en un input de texto real, ignorar
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
 
@@ -89,14 +99,9 @@ window.addEventListener('keydown', (event) => {
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    // ⚡ INYECTOR RÁPIDO: FLECHAS ARRIBA Y ABAJO
     if (key === 'arrowup' || key === 'arrowdown') {
-        event.preventDefault(); // Previene scroll o movimiento de foco en sliders
-        
-        if (document.activeElement && typeof document.activeElement.blur === 'function') {
-            document.activeElement.blur(); // Libera inmediatamente el foco del deslizador
-        }
-
+        event.preventDefault(); 
+        if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
         const dir = (key === 'arrowup') ? 'up' : 'down';
         window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
     }
