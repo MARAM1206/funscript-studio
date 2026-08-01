@@ -46,6 +46,21 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
 
+/* NUEVA BARRA DE PROGRESO ESTILIZADA PARA EL REPRODUCTOR */
+.progress-bar-container {
+    width: 100%; padding: 10px 12px 0 12px; background: #0b0f17;
+    border-top: 1px solid #1e293b; display: flex; align-items: center;
+}
+.custom-progress {
+    width: 100%; height: 6px; -webkit-appearance: none; appearance: none;
+    background: #1e293b; border-radius: 4px; outline: none; cursor: pointer;
+}
+.custom-progress::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: #38bdf8; cursor: pointer; transition: transform 0.1s, background 0.1s;
+}
+.custom-progress::-webkit-slider-thumb:hover { transform: scale(1.3); background: #f97316; }
+
 .video-info-bar {
     background: #0b0f17; padding: 8px 12px; font-size: 0.8rem; font-family: monospace; color: #38bdf8;
     border-top: 1px solid #1e293b; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; flex-shrink: 0;
@@ -80,7 +95,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .slider-badge { background: #3b82f6; color: white; font-weight: bold; font-size: 0.9rem; padding: 4px 10px; border-radius: 6px; }
 .vertical-range-input { -webkit-appearance: slider-vertical; writing-mode: bt-lr; width: 24px; height: 140px; cursor: pointer; accent-color: #3b82f6; }
 
-/* NUEVO: ESTILOS DEL GENERADOR RÁPIDO (SLIDER DOBLE) */
 .dual-slider-labels { display: flex; justify-content: space-between; width: 100%; font-weight: bold; font-size: 0.85rem; margin-bottom: 10px;}
 .dual-slider-container { position: relative; width: 100%; height: 30px; display: flex; align-items: center;}
 .dual-slider-track { position: absolute; width: 100%; height: 8px; background: #1e293b; border-radius: 4px; z-index: 1;}
@@ -88,7 +102,7 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .dual-range { position: absolute; width: 100%; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; z-index: 3; outline: none; margin: 0;}
 .dual-range::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #e2e8f0; cursor: pointer; border: 2px solid #0f131a; box-shadow: 0 0 5px rgba(0,0,0,0.5); transition: transform 0.1s;}
 .dual-range::-webkit-slider-thumb:hover { transform: scale(1.2); }
-#min-slider::-webkit-slider-thumb { background: #38bdf8; } /* Color Flecha Abajo */
-#max-slider::-webkit-slider-thumb { background: #f97316; } /* Color Flecha Arriba */
+#min-slider::-webkit-slider-thumb { background: #38bdf8; } 
+#max-slider::-webkit-slider-thumb { background: #f97316; } 
 
 #timeline-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
