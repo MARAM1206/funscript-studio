@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V6.0: COMUNICACIÓN POR EVENTOS Y ANTI-CACHÉ
+// TIMELINE V6.1: INYECTOR RÁPIDO CON CRUZADO LIBRE Y COMUNICACIÓN POR EVENTOS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -28,43 +28,67 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// LÓGICA DEL PANEL "GENERADOR RÁPIDO" (SLIDER DOBLE)
-const minSliderGen = document.getElementById('min-slider');
-const maxSliderGen = document.getElementById('max-slider');
+// ==================================================
+// LÓGICA DEL PANEL "INYECTOR RÁPIDO" (SLIDERS LIBRES SIN EMPUJAR)
+// ==================================================
+const sliderA = document.getElementById('min-slider');
+const sliderB = document.getElementById('max-slider');
 const dualFill = document.getElementById('dual-slider-fill');
 const minLabel = document.getElementById('min-label');
 const maxLabel = document.getElementById('max-label');
 
 function updateDualSlider() {
-    if(!minSliderGen || !maxSliderGen) return;
-    let minVal = parseInt(minSliderGen.value);
-    let maxVal = parseInt(maxSliderGen.value);
+    if (!sliderA || !sliderB) return;
+    
+    const valA = parseInt(sliderA.value, 10);
+    const valB = parseInt(sliderB.value, 10);
 
-    if (minVal > maxVal) {
-        let tmp = minVal;
-        minSliderGen.value = maxVal;
-        maxSliderGen.value = tmp;
-        minVal = parseInt(minSliderGen.value);
-        maxVal = parseInt(maxSliderGen.value);
-    }
+    // Calculamos dinámicamente cuál es el menor y cuál el mayor
+    // ¡Sin forzar ni truncar valores! Se pueden cruzar libremente.
+    const currentMin = Math.min(valA, valB);
+    const currentMax = Math.max(valA, valB);
 
-    if(minLabel) minLabel.innerText = `⬇️ Mínimo: ${minVal}%`;
-    if(maxLabel) maxLabel.innerText = `⬆️ Máximo: ${maxVal}%`;
+    if (minLabel) minLabel.innerText = `⬇️ Mínimo: ${currentMin}%`;
+    if (maxLabel) maxLabel.innerText = `⬆️ Máximo: ${currentMax}%`;
 
-    if(dualFill) {
-        dualFill.style.left = `${minVal}%`;
-        dualFill.style.width = `${maxVal - minVal}%`;
+    if (dualFill) {
+        dualFill.style.left = `${currentMin}%`;
+        dualFill.style.width = `${currentMax - currentMin}%`;
     }
 }
-minSliderGen?.addEventListener('input', updateDualSlider);
-maxSliderGen?.addEventListener('input', updateDualSlider);
-updateDualSlider(); 
 
-// 🛡️ RECEPTOR GLOBAL DE LA SEÑAL (Atrapa las flechas sin causar errores)
+function blurSliders() {
+    if (sliderA) sliderA.blur();
+    if (sliderB) sliderB.blur();
+}
+
+sliderA?.addEventListener('input', updateDualSlider);
+sliderB?.addEventListener('input', updateDualSlider);
+sliderA?.addEventListener('change', blurSliders);
+sliderB?.addEventListener('change', blurSliders);
+sliderA?.addEventListener('mouseup', blurSliders);
+sliderB?.addEventListener('mouseup', blurSliders);
+
+updateDualSlider(); // Inicializar
+
+// RECEPTOR DE INYECCIÓN RÁPIDA (Atrapa flecha arriba/abajo)
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
-    const pos = parseInt(e.detail, 10);
+    
+    const valA = parseInt(sliderA?.value || '15', 10);
+    const valB = parseInt(sliderB?.value || '85', 10);
+    
+    const currentMin = Math.min(valA, valB);
+    const currentMax = Math.max(valA, valB);
+
+    let pos = 50;
+    if (typeof e.detail === 'object') {
+        if (e.detail.dir === 'up') pos = currentMax;
+        else if (e.detail.dir === 'down') pos = currentMin;
+    } else {
+        pos = parseInt(e.detail, 10);
+    }
 
     saveHistoryState();
     
