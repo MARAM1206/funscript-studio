@@ -140,3 +140,9 @@ window.triggerHandyUpdate = function() {
             
             // Si el video está reproduciéndose, arranca el juguete en automático en ese punto exacto
             const videoNode = document.getElementById('video-player');
+            if (videoNode && !videoNode.paused) {
+                window.playHandy(videoNode.currentTime * 1000);
+            }
+        }
+    }, 1000);
+};
