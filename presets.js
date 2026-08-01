@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V3.0: PREVISUALIZACIÓN VISUAL (MINI-CANVAS) Y ARRASTRE FLUIDO
+// PRESETS V3.1: LIMPIEZA TOTAL EN LA MEMORIA AL SOLTAR
 // ==========================================================================
 
 let savedPresets = {};
@@ -12,6 +12,7 @@ const videoPlayerPresetNode = document.getElementById('video-player');
 window.isDraggingPreset = false;
 window.timelineGhostPreset = null;
 window.timelineGhostTimeMs = null;
+window.timelineGhostDeltaPos = 0; // NUEVO
 
 document.addEventListener("DOMContentLoaded", () => {
     updatePresetsList();
@@ -64,14 +65,12 @@ function updatePresetsList() {
         `;
     }).join('');
 
-    // DIBUJAR LOS MINI PATRONES
     setTimeout(() => {
         presetNames.forEach((name, index) => {
             drawMiniCanvas(`mini-canvas-${index}`, savedPresets[name]);
         });
     }, 50);
 
-    // LOGICA DE ARRASTRE SEGURO (El Fantasma)
     document.querySelectorAll('.preset-card').forEach(card => {
         card.addEventListener('dragstart', function(e) {
             window.isDraggingPreset = true; 
@@ -82,6 +81,7 @@ function updatePresetsList() {
             window.isDraggingPreset = false;
             window.timelineGhostPreset = null;
             window.timelineGhostTimeMs = null;
+            window.timelineGhostDeltaPos = 0; // Limpieza asegurada
             if (typeof drawTimeline === 'function') drawTimeline();
         });
     });
@@ -99,7 +99,6 @@ function updatePresetsList() {
     });
 }
 
-// Dibuja matemáticamente el patrón en el recuadro chiquito
 function drawMiniCanvas(canvasId, actions) {
     const c = document.getElementById(canvasId);
     if (!c || !actions || actions.length === 0) return;
