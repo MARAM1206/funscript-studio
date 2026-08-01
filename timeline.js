@@ -1,139 +1,365 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+// ==========================================================================
+// TIMELINE V5.6: DIBUJO CONTINUO, GENERADOR RÁPIDO Y MEMORIA SANA
+// ==========================================================================
 
-    <div class="top-bar-menu">
-        <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
-            <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Seleccionar Video</label>
-            <input type="file" id="video-input" accept="video/*" style="display: none;">
+window.funscriptActions = window.funscriptActions || [];
+
+function getSafeActions() {
+    if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
+    return window.funscriptActions;
+}
+
+const canvas = document.getElementById('timeline-canvas');
+const ctx = canvas ? canvas.getContext('2d') : null;
+const actionsLog = document.getElementById('actions-log');
+const pointSlider = document.getElementById('point-slider');
+const sliderValueDisplay = document.getElementById('slider-value-display');
+const videoNode = document.getElementById('video-player');
+
+let undoStack = [];
+let redoStack = [];
+const MAX_HISTORY = 50;
+
+let zoom = 1.0; 
+let basePixelsPerMs = 0.05; 
+let panX = 0; 
+let isSelecting = false;
+let hasDraggedSelection = false; 
+let startX = 0, startY = 0;
+let currentX = 0, currentY = 0;
+
+// ==================================================
+// LÓGICA DEL PANEL "GENERADOR RÁPIDO" (SLIDER DOBLE)
+// ==================================================
+const minSliderGen = document.getElementById('min-slider');
+const maxSliderGen = document.getElementById('max-slider');
+const dualFill = document.getElementById('dual-slider-fill');
+const minLabel = document.getElementById('min-label');
+const maxLabel = document.getElementById('max-label');
+
+function updateDualSlider() {
+    if(!minSliderGen || !maxSliderGen) return;
+    let minVal = parseInt(minSliderGen.value);
+    let maxVal = parseInt(maxSliderGen.value);
+
+    // Evita que el tope inferior cruce al superior
+    if (minVal > maxVal) {
+        let tmp = minVal;
+        minSliderGen.value = maxVal;
+        maxSliderGen.value = tmp;
+        minVal = parseInt(minSliderGen.value);
+        maxVal = parseInt(maxSliderGen.value);
+    }
+
+    if(minLabel) minLabel.innerText = `⬇️ Mínimo: ${minVal}%`;
+    if(maxLabel) maxLabel.innerText = `⬆️ Máximo: ${maxVal}%`;
+
+    if(dualFill) {
+        dualFill.style.left = `${minVal}%`;
+        dualFill.style.width = `${maxVal - minVal}%`;
+    }
+}
+minSliderGen?.addEventListener('input', updateDualSlider);
+maxSliderGen?.addEventListener('input', updateDualSlider);
+updateDualSlider(); // Inicializar
+
+// 🛡️ EXPORTACIÓN GLOBAL PROTEGIDA DEL GENERADOR
+window.insertQuickPoint = function(porcentajeStr) {
+    const actions = getSafeActions();
+    const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    const pos = parseInt(porcentajeStr, 10);
+
+    saveHistoryState();
+    
+    // Si ya existe un punto en este milisegundo exacto, lo actualiza, sino lo crea.
+    const existingIdx = actions.findIndex(a => a.at === timeMs);
+    if (existingIdx !== -1) {
+        actions[existingIdx].pos = pos;
+        actions[existingIdx].selected = true;
+    } else {
+        actions.push({ at: timeMs, pos: pos, selected: true });
+    }
+    
+    // Deselecciona el resto
+    actions.forEach(a => { if (a.at !== timeMs) a.selected = false; });
+    
+    actions.sort((a, b) => a.at - b.at);
+    
+    // Actualizamos visuales solo si las funciones están disponibles
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+};
+
+// ==================================================
+// MOTOR GRÁFICO 
+// ==================================================
+
+function ensureCanvasSize() {
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (parent && (canvas.width !== parent.clientWidth || canvas.height !== parent.clientHeight)) {
+        canvas.width = parent.clientWidth; canvas.height = parent.clientHeight;
+        if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
+    }
+}
+
+window.calculateAdaptiveZoom = function() {
+    if (!canvas || !videoNode) return;
+    if (videoNode.duration && videoNode.duration > 0) {
+        const timeWindow = Math.min(videoNode.duration * 1000, 25000);
+        basePixelsPerMs = (canvas.width - 60) / timeWindow;
+    } else { basePixelsPerMs = 0.05; }
+};
+
+function saveHistoryState() {
+    undoStack.push(JSON.stringify(getSafeActions()));
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    redoStack = [];
+}
+
+function undo() {
+    if (undoStack.length > 0) {
+        redoStack.push(JSON.stringify(getSafeActions()));
+        window.funscriptActions = JSON.parse(undoStack.pop());
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+    }
+}
+
+function redo() {
+    if (redoStack.length > 0) {
+        undoStack.push(JSON.stringify(getSafeActions()));
+        window.funscriptActions = JSON.parse(redoStack.pop());
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+    }
+}
+
+function timeToX(timeMs) {
+    const centerFixedX = canvas.width / 2;
+    const currentTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+    return centerFixedX + (timeMs - currentTimeMs) * (basePixelsPerMs * zoom) + panX;
+}
+
+function xToTime(x) {
+    const centerFixedX = canvas.width / 2;
+    const currentTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+    return currentTimeMs + (x - centerFixedX - panX) / (basePixelsPerMs * zoom);
+}
+
+function posToY(pos) {
+    const padding = 20; const usableHeight = canvas.height - (padding * 2);
+    return canvas.height - padding - (pos / 100) * usableHeight;
+}
+
+function yToPos(y) {
+    const padding = 20; const usableHeight = canvas.height - (padding * 2);
+    const rawPos = ((canvas.height - padding - y) / usableHeight) * 100;
+    return Math.max(0, Math.min(100, Math.round(rawPos)));
+}
+
+function drawTimeline() {
+    try {
+        ensureCanvasSize();
+        if (!ctx || !canvas) return;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.lineWidth = 1;
+        [0, 25, 50, 75, 100].forEach(p => {
+            const y = posToY(p);
+            ctx.strokeStyle = '#1e293b';
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
+        });
+
+        // DIBUJAR PISTAS FANTASMAS
+        if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
+            window.loadedFunscriptTracks.forEach(track => {
+                if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
+                    ctx.lineWidth = 2; ctx.strokeStyle = track.color + '88';
+                    
+                    ctx.beginPath();
+                    track.actions.forEach((act, index) => {
+                        const x = timeToX(act.at); const y = posToY(act.pos);
+                        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    });
+                    ctx.stroke();
+
+                    track.actions.forEach(act => {
+                        const x = timeToX(act.at);
+                        if (x >= -20 && x <= canvas.width + 20) {
+                            const y = posToY(act.pos);
+                            ctx.fillStyle = track.color;
+                            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+                        }
+                    });
+                }
+            });
+        }
+
+        // DIBUJAR PISTA PRINCIPAL
+        const actions = getSafeActions();
+        if (actions.length > 0) {
+            ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8';
             
-            <label for="funscript-input" class="menu-btn" style="background: #2563eb; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none; transition: background 0.2s;">📂 Importar FunScripts</label>
-            <input type="file" id="funscript-input" accept=".funscript, .json" multiple style="display: none;">
-        </div>
+            ctx.beginPath();
+            actions.forEach((act, index) => {
+                const x = timeToX(act.at); const y = posToY(act.pos);
+                if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
 
-        <div id="top-center-toggles" class="top-center-toggles"></div>
+            actions.forEach(act => {
+                const x = timeToX(act.at);
+                if (x >= -20 && x <= canvas.width + 20) {
+                    const y = posToY(act.pos);
+                    ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
+                    ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                }
+            });
+        }
 
-        <div class="top-right-actions">
-            <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
-        </div>
-    </div>
+        // Cuadro de selección
+        if (isSelecting) {
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+            ctx.setLineDash([2, 2]); ctx.beginPath();
+            ctx.fillRect(startX, startY, currentX - startX, currentY - startY);
+            ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+            ctx.setLineDash([]);
+        }
 
-    <div id="drag-drop-overlay" class="drag-drop-overlay">
-        <div class="drag-drop-message">📂 Suelta tu Video o archivos FunScript aquí</div>
-    </div>
+        const centerFixedX = canvas.width / 2 + panX;
+        ctx.lineWidth = 2; ctx.strokeStyle = '#f97316';
+        ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, canvas.height); ctx.stroke();
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath(); ctx.moveTo(centerFixedX - 6, 0); ctx.lineTo(centerFixedX + 6, 0);
+        ctx.lineTo(centerFixedX, 8); ctx.closePath(); ctx.fill();
 
-    <div class="workspace-container">
+    } catch (err) {}
+}
 
-        <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
-            <div class="panel-content" style="padding: 0; display: flex; flex-direction: column; background: #000;">
-                <div class="video-container" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
-                    <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
-                    <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-                </div>
-                
-                <div class="progress-bar-container">
-                    <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
-                </div>
+window.updateActionsLog = function() {
+    if (!actionsLog) return;
+    const actions = getSafeActions();
+    if (actions.length === 0) { actionsLog.innerHTML = '<span class="empty-log">Sin puntos registrados aún</span>'; return; }
+    const latestActions = [...actions].reverse().slice(0, 8);
+    actionsLog.innerHTML = latestActions.map(act => `<div style="margin-bottom: 2px;">⏱️ <strong>${(act.at / 1000).toFixed(2)}s</strong> -> Pos: <span style="color:#38bdf8">${act.pos}%</span></div>`).join('');
+};
 
-                <div class="video-info-bar" style="border-top: none;">
-                    <span id="v-name" class="info-text-white">Sin video</span> <span class="divider">|</span> 
-                    <span id="v-res">--x--</span> <span class="divider">|</span> 
-                    <span id="v-fps">-- fps</span> <span class="divider">|</span> 
-                    <span id="v-speed">Vel: 1.0x</span> <span class="divider">|</span> 
-                    <span id="v-mute">🔊 Sonido On</span>
-                </div>
-            </div>
-        </div>
+window.syncSliderWithSelection = function() {
+    if (!pointSlider) return;
+    const actions = getSafeActions();
+    const selected = actions.filter(act => act.selected);
+    if (selected.length > 0) {
+        const lastSelected = selected[selected.length - 1];
+        pointSlider.value = lastSelected.pos;
+        if (sliderValueDisplay) sliderValueDisplay.innerText = `${lastSelected.pos}%`;
+    }
+};
 
-        <div id="panel-controls" class="workspace-panel" data-title="⌨️ Controles">
-            <div class="panel-content">
-                <div class="controls-info">
-                    <p style="margin-bottom: 8px; color: #e2e8f0; font-weight: bold;">Atajos del Teclado:</p>
-                    <ul style="list-style: none; padding-left: 0; font-size: 0.8rem; line-height: 1.6; color: #94a3b8;">
-                        <li><span class="key">Flecha ⬆ / ⬇</span> = Inyectar Punto Alto/Bajo</li>
-                        <li><span class="key">Espacio</span> = Play / Pausa</li>
-                        <li><span class="key">M</span> = Mutear / Desmutear</li>
-                        <li><span class="key">E</span> / <span class="key">R</span> = Velocidad - / +</li>
-                        <li><span class="key">Q</span> / <span class="key">W</span> = Frame Atrás / Adelante</li>
-                        <li><span class="key">A</span> / <span class="key">S</span> = 5s Atrás / Adelante</li>
-                        <li><span class="key">B</span> / <span class="key">N</span> = Punto Anterior / Siguiente</li>
-                        <li><span class="key">Click Izq</span> / <span class="key">Der</span> = Crear / Borrar Punto</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+pointSlider?.addEventListener('input', function() {
+    const val = parseInt(this.value, 10);
+    if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
+    const actions = getSafeActions();
+    const selected = actions.filter(act => act.selected);
+    if (selected.length > 0) {
+        saveHistoryState();
+        selected.forEach(act => act.pos = val); 
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+    }
+});
 
-        <div id="panel-tracks" class="workspace-panel" data-title="📑 Pistas FunScript">
-            <div class="panel-content">
-                <div id="tracks-list" class="tracks-list-container">
-                    <span class="empty-tracks-msg">No hay pistas cargadas. Importa o arrastra archivos.</span>
-                </div>
-            </div>
-        </div>
+function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
+}
 
-        <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste">
-            <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
-                <div class="vertical-slider-wrapper">
-                    <span id="slider-value-display" class="slider-badge">50%</span>
-                    <input type="range" id="point-slider" min="0" max="100" step="5" value="50" class="vertical-range-input">
-                </div>
-            </div>
-        </div>
+let isDraggingNode = false;
+let draggedNode = null;
 
-        <div id="panel-quick" class="workspace-panel" data-title="⚡ Generador Rápido">
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong> del teclado para inyectar puntos en vivo.</p>
-                
-                <div class="dual-slider-labels">
-                    <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 15%</span>
-                    <span id="max-label" style="color: #f97316;">⬆️ Máximo: 85%</span>
-                </div>
+canvas?.addEventListener('mousedown', (e) => {
+    const actions = getSafeActions();
+    const pos = getMousePos(e);
+    const clickX = pos.x; const clickY = pos.y;
 
-                <div class="dual-slider-container">
-                    <div class="dual-slider-track"></div>
-                    <div id="dual-slider-fill" class="dual-slider-fill"></div>
-                    <input type="range" id="min-slider" class="dual-range" min="0" max="100" step="5" value="15">
-                    <input type="range" id="max-slider" class="dual-range" min="0" max="100" step="5" value="85">
-                </div>
-            </div>
-        </div>
+    if (e.button === 0) { 
+        let clickedNode = null;
+        for (let act of actions) {
+            const nx = timeToX(act.at); const ny = posToY(act.pos);
+            if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = act; break; }
+        }
 
-        <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
-            <div class="panel-content">
-                <button id="save-preset-btn" class="menu-btn" style="background: #8b5cf6; width: 100%; margin-bottom: 8px; cursor: pointer;">Guardar Selección</button>
-                <div id="presets-list" class="presets-list-container">
-                    <span class="empty-log">No hay presets aún.</span>
-                </div>
-            </div>
-        </div>
+        if (clickedNode) {
+            saveHistoryState();
+            if (!e.ctrlKey && !clickedNode.selected) actions.forEach(a => a.selected = false);
+            clickedNode.selected = true; isDraggingNode = true; draggedNode = clickedNode;
+            if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        } else {
+            if (!e.ctrlKey) actions.forEach(a => a.selected = false);
+            isSelecting = true; hasDraggedSelection = false; 
+            startX = clickX; startY = clickY; currentX = clickX; currentY = clickY;
+        }
+    } else if (e.button === 2) { 
+        e.preventDefault(); saveHistoryState();
+        window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+    }
+});
 
-        <div id="panel-actions" class="workspace-panel" data-title="📊 Registro">
-            <div class="panel-content">
-                <div id="actions-log" class="log-container">
-                    <span class="empty-log">Sin puntos registrados aún</span>
-                </div>
-            </div>
-        </div>
+canvas?.addEventListener('mousemove', (e) => {
+    const actions = getSafeActions();
+    const pos = getMousePos(e);
+    const mouseX = pos.x; const mouseY = pos.y;
 
-        <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
-            <div class="panel-content" style="position: relative; padding: 0;">
-                <canvas id="timeline-canvas"></canvas>
-            </div>
-        </div>
+    if (isDraggingNode && draggedNode) {
+        draggedNode.pos = yToPos(mouseY); 
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    } else if (isSelecting) {
+        currentX = mouseX; currentY = mouseY;
+        if (Math.hypot(currentX - startX, currentY - startY) > 5) hasDraggedSelection = true;
+        const minX = Math.min(startX, currentX); const maxX = Math.max(startX, currentX);
+        const minY = Math.min(startY, currentY); const maxY = Math.max(startY, currentY);
+        actions.forEach(act => {
+            const nx = timeToX(act.at); const ny = posToY(act.pos);
+            act.selected = (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY);
+        });
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    }
+});
 
-    </div>
+window.addEventListener('mouseup', (e) => {
+    const actions = getSafeActions();
+    if (isSelecting && !hasDraggedSelection && e.target === canvas) {
+        const clickTime = Math.max(0, Math.round(xToTime(startX)));
+        const clickPos = yToPos(startY);
+        saveHistoryState();
+        actions.push({ at: clickTime, pos: clickPos, selected: true });
+        actions.sort((a, b) => a.at - b.at);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+    }
+    isDraggingNode = false; draggedNode = null; isSelecting = false;
+});
 
-    <script src="workspace.js"></script>
-    <script src="funscript.js"></script>
-    <script src="player.js"></script>
-    <script src="tracking.js"></script>
-    <script src="presets.js"></script>
-    <script src="timeline.js"></script>
-</body>
-</html>
+canvas?.addEventListener('contextmenu', e => e.preventDefault());
+
+function animationLoop() { drawTimeline(); requestAnimationFrame(animationLoop); }
+requestAnimationFrame(animationLoop);
+
+window.addEventListener('keydown', (e) => {
+    const actions = getSafeActions();
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+    if (e.ctrlKey && e.key.toLowerCase() === 'a') { 
+        e.preventDefault(); actions.forEach(a => a.selected = true); 
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); 
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') { 
+        saveHistoryState(); window.funscriptActions = actions.filter(a => !a.selected); 
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); 
+    }
+});
