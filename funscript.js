@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR Y EXPORTADOR MULTI-PISTA (SOPORTE DE LECTURA DE ALTA PRECISIÓN)
+// GESTOR Y EXPORTADOR MULTI-PISTA (SOPORTE DE ALTA PRECISIÓN Y PILAR CERO)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -19,8 +19,8 @@ window.loadFunscriptFiles = function(filesArray) {
                 const data = JSON.parse(e.target.result);
                 if (data && Array.isArray(data.actions)) {
                     
-                    // LECTURA DE ALTA PRECISIÓN: Forzamos la lectura a números (Number) para 
-                    // asegurar que no se pierdan puntos si otros usan formatos raros
+                    // Aseguramos que la importación convierta todo a número estricto.
+                    // Esto evita que puntos de otras personas (ej. 62%) se borren o se oculten.
                     const actions = data.actions.map(act => ({
                         at: Math.round(Number(act.at)),
                         pos: Math.max(0, Math.min(100, Math.round(Number(act.pos)))),
@@ -39,7 +39,10 @@ window.loadFunscriptFiles = function(filesArray) {
                         isPrimary: isFirst
                     });
 
-                    if (isFirst) window.funscriptActions = JSON.parse(JSON.stringify(actions));
+                    // Si es el primer archivo cargado, lo asignamos directamente a la memoria global
+                    if (isFirst) {
+                        window.funscriptActions = JSON.parse(JSON.stringify(actions));
+                    }
                 }
             } catch (err) { console.error("Error al leer: " + file.name, err); }
 
@@ -80,24 +83,43 @@ function updateTracksListUI() {
         </div>
     `).join('');
 
+    // Cambiar la pista principal
     document.querySelectorAll('.set-primary-btn').forEach(btn => btn.addEventListener('click', function() {
         const tid = this.getAttribute('data-id');
         const current = window.loadedFunscriptTracks.find(t => t.isPrimary);
-        if (current && window.funscriptActions) current.actions = JSON.parse(JSON.stringify(window.funscriptActions));
+        
+        // Guardamos el progreso actual en la pista vieja
+        if (current && window.funscriptActions) {
+            current.actions = JSON.parse(JSON.stringify(window.funscriptActions));
+        }
+        
         window.loadedFunscriptTracks.forEach(t => t.isPrimary = (t.id === tid));
         const newPrimary = window.loadedFunscriptTracks.find(t => t.isPrimary);
-        if (newPrimary) window.funscriptActions = JSON.parse(JSON.stringify(newPrimary.actions));
-        updateTracksListUI(); if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        
+        // Cargamos la nueva pista a la memoria global
+        if (newPrimary) {
+            window.funscriptActions = JSON.parse(JSON.stringify(newPrimary.actions));
+        }
+        
+        updateTracksListUI(); 
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }));
 
+    // Ocultar o mostrar guías
     document.querySelectorAll('.toggle-vis-btn').forEach(btn => btn.addEventListener('click', function() {
         const track = window.loadedFunscriptTracks.find(t => t.id === this.getAttribute('data-id'));
-        if (track) { track.visible = !track.visible; updateTracksListUI(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+        if (track) { 
+            track.visible = !track.visible; 
+            updateTracksListUI(); 
+            if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
+        }
     }));
 
+    // Eliminar pista
     document.querySelectorAll('.delete-track-btn').forEach(btn => btn.addEventListener('click', function() {
         const idx = window.loadedFunscriptTracks.findIndex(t => t.id === this.getAttribute('data-id'));
         if (idx === -1) return;
+        
         const wasPrimary = window.loadedFunscriptTracks[idx].isPrimary;
         window.loadedFunscriptTracks.splice(idx, 1);
         
@@ -107,19 +129,39 @@ function updateTracksListUI() {
         } else if (window.loadedFunscriptTracks.length === 0) { 
             window.funscriptActions = []; 
         }
-        updateTracksListUI(); if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        updateTracksListUI(); 
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }));
 }
 
+// Botón Maestro de Exportación
 exportBtn?.addEventListener('click', () => {
+    // Sincronizamos la memoria actual antes de exportar
     const currentPrimary = window.loadedFunscriptTracks.find(t => t.isPrimary);
-    if (currentPrimary && window.funscriptActions) currentPrimary.actions = JSON.parse(JSON.stringify(window.funscriptActions));
-    if (!window.funscriptActions || window.funscriptActions.length === 0) { alert("No hay puntos para exportar."); return; }
+    if (currentPrimary && window.funscriptActions) {
+        currentPrimary.actions = JSON.parse(JSON.stringify(window.funscriptActions));
+    }
+    
+    // Validación de seguridad
+    if (!window.funscriptActions || window.funscriptActions.length === 0) { 
+        alert("¡Espera! No hay puntos en la línea de tiempo para exportar."); 
+        return; 
+    }
 
-    const data = { version: "1.0", inverted: false, range: 90, actions: window.funscriptActions.map(act => ({ at: act.at, pos: act.pos })) };
+    // Armado del JSON estándar de FunScript
+    const data = { 
+        version: "1.0", 
+        inverted: false, 
+        range: 90, 
+        actions: window.funscriptActions.map(act => ({ at: act.at, pos: act.pos })) 
+    };
+    
+    // Proceso de descarga silenciosa
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = currentPrimary ? `${currentPrimary.name}_editado.funscript` : "script.funscript";
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    document.body.appendChild(link); 
+    link.click(); 
+    document.body.removeChild(link);
 });
