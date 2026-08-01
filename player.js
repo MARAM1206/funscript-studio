@@ -5,7 +5,7 @@
 const videoInput = document.getElementById('video-input');
 const videoPlayer = document.getElementById('video-player');
 
-// ¡ESTE ES EL PUENTE! Lo hacemos global para que la línea de tiempo no se congele
+// Puente maestro para que todos los archivos vean al reproductor
 window.videoPlayer = videoPlayer;
 
 // Etiquetas de información inferior
@@ -32,10 +32,15 @@ function loadVideoFile(file) {
     if (vName) vName.innerText = `📄 ${file.name}`;
 }
 
-// 2. ACTUALIZAR INFO DE METADATOS
+// 2. ACTUALIZAR INFO DE METADATOS (Y AVISAR A LA LÍNEA DE TIEMPO)
 videoPlayer.addEventListener('loadedmetadata', () => {
     if (vRes) vRes.innerText = `📏 ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
     if (vFps) vFps.innerText = `⏱️ ~30 fps`; 
+    
+    // Si la línea de tiempo ya existe, le pedimos que recalcule su escala
+    if (typeof window.calculateAdaptiveZoom === 'function') {
+        window.calculateAdaptiveZoom();
+    }
 });
 
 videoPlayer.addEventListener('volumechange', () => {
