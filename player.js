@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V5.0 (DOBLE FUNCIÓN DE FLECHAS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V6.0 (CONECTADO A THE HANDY)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -37,7 +37,11 @@ function loadVideoFile(file) {
 
 let isSeeking = false;
 videoProgress?.addEventListener('mousedown', () => isSeeking = true);
-videoProgress?.addEventListener('mouseup', () => isSeeking = false);
+videoProgress?.addEventListener('mouseup', () => {
+    isSeeking = false;
+    // Si saltamos en el video mientras está pausado, mandamos pausa a The Handy por seguridad
+    if (videoPlayer.paused && window.Handy && window.Handy.isConnected) window.Handy.pause();
+});
 
 videoProgress?.addEventListener('input', () => {
     if (videoPlayer.duration) {
@@ -53,8 +57,27 @@ videoPlayer?.addEventListener('timeupdate', () => {
     }
 });
 
+// 🚀 EVENTOS DE CONTROL EN VIVO PARA THE HANDY 
 videoPlayer?.addEventListener('play', () => {
     window.dispatchEvent(new Event('videoPlay'));
+    // Despertar a The Handy en el segundo exacto
+    if (window.Handy && window.Handy.isConnected) {
+        window.Handy.play(videoPlayer.currentTime * 1000);
+    }
+});
+
+videoPlayer?.addEventListener('pause', () => {
+    // Dormir a The Handy
+    if (window.Handy && window.Handy.isConnected) {
+        window.Handy.pause();
+    }
+});
+
+videoPlayer?.addEventListener('seeked', () => {
+    // Si el usuario saltó a otra parte del video sin pausarlo, re-sincronizar el juguete
+    if (!videoPlayer.paused && window.Handy && window.Handy.isConnected) {
+        window.Handy.play(videoPlayer.currentTime * 1000);
+    }
 });
 
 videoPlayer?.addEventListener('loadedmetadata', () => {
@@ -97,19 +120,16 @@ window.addEventListener('keydown', (event) => {
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    // 🎯 NUEVO: CEREBRO DUAL PARA LAS FLECHAS
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
 
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         
         if (hasSelection) {
-            // MODO 1: EMPUJAR PUNTOS SELECCIONADOS
             event.preventDefault(); 
             const dirMap = { 'arrowup': 'up', 'arrowdown': 'down', 'arrowleft': 'left', 'arrowright': 'right' };
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dirMap[key] }));
         } 
         else if (key === 'arrowup' || key === 'arrowdown') {
-            // MODO 2: INYECTOR RÁPIDO (Solo Arriba y Abajo)
             event.preventDefault(); 
             if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
             const dir = (key === 'arrowup') ? 'up' : 'down';
