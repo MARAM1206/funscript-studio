@@ -12,7 +12,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const SNAP_DIST = 15; 
     let topZIndex = 100;
 
-    // Control de visibilidad
     let panelVisibility = JSON.parse(localStorage.getItem("funscript_panel_visibility")) || {};
 
     panels.forEach(panel => {
@@ -39,7 +38,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const w = container.clientWidth;
     const h = container.clientHeight;
     
-    // Distribución por defecto
     const defaultLayout = {
         "panel-video":    { left: GAP, top: GAP, width: (w * 0.42) - GAP*1.5, height: (h * 0.5) - GAP*1.5 },
         "panel-slider":   { left: (w * 0.42) + GAP/2, top: GAP, width: (w * 0.10) - GAP, height: (h * 0.5) - GAP*1.5 },
@@ -52,7 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
         "panel-timeline": { left: (w * 0.42) + GAP/2, top: (h * 0.5) + GAP/2, width: (w * 0.58) - GAP*1.5, height: (h * 0.5) - GAP*1.5 }
     };
 
-    // 🚨 SOLUCIÓN A LA MEMORIA: Respetar si el usuario ya movió los paneles 🚨
     const STORAGE_KEY = "funscript_workspace_layout_v4";
     let savedLayout = null;
     try { savedLayout = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){}
@@ -68,7 +65,6 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(savedLayout));
     }
 
-    // Funcionalidad de Arrastre y Redimensionado
     panels.forEach(panel => {
         const pos = savedLayout[panel.id];
         if (pos) {
@@ -122,7 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         isDragging = false;
                         document.removeEventListener("mousemove", onMouseMove);
                         document.removeEventListener("mouseup", onMouseUp);
-                        saveCurrentLayout(); // Guaramos posición al soltar
+                        saveCurrentLayout();
                         window.dispatchEvent(new Event('resize'));
                     }
                 };
@@ -159,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const onResizeUp = () => {
                         document.removeEventListener("mousemove", onResizeMove);
                         document.removeEventListener("mouseup", onResizeUp);
-                        saveCurrentLayout(); // Guardamos tamaño al soltar
+                        saveCurrentLayout();
                         window.dispatchEvent(new Event('resize'));
                     };
                     document.addEventListener("mousemove", onResizeMove); document.addEventListener("mouseup", onResizeUp);
@@ -168,7 +164,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Función de guardado global en localStorage
     function saveCurrentLayout() {
         const layoutToSave = {};
         panels.forEach(panel => {
