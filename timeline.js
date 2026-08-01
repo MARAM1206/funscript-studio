@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V3.1: CORRECCIÓN DE CUADRO DE SELECCIÓN Y SINCRONIZACIÓN ACTIVA
+// TIMELINE V3.2: SINCRONIZACIÓN PERFECTA Y SELECCIÓN INTELIGENTE
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -7,6 +7,9 @@ const ctx = canvas ? canvas.getContext('2d') : null;
 const actionsLog = document.getElementById('actions-log');
 const pointSlider = document.getElementById('point-slider');
 const sliderValueDisplay = document.getElementById('slider-value-display');
+
+// Obtenemos el reproductor de forma directa e independiente 
+const videoNode = document.getElementById('video-player');
 
 window.funscriptActions = [];
 let undoStack = [];
@@ -18,7 +21,7 @@ let basePixelsPerMs = 0.05;
 let panX = 0; 
 
 let isSelecting = false;
-let hasDraggedSelection = false; // Ayuda a saber si dibujaste un cuadro o solo diste clic
+let hasDraggedSelection = false; // Nuestro nuevo seguro anti-puntos accidentales
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
@@ -37,8 +40,8 @@ setTimeout(resizeCanvas, 300);
 
 function calculateAdaptiveZoom() {
     if (!canvas) return;
-    if (window.videoPlayer && window.videoPlayer.duration) {
-        const timeWindow = Math.min(window.videoPlayer.duration * 1000, 25000);
+    if (videoNode && videoNode.duration) {
+        const timeWindow = Math.min(videoNode.duration * 1000, 25000);
         basePixelsPerMs = (canvas.width - 60) / timeWindow;
     }
 }
@@ -65,15 +68,15 @@ function redo() {
     }
 }
 
-// Convertidores
+// Convertidores de medida
 function timeToX(timeMs) {
     const centerFixedX = canvas.width / 2;
-    const currentTimeMs = (window.videoPlayer ? window.videoPlayer.currentTime : 0) * 1000;
+    const currentTimeMs = (videoNode ? videoNode.currentTime : 0) * 1000;
     return centerFixedX + (timeMs - currentTimeMs) * (basePixelsPerMs * zoom) + panX;
 }
 function xToTime(x) {
     const centerFixedX = canvas.width / 2;
-    const currentTimeMs = (window.videoPlayer ? window.videoPlayer.currentTime : 0) * 1000;
+    const currentTimeMs = (videoNode ? videoNode.currentTime : 0) * 1000;
     return currentTimeMs + (x - centerFixedX - panX) / (basePixelsPerMs * zoom);
 }
 function posToY(pos) {
@@ -86,7 +89,7 @@ function yToPos(y) {
     return Math.max(0, Math.min(100, Math.round(rawPos)));
 }
 
-// DIBUJO
+// DIBUJO DE LÍNEA DE TIEMPO
 function drawTimeline() {
     if (!ctx || !canvas) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -226,7 +229,7 @@ canvas?.addEventListener('mousedown', (e) => {
         } else {
             if (!e.ctrlKey) window.funscriptActions.forEach(a => a.selected = false);
             isSelecting = true;
-            hasDraggedSelection = false; // Iniciamos asumiendo que es un clic limpio
+            hasDraggedSelection = false; // Reiniciamos el seguro
             startX = clickX; startY = clickY;
             currentX = clickX; currentY = clickY;
         }
@@ -249,8 +252,8 @@ canvas?.addEventListener('mousemove', (e) => {
     } else if (isSelecting) {
         currentX = mouseX; currentY = mouseY;
         
-        // Si el ratón se mueve más de 3 píxeles, consideramos que es un Arrastre (dibujar cuadro)
-        if (Math.hypot(currentX - startX, currentY - startY) > 3) {
+        // Si el ratón se mueve más de 5 píxeles, es un arrastre intencional. Activamos el seguro.
+        if (Math.hypot(currentX - startX, currentY - startY) > 5) {
             hasDraggedSelection = true;
         }
 
@@ -266,9 +269,10 @@ canvas?.addEventListener('mousemove', (e) => {
     }
 });
 
-window.addEventListener('mouseup', () => {
-    // Si estábamos en modo selección, y NO arrastramos el ratón (fue un clic puro)
-    if (isSelecting && !hasDraggedSelection) {
+window.addEventListener('mouseup', (e) => {
+    // Solo creamos punto si NO arrastramos el ratón (fue un clic estático puro)
+    // y además nos aseguramos de que el clic se soltó dentro del propio Canvas.
+    if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         const clickTime = Math.max(0, Math.round(xToTime(startX)));
         const clickPos = yToPos(startY);
         
@@ -287,11 +291,11 @@ canvas?.addEventListener('contextmenu', e => e.preventDefault());
 // REFRESH VISUAL (AUN EN PAUSA)
 let lastRenderTime = -1;
 function animationLoop() {
-    if (window.videoPlayer) {
+    if (videoNode) {
         // Redibuja si el video se está reproduciendo O si avanzaste estando en pausa
-        if (!window.videoPlayer.paused || window.videoPlayer.currentTime !== lastRenderTime) {
+        if (!videoNode.paused || videoNode.currentTime !== lastRenderTime) {
             drawTimeline();
-            lastRenderTime = window.videoPlayer.currentTime;
+            lastRenderTime = videoNode.currentTime;
         }
     }
     requestAnimationFrame(animationLoop);
