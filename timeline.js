@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V7.0: ZOOM SHIFT Y DESPLAZAMIENTO (PANEO) CON RUEDITA
+// TIMELINE V8.0: PANEO HIPER-RÁPIDO DINÁMICO Y NUDGE DE PUNTOS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -22,7 +22,6 @@ const MAX_HISTORY = 50;
 
 let zoom = 1.0; 
 let basePixelsPerMs = 0.05; 
-// NUEVO: Variable para separar nuestra vista de la línea del tiempo real del video
 let timelineTimeOffset = 0; 
 
 let isSelecting = false;
@@ -30,37 +29,42 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// CONTROLES DE ZOOM Y PANEO (RUEDA DEL RATÓN)
+// ==================================================
+// CONTROLES DE ZOOM Y PANEO (RUEDA DEL RATÓN DINÁMICA)
+// ==================================================
 canvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.shiftKey) {
         // MODO ZOOM (Shift + Ruedita)
-        if (e.deltaY < 0) zoom *= 1.15; // Zoom In
-        else zoom /= 1.15; // Zoom Out
-        zoom = Math.max(0.1, Math.min(zoom, 15.0)); // Límites de zoom
+        if (e.deltaY < 0) zoom *= 1.15; 
+        else zoom /= 1.15; 
+        zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
     } else {
-        // MODO PANEO (Solo si el video está pausado)
+        // MODO PANEO INTELIGENTE (HIPER-RÁPIDO)
         if (videoNode && videoNode.paused) {
-            const panStep = 250; // Saltos de 0.25 segundos
+            // Calcula cuánto tiempo (en ms) estás viendo actualmente en la pantalla
+            const visibleTimeMs = canvas.width / (basePixelsPerMs * zoom);
+            // El salto será del 15% de toda la pantalla visible (Ultra rápido para videos largos)
+            const panStep = visibleTimeMs * 0.15; 
+            
             if (e.deltaY < 0) {
-                // Ruedita Arriba = Mover la línea hacia adelante
-                timelineTimeOffset += panStep;
+                timelineTimeOffset += panStep; // Avanza el tiempo
             } else {
-                // Ruedita Abajo = Mover la línea hacia atrás
-                timelineTimeOffset -= panStep;
+                timelineTimeOffset -= panStep; // Retrocede el tiempo
             }
         }
     }
     drawTimeline();
 }, { passive: false });
 
-// CUANDO EL VIDEO REPRODUCE, LA LÍNEA DEL TIEMPO VUELVE AUTOMÁTICAMENTE A SU LUGAR
 window.addEventListener('videoPlay', () => {
     timelineTimeOffset = 0;
     drawTimeline();
 });
 
-// GENERADOR RÁPIDO
+// ==================================================
+// LÓGICA DEL PANEL "INYECTOR RÁPIDO"
+// ==================================================
 const sliderA = document.getElementById('min-slider');
 const sliderB = document.getElementById('max-slider');
 const dualFill = document.getElementById('dual-slider-fill');
@@ -96,6 +100,7 @@ sliderA?.addEventListener('mouseup', blurSliders);
 sliderB?.addEventListener('mouseup', blurSliders);
 updateDualSlider(); 
 
+// RECEPTOR 1: INYECTAR PUNTO
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
@@ -114,6 +119,7 @@ window.addEventListener('injectPoint', function(e) {
     }
 
     saveHistoryState();
+    
     const existingIdx = actions.findIndex(a => a.at === timeMs);
     if (existingIdx !== -1) {
         actions[existingIdx].pos = pos;
@@ -130,7 +136,37 @@ window.addEventListener('injectPoint', function(e) {
     drawTimeline();
 });
 
-// MOTOR GRÁFICO (CON PANEO INCLUÍDO)
+// 🎯 RECEPTOR 2: EMPUJAR PUNTOS SELECCIONADOS (NUDGE)
+window.addEventListener('nudgePoints', function(e) {
+    const actions = getSafeActions();
+    const dir = e.detail; // 'up', 'down', 'left', 'right'
+    let moved = false;
+
+    saveHistoryState();
+
+    actions.forEach(act => {
+        if (act.selected) {
+            // Arriba y Abajo mueve el Pos de 5% en 5%
+            if (dir === 'up') act.pos = Math.min(100, act.pos + 5);
+            if (dir === 'down') act.pos = Math.max(0, act.pos - 5);
+            
+            // Izquierda y Derecha mueve el Tiempo por 50ms para micro-ajustes
+            if (dir === 'left') act.at = Math.max(0, act.at - 50); 
+            if (dir === 'right') act.at = act.at + 50; 
+            moved = true;
+        }
+    });
+
+    if (moved) {
+        // Solo reordenar si se movieron en el tiempo
+        if (dir === 'left' || dir === 'right') actions.sort((a, b) => a.at - b.at);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        drawTimeline();
+    }
+});
+
+// MOTOR GRÁFICO 
 function ensureCanvasSize() {
     if (!canvas) return;
     const parent = canvas.parentElement;
@@ -172,11 +208,9 @@ function redo() {
     }
 }
 
-// Convertidores Matemáticos (Respetan el Paneo)
 function timeToX(timeMs) {
     const centerFixedX = canvas.width / 2;
     const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
-    // La pantalla mira hacia el "Centro Matemático" (Video + Nuestro Paneo Manual)
     const screenCenterTime = actualVideoTimeMs + timelineTimeOffset;
     return centerFixedX + (timeMs - screenCenterTime) * (basePixelsPerMs * zoom);
 }
@@ -267,7 +301,6 @@ function drawTimeline() {
             ctx.setLineDash([]);
         }
 
-        // LA AGUJA DEL REPRODUCTOR (Ya no está amarrada al centro, te sigue si paneas)
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         const playheadX = timeToX(actualVideoTimeMs);
         
