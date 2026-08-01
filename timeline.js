@@ -1,6 +1,19 @@
 // ==========================================================================
-// TIMELINE V3.4: BLINDAJE DE MEMORIA ABSOLUTO Y ANTI-CRASH
+// TIMELINE V4.0: ESCUDO DE TITANIO GLOBAL Y MOTOR ANTI-CRASH
 // ==========================================================================
+
+// 🛡️ ESCUDO DE TITANIO: Forzamos matemáticamente a que la memoria SIEMPRE sea una lista.
+// Esto bloquea para siempre los errores ".filter is not a function" o ".forEach is not a function".
+let _internalActions = [];
+Object.defineProperty(window, 'funscriptActions', {
+    get: function() { 
+        if (!Array.isArray(_internalActions)) _internalActions = [];
+        return _internalActions; 
+    },
+    set: function(newValue) {
+        _internalActions = Array.isArray(newValue) ? newValue : [];
+    }
+});
 
 const canvas = document.getElementById('timeline-canvas');
 const ctx = canvas ? canvas.getContext('2d') : null;
@@ -10,7 +23,6 @@ const sliderValueDisplay = document.getElementById('slider-value-display');
 
 const videoNode = document.getElementById('video-player');
 
-window.funscriptActions = [];
 let undoStack = [];
 let redoStack = [];
 const MAX_HISTORY = 50;
@@ -23,14 +35,6 @@ let isSelecting = false;
 let hasDraggedSelection = false; 
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
-
-// 🛡️ NUEVO: ESCUDO DE MEMORIA
-// Garantiza que los puntos SIEMPRE sean una lista válida, evitando el error ".filter is not a function"
-function protectActions() {
-    if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) {
-        window.funscriptActions = [];
-    }
-}
 
 // Motor de Reescalado Automático
 function ensureCanvasSize() {
@@ -58,7 +62,6 @@ window.calculateAdaptiveZoom = function() {
 };
 
 function saveHistoryState() {
-    protectActions();
     undoStack.push(JSON.stringify(window.funscriptActions));
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
     redoStack = [];
@@ -66,7 +69,6 @@ function saveHistoryState() {
 
 function undo() {
     if (undoStack.length > 0) {
-        protectActions();
         redoStack.push(JSON.stringify(window.funscriptActions));
         const poppedState = JSON.parse(undoStack.pop());
         window.funscriptActions = Array.isArray(poppedState) ? poppedState : [];
@@ -76,7 +78,6 @@ function undo() {
 
 function redo() {
     if (redoStack.length > 0) {
-        protectActions();
         undoStack.push(JSON.stringify(window.funscriptActions));
         const poppedState = JSON.parse(redoStack.pop());
         window.funscriptActions = Array.isArray(poppedState) ? poppedState : [];
@@ -112,7 +113,6 @@ function yToPos(y) {
 function drawTimeline() {
     try {
         ensureCanvasSize();
-        protectActions(); // Escudo activado en cada frame visual
         if (!ctx || !canvas) return;
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -201,7 +201,6 @@ function drawTimeline() {
 window.drawTimeline = drawTimeline;
 
 function updateActionsLog() {
-    protectActions();
     if (!actionsLog) return;
     if (window.funscriptActions.length === 0) {
         actionsLog.innerHTML = '<span class="empty-log">Sin puntos registrados aún</span>'; return;
@@ -212,7 +211,6 @@ function updateActionsLog() {
 window.updateActionsLog = updateActionsLog;
 
 function syncSliderWithSelection() {
-    protectActions();
     if (!pointSlider) return;
     const selected = window.funscriptActions.filter(act => act.selected);
     if (selected.length > 0) {
@@ -225,7 +223,6 @@ function syncSliderWithSelection() {
 window.syncSliderWithSelection = syncSliderWithSelection;
 
 pointSlider?.addEventListener('input', function() {
-    protectActions();
     const val = parseInt(this.value, 10);
     if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
 
@@ -247,12 +244,11 @@ function getMousePos(e) {
     };
 }
 
-// INTERACCIONES CON MOUSE PROTEGIDAS
+// INTERACCIONES CON MOUSE
 let isDraggingNode = false;
 let draggedNode = null;
 
 canvas?.addEventListener('mousedown', (e) => {
-    protectActions(); // Escudo antes de cualquier acción del ratón
     const pos = getMousePos(e);
     const clickX = pos.x;
     const clickY = pos.y;
@@ -285,7 +281,6 @@ canvas?.addEventListener('mousedown', (e) => {
 });
 
 canvas?.addEventListener('mousemove', (e) => {
-    protectActions();
     const pos = getMousePos(e);
     const mouseX = pos.x;
     const mouseY = pos.y;
@@ -312,7 +307,6 @@ canvas?.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
-    protectActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         const clickTime = Math.max(0, Math.round(xToTime(startX)));
         const clickPos = yToPos(startY);
@@ -336,7 +330,6 @@ function animationLoop() {
 requestAnimationFrame(animationLoop);
 
 window.addEventListener('keydown', (e) => {
-    protectActions();
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
     if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
