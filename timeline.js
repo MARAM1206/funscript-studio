@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V3.2: SINCRONIZACIÓN PERFECTA Y SELECCIÓN INTELIGENTE
+// TIMELINE V3.3: NÚCLEO ANTI-CONGELAMIENTO Y ESCALA PERFECTA DE CANVAS
 // ==========================================================================
 
 const canvas = document.getElementById('timeline-canvas');
@@ -7,9 +7,6 @@ const ctx = canvas ? canvas.getContext('2d') : null;
 const actionsLog = document.getElementById('actions-log');
 const pointSlider = document.getElementById('point-slider');
 const sliderValueDisplay = document.getElementById('slider-value-display');
-
-// Obtenemos el reproductor de forma directa e independiente 
-const videoNode = document.getElementById('video-player');
 
 window.funscriptActions = [];
 let undoStack = [];
@@ -21,30 +18,35 @@ let basePixelsPerMs = 0.05;
 let panX = 0; 
 
 let isSelecting = false;
-let hasDraggedSelection = false; // Nuestro nuevo seguro anti-puntos accidentales
+let hasDraggedSelection = false; 
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-function resizeCanvas() {
+// NUEVO: Motor de Reescalado Automático (Soluciona la desconexión del ratón y el canvas)
+function ensureCanvasSize() {
     if (!canvas) return;
     const parent = canvas.parentElement;
-    if (parent && parent.clientWidth > 0) {
-        canvas.width = parent.clientWidth;
-        canvas.height = parent.clientHeight;
-        calculateAdaptiveZoom();
+    if (parent) {
+        const w = parent.clientWidth;
+        const h = parent.clientHeight;
+        if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+            if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
+        }
     }
-    drawTimeline();
 }
-window.addEventListener('resize', resizeCanvas);
-setTimeout(resizeCanvas, 300);
 
-function calculateAdaptiveZoom() {
-    if (!canvas) return;
-    if (videoNode && videoNode.duration) {
-        const timeWindow = Math.min(videoNode.duration * 1000, 25000);
+// Calculadora de Zoom
+window.calculateAdaptiveZoom = function() {
+    if (!canvas || !window.videoPlayer) return;
+    if (window.videoPlayer.duration && window.videoPlayer.duration > 0) {
+        const timeWindow = Math.min(window.videoPlayer.duration * 1000, 25000);
         basePixelsPerMs = (canvas.width - 60) / timeWindow;
+    } else {
+        basePixelsPerMs = 0.05; // Escala por defecto segura
     }
-}
+};
 
 function saveHistoryState() {
     undoStack.push(JSON.stringify(window.funscriptActions));
@@ -56,7 +58,7 @@ function undo() {
     if (undoStack.length > 0) {
         redoStack.push(JSON.stringify(window.funscriptActions));
         window.funscriptActions = JSON.parse(undoStack.pop());
-        drawTimeline(); updateActionsLog(); syncSliderWithSelection();
+        syncSliderWithSelection(); updateActionsLog();
     }
 }
 
@@ -64,107 +66,123 @@ function redo() {
     if (redoStack.length > 0) {
         undoStack.push(JSON.stringify(window.funscriptActions));
         window.funscriptActions = JSON.parse(redoStack.pop());
-        drawTimeline(); updateActionsLog(); syncSliderWithSelection();
+        syncSliderWithSelection(); updateActionsLog();
     }
 }
 
-// Convertidores de medida
+// Convertidores Exactos de Tiempo y Coordenadas
 function timeToX(timeMs) {
     const centerFixedX = canvas.width / 2;
-    const currentTimeMs = (videoNode ? videoNode.currentTime : 0) * 1000;
+    const currentTimeMs = (window.videoPlayer && window.videoPlayer.currentTime) ? window.videoPlayer.currentTime * 1000 : 0;
     return centerFixedX + (timeMs - currentTimeMs) * (basePixelsPerMs * zoom) + panX;
 }
+
 function xToTime(x) {
     const centerFixedX = canvas.width / 2;
-    const currentTimeMs = (videoNode ? videoNode.currentTime : 0) * 1000;
+    const currentTimeMs = (window.videoPlayer && window.videoPlayer.currentTime) ? window.videoPlayer.currentTime * 1000 : 0;
     return currentTimeMs + (x - centerFixedX - panX) / (basePixelsPerMs * zoom);
 }
+
 function posToY(pos) {
     const padding = 20; const usableHeight = canvas.height - (padding * 2);
     return canvas.height - padding - (pos / 100) * usableHeight;
 }
+
 function yToPos(y) {
     const padding = 20; const usableHeight = canvas.height - (padding * 2);
     const rawPos = ((canvas.height - padding - y) / usableHeight) * 100;
     return Math.max(0, Math.min(100, Math.round(rawPos)));
 }
 
-// DIBUJO DE LÍNEA DE TIEMPO
+// DIBUJO PROTEGIDO DE LA LÍNEA DE TIEMPO
 function drawTimeline() {
-    if (!ctx || !canvas) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    try {
+        ensureCanvasSize(); // Fuerza siempre a que las medidas sean perfectas
+        if (!ctx || !canvas) return;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#06090e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = '#06090e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.lineWidth = 1;
-    [0, 25, 50, 75, 100].forEach(p => {
-        const y = posToY(p);
-        ctx.strokeStyle = '#1e293b';
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-        ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
-    });
-
-    if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
-        window.loadedFunscriptTracks.forEach(track => {
-            if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
-                ctx.lineWidth = 2; ctx.strokeStyle = track.color + '88';
-                ctx.beginPath(); let started = false;
-                track.actions.forEach(act => {
-                    const x = timeToX(act.at); const y = posToY(act.pos);
-                    if (x >= -50 && x <= canvas.width + 50) {
-                        if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
-                    }
-                });
-                ctx.stroke();
-                track.actions.forEach(act => {
-                    const x = timeToX(act.at);
-                    if (x >= -10 && x <= canvas.width + 10) {
-                        const y = posToY(act.pos);
-                        ctx.fillStyle = track.color;
-                        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
-                    }
-                });
-            }
+        // Grid horizontal
+        ctx.lineWidth = 1;
+        [0, 25, 50, 75, 100].forEach(p => {
+            const y = posToY(p);
+            ctx.strokeStyle = '#1e293b';
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
         });
+
+        // Pistas Fantasmas (Cargadas)
+        if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
+            window.loadedFunscriptTracks.forEach(track => {
+                if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
+                    ctx.lineWidth = 2; ctx.strokeStyle = track.color + '88';
+                    ctx.beginPath(); let started = false;
+                    track.actions.forEach(act => {
+                        const x = timeToX(act.at); const y = posToY(act.pos);
+                        if (x >= -50 && x <= canvas.width + 50) {
+                            if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+                        }
+                    });
+                    ctx.stroke();
+                    track.actions.forEach(act => {
+                        const x = timeToX(act.at);
+                        if (x >= -10 && x <= canvas.width + 10) {
+                            const y = posToY(act.pos);
+                            ctx.fillStyle = track.color;
+                            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+                        }
+                    });
+                }
+            });
+        }
+
+        // Pista Principal Editable
+        if (window.funscriptActions && window.funscriptActions.length > 0) {
+            ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8';
+            ctx.beginPath(); let started = false;
+            window.funscriptActions.forEach(act => {
+                const x = timeToX(act.at); const y = posToY(act.pos);
+                if (x >= -50 && x <= canvas.width + 50) {
+                    if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+                }
+            });
+            ctx.stroke();
+
+            window.funscriptActions.forEach(act => {
+                const x = timeToX(act.at);
+                if (x >= -10 && x <= canvas.width + 10) {
+                    const y = posToY(act.pos);
+                    ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
+                    ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                }
+            });
+        }
+
+        // Cuadro Azul de Selección
+        if (isSelecting) {
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+            ctx.setLineDash([2, 2]); ctx.beginPath();
+            ctx.fillRect(startX, startY, currentX - startX, currentY - startY);
+            ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+            ctx.setLineDash([]);
+        }
+
+        // Línea Central Naranja Brillante
+        const centerFixedX = canvas.width / 2 + panX;
+        ctx.lineWidth = 2; ctx.strokeStyle = '#f97316';
+        ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, canvas.height); ctx.stroke();
+        
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath(); ctx.moveTo(centerFixedX - 6, 0); ctx.lineTo(centerFixedX + 6, 0);
+        ctx.lineTo(centerFixedX, 8); ctx.closePath(); ctx.fill();
+
+    } catch (err) {
+        // En caso extremo de error, lo atrapamos para que la animación no se muera
+        console.error("Error silencioso en timeline:", err);
     }
-
-    if (window.funscriptActions && window.funscriptActions.length > 0) {
-        ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8';
-        ctx.beginPath(); let started = false;
-        window.funscriptActions.forEach(act => {
-            const x = timeToX(act.at); const y = posToY(act.pos);
-            if (x >= -50 && x <= canvas.width + 50) {
-                if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
-            }
-        });
-        ctx.stroke();
-
-        window.funscriptActions.forEach(act => {
-            const x = timeToX(act.at);
-            if (x >= -10 && x <= canvas.width + 10) {
-                const y = posToY(act.pos);
-                ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
-                ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
-            }
-        });
-    }
-
-    if (isSelecting) {
-        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-        ctx.setLineDash([2, 2]); ctx.beginPath();
-        ctx.fillRect(startX, startY, currentX - startX, currentY - startY);
-        ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
-        ctx.setLineDash([]);
-    }
-
-    const centerFixedX = canvas.width / 2 + panX;
-    ctx.lineWidth = 2; ctx.strokeStyle = '#ef4444';
-    ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, canvas.height); ctx.stroke();
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath(); ctx.moveTo(centerFixedX - 6, 0); ctx.lineTo(centerFixedX + 6, 0);
-    ctx.lineTo(centerFixedX, 8); ctx.closePath(); ctx.fill();
 }
 window.drawTimeline = drawTimeline;
 
@@ -199,19 +217,30 @@ pointSlider?.addEventListener('input', function() {
         if (selected.length > 0) {
             saveHistoryState();
             selected.forEach(act => act.pos = val);
-            drawTimeline(); updateActionsLog();
+            updateActionsLog();
         }
     }
 });
+
+// NUEVO: Liquidador del Desfase de Ratón
+function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
 
 // INTERACCIONES CON MOUSE
 let isDraggingNode = false;
 let draggedNode = null;
 
 canvas?.addEventListener('mousedown', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const pos = getMousePos(e);
+    const clickX = pos.x;
+    const clickY = pos.y;
 
     if (e.button === 0) { 
         let clickedNode = null;
@@ -229,30 +258,28 @@ canvas?.addEventListener('mousedown', (e) => {
         } else {
             if (!e.ctrlKey) window.funscriptActions.forEach(a => a.selected = false);
             isSelecting = true;
-            hasDraggedSelection = false; // Reiniciamos el seguro
+            hasDraggedSelection = false; 
             startX = clickX; startY = clickY;
             currentX = clickX; currentY = clickY;
         }
-        drawTimeline();
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = window.funscriptActions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
-        drawTimeline(); updateActionsLog();
+        updateActionsLog();
     }
 });
 
 canvas?.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const pos = getMousePos(e);
+    const mouseX = pos.x;
+    const mouseY = pos.y;
 
     if (isDraggingNode && draggedNode) {
         draggedNode.pos = yToPos(mouseY);
-        drawTimeline(); syncSliderWithSelection();
+        syncSliderWithSelection();
     } else if (isSelecting) {
         currentX = mouseX; currentY = mouseY;
         
-        // Si el ratón se mueve más de 5 píxeles, es un arrastre intencional. Activamos el seguro.
         if (Math.hypot(currentX - startX, currentY - startY) > 5) {
             hasDraggedSelection = true;
         }
@@ -264,14 +291,11 @@ canvas?.addEventListener('mousemove', (e) => {
             const nx = timeToX(act.at); const ny = posToY(act.pos);
             act.selected = (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY);
         });
-
-        drawTimeline(); syncSliderWithSelection();
+        syncSliderWithSelection();
     }
 });
 
 window.addEventListener('mouseup', (e) => {
-    // Solo creamos punto si NO arrastramos el ratón (fue un clic estático puro)
-    // y además nos aseguramos de que el clic se soltó dentro del propio Canvas.
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         const clickTime = Math.max(0, Math.round(xToTime(startX)));
         const clickPos = yToPos(startY);
@@ -283,21 +307,13 @@ window.addEventListener('mouseup', (e) => {
     }
 
     isDraggingNode = false; draggedNode = null; isSelecting = false;
-    drawTimeline();
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
 
-// REFRESH VISUAL (AUN EN PAUSA)
-let lastRenderTime = -1;
+// BUCLE DE RENDERIZADO BLINDADO
 function animationLoop() {
-    if (videoNode) {
-        // Redibuja si el video se está reproduciendo O si avanzaste estando en pausa
-        if (!videoNode.paused || videoNode.currentTime !== lastRenderTime) {
-            drawTimeline();
-            lastRenderTime = videoNode.currentTime;
-        }
-    }
+    drawTimeline(); // Ahora se dibuja de manera obligatoria y segura a 60fps
     requestAnimationFrame(animationLoop);
 }
 requestAnimationFrame(animationLoop);
@@ -308,10 +324,10 @@ window.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
     if (e.ctrlKey && e.key.toLowerCase() === 'a') {
         e.preventDefault(); window.funscriptActions.forEach(a => a.selected = true);
-        drawTimeline(); syncSliderWithSelection();
+        syncSliderWithSelection();
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
         saveHistoryState(); window.funscriptActions = window.funscriptActions.filter(a => !a.selected);
-        drawTimeline(); updateActionsLog();
+        updateActionsLog();
     }
 });
