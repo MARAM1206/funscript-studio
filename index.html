@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
@@ -37,16 +37,17 @@
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
                 </div>
                 
-                <div class="progress-bar-container">
-                    <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
-                </div>
-
-                <div class="video-info-bar" style="border-top: none;">
-                    <span id="v-name" class="info-text-white">Sin video</span> <span class="divider">|</span> 
-                    <span id="v-res">--x--</span> <span class="divider">|</span> 
-                    <span id="v-fps">-- fps</span> <span class="divider">|</span> 
-                    <span id="v-speed">Vel: 1.0x</span> <span class="divider">|</span> 
-                    <span id="v-mute">🔊 Sonido On</span>
+                <div class="video-bottom-unified-bar">
+                    <div class="progress-bar-container">
+                        <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
+                    </div>
+                    <div class="video-info-bar">
+                        <span id="v-name" class="info-text-white">Sin video</span> <span class="divider">|</span> 
+                        <span id="v-res">--x--</span> <span class="divider">|</span> 
+                        <span id="v-fps">-- fps</span> <span class="divider">|</span> 
+                        <span id="v-speed">Vel: 1.0x</span> <span class="divider">|</span> 
+                        <span id="v-mute">🔊 Sonido On</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -86,9 +87,9 @@
             </div>
         </div>
 
-        <div id="panel-quick" class="workspace-panel" data-title="⚡ Generador Rápido">
+        <div id="panel-quick" class="workspace-panel" data-title="⚡ Inyector Rápido">
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong> del teclado para inyectar puntos en vivo.</p>
+                <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 15px;">Ajusta los topes libremente y usa las <strong>Flechas Arriba/Abajo</strong> del teclado para inyectar puntos en vivo.</p>
                 
                 <div class="dual-slider-labels">
                     <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 15%</span>
@@ -129,11 +130,11 @@
 
     </div>
 
-    <script src="workspace.js?v=2"></script>
-    <script src="funscript.js?v=2"></script>
-    <script src="player.js?v=2"></script>
-    <script src="tracking.js?v=2"></script>
-    <script src="presets.js?v=2"></script>
-    <script src="timeline.js?v=2"></script>
+    <script src="workspace.js?v=3"></script>
+    <script src="funscript.js?v=3"></script>
+    <script src="player.js?v=3"></script>
+    <script src="tracking.js?v=3"></script>
+    <script src="presets.js?v=3"></script>
+    <script src="timeline.js?v=3"></script>
 </body>
 </html>
