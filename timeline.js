@@ -1,19 +1,6 @@
 // ==========================================================================
-// TIMELINE V4.0: ESCUDO DE TITANIO GLOBAL Y MOTOR ANTI-CRASH
+// TIMELINE V4.1: MEMORIA ORGÁNICA Y DESLIZADOR HÍBRIDO (SIN APLASTAR PUNTOS)
 // ==========================================================================
-
-// 🛡️ ESCUDO DE TITANIO: Forzamos matemáticamente a que la memoria SIEMPRE sea una lista.
-// Esto bloquea para siempre los errores ".filter is not a function" o ".forEach is not a function".
-let _internalActions = [];
-Object.defineProperty(window, 'funscriptActions', {
-    get: function() { 
-        if (!Array.isArray(_internalActions)) _internalActions = [];
-        return _internalActions; 
-    },
-    set: function(newValue) {
-        _internalActions = Array.isArray(newValue) ? newValue : [];
-    }
-});
 
 const canvas = document.getElementById('timeline-canvas');
 const ctx = canvas ? canvas.getContext('2d') : null;
@@ -22,6 +9,15 @@ const pointSlider = document.getElementById('point-slider');
 const sliderValueDisplay = document.getElementById('slider-value-display');
 
 const videoNode = document.getElementById('video-player');
+
+// 🛡️ NUEVO: PURIFICADOR DE MEMORIA ORGÁNICO
+// Sustituye al escudo estricto. Siempre devuelve una lista sana sin romper el navegador.
+function getActions() {
+    if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) {
+        window.funscriptActions = [];
+    }
+    return window.funscriptActions;
+}
 
 let undoStack = [];
 let redoStack = [];
@@ -36,7 +32,6 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// Motor de Reescalado Automático
 function ensureCanvasSize() {
     if (!canvas) return;
     const parent = canvas.parentElement;
@@ -62,14 +57,14 @@ window.calculateAdaptiveZoom = function() {
 };
 
 function saveHistoryState() {
-    undoStack.push(JSON.stringify(window.funscriptActions));
+    undoStack.push(JSON.stringify(getActions()));
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
     redoStack = [];
 }
 
 function undo() {
     if (undoStack.length > 0) {
-        redoStack.push(JSON.stringify(window.funscriptActions));
+        redoStack.push(JSON.stringify(getActions()));
         const poppedState = JSON.parse(undoStack.pop());
         window.funscriptActions = Array.isArray(poppedState) ? poppedState : [];
         syncSliderWithSelection(); updateActionsLog();
@@ -78,14 +73,13 @@ function undo() {
 
 function redo() {
     if (redoStack.length > 0) {
-        undoStack.push(JSON.stringify(window.funscriptActions));
+        undoStack.push(JSON.stringify(getActions()));
         const poppedState = JSON.parse(redoStack.pop());
         window.funscriptActions = Array.isArray(poppedState) ? poppedState : [];
         syncSliderWithSelection(); updateActionsLog();
     }
 }
 
-// Convertidores Exactos de Tiempo y Coordenadas
 function timeToX(timeMs) {
     const centerFixedX = canvas.width / 2;
     const currentTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
@@ -109,7 +103,6 @@ function yToPos(y) {
     return Math.max(0, Math.min(100, Math.round(rawPos)));
 }
 
-// DIBUJO BLINDADO DE LA LÍNEA DE TIEMPO
 function drawTimeline() {
     try {
         ensureCanvasSize();
@@ -119,7 +112,6 @@ function drawTimeline() {
         ctx.fillStyle = '#06090e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Grid horizontal
         ctx.lineWidth = 1;
         [0, 25, 50, 75, 100].forEach(p => {
             const y = posToY(p);
@@ -128,7 +120,6 @@ function drawTimeline() {
             ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
         });
 
-        // Pistas Fantasmas
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
                 if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
@@ -153,11 +144,11 @@ function drawTimeline() {
             });
         }
 
-        // Pista Principal Editable
-        if (window.funscriptActions.length > 0) {
+        const actions = getActions();
+        if (actions.length > 0) {
             ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8';
             ctx.beginPath(); let started = false;
-            window.funscriptActions.forEach(act => {
+            actions.forEach(act => {
                 const x = timeToX(act.at); const y = posToY(act.pos);
                 if (x >= -50 && x <= canvas.width + 50) {
                     if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
@@ -165,7 +156,7 @@ function drawTimeline() {
             });
             ctx.stroke();
 
-            window.funscriptActions.forEach(act => {
+            actions.forEach(act => {
                 const x = timeToX(act.at);
                 if (x >= -10 && x <= canvas.width + 10) {
                     const y = posToY(act.pos);
@@ -176,7 +167,6 @@ function drawTimeline() {
             });
         }
 
-        // Cuadro Azul de Selección
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
             ctx.setLineDash([2, 2]); ctx.beginPath();
@@ -185,7 +175,6 @@ function drawTimeline() {
             ctx.setLineDash([]);
         }
 
-        // Línea Central Naranja Brillante
         const centerFixedX = canvas.width / 2 + panX;
         ctx.lineWidth = 2; ctx.strokeStyle = '#f97316';
         ctx.beginPath(); ctx.moveTo(centerFixedX, 0); ctx.lineTo(centerFixedX, canvas.height); ctx.stroke();
@@ -202,22 +191,27 @@ window.drawTimeline = drawTimeline;
 
 function updateActionsLog() {
     if (!actionsLog) return;
-    if (window.funscriptActions.length === 0) {
+    const actions = getActions();
+    if (actions.length === 0) {
         actionsLog.innerHTML = '<span class="empty-log">Sin puntos registrados aún</span>'; return;
     }
-    const latestActions = [...window.funscriptActions].reverse().slice(0, 8);
+    const latestActions = [...actions].reverse().slice(0, 8);
     actionsLog.innerHTML = latestActions.map(act => `<div style="margin-bottom: 2px;">⏱️ <strong>${(act.at / 1000).toFixed(2)}s</strong> -> Pos: <span style="color:#38bdf8">${act.pos}%</span></div>`).join('');
 }
 window.updateActionsLog = updateActionsLog;
 
 function syncSliderWithSelection() {
     if (!pointSlider) return;
-    const selected = window.funscriptActions.filter(act => act.selected);
+    const actions = getActions();
+    const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         const lastSelected = selected[selected.length - 1];
-        const steppedValue = Math.round(lastSelected.pos / 5) * 5;
-        pointSlider.value = steppedValue;
-        if (sliderValueDisplay) sliderValueDisplay.innerText = `${steppedValue}%`;
+        
+        // 🚨 SOLUCIÓN HÍBRIDA APLICADA AQUÍ 🚨
+        // Mostramos el porcentaje exacto (ej. 62%) SIN forzarlo a ser múltiplo de 5. 
+        // Respeta la forma en que trabajan otros escripteros.
+        pointSlider.value = lastSelected.pos;
+        if (sliderValueDisplay) sliderValueDisplay.innerText = `${lastSelected.pos}%`;
     }
 }
 window.syncSliderWithSelection = syncSliderWithSelection;
@@ -226,7 +220,8 @@ pointSlider?.addEventListener('input', function() {
     const val = parseInt(this.value, 10);
     if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
 
-    const selected = window.funscriptActions.filter(act => act.selected);
+    const actions = getActions();
+    const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         saveHistoryState();
         selected.forEach(act => act.pos = val);
@@ -244,30 +239,30 @@ function getMousePos(e) {
     };
 }
 
-// INTERACCIONES CON MOUSE
 let isDraggingNode = false;
 let draggedNode = null;
 
 canvas?.addEventListener('mousedown', (e) => {
+    const actions = getActions();
     const pos = getMousePos(e);
     const clickX = pos.x;
     const clickY = pos.y;
 
     if (e.button === 0) { 
         let clickedNode = null;
-        for (let act of window.funscriptActions) {
+        for (let act of actions) {
             const nx = timeToX(act.at); const ny = posToY(act.pos);
             if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = act; break; }
         }
 
         if (clickedNode) {
             saveHistoryState();
-            if (!e.ctrlKey && !clickedNode.selected) window.funscriptActions.forEach(a => a.selected = false);
+            if (!e.ctrlKey && !clickedNode.selected) actions.forEach(a => a.selected = false);
             clickedNode.selected = true;
             isDraggingNode = true; draggedNode = clickedNode;
             syncSliderWithSelection();
         } else {
-            if (!e.ctrlKey) window.funscriptActions.forEach(a => a.selected = false);
+            if (!e.ctrlKey) actions.forEach(a => a.selected = false);
             isSelecting = true;
             hasDraggedSelection = false; 
             startX = clickX; startY = clickY;
@@ -275,12 +270,13 @@ canvas?.addEventListener('mousedown', (e) => {
         }
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
-        window.funscriptActions = window.funscriptActions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
+        window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
         updateActionsLog();
     }
 });
 
 canvas?.addEventListener('mousemove', (e) => {
+    const actions = getActions();
     const pos = getMousePos(e);
     const mouseX = pos.x;
     const mouseY = pos.y;
@@ -298,7 +294,7 @@ canvas?.addEventListener('mousemove', (e) => {
         const minX = Math.min(startX, currentX); const maxX = Math.max(startX, currentX);
         const minY = Math.min(startY, currentY); const maxY = Math.max(startY, currentY);
 
-        window.funscriptActions.forEach(act => {
+        actions.forEach(act => {
             const nx = timeToX(act.at); const ny = posToY(act.pos);
             act.selected = (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY);
         });
@@ -307,13 +303,14 @@ canvas?.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
+    const actions = getActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         const clickTime = Math.max(0, Math.round(xToTime(startX)));
         const clickPos = yToPos(startY);
         
         saveHistoryState();
-        window.funscriptActions.push({ at: clickTime, pos: clickPos, selected: true });
-        window.funscriptActions.sort((a, b) => a.at - b.at);
+        actions.push({ at: clickTime, pos: clickPos, selected: true });
+        actions.sort((a, b) => a.at - b.at);
         syncSliderWithSelection(); updateActionsLog();
     }
 
@@ -322,7 +319,6 @@ window.addEventListener('mouseup', (e) => {
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
 
-// BUCLE DE RENDERIZADO
 function animationLoop() {
     drawTimeline();
     requestAnimationFrame(animationLoop);
@@ -330,15 +326,16 @@ function animationLoop() {
 requestAnimationFrame(animationLoop);
 
 window.addEventListener('keydown', (e) => {
+    const actions = getActions();
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
     if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
     if (e.ctrlKey && e.key.toLowerCase() === 'a') {
-        e.preventDefault(); window.funscriptActions.forEach(a => a.selected = true);
+        e.preventDefault(); actions.forEach(a => a.selected = true);
         syncSliderWithSelection();
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
-        saveHistoryState(); window.funscriptActions = window.funscriptActions.filter(a => !a.selected);
+        saveHistoryState(); window.funscriptActions = actions.filter(a => !a.selected);
         updateActionsLog();
     }
 });
