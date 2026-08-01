@@ -1,11 +1,7 @@
 /* ==========================================================================
    CONFIGURACIÓN GENERAL Y TEMA OSCURO
    ========================================================================== */
-* {
-    margin: 0; padding: 0; box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100vh; width: 100vw; }
 
 .top-bar-menu {
@@ -43,69 +39,35 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); overflow: hidden; }
 .workspace-panel { position: absolute; background: #0f131a; border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #1e293b; overflow: hidden; }
-
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
 
-/* ÁREA UNIFICADA DEL REPRODUCTOR (SIN LÍNEAS DIVISORIAS FEAS) */
+/* ÁREA UNIFICADA DEL REPRODUCTOR CON BOLITA RESPETADA */
 .video-bottom-unified-bar {
-    background: #0b0f17;
-    display: flex;
-    flex-direction: column;
-    border: none;
+    background: #0b0f17; display: flex; flex-direction: column; border: none; overflow: visible;
 }
 
 .progress-bar-container {
     width: 100%;
-    padding: 8px 12px 2px 12px;
-    background: #0b0f17;
-    display: flex;
-    align-items: center;
-    border: none;
+    padding: 10px 12px 10px 12px; /* Mayor padding arriba y abajo para que la bolita quepa perfecta */
+    background: #0b0f17; display: flex; align-items: center; border: none; overflow: visible;
 }
 
 .custom-progress {
-    width: 100%;
-    height: 6px;
-    -webkit-appearance: none;
-    appearance: none;
-    background: #1e293b;
-    border-radius: 4px;
-    outline: none;
-    cursor: pointer;
-    border: none;
+    width: 100%; height: 6px; -webkit-appearance: none; appearance: none;
+    background: #1e293b; border-radius: 4px; outline: none; cursor: pointer; border: none;
 }
 
 .custom-progress::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #38bdf8;
-    cursor: pointer;
-    transition: transform 0.1s, background 0.1s;
+    -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: #38bdf8; cursor: pointer; transition: transform 0.1s, background 0.1s;
 }
 
-.custom-progress::-webkit-slider-thumb:hover {
-    transform: scale(1.3);
-    background: #f97316;
-}
+.custom-progress::-webkit-slider-thumb:hover { transform: scale(1.3); background: #f97316; }
 
 .video-info-bar {
-    background: #0b0f17;
-    padding: 4px 12px 8px 12px;
-    font-size: 0.8rem;
-    font-family: monospace;
-    color: #38bdf8;
-    border: none !important; /* Cero líneas divisorias */
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    justify-content: center;
-    align-items: center;
-    flex-shrink: 0;
+    background: #0b0f17; padding: 0px 12px 8px 12px; font-size: 0.8rem; font-family: monospace; color: #38bdf8;
+    border: none !important; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; flex-shrink: 0;
 }
-
 .video-info-bar .info-text-white { color: #e2e8f0; }
 .video-info-bar .divider { color: #334155; }
 
@@ -136,7 +98,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .slider-badge { background: #3b82f6; color: white; font-weight: bold; font-size: 0.9rem; padding: 4px 10px; border-radius: 6px; }
 .vertical-range-input { -webkit-appearance: slider-vertical; writing-mode: bt-lr; width: 24px; height: 140px; cursor: pointer; accent-color: #3b82f6; }
 
-/* ESTILOS DEL INYECTOR RÁPIDO (SLIDER DOBLE LIBRE) */
 .dual-slider-labels { display: flex; justify-content: space-between; width: 100%; font-weight: bold; font-size: 0.85rem; margin-bottom: 10px;}
 .dual-slider-container { position: relative; width: 100%; height: 30px; display: flex; align-items: center;}
 .dual-slider-track { position: absolute; width: 100%; height: 8px; background: #1e293b; border-radius: 4px; z-index: 1;}
