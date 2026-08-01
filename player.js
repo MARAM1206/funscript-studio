@@ -1,9 +1,10 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS (CON GENERACIÓN EN VIVO)
+// REPRODUCTOR Y MOTOR DE ATAJOS (CON BARRA DE LÍNEA DE TIEMPO INTERACTIVA)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
 const videoPlayer = document.getElementById('video-player');
+const videoProgress = document.getElementById('video-progress');
 
 window.videoPlayer = videoPlayer;
 
@@ -16,6 +17,7 @@ const vMute = document.getElementById('v-mute');
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
 
+// 1. CARGA DE VIDEO
 videoInput.addEventListener('change', function(event) {
     const file = event.target.files[0];
     if (file) loadVideoFile(file);
@@ -28,6 +30,29 @@ function loadVideoFile(file) {
     videoPlayer.playbackRate = currentSpeed;
     if (vName) vName.innerText = `📄 ${file.name}`;
 }
+
+// 2. SINCRONIZACIÓN DE LA NUEVA BARRA DE LÍNEA DE TIEMPO
+let isSeeking = false;
+
+// Cuando el usuario presiona la barra, evitamos que el video la jale a la fuerza
+videoProgress?.addEventListener('mousedown', () => isSeeking = true);
+videoProgress?.addEventListener('mouseup', () => isSeeking = false);
+
+// Cuando el usuario arrastra la bolita de progreso
+videoProgress?.addEventListener('input', () => {
+    if (videoPlayer.duration) {
+        const targetTime = (videoProgress.value / 100) * videoPlayer.duration;
+        videoPlayer.currentTime = targetTime;
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+});
+
+// Cuando el video avanza normalmente, la bolita lo sigue
+videoPlayer.addEventListener('timeupdate', () => {
+    if (!isSeeking && videoPlayer.duration && videoProgress) {
+        videoProgress.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+    }
+});
 
 videoPlayer.addEventListener('loadedmetadata', () => {
     if (vRes) vRes.innerText = `📏 ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
@@ -42,6 +67,7 @@ videoPlayer.addEventListener('volumechange', () => {
     }
 });
 
+// 3. DRAG AND DROP
 const dragOverlay = document.getElementById('drag-drop-overlay');
 let dragCounter = 0;
 
@@ -59,7 +85,7 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// ATAJOS DE TECLADO GLOBALES
+// 4. ATAJOS DE TECLADO
 window.addEventListener('keydown', (event) => {
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
@@ -69,7 +95,7 @@ window.addEventListener('keydown', (event) => {
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    // ⚡ GENERADOR RÁPIDO: INYECCIÓN EN VIVO (FLECHAS ARRIBA/ABAJO)
+    // ⚡ GENERADOR RÁPIDO
     if (key === 'arrowup') {
         event.preventDefault();
         const maxVal = document.getElementById('max-slider')?.value || 100;
