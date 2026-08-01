@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V12.0: PURIFICACIÓN DEL INYECTOR Y EMPUJE EN EL TIEMPO
+// TIMELINE V13.0: REMOCIÓN DEL REGISTRO (LOG PANEL)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -11,7 +11,6 @@ function getSafeActions() {
 
 const canvas = document.getElementById('timeline-canvas');
 const ctx = canvas ? canvas.getContext('2d') : null;
-const actionsLog = document.getElementById('actions-log');
 const pointSlider = document.getElementById('point-slider');
 const sliderValueDisplay = document.getElementById('slider-value-display');
 const videoNode = document.getElementById('video-player');
@@ -47,7 +46,6 @@ canvas?.addEventListener('wheel', (e) => {
 
 window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
-// ARRASTRE DE PRESETS CON IMÁN DE ALTURA 5%
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -101,7 +99,6 @@ canvas?.addEventListener('drop', (e) => {
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
         drawTimeline(); notifyCloud();
     }
 });
@@ -121,7 +118,6 @@ sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener(
 sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
-// 🎯 RECEPTOR 1: EL INYECTOR SUPREMO (ARRIBA Y ABAJO)
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
@@ -135,12 +131,9 @@ window.addEventListener('injectPoint', function(e) {
     const isPlaying = videoNode && !videoNode.paused;
     const hasSelection = actions.some(a => a.selected);
 
-    // Si el video está en Pausa y tienes puntos seleccionados, se ajustan a ese tope mágico instantáneamente.
     if (!isPlaying && hasSelection) {
         actions.forEach(a => { if (a.selected) a.pos = pos; });
-    } 
-    // Si el video Corre o no hay nada seleccionado, inyectamos a la fuerza
-    else {
+    } else {
         actions.forEach(a => { a.selected = false; }); 
         const existingIdx = actions.findIndex(a => a.at === timeMs);
         if (existingIdx !== -1) { 
@@ -154,11 +147,9 @@ window.addEventListener('injectPoint', function(e) {
     
     actions.sort((a, b) => a.at - b.at);
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
     drawTimeline(); notifyCloud(); 
 });
 
-// 🎯 RECEPTOR 2: EMPUJE DE TIEMPO (IZQUIERDA Y DERECHA)
 window.addEventListener('nudgeTime', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
@@ -174,7 +165,6 @@ window.addEventListener('nudgeTime', function(e) {
     if (moved) {
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
         drawTimeline(); notifyCloud(); 
     }
 });
@@ -187,7 +177,6 @@ window.addEventListener('magnetPoint', function() {
     if (moved) {
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
         drawTimeline(); notifyCloud();
     }
 });
@@ -211,14 +200,14 @@ function undo() {
     if (undoStack.length > 0) {
         redoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(undoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
+        notifyCloud(); 
     }
 }
 function redo() {
     if (redoStack.length > 0) {
         undoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(redoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
+        notifyCloud(); 
     }
 }
 function timeToX(timeMs) {
@@ -286,7 +275,6 @@ function drawTimeline() {
             });
         }
 
-        // FANTASMA DE PRESETS (CON DESPLAZAMIENTO VERTICAL)
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
@@ -334,14 +322,6 @@ function drawTimeline() {
     } catch (err) {}
 }
 
-window.updateActionsLog = function() {
-    if (!actionsLog) return;
-    const actions = getSafeActions();
-    if (actions.length === 0) { actionsLog.innerHTML = '<span class="empty-log">Sin puntos registrados aún</span>'; return; }
-    const latestActions = [...actions].reverse().slice(0, 8);
-    actionsLog.innerHTML = latestActions.map(act => `<div style="margin-bottom: 2px;">⏱️ <strong>${(act.at / 1000).toFixed(2)}s</strong> -> Pos: <span style="color:#38bdf8">${act.pos}%</span></div>`).join('');
-};
-
 window.syncSliderWithSelection = function() {
     if (!pointSlider) return;
     const actions = getSafeActions();
@@ -361,7 +341,7 @@ pointSlider?.addEventListener('change', function() {
     if (selected.length > 0) {
         saveHistoryState();
         selected.forEach(act => act.pos = val); 
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
+        notifyCloud(); 
     }
 });
 
@@ -394,7 +374,7 @@ canvas?.addEventListener('mousedown', (e) => {
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
+        notifyCloud(); 
     }
 });
 
@@ -428,7 +408,7 @@ window.addEventListener('mouseup', (e) => {
         actions.push({ at: clickTime, pos: clickPos, selected: true });
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
+        notifyCloud(); 
     } else if (isDraggingNode || hasDraggedSelection) { notifyCloud(); }
     isDraggingNode = false; draggedNode = null; isSelecting = false;
 });
@@ -437,14 +417,4 @@ canvas?.addEventListener('contextmenu', e => e.preventDefault());
 function animationLoop() { drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
 
-window.addEventListener('keydown', (e) => {
-    const actions = getSafeActions();
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 'a') { e.preventDefault(); actions.forEach(a => a.selected = true); if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); }
-    if (e.key === 'Delete' || e.key === 'Backspace') { 
-        saveHistoryState(); window.funscriptActions = actions.filter(a => !a.selected); 
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
-    }
-});
+// Ya no necesitamos los listeners de teclado aquí porque player.js atrapa TODO el teclado globalmente.
