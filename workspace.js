@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V4.0: MEMORIA SANA Y ACOMODO DE 9 PANELES (INCLUYE THE HANDY)
+// WORKSPACE V4.0: DISTRIBUCIÓN PARA 9 PANELES
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -34,21 +34,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const w = container.clientWidth;
     const h = container.clientHeight;
     
-    // Distribución optimizada para 9 PANELES (Arriba 5, Abajo 4)
+    // Acomodo para 9 Paneles Perfectos
     const defaultLayout = {
-        "panel-video":    { left: GAP, top: GAP, width: (w * 0.38) - GAP, height: (h * 0.45) - GAP },
-        "panel-slider":   { left: (w * 0.38) + GAP, top: GAP, width: (w * 0.08) - GAP, height: (h * 0.45) - GAP },
-        "panel-quick":    { left: (w * 0.46) + GAP, top: GAP, width: (w * 0.18) - GAP, height: (h * 0.45) - GAP },
-        "panel-handy":    { left: (w * 0.64) + GAP, top: GAP, width: (w * 0.18) - GAP, height: (h * 0.45) - GAP },
-        "panel-presets":  { left: (w * 0.82) + GAP, top: GAP, width: (w * 0.18) - GAP*2, height: (h * 0.45) - GAP },
+        "panel-video":    { left: GAP, top: GAP, width: (w * 0.40) - GAP*1.5, height: (h * 0.45) - GAP*1.5 },
+        "panel-slider":   { left: (w * 0.40) + GAP/2, top: GAP, width: (w * 0.08) - GAP, height: (h * 0.45) - GAP*1.5 },
+        "panel-quick":    { left: (w * 0.48) + GAP/2, top: GAP, width: (w * 0.16) - GAP, height: (h * 0.45) - GAP*1.5 },
+        "panel-handy":    { left: (w * 0.64) + GAP/2, top: GAP, width: (w * 0.18) - GAP, height: (h * 0.45) - GAP*1.5 },
+        "panel-presets":  { left: (w * 0.82) + GAP/2, top: GAP, width: (w * 0.18) - GAP*1.5, height: (h * 0.45) - GAP*1.5 },
         
-        "panel-controls": { left: GAP, top: (h * 0.45) + GAP, width: (w * 0.20) - GAP, height: (h * 0.55) - GAP*2 },
-        "panel-tracks":   { left: (w * 0.20) + GAP, top: (h * 0.45) + GAP, width: (w thereunder * 0.20) - GAP, height: (h * 0.55) - GAP*2 },
-        "panel-actions":  { left: (w * 0.40) + GAP, top: (h * 0.45) + GAP, width: (w * 0.15) - GAP, height: (h * 0.55) - GAP*2 },
-        "panel-timeline": { left: (w * 0.55) + GAP, top: (h * 0.45) + GAP, width: (w * 0.45) - GAP*2, height: (h * 0.55) - GAP*2 }
+        "panel-controls": { left: GAP, top: (h * 0.45) + GAP/2, width: (w * 0.20) - GAP*1.5, height: (h * 0.55) - GAP*1.5 },
+        "panel-tracks":   { left: (w * 0.20) + GAP/2, top: (h * 0.45) + GAP/2, width: (w * 0.18) - GAP, height: (h * 0.55) - GAP*1.5 },
+        "panel-actions":  { left: (w * 0.38) + GAP/2, top: (h * 0.45) + GAP/2, width: (w * 0.15) - GAP, height: (h * 0.55) - GAP*1.5 },
+        "panel-timeline": { left: (w * 0.53) + GAP/2, top: (h * 0.45) + GAP/2, width: (w * 0.47) - GAP*1.5, height: (h * 0.55) - GAP*1.5 }
     };
 
-    const STORAGE_KEY = "funscript_workspace_layout_v5";
+    const STORAGE_KEY = "funscript_workspace_layout_v6";
     let savedLayout = null;
     try { savedLayout = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){}
 
@@ -116,8 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         isDragging = false;
                         document.removeEventListener("mousemove", onMouseMove);
                         document.removeEventListener("mouseup", onMouseUp);
-                        saveCurrentLayout();
-                        window.dispatchEvent(new Event('resize'));
+                        saveCurrentLayout(); window.dispatchEvent(new Event('resize'));
                     }
                 };
                 document.addEventListener("mousemove", onMouseMove); document.addEventListener("mouseup", onMouseUp);
@@ -153,8 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const onResizeUp = () => {
                         document.removeEventListener("mousemove", onResizeMove);
                         document.removeEventListener("mouseup", onResizeUp);
-                        saveCurrentLayout();
-                        window.dispatchEvent(new Event('resize'));
+                        saveCurrentLayout(); window.dispatchEvent(new Event('resize'));
                     };
                     document.addEventListener("mousemove", onResizeMove); document.addEventListener("mouseup", onResizeUp);
                 });
