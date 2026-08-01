@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V6.0 (CONECTADO A THE HANDY)
+// REPRODUCTOR Y MOTOR DE ATAJOS V6.0 (CON SINCRONIZACIÓN THE HANDY)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -37,11 +37,7 @@ function loadVideoFile(file) {
 
 let isSeeking = false;
 videoProgress?.addEventListener('mousedown', () => isSeeking = true);
-videoProgress?.addEventListener('mouseup', () => {
-    isSeeking = false;
-    // Si saltamos en el video mientras está pausado, mandamos pausa a The Handy por seguridad
-    if (videoPlayer.paused && window.Handy && window.Handy.isConnected) window.Handy.pause();
-});
+videoProgress?.addEventListener('mouseup', () => isSeeking = false);
 
 videoProgress?.addEventListener('input', () => {
     if (videoPlayer.duration) {
@@ -57,26 +53,21 @@ videoPlayer?.addEventListener('timeupdate', () => {
     }
 });
 
-// 🚀 EVENTOS DE CONTROL EN VIVO PARA THE HANDY 
 videoPlayer?.addEventListener('play', () => {
     window.dispatchEvent(new Event('videoPlay'));
-    // Despertar a The Handy en el segundo exacto
-    if (window.Handy && window.Handy.isConnected) {
-        window.Handy.play(videoPlayer.currentTime * 1000);
-    }
+    // 🍆 Dile al Handy que empiece a moverse desde este milisegundo
+    if (typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
 videoPlayer?.addEventListener('pause', () => {
-    // Dormir a The Handy
-    if (window.Handy && window.Handy.isConnected) {
-        window.Handy.pause();
-    }
+    // 🍆 Dile al Handy que se detenga
+    if (typeof window.stopHandy === 'function') window.stopHandy();
 });
 
 videoPlayer?.addEventListener('seeked', () => {
-    // Si el usuario saltó a otra parte del video sin pausarlo, re-sincronizar el juguete
-    if (!videoPlayer.paused && window.Handy && window.Handy.isConnected) {
-        window.Handy.play(videoPlayer.currentTime * 1000);
+    // Si saltas a otra parte del video y está en Play, resincroniza el Handy
+    if (!videoPlayer.paused && typeof window.playHandy === 'function') {
+        window.playHandy(videoPlayer.currentTime * 1000);
     }
 });
 
@@ -95,7 +86,6 @@ videoPlayer?.addEventListener('volumechange', () => {
 
 const dragOverlay = document.getElementById('drag-drop-overlay');
 let dragCounter = 0;
-
 window.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; dragOverlay?.classList.add('active'); });
 window.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter === 0) dragOverlay?.classList.remove('active'); });
 window.addEventListener('dragover', (e) => { e.preventDefault(); });
@@ -110,7 +100,6 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// ATAJOS DE TECLADO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
@@ -119,11 +108,9 @@ window.addEventListener('keydown', (event) => {
     const fps = window.videoFPS;
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
-
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
 
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
-        
         if (hasSelection) {
             event.preventDefault(); 
             const dirMap = { 'arrowup': 'up', 'arrowdown': 'down', 'arrowleft': 'left', 'arrowright': 'right' };
@@ -142,7 +129,6 @@ window.addEventListener('keydown', (event) => {
         if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
     }
     if (key === 'm') { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
-
     if (key === 'e') {
         event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1);
         videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`;
@@ -151,7 +137,6 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1);
         videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`;
     }
-    
     if (key === 'q') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); }
     if (key === 'w') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); }
     if (key === 'a') { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); }
