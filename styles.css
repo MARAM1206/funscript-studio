@@ -46,13 +46,15 @@ body {
     background: #2563eb; color: white; border-color: #3b82f6;
 }
 
+/* Reducimos el peso de la letra en los botones por defecto */
 .menu-btn {
     color: white; border: none; padding: 6px 14px; border-radius: 8px;
-    font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: transform 0.1s;
+    font-size: 0.8rem; font-weight: normal; cursor: pointer; transition: transform 0.1s;
 }
-
 .menu-btn:active { transform: scale(0.98); }
-.success-btn { background: #059669; }
+
+/* Solo el botón de exportar es grueso (bold) */
+.success-btn { background: #059669; font-weight: bold; }
 .success-btn:hover { background: #047857; }
 .select-btn { background: #2563eb; display: inline-block; text-align: center; }
 .select-btn:hover { background: #1d4ed8; }
@@ -66,14 +68,12 @@ body {
 .drag-drop-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(15, 23, 42, 0.85); z-index: 10000;
-    display: none; /* Se activa por JS */
+    display: none; 
     align-items: center; justify-content: center;
     backdrop-filter: blur(4px); pointer-events: none;
 }
 
-.drag-drop-overlay.active {
-    display: flex;
-}
+.drag-drop-overlay.active { display: flex; }
 
 .drag-drop-message {
     background: #2563eb; color: white; padding: 24px 48px;
@@ -102,15 +102,24 @@ body {
     border-bottom: 1px solid #1e293b;
 }
 
-/* INFO FLOTANTE DEL VIDEO */
-.video-info-overlay {
-    position: absolute; top: 12px; left: 12px; z-index: 50;
-    background: rgba(15, 23, 42, 0.75); padding: 6px 12px;
-    border-radius: 8px; font-size: 0.75rem; font-family: monospace;
-    color: #38bdf8; pointer-events: none; backdrop-filter: blur(4px);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    display: flex; gap: 8px;
+/* NUEVA BARRA DE INFO DE VIDEO (En la base) */
+.video-info-bar {
+    background: #0b0f17;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-family: monospace;
+    color: #38bdf8;
+    border-top: 1px solid #1e293b;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
 }
+
+.video-info-bar .info-text-white { color: #e2e8f0; }
+.video-info-bar .divider { color: #334155; }
 
 /* MANIJAS DE REDIMENSIONADO */
 .resize-handle { position: absolute; z-index: 20; }
