@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V6.0 (CON SINCRONIZACIÓN THE HANDY)
+// REPRODUCTOR Y MOTOR DE ATAJOS V7.0 (IMÁN DE TIEMPO Y FLECHAS REPARADAS)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -31,7 +31,6 @@ function loadVideoFile(file) {
     
     window.currentVideoName = file.name;
     if (vName) vName.innerText = `📄 ${file.name}`;
-    
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
 }
 
@@ -55,17 +54,14 @@ videoPlayer?.addEventListener('timeupdate', () => {
 
 videoPlayer?.addEventListener('play', () => {
     window.dispatchEvent(new Event('videoPlay'));
-    // 🍆 Dile al Handy que empiece a moverse desde este milisegundo
     if (typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
 videoPlayer?.addEventListener('pause', () => {
-    // 🍆 Dile al Handy que se detenga
     if (typeof window.stopHandy === 'function') window.stopHandy();
 });
 
 videoPlayer?.addEventListener('seeked', () => {
-    // Si saltas a otra parte del video y está en Play, resincroniza el Handy
     if (!videoPlayer.paused && typeof window.playHandy === 'function') {
         window.playHandy(videoPlayer.currentTime * 1000);
     }
@@ -100,6 +96,7 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
+// ATAJOS DE TECLADO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
     if (event.ctrlKey) return; 
@@ -108,20 +105,36 @@ window.addEventListener('keydown', (event) => {
     const fps = window.videoFPS;
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
+    
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
+    const isPlaying = !videoPlayer.paused;
 
+    // 🎯 REGLA DE ORO PARA LAS FLECHAS
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
-        if (hasSelection) {
-            event.preventDefault(); 
+        event.preventDefault(); 
+        if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
+
+        if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
+            // MODO 1: GRABACIÓN EN VIVO (Si el video corre, siempre inyecta, ignora si hay seleccionados)
+            const dir = (key === 'arrowup') ? 'up' : 'down';
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+        } 
+        else if (!isPlaying && hasSelection) {
+            // MODO 2: EMPUJAR PUNTOS (Solo si está pausado y tienes puntos azules seleccionados)
             const dirMap = { 'arrowup': 'up', 'arrowdown': 'down', 'arrowleft': 'left', 'arrowright': 'right' };
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dirMap[key] }));
         } 
-        else if (key === 'arrowup' || key === 'arrowdown') {
-            event.preventDefault(); 
-            if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
+        else if (!isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
+            // MODO 3: INYECTOR ESTÁTICO (Está pausado pero no hay nada seleccionado)
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
         }
+    }
+
+    // 🧲 TECLA C: IMÁN TEMPORAL
+    if (key === 'c' && hasSelection) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('magnetPoint'));
     }
 
     if (event.code === 'Space') {
