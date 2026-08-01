@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V10.0: PRESETS CON FANTASMA VERDE, MAGNETISMO Y DESTRUCCIÓN
+// TIMELINE V11.0: PRESETS CON ARRASTRE VERTICAL E IMÁN AL 5%
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -48,24 +48,33 @@ canvas?.addEventListener('wheel', (e) => {
 window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
 // ==================================================
-// ARRASTRE DE PRESETS SOBRE EL LIENZO (FANTASMA Y MAGNETISMO)
+// ARRASTRE DE PRESETS (AHORA CON ALTURA VERTICAL 5%)
 // ==================================================
 
 canvas?.addEventListener('dragover', (e) => {
-    if (window.isDraggingPreset) {
-        e.preventDefault(); // Permitir soltar
+    if (window.isDraggingPreset && window.timelineGhostPreset) {
+        e.preventDefault(); 
         const pos = getMousePos(e);
         let hoverTimeMs = xToTime(pos.x);
+        let hoverPosRaw = yToPos(pos.y);
         
-        // 🧲 IMÁN INTELIGENTE (Busca puntos cercanos a 250ms)
+        // 🧲 Imán de Tiempo (Busca puntos cercanos a 250ms)
         const snapDistMs = 250; 
         const actions = getSafeActions();
         for (let act of actions) {
             if (Math.abs(act.at - hoverTimeMs) < snapDistMs) {
-                hoverTimeMs = act.at; // Se pega magnéticamente al punto
+                hoverTimeMs = act.at; 
                 break;
             }
         }
+        
+        // 🧲 Imán de Altura (Redondeo puro de 5% en 5%)
+        let hoverPos = Math.round(hoverPosRaw / 5) * 5;
+        
+        // Cálculo del Delta: Cuánto se movió respecto a la posición base del Preset
+        const basePos = window.timelineGhostPreset[0].pos;
+        window.timelineGhostDeltaPos = hoverPos - basePos;
+        
         window.timelineGhostTimeMs = hoverTimeMs;
         drawTimeline();
     }
@@ -79,39 +88,33 @@ canvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
         const pos = getMousePos(e);
-        let dropTimeMs = xToTime(pos.x);
+        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : xToTime(pos.x);
+        const deltaY = window.timelineGhostDeltaPos || 0;
         
-        // Aplicar Imán al Soltar
-        const snapDistMs = 250; 
-        let actions = getSafeActions();
-        for (let act of actions) {
-            if (Math.abs(act.at - dropTimeMs) < snapDistMs) { dropTimeMs = act.at; break; }
-        }
-
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
         const endTimeMs = dropTimeMs + presetDuration;
 
         saveHistoryState();
         
-        // 💥 DESTRUCCIÓN AUTOMÁTICA: Borramos los puntos viejos que estorben en el área de caída
+        // 💥 Destrucción automática de basura que estorbe en el bloque
+        let actions = getSafeActions();
         window.funscriptActions = actions.filter(act => act.at < dropTimeMs || act.at > endTimeMs);
-        
-        window.funscriptActions.forEach(a => a.selected = false); // Deseleccionamos lo demás
+        window.funscriptActions.forEach(a => a.selected = false); 
 
-        // 🟢 INSERCIÓN DEL PRESET
+        // 🟢 Inserción del Preset con el Delta Vertical calculado (Limitado entre 0 y 100)
         const newActions = window.timelineGhostPreset.map(act => ({
             at: dropTimeMs + act.at,
-            pos: act.pos,
-            selected: true // Lo dejamos seleccionado por si quiere moverlo con flechas
+            pos: Math.max(0, Math.min(100, act.pos + deltaY)),
+            selected: true 
         }));
         
         window.funscriptActions.push(...newActions);
         window.funscriptActions.sort((a, b) => a.at - b.at);
         
-        // Limpiamos variables fantasmas
         window.isDraggingPreset = false;
         window.timelineGhostPreset = null;
         window.timelineGhostTimeMs = null;
+        window.timelineGhostDeltaPos = 0;
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
@@ -145,7 +148,7 @@ window.addEventListener('injectPoint', function(e) {
     if (typeof e.detail === 'object') { if (e.detail.dir === 'up') pos = currentMax; else if (e.detail.dir === 'down') pos = currentMin; } else pos = parseInt(e.detail, 10);
 
     saveHistoryState();
-    actions.forEach(a => { a.selected = false; }); // Quitar auto-selección
+    actions.forEach(a => { a.selected = false; }); 
     
     const existingIdx = actions.findIndex(a => a.at === timeMs);
     if (existingIdx !== -1) { actions[existingIdx].pos = pos; actions[existingIdx].selected = false; } 
@@ -283,21 +286,22 @@ function drawTimeline() {
             });
         }
 
-        // 🟢 DIBUJO DEL FANTASMA VERDE DEL PRESET 
+        // 🟢 FANTASMA Y DESPLAZAMIENTO VERTICAL
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+            const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
-            ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; // Verde esmeralda vivo
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; 
             ctx.beginPath();
             window.timelineGhostPreset.forEach((act, index) => {
                 const x = timeToX(window.timelineGhostTimeMs + act.at);
-                const y = posToY(act.pos);
+                const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); // Se le suma la altura arrastrada
                 if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             });
             ctx.stroke();
 
             window.timelineGhostPreset.forEach(act => {
                 const x = timeToX(window.timelineGhostTimeMs + act.at);
-                const y = posToY(act.pos);
+                const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY)));
                 ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                 ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
             });
@@ -337,6 +341,7 @@ window.updateActionsLog = function() {
     const latestActions = [...actions].reverse().slice(0, 8);
     actionsLog.innerHTML = latestActions.map(act => `<div style="margin-bottom: 2px;">⏱️ <strong>${(act.at / 1000).toFixed(2)}s</strong> -> Pos: <span style="color:#38bdf8">${act.pos}%</span></div>`).join('');
 };
+
 window.syncSliderWithSelection = function() {
     if (!pointSlider) return;
     const actions = getSafeActions();
@@ -375,6 +380,7 @@ canvas?.addEventListener('mousedown', (e) => {
             const nx = timeToX(act.at); const ny = posToY(act.pos);
             if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = act; break; }
         }
+
         if (clickedNode) {
             saveHistoryState();
             if (!e.ctrlKey && !clickedNode.selected) actions.forEach(a => a.selected = false);
@@ -422,7 +428,8 @@ window.addEventListener('mouseup', (e) => {
         actions.push({ at: clickTime, pos: clickPos, selected: true });
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog(); notifyCloud(); 
+        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
+        notifyCloud(); 
     } else if (isDraggingNode || hasDraggedSelection) { notifyCloud(); }
     isDraggingNode = false; draggedNode = null; isSelecting = false;
 });
