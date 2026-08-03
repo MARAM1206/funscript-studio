@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V15.0: DESELECCIÓN INTELIGENTE SIN CREAR PUNTOS Y REPARACIÓN SUPR
+// TIMELINE V17.0: LABELS DE TIEMPO ADAPTABLES (SEGUNDOS DINÁMICOS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -33,8 +33,6 @@ let dragStartXTime = 0;
 let dragStartYPos = 0;
 window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
-
-// 🛡️ NUEVA MEMORIA: Para saber si teníamos algo seleccionado antes del clic
 let hadSelectionBeforeMousedown = false; 
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
@@ -56,7 +54,6 @@ canvas?.addEventListener('wheel', (e) => {
 
 window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
-// ARRASTRE DE PRESETS (GHOST)
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -132,7 +129,6 @@ sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mo
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
-    
     const valA = parseInt(sliderA?.value || '15', 10); const valB = parseInt(sliderB?.value || '85', 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
@@ -172,7 +168,6 @@ window.addEventListener('nudgeTime', function(e) {
     }
 });
 
-// 🎯 RECEPTOR 3: NUDGE VERTICAL (Ctrl + Flechas Arriba/Abajo)
 window.addEventListener('nudgePoints', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
@@ -201,14 +196,13 @@ window.addEventListener('magnetPoint', function() {
     }
 });
 
-// 🎯 RECEPTORES DEL TECLADO CLÁSICO (Delete, Ctrl+Z, etc)
 window.addEventListener('deletePoints', () => {
     saveHistoryState();
     window.funscriptActions = getSafeActions().filter(a => !a.selected);
     drawTimeline(); notifyCloud();
 });
-window.addEventListener('undoAction', () => { undo(); drawTimeline(); });
-window.addEventListener('redoAction', () => { redo(); drawTimeline(); });
+window.addEventListener('undoAction', () => { undo(); });
+window.addEventListener('redoAction', () => { redo(); });
 window.addEventListener('selectAllPoints', () => {
     getSafeActions().forEach(a => a.selected = true);
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -234,14 +228,14 @@ function undo() {
     if (undoStack.length > 0) {
         redoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(undoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); 
+        notifyCloud(); drawTimeline();
     }
 }
 function redo() {
     if (redoStack.length > 0) {
         undoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(redoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); 
+        notifyCloud(); drawTimeline();
     }
 }
 function timeToX(timeMs) {
@@ -282,6 +276,28 @@ function drawTimeline() {
             const y = posToY(p); ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
             ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
         });
+
+        // 🎯 ETIQUETAS DE TIEMPO ADAPTABLES (SIN LÍNEAS VERTICALES)
+        const visibleMs = canvas.width / (basePixelsPerMs * zoom);
+        let stepMs = 1000;
+        if (visibleMs < 500) stepMs = 50;
+        else if (visibleMs < 1000) stepMs = 100;
+        else if (visibleMs < 5000) stepMs = 500;
+        else if (visibleMs > 20000) stepMs = 5000;
+        else if (visibleMs > 10000) stepMs = 2000;
+
+        const startTimeMs = Math.max(0, xToTime(0));
+        const endTimeMs = xToTime(canvas.width);
+        let t = Math.floor(startTimeMs / stepMs) * stepMs;
+
+        ctx.fillStyle = '#94a3b8'; ctx.font = '10px monospace';
+        while (t <= endTimeMs) {
+            if (t >= 0) {
+                const x = timeToX(t);
+                ctx.fillText(`${(t/1000).toFixed(2)}s`, x + 4, 12);
+            }
+            t += stepMs;
+        }
 
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
@@ -383,7 +399,7 @@ pointSlider?.addEventListener('change', function() {
     if (selected.length > 0) {
         saveHistoryState();
         selected.forEach(act => act.pos = val); 
-        notifyCloud(); 
+        notifyCloud(); drawTimeline();
     }
 });
 
@@ -413,7 +429,6 @@ canvas?.addEventListener('mousedown', (e) => {
 
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         } else {
-            // 🎯 LÓGICA DE DESELECCIÓN INTELIGENTE
             hadSelectionBeforeMousedown = actions.some(a => a.selected);
             if (!e.ctrlKey) actions.forEach(a => a.selected = false);
             isSelecting = true; hasDraggedSelection = false; 
@@ -423,7 +438,7 @@ canvas?.addEventListener('mousedown', (e) => {
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
-        notifyCloud(); 
+        notifyCloud(); drawTimeline();
     }
 });
 
@@ -483,7 +498,6 @@ window.addEventListener('mouseup', (e) => {
     const actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         
-        // 🎯 EVITAMOS CREAR PUNTO SI SOLO QUERÍAMOS DESELECCIONAR
         if (!hadSelectionBeforeMousedown) {
             let clickTime = Math.max(0, Math.round(xToTime(startX)));
             let clickPos = Math.round(yToPos(startY) / 5) * 5; 
@@ -503,7 +517,7 @@ window.addEventListener('mouseup', (e) => {
         actions.sort((a, b) => a.at - b.at); 
         notifyCloud(); 
     }
-    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false;
+    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; drawTimeline();
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
