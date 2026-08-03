@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V16.0: MINI-EDITOR PROFESIONAL CON GRID DINÁMICO
+// PRESETS V17.0: RUEDA DEL RATÓN CORREGIDA (DIRECCIÓN NATURAL)
 // ==========================================================================
 
 let savedPresets = {};
@@ -26,8 +26,6 @@ let mDuration = 1000;
 
 let mIsDragging = false;
 let mDraggedNode = null;
-
-// 🛡️ Variables de Paneo y Zoom para el Modal
 let mZoom = 1.0;
 let mPanX = 0;
 let mBasePixelsPerMs = 0.1; 
@@ -71,7 +69,6 @@ function updatePresetsList() {
     }
 
     listContainer.innerHTML = presetNames.map((name, index) => {
-        // DISEÑO LIMPIO Y PEQUEÑO (Iconos arriba a la derecha)
         return `
             <div class="preset-card" draggable="true" data-preset="${name}">
                 <div class="preset-card-header">
@@ -150,10 +147,6 @@ function drawMiniCanvas(canvasId, actions) {
     });
 }
 
-// ==========================================================================
-// 🛠️ MOTOR GRÁFICO DEL MODAL DE EDICIÓN (ZOOM + GRID DINÁMICO)
-// ==========================================================================
-
 function openPresetEditor(name) {
     currentEditingPresetName = name;
     modalNameInput.value = name;
@@ -167,10 +160,7 @@ function openPresetEditor(name) {
 
     modal.style.display = 'flex';
     ensureModalCanvasSize();
-    
-    // Calculamos los píxeles base para que el preset quepa entero en la pantalla al abrirlo
     mBasePixelsPerMs = (modalCanvas.width - 60) / (mDuration === 0 ? 1000 : mDuration);
-    
     drawModalCanvas();
 }
 
@@ -207,13 +197,12 @@ function ensureModalCanvasSize() {
     }
 }
 
-// Convertidores Matemáticos (Respetando el Zoom y Paneo, dejando 30px a la izquierda para los números)
 function mTimeToX(t) { return 30 + (t * mBasePixelsPerMs * mZoom) + mPanX; }
 function mXToTime(x) { return (x - 30 - mPanX) / (mBasePixelsPerMs * mZoom); }
 function mPosToY(p) { const padT = 20; const padB = 10; return modalCanvas.height - padB - (p / 100) * (modalCanvas.height - padT - padB); }
 function mYToPos(y) { const padT = 20; const padB = 10; const p = ((modalCanvas.height - padB - y) / (modalCanvas.height - padT - padB)) * 100; return Math.max(0, Math.min(100, Math.round(p))); }
 
-// Control de Ruedita (Zoom y Paneo)
+// 🎯 RUEDA DEL RATÓN CORREGIDA (Invertido el signo para coincidir con el comportamiento natural)
 modalCanvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.shiftKey) {
@@ -223,7 +212,8 @@ modalCanvas?.addEventListener('wheel', (e) => {
         mZoom = Math.max(0.1, Math.min(mZoom, 20.0));
         mPanX = mouseX - 30 - (timeAtMouse * mBasePixelsPerMs * mZoom);
     } else {
-        mPanX -= e.deltaY;
+        // Corrección del paneo invertido
+        mPanX += e.deltaY; 
     }
     drawModalCanvas();
 }, { passive: false });
@@ -234,8 +224,6 @@ function drawModalCanvas() {
     mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
 
     mCtx.lineWidth = 1;
-
-    // 1. Grid Horizontal (Porcentajes de 10 en 10)
     [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
         const y = mPosToY(p);
         mCtx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
@@ -243,7 +231,6 @@ function drawModalCanvas() {
         mCtx.fillStyle = '#475569'; mCtx.font = '9px monospace'; mCtx.fillText(`${p}%`, 2, y + 3);
     });
 
-    // 2. Grid Vertical Dinámico (Segundos / Milisegundos adaptables)
     const visibleMs = modalCanvas.width / (mBasePixelsPerMs * mZoom);
     let stepMs = 1000;
     if (visibleMs < 500) stepMs = 50;
@@ -269,7 +256,6 @@ function drawModalCanvas() {
 
     if (mActions.length === 0) return;
 
-    // 3. Trazos del Preset
     mCtx.lineWidth = 3; mCtx.strokeStyle = '#38bdf8';
     mCtx.beginPath();
     mActions.forEach((act, i) => {
@@ -278,7 +264,6 @@ function drawModalCanvas() {
     });
     mCtx.stroke();
 
-    // 4. Puntos del Preset
     mActions.forEach(act => {
         const x = mTimeToX(act.at); const y = mPosToY(act.pos);
         mCtx.fillStyle = '#f59e0b';
