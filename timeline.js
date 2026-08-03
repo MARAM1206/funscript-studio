@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V23.0: EL IMÁN TRIPLE (PRESETS ANCLADOS A AGUJA Y PUNTOS)
+// TIMELINE V21.0: HEATMAP, CÁLCULO DE VELOCIDAD Y DESLIZADOR EN VIVO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -49,6 +49,76 @@ function cleanDuplicates() {
     }
 }
 
+// 📊 MOTOR DE TELEMETRÍA (PUNTOS Y MAPA DE CALOR)
+window.updateHeatmapAndStats = function() {
+    const actions = getSafeActions();
+    
+    // 1. CÁLCULO DE ESTADÍSTICAS EN EL HEADER
+    const statsSpan = document.getElementById('timeline-stats');
+    if (statsSpan) {
+        let speedText = "--";
+        const durationMins = (videoNode && videoNode.duration) ? (videoNode.duration / 60) : 0;
+        
+        if (durationMins > 0 && actions.length > 0) {
+            const spm = Math.round(actions.length / durationMins);
+            if (spm > 500) speedText = `Very Fast 🔴 (${spm})`;
+            else if (spm > 300) speedText = `Fast 🟠 (${spm})`;
+            else if (spm > 150) speedText = `Medium 🟡 (${spm})`;
+            else speedText = `Slow 🟢 (${spm})`;
+        }
+        
+        statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong>${speedText}</strong>`;
+    }
+
+    // 2. DIBUJO DEL MAPA DE CALOR
+    const hCanvas = document.getElementById('heatmap-canvas');
+    if (!hCanvas || !videoNode || !videoNode.duration || actions.length === 0) {
+        if (hCanvas) {
+            const hCtx = hCanvas.getContext('2d');
+            hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+        }
+        return;
+    }
+
+    const rect = hCanvas.getBoundingClientRect();
+    if(rect.width === 0) return; 
+    if (hCanvas.width !== rect.width) hCanvas.width = rect.width;
+    
+    const hCtx = hCanvas.getContext('2d');
+    hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+
+    const durationMs = videoNode.duration * 1000;
+    const width = hCanvas.width;
+    const bucketCount = Math.min(width, 600); // Resolución del Heatmap
+    const bucketDuration = durationMs / bucketCount;
+    const buckets = new Array(bucketCount).fill(0);
+
+    actions.forEach(act => {
+        const b = Math.floor(act.at / bucketDuration);
+        if (b >= 0 && b < bucketCount) buckets[b]++;
+    });
+
+    const maxPoints = Math.max(...buckets, 1);
+    const bucketWidth = width / bucketCount;
+    
+    for (let i = 0; i < bucketCount; i++) {
+        if (buckets[i] > 0) {
+            const intensity = 0.1 + (0.9 * (buckets[i] / maxPoints));
+            // Color de Azul frío (200) a Rojo ardiente (0)
+            const hue = (1 - intensity) * 200; 
+            hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${intensity})`;
+            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth), hCanvas.height);
+        }
+    }
+};
+
+// Enganchar telemetría silenciosamente para no sobrescribir tus viejos llamados
+const originalUpdateActionsLog = window.updateActionsLog;
+window.updateActionsLog = function() {
+    if (typeof originalUpdateActionsLog === 'function') originalUpdateActionsLog();
+    window.updateHeatmapAndStats();
+};
+
 canvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.clientX - canvas.getBoundingClientRect().left;
@@ -78,21 +148,17 @@ canvas?.addEventListener('wheel', (e) => {
     drawTimeline();
 }, { passive: false });
 
-window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
+window.addEventListener('videoPlay', () => { drawTimeline(); });
 
 window.addEventListener('forceTimelinePan', () => {
     const actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
-    
-    if (actualTime < scrollLeftMs || actualTime > scrollLeftMs + visibleMs * 0.9) {
-        scrollLeftMs = Math.max(0, actualTime - visibleMs * 0.1);
-    }
+    scrollLeftMs = actualTime - (visibleMs / 2);
+    if (scrollLeftMs < 0) scrollLeftMs = 0;
     drawTimeline();
 });
 
-// ==========================================================================
-// 🧲 IMÁN TRIPLE PARA PRESETS: INICIO, CENTRO MATEMÁTICO Y FINAL
-// ==========================================================================
+// ARRASTRE DE PRESETS (GHOST)
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -100,51 +166,33 @@ canvas?.addEventListener('dragover', (e) => {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
-        const snapDistMs = 350; // Rango del imán
+        const snapDistMs = 350; 
         const actions = getSafeActions();
         const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         
-        // 🎯 TARGETS DEL IMÁN: La aguja naranja (Playhead) y todos los puntos existentes
         const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
-        
-        // Matemáticas del Preset
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-        const presetMid = presetDuration / 2; // El centro exacto para que no haya bugs
+        const presetMid = presetDuration / 2; 
 
         let bestSnapTime = hoverTimeMs;
         let minDistance = snapDistMs;
 
         snapTargets.forEach(target => {
-            // 1. Iman: Tratar de pegar el PRINCIPIO del Preset
             let distStart = Math.abs(hoverTimeMs - target);
-            if (distStart < minDistance) {
-                minDistance = distStart;
-                bestSnapTime = target;
-            }
-            // 2. Iman: Tratar de pegar el CENTRO del Preset
+            if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
             let distMid = Math.abs((hoverTimeMs + presetMid) - target);
-            if (distMid < minDistance) {
-                minDistance = distMid;
-                bestSnapTime = target - presetMid;
-            }
-            // 3. Iman: Tratar de pegar el FINAL del Preset
+            if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
             let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
-            if (distEnd < minDistance) {
-                minDistance = distEnd;
-                bestSnapTime = target - presetDuration;
-            }
+            if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
         });
 
-        // 🛡️ Seguro anti-muros: No permite que el preset se imante hacia números negativos
         if (bestSnapTime < 0) bestSnapTime = 0;
         hoverTimeMs = bestSnapTime;
         
-        // Imán de altura (5%)
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
         window.timelineGhostTimeMs = hoverTimeMs;
-        
         drawTimeline();
     }
 });
@@ -181,7 +229,7 @@ canvas?.addEventListener('drop', (e) => {
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        drawTimeline(); notifyCloud();
+        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
     }
 });
 
@@ -209,27 +257,20 @@ window.addEventListener('injectPoint', function(e) {
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
 
     saveHistoryState();
-    const isPlaying = videoNode && !videoNode.paused;
-    const hasSelection = actions.some(a => a.selected);
-
-    if (!isPlaying && hasSelection) {
-        actions.forEach(a => { if (a.selected) a.pos = pos; });
-    } else {
-        actions.forEach(a => { a.selected = false; }); 
-        
-        const existingIdx = actions.findIndex(a => a.at === timeMs);
-        if (existingIdx !== -1) { 
-            actions[existingIdx].pos = pos; 
-            actions[existingIdx].selected = false; 
-        } 
-        else { 
-            actions.push({ at: timeMs, pos: pos, selected: false }); 
-        }
+    actions.forEach(a => { a.selected = false; }); 
+    
+    const existingIdx = actions.findIndex(a => a.at === timeMs);
+    if (existingIdx !== -1) { 
+        actions[existingIdx].pos = pos; 
+        actions[existingIdx].selected = false; 
+    } 
+    else { 
+        actions.push({ at: timeMs, pos: pos, selected: false }); 
     }
     
     cleanDuplicates();
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    drawTimeline(); notifyCloud(); 
+    drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
 });
 
 window.addEventListener('nudgeTime', function(e) {
@@ -279,14 +320,14 @@ window.addEventListener('magnetPoint', function() {
     if (moved) {
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        drawTimeline(); notifyCloud();
+        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
     }
 });
 
 window.addEventListener('deletePoints', () => {
     saveHistoryState();
     window.funscriptActions = getSafeActions().filter(a => !a.selected);
-    drawTimeline(); notifyCloud();
+    drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
 });
 window.addEventListener('undoAction', () => { undo(); });
 window.addEventListener('redoAction', () => { redo(); });
@@ -311,22 +352,18 @@ function undo() {
     if (undoStack.length > 0) {
         redoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(undoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); drawTimeline();
+        notifyCloud(); drawTimeline(); window.updateHeatmapAndStats();
     }
 }
 function redo() {
     if (redoStack.length > 0) {
         undoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(redoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); drawTimeline();
+        notifyCloud(); drawTimeline(); window.updateHeatmapAndStats();
     }
 }
-function timeToX(timeMs) {
-    return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom);
-}
-function xToTime(x) {
-    return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
-}
+function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
+function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom); }
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
@@ -338,11 +375,7 @@ function drawTimeline() {
         if (videoNode && !videoNode.paused) {
             const actualTime = videoNode.currentTime * 1000;
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
-            if (actualTime > scrollLeftMs + visibleMs * 0.9) {
-                scrollLeftMs = actualTime - visibleMs * 0.1; 
-            } else if (actualTime < scrollLeftMs) {
-                scrollLeftMs = actualTime - visibleMs * 0.1;
-            }
+            scrollLeftMs = actualTime - (visibleMs / 2);
             if (scrollLeftMs < 0) scrollLeftMs = 0;
         }
         
@@ -445,7 +478,7 @@ function drawTimeline() {
             ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
-        if (window.magneticSnapPoint && !isSelecting) {
+        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
             const px = timeToX(window.magneticSnapPoint.at);
             const py = posToY(window.magneticSnapPoint.pos);
             ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; 
@@ -498,12 +531,10 @@ window.syncSliderWithSelection = function() {
 
 let isSliderDragging = false;
 pointSlider?.addEventListener('mousedown', () => { 
-    if (!isSliderDragging) {
-        saveHistoryState(); 
-        isSliderDragging = true;
-    }
+    if (!isSliderDragging) { saveHistoryState(); isSliderDragging = true; }
 });
 
+// 🎯 MOVIMIENTO EN TIEMPO REAL DEL DESLIZADOR
 pointSlider?.addEventListener('input', function() {
     const val = parseInt(this.value, 10);
     if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
@@ -517,7 +548,7 @@ pointSlider?.addEventListener('input', function() {
 
 pointSlider?.addEventListener('change', function() {
     isSliderDragging = false;
-    notifyCloud(); 
+    notifyCloud(); window.updateHeatmapAndStats();
 });
 
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
@@ -557,7 +588,7 @@ canvas?.addEventListener('mousedown', (e) => {
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
-        notifyCloud(); drawTimeline();
+        notifyCloud(); drawTimeline(); window.updateHeatmapAndStats();
     }
 });
 
@@ -653,11 +684,11 @@ window.addEventListener('mouseup', (e) => {
             
             cleanDuplicates();
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-            notifyCloud(); 
+            notifyCloud(); window.updateHeatmapAndStats();
         }
     } else if (isDraggingNode || hasDraggedSelection) { 
         cleanDuplicates();
-        notifyCloud(); 
+        notifyCloud(); window.updateHeatmapAndStats();
     }
     isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1; drawTimeline();
 });
