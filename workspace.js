@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V6.0: OPTIMIZACIÓN DE ESPACIO DE 6 PANELES
+// WORKSPACE V6.1: INYECCIÓN DE TELEMETRÍA (PUNTOS Y VELOCIDAD)
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -34,7 +34,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const w = container.clientWidth;
     const h = container.clientHeight;
     
-    // 🛡️ REDISTRIBUCIÓN OPTIMIZADA: Video y Línea de Tiempo masivos. Sliders estrechos.
     const defaultLayout = {
         "panel-video":    { left: GAP, top: GAP, width: (w * 0.55) - GAP*1.5, height: (h * 0.60) - GAP*1.5 },
         "panel-quick":    { left: (w * 0.55) + GAP/2, top: GAP, width: (w * 0.15) - GAP, height: (h * 0.60) - GAP*1.5 },
@@ -45,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "panel-timeline": { left: (w * 0.25) + GAP/2, top: (h * 0.60) + GAP/2, width: (w * 0.75) - GAP*1.5, height: (h * 0.40) - GAP*1.5 }
     };
 
-    const STORAGE_KEY = "funscript_workspace_layout_v22"; // Rompe memoria vieja
+    const STORAGE_KEY = "funscript_workspace_layout_v22"; 
     let savedLayout = null;
     try { savedLayout = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){}
 
@@ -75,8 +74,14 @@ document.addEventListener("DOMContentLoaded", () => {
             const title = panel.getAttribute("data-title") || "Panel";
             const header = document.createElement("div");
             header.className = "panel-header";
-            header.innerHTML = `<span>${title}</span>`;
-            panel.insertBefore(header, panel.firstChild);
+            
+            // 🎯 INYECTAMOS EL CONTENEDOR DE TELEMETRÍA EN LA LÍNEA DEL TIEMPO
+            let extraInfo = "";
+            if (panel.id === "panel-timeline") {
+                extraInfo = `<span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; margin-left: auto;">Puntos: 0 | Velocidad: --</span>`;
+            }
+
+            header.innerHTML = `<span style="font-weight: bold;">${title}</span>${extraInfo}`;
 
             let isDragging = false;
             let startX, startY, startLeft, startTop;
@@ -118,6 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 };
                 document.addEventListener("mousemove", onMouseMove); document.addEventListener("mouseup", onMouseUp);
             });
+            panel.insertBefore(header, panel.firstChild);
         }
 
         const directions = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
