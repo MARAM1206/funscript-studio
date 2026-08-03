@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V21.0: AGUJA AL CENTRO, INYECCIÓN PURA Y DESLIZADOR REAL-TIME
+// TIMELINE V23.0: EL IMÁN TRIPLE (PRESETS ANCLADOS A AGUJA Y PUNTOS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -29,6 +29,7 @@ let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
 let isDraggingNode = false; 
+let draggedNodeIndex = -1; 
 let dragSelectionInitialStates = [];
 let dragStartXTime = 0;
 let dragStartYPos = 0;
@@ -63,29 +64,35 @@ canvas?.addEventListener('wheel', (e) => {
         if (videoNode && videoNode.paused) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             const panStep = visibleMs * 0.10; 
+            
             if (e.deltaY < 0) scrollLeftMs += panStep; 
             else scrollLeftMs -= panStep; 
+            
             if (scrollLeftMs < 0) scrollLeftMs = 0;
+            if (videoNode.duration) {
+                const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
+                if (scrollLeftMs > maxScroll && maxScroll > 0) scrollLeftMs = maxScroll;
+            }
         }
     }
     drawTimeline();
 }, { passive: false });
 
-window.addEventListener('videoPlay', () => { drawTimeline(); });
+window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
-// 🛡️ AUTO-CENTRO AL BUSCAR TIEMPO
 window.addEventListener('forceTimelinePan', () => {
     const actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     
-    // Lo clavamos exactamente en el centro de la pantalla
-    scrollLeftMs = actualTime - (visibleMs / 2);
-    if (scrollLeftMs < 0) scrollLeftMs = 0;
-    
+    if (actualTime < scrollLeftMs || actualTime > scrollLeftMs + visibleMs * 0.9) {
+        scrollLeftMs = Math.max(0, actualTime - visibleMs * 0.1);
+    }
     drawTimeline();
 });
 
-// ARRASTRE DE PRESETS (GHOST)
+// ==========================================================================
+// 🧲 IMÁN TRIPLE PARA PRESETS: INICIO, CENTRO MATEMÁTICO Y FINAL
+// ==========================================================================
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -93,16 +100,51 @@ canvas?.addEventListener('dragover', (e) => {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
-        const snapDistMs = 250; 
+        const snapDistMs = 350; // Rango del imán
         const actions = getSafeActions();
-        for (let act of actions) {
-            if (Math.abs(act.at - hoverTimeMs) < snapDistMs) { hoverTimeMs = act.at; break; }
-        }
+        const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         
+        // 🎯 TARGETS DEL IMÁN: La aguja naranja (Playhead) y todos los puntos existentes
+        const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
+        
+        // Matemáticas del Preset
+        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+        const presetMid = presetDuration / 2; // El centro exacto para que no haya bugs
+
+        let bestSnapTime = hoverTimeMs;
+        let minDistance = snapDistMs;
+
+        snapTargets.forEach(target => {
+            // 1. Iman: Tratar de pegar el PRINCIPIO del Preset
+            let distStart = Math.abs(hoverTimeMs - target);
+            if (distStart < minDistance) {
+                minDistance = distStart;
+                bestSnapTime = target;
+            }
+            // 2. Iman: Tratar de pegar el CENTRO del Preset
+            let distMid = Math.abs((hoverTimeMs + presetMid) - target);
+            if (distMid < minDistance) {
+                minDistance = distMid;
+                bestSnapTime = target - presetMid;
+            }
+            // 3. Iman: Tratar de pegar el FINAL del Preset
+            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
+            if (distEnd < minDistance) {
+                minDistance = distEnd;
+                bestSnapTime = target - presetDuration;
+            }
+        });
+
+        // 🛡️ Seguro anti-muros: No permite que el preset se imante hacia números negativos
+        if (bestSnapTime < 0) bestSnapTime = 0;
+        hoverTimeMs = bestSnapTime;
+        
+        // Imán de altura (5%)
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
         window.timelineGhostTimeMs = hoverTimeMs;
+        
         drawTimeline();
     }
 });
@@ -115,7 +157,7 @@ canvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
         const pos = getMousePos(e);
-        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : xToTime(pos.x);
+        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
         const deltaY = window.timelineGhostDeltaPos || 0;
         
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
@@ -158,7 +200,6 @@ sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener(
 sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
-// 🎯 RECEPTOR ABSOLUTO DEL INYECTOR RÁPIDO
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
@@ -168,17 +209,22 @@ window.addEventListener('injectPoint', function(e) {
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
 
     saveHistoryState();
-    
-    // Ignoramos completamente qué había seleccionado y creamos/modificamos en el segundo actual
-    actions.forEach(a => { a.selected = false; }); 
-    
-    const existingIdx = actions.findIndex(a => a.at === timeMs);
-    if (existingIdx !== -1) { 
-        actions[existingIdx].pos = pos; 
-        actions[existingIdx].selected = false; 
-    } 
-    else { 
-        actions.push({ at: timeMs, pos: pos, selected: false }); 
+    const isPlaying = videoNode && !videoNode.paused;
+    const hasSelection = actions.some(a => a.selected);
+
+    if (!isPlaying && hasSelection) {
+        actions.forEach(a => { if (a.selected) a.pos = pos; });
+    } else {
+        actions.forEach(a => { a.selected = false; }); 
+        
+        const existingIdx = actions.findIndex(a => a.at === timeMs);
+        if (existingIdx !== -1) { 
+            actions[existingIdx].pos = pos; 
+            actions[existingIdx].selected = false; 
+        } 
+        else { 
+            actions.push({ at: timeMs, pos: pos, selected: false }); 
+        }
     }
     
     cleanDuplicates();
@@ -289,12 +335,14 @@ function drawTimeline() {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
         
-        // 🎯 AUTO-CENTRO CONSTANTE EN PLAY
         if (videoNode && !videoNode.paused) {
             const actualTime = videoNode.currentTime * 1000;
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
-            
-            scrollLeftMs = actualTime - (visibleMs / 2);
+            if (actualTime > scrollLeftMs + visibleMs * 0.9) {
+                scrollLeftMs = actualTime - visibleMs * 0.1; 
+            } else if (actualTime < scrollLeftMs) {
+                scrollLeftMs = actualTime - visibleMs * 0.1;
+            }
             if (scrollLeftMs < 0) scrollLeftMs = 0;
         }
         
@@ -448,7 +496,6 @@ window.syncSliderWithSelection = function() {
     }
 };
 
-// 🎯 REPARACIÓN DE DESLIZADOR EN TIEMPO REAL
 let isSliderDragging = false;
 pointSlider?.addEventListener('mousedown', () => { 
     if (!isSliderDragging) {
