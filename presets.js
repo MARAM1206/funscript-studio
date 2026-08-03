@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V3.1: LIMPIEZA TOTAL EN LA MEMORIA AL SOLTAR
+// PRESETS V4.0: EDICIÓN COMPLETA (RENOMBRAR Y ACTUALIZAR PATRÓN)
 // ==========================================================================
 
 let savedPresets = {};
@@ -8,11 +8,10 @@ try { savedPresets = JSON.parse(localStorage.getItem('funscript_saved_presets'))
 const presetsBtn = document.getElementById('save-preset-btn');
 const videoPlayerPresetNode = document.getElementById('video-player');
 
-// Indicadores Globales para el arrastre hacia la línea del tiempo
 window.isDraggingPreset = false;
 window.timelineGhostPreset = null;
 window.timelineGhostTimeMs = null;
-window.timelineGhostDeltaPos = 0; // NUEVO
+window.timelineGhostDeltaPos = 0; 
 
 document.addEventListener("DOMContentLoaded", () => {
     updatePresetsList();
@@ -31,7 +30,6 @@ presetsBtn?.addEventListener('click', function() {
     const presetName = prompt("Introduce un nombre para guardar este Preset:", `Patrón Custom ${Object.keys(savedPresets).length + 1}`);
     if (!presetName) return;
 
-    // Normalizar a partir del tiempo 0
     const baseTime = actionsToSave[0].at;
     const normalizedActions = actionsToSave.map(act => ({
         at: act.at - baseTime,
@@ -57,8 +55,12 @@ function updatePresetsList() {
         return `
             <div class="preset-card" draggable="true" data-preset="${name}">
                 <div class="preset-card-header">
-                    <span style="font-weight: 600; font-size: 0.85rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">📌 ${name}</span>
-                    <button class="delete-preset-btn" data-preset="${name}" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.9rem; padding: 2px 4px; transition: color 0.2s;" title="Eliminar Preset">🗑️</button>
+                    <span style="font-weight: 600; font-size: 0.85rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 50%;">📌 ${name}</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="track-btn edit-preset-pattern-btn" data-preset="${name}" title="Sobrescribir con selección actual">🔄</button>
+                        <button class="track-btn edit-preset-name-btn" data-preset="${name}" title="Renombrar">✏️</button>
+                        <button class="track-btn delete-preset-btn" data-preset="${name}" style="color: #ef4444;" title="Eliminar">🗑️</button>
+                    </div>
                 </div>
                 <canvas id="mini-canvas-${index}" class="preset-mini-canvas" width="200" height="36"></canvas>
             </div>
@@ -81,11 +83,55 @@ function updatePresetsList() {
             window.isDraggingPreset = false;
             window.timelineGhostPreset = null;
             window.timelineGhostTimeMs = null;
-            window.timelineGhostDeltaPos = 0; // Limpieza asegurada
+            window.timelineGhostDeltaPos = 0; 
             if (typeof drawTimeline === 'function') drawTimeline();
         });
     });
 
+    // ✏️ RENOMBRAR PRESET
+    document.querySelectorAll('.edit-preset-name-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation(); 
+            const oldName = this.getAttribute('data-preset');
+            const newName = prompt("Introduce el nuevo nombre para este Preset:", oldName);
+            if (newName && newName !== oldName) {
+                savedPresets[newName] = savedPresets[oldName];
+                delete savedPresets[oldName];
+                localStorage.setItem('funscript_saved_presets', JSON.stringify(savedPresets));
+                updatePresetsList();
+            }
+        });
+    });
+
+    // 🔄 ACTUALIZAR/SOBRESCRIBIR PATRÓN DE PRESET
+    document.querySelectorAll('.edit-preset-pattern-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation(); 
+            const name = this.getAttribute('data-preset');
+            
+            const actions = window.funscriptActions || [];
+            const actionsToSave = actions.filter(act => act.selected);
+
+            if (actionsToSave.length === 0) {
+                alert("Selecciona primero los puntos nuevos en la línea del tiempo (arrastrando un cuadro azul) para sobrescribir este Preset."); 
+                return;
+            }
+
+            if (confirm(`¿Seguro que deseas sobrescribir el patrón de "${name}" con tu selección actual?`)) {
+                const baseTime = actionsToSave[0].at;
+                const normalizedActions = actionsToSave.map(act => ({
+                    at: act.at - baseTime,
+                    pos: act.pos
+                }));
+
+                savedPresets[name] = normalizedActions;
+                localStorage.setItem('funscript_saved_presets', JSON.stringify(savedPresets));
+                updatePresetsList();
+            }
+        });
+    });
+
+    // 🗑️ ELIMINAR PRESET
     document.querySelectorAll('.delete-preset-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation(); 
