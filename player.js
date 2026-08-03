@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V14.0 (RECUPERACIÓN TECLADO + ARRASTRE FIX)
+// REPRODUCTOR Y MOTOR DE ATAJOS V15.0 (DRAG/DROP CERRADO A ARCHIVOS)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -81,6 +81,9 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     if (vFps) vFps.innerText = `⏱️ ~30 fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+    
+    // 🎯 RECALCULAR ESTADÍSTICAS CUANDO SE CARGA EL VIDEO (Punto Clave)
+    if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
 });
 
@@ -97,7 +100,6 @@ let dragCounter = 0;
 
 window.addEventListener('dragenter', (e) => { 
     if (window.isDraggingPreset) return; 
-    // Verifica estricitamente que lo que llevas en el mouse sean Archivos (Files), no texto
     if (!e.dataTransfer.types.includes('Files')) return; 
     e.preventDefault(); dragCounter++; dragOverlay?.classList.add('active'); 
 });
@@ -125,7 +127,7 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🛡️ MODO CAPTURA EN TECLADO (RECUPERADO Y BLINDADO)
+// 🛡️ MODO CAPTURA EN TECLADO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
 
@@ -136,27 +138,23 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 EVENTOS CON LA TECLA CTRL PRESIONADA
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
         
-        // Empuje vertical (Múltiplos de 5%)
         if (key === 'arrowup' || key === 'arrowdown') {
             event.preventDefault(); event.stopPropagation();
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dir }));
         }
-        return; // Ignoramos el resto si se oprime Ctrl
+        return; 
     }
 
-    // 🎯 BORRAR PUNTOS
     if (key === 'delete' || key === 'backspace') {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
-    // 🎯 REGLAS DE FLECHAS NORMALES (Sin Ctrl)
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); 
         event.stopPropagation();
@@ -178,22 +176,21 @@ window.addEventListener('keydown', (event) => {
         return; 
     }
 
-    // DEMÁS ATAJOS CLÁSICOS
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
     if (event.code === 'Space') { event.preventDefault(); if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); }
-    if (key === 'm') { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
-    if (key === 'e') { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
-    if (key === 'r') { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
+    if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     
     const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
 
-    if (key === 'q') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
-    if (key === 'w') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
     
-    if (key === 'a') { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forcePan(); }
-    if (key === 's') { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forcePan(); }
+    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forcePan(); }
+    if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forcePan(); }
 
-    if (key === 'b') {
+    if (key === 'b' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
             const currentTimeMs = videoPlayer.currentTime * 1000;
@@ -206,7 +203,7 @@ window.addEventListener('keydown', (event) => {
             }
         }
     }
-    if (key === 'n') {
+    if (key === 'n' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
             const currentTimeMs = videoPlayer.currentTime * 1000;
