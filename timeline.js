@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V20.0: MAGNETISMO EN ARRASTRE Y REDONDEO PURO AL 5%
+// TIMELINE V21.0: AGUJA AL CENTRO, INYECCIÓN PURA Y DESLIZADOR REAL-TIME
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -29,7 +29,6 @@ let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
 let isDraggingNode = false; 
-let draggedNodeIndex = -1; // 🎯 NUEVO: Identificador del punto que ancla el imán
 let dragSelectionInitialStates = [];
 let dragStartXTime = 0;
 let dragStartYPos = 0;
@@ -64,29 +63,25 @@ canvas?.addEventListener('wheel', (e) => {
         if (videoNode && videoNode.paused) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             const panStep = visibleMs * 0.10; 
-            
             if (e.deltaY < 0) scrollLeftMs += panStep; 
             else scrollLeftMs -= panStep; 
-            
             if (scrollLeftMs < 0) scrollLeftMs = 0;
-            if (videoNode.duration) {
-                const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
-                if (scrollLeftMs > maxScroll && maxScroll > 0) scrollLeftMs = maxScroll;
-            }
         }
     }
     drawTimeline();
 }, { passive: false });
 
-window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
+window.addEventListener('videoPlay', () => { drawTimeline(); });
 
+// 🛡️ AUTO-CENTRO AL BUSCAR TIEMPO
 window.addEventListener('forceTimelinePan', () => {
     const actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     
-    if (actualTime < scrollLeftMs || actualTime > scrollLeftMs + visibleMs * 0.9) {
-        scrollLeftMs = Math.max(0, actualTime - visibleMs * 0.1);
-    }
+    // Lo clavamos exactamente en el centro de la pantalla
+    scrollLeftMs = actualTime - (visibleMs / 2);
+    if (scrollLeftMs < 0) scrollLeftMs = 0;
+    
     drawTimeline();
 });
 
@@ -163,6 +158,7 @@ sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener(
 sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
+// 🎯 RECEPTOR ABSOLUTO DEL INYECTOR RÁPIDO
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
@@ -172,22 +168,17 @@ window.addEventListener('injectPoint', function(e) {
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
 
     saveHistoryState();
-    const isPlaying = videoNode && !videoNode.paused;
-    const hasSelection = actions.some(a => a.selected);
-
-    if (!isPlaying && hasSelection) {
-        actions.forEach(a => { if (a.selected) a.pos = pos; });
-    } else {
-        actions.forEach(a => { a.selected = false; }); 
-        
-        const existingIdx = actions.findIndex(a => a.at === timeMs);
-        if (existingIdx !== -1) { 
-            actions[existingIdx].pos = pos; 
-            actions[existingIdx].selected = false; 
-        } 
-        else { 
-            actions.push({ at: timeMs, pos: pos, selected: false }); 
-        }
+    
+    // Ignoramos completamente qué había seleccionado y creamos/modificamos en el segundo actual
+    actions.forEach(a => { a.selected = false; }); 
+    
+    const existingIdx = actions.findIndex(a => a.at === timeMs);
+    if (existingIdx !== -1) { 
+        actions[existingIdx].pos = pos; 
+        actions[existingIdx].selected = false; 
+    } 
+    else { 
+        actions.push({ at: timeMs, pos: pos, selected: false }); 
     }
     
     cleanDuplicates();
@@ -212,7 +203,6 @@ window.addEventListener('nudgeTime', function(e) {
     }
 });
 
-// 🎯 REDONDEO PURO AL EMPUJAR CON TECLADO (NUDGE VERTICAL)
 window.addEventListener('nudgePoints', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
@@ -299,14 +289,12 @@ function drawTimeline() {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
         
+        // 🎯 AUTO-CENTRO CONSTANTE EN PLAY
         if (videoNode && !videoNode.paused) {
             const actualTime = videoNode.currentTime * 1000;
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
-            if (actualTime > scrollLeftMs + visibleMs * 0.9) {
-                scrollLeftMs = actualTime - visibleMs * 0.1; 
-            } else if (actualTime < scrollLeftMs) {
-                scrollLeftMs = actualTime - visibleMs * 0.1;
-            }
+            
+            scrollLeftMs = actualTime - (visibleMs / 2);
             if (scrollLeftMs < 0) scrollLeftMs = 0;
         }
         
@@ -460,16 +448,29 @@ window.syncSliderWithSelection = function() {
     }
 };
 
-pointSlider?.addEventListener('change', function() {
+// 🎯 REPARACIÓN DE DESLIZADOR EN TIEMPO REAL
+let isSliderDragging = false;
+pointSlider?.addEventListener('mousedown', () => { 
+    if (!isSliderDragging) {
+        saveHistoryState(); 
+        isSliderDragging = true;
+    }
+});
+
+pointSlider?.addEventListener('input', function() {
     const val = parseInt(this.value, 10);
     if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
     const actions = getSafeActions();
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
-        saveHistoryState();
         selected.forEach(act => act.pos = val); 
-        notifyCloud(); drawTimeline();
+        drawTimeline(); 
     }
+});
+
+pointSlider?.addEventListener('change', function() {
+    isSliderDragging = false;
+    notifyCloud(); 
 });
 
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
@@ -492,7 +493,7 @@ canvas?.addEventListener('mousedown', (e) => {
             if (!e.ctrlKey && !clickedNode.selected) actions.forEach(a => a.selected = false);
             clickedNode.selected = true; 
             isDraggingNode = true; 
-            draggedNodeIndex = cIndex; // 🎯 Anclar el índice para el Imán de arrastre
+            draggedNodeIndex = cIndex; 
             
             dragSelectionInitialStates = actions.map(a => ({...a}));
             dragStartXTime = xToTime(clickX);
@@ -519,7 +520,6 @@ canvas?.addEventListener('mousemove', (e) => {
     const mouseX = pos.x; const mouseY = pos.y;
 
     window.magneticSnapPoint = null;
-    // 🎯 PERMITIMOS BUSCAR EL IMÁN INCLUSO SI ESTAMOS ARRASTRANDO (Modo Calca Avanzado)
     if (!isSelecting) {
         let minDistance = 15; 
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
@@ -543,7 +543,6 @@ canvas?.addEventListener('mousemove', (e) => {
         let snappedPosDelta = 0;
         let useMagnet = false;
 
-        // 🎯 LÓGICA DEL IMÁN PARA BLOQUES ARRASTRADOS
         if (window.magneticSnapPoint && draggedNodeIndex !== -1) {
             const initialDragged = dragSelectionInitialStates[draggedNodeIndex];
             snappedTimeDelta = window.magneticSnapPoint.at - initialDragged.at;
@@ -563,7 +562,6 @@ canvas?.addEventListener('mousemove', (e) => {
                     act.pos = Math.max(0, Math.min(100, dragSelectionInitialStates[i].pos + snappedPosDelta));
                 } else {
                     const rawP = dragSelectionInitialStates[i].pos + snappedPosDelta;
-                    // Forzamos que la altura absoluta siempre sea múltiplo de 5, incluso al arrastrar libremente
                     act.pos = Math.max(0, Math.min(100, Math.round(rawP / 5) * 5));
                 }
             }
@@ -588,7 +586,6 @@ window.addEventListener('mouseup', (e) => {
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         
         if (!hadSelectionBeforeMousedown) {
-            // 🎯 FORZAMOS AL 50ms EN CLICS NUEVOS (Precisión Limpia)
             let clickTime = Math.max(0, Math.round(xToTime(startX) / 50) * 50);
             let clickPos = Math.round(yToPos(startY) / 5) * 5; 
             
