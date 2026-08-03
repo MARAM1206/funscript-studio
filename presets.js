@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V15.1: PARCHE DE SEGURIDAD PARA MODAL Y ARRASTRE
+// PRESETS V16.0: MINI-EDITOR PROFESIONAL CON GRID DINÁMICO
 // ==========================================================================
 
 let savedPresets = {};
@@ -13,7 +13,6 @@ window.timelineGhostPreset = null;
 window.timelineGhostTimeMs = null;
 window.timelineGhostDeltaPos = 0; 
 
-// --- VARIABLES DEL EDITOR MODAL ---
 const modal = document.getElementById('preset-editor-modal');
 const modalNameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
@@ -27,6 +26,11 @@ let mDuration = 1000;
 
 let mIsDragging = false;
 let mDraggedNode = null;
+
+// 🛡️ Variables de Paneo y Zoom para el Modal
+let mZoom = 1.0;
+let mPanX = 0;
+let mBasePixelsPerMs = 0.1; 
 
 document.addEventListener("DOMContentLoaded", () => {
     updatePresetsList();
@@ -67,14 +71,17 @@ function updatePresetsList() {
     }
 
     listContainer.innerHTML = presetNames.map((name, index) => {
+        // DISEÑO LIMPIO Y PEQUEÑO (Iconos arriba a la derecha)
         return `
             <div class="preset-card" draggable="true" data-preset="${name}">
-                <div class="preset-card-title">${name}</div>
-                <canvas id="mini-canvas-${index}" class="preset-mini-canvas" width="200" height="36"></canvas>
-                <div class="preset-card-footer">
-                    <button class="preset-action-btn edit-preset-btn" data-preset="${name}" title="Editar Preset">✏️</button>
-                    <button class="preset-action-btn delete-preset-btn" data-preset="${name}" style="color: #ef4444;" title="Eliminar">🗑️</button>
+                <div class="preset-card-header">
+                    <span class="preset-card-title">${name}</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="preset-action-btn edit-preset-btn" data-preset="${name}" title="Editar Preset">✏️</button>
+                        <button class="preset-action-btn delete-preset-btn" data-preset="${name}" style="color: #ef4444;" title="Eliminar">🗑️</button>
+                    </div>
                 </div>
+                <canvas id="mini-canvas-${index}" class="preset-mini-canvas" width="200" height="36"></canvas>
             </div>
         `;
     }).join('');
@@ -92,15 +99,11 @@ function updatePresetsList() {
             window.timelineGhostPreset = savedPresets[name];
         });
         card.addEventListener('dragend', function() {
-            window.isDraggingPreset = false;
-            window.timelineGhostPreset = null;
-            window.timelineGhostTimeMs = null;
-            window.timelineGhostDeltaPos = 0; 
+            window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0; 
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
         });
     });
 
-    // ✏️ ABRIR MODAL DE EDICIÓN
     document.querySelectorAll('.edit-preset-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation(); 
@@ -129,8 +132,7 @@ function drawMiniCanvas(canvasId, actions) {
     const w = c.width; const h = c.height;
     ctx.clearRect(0,0,w,h);
     
-    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
-    ctx.beginPath();
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.beginPath();
     const duration = actions[actions.length-1].at || 1000;
     
     actions.forEach((act, i) => {
@@ -149,7 +151,7 @@ function drawMiniCanvas(canvasId, actions) {
 }
 
 // ==========================================================================
-// 🛠️ LÓGICA DEL MODAL DE EDICIÓN INDEPENDIENTE (BLINDADO)
+// 🛠️ MOTOR GRÁFICO DEL MODAL DE EDICIÓN (ZOOM + GRID DINÁMICO)
 // ==========================================================================
 
 function openPresetEditor(name) {
@@ -157,12 +159,18 @@ function openPresetEditor(name) {
     modalNameInput.value = name;
     
     mActions = JSON.parse(JSON.stringify(savedPresets[name]));
-    // 🛡️ Seguro anti-matemáticas rotas
     if (mActions.length === 0) mActions.push({at: 0, pos: 50});
     mDuration = mActions[mActions.length - 1].at || 1000;
     
+    mZoom = 1.0;
+    mPanX = 0;
+
     modal.style.display = 'flex';
     ensureModalCanvasSize();
+    
+    // Calculamos los píxeles base para que el preset quepa entero en la pantalla al abrirlo
+    mBasePixelsPerMs = (modalCanvas.width - 60) / (mDuration === 0 ? 1000 : mDuration);
+    
     drawModalCanvas();
 }
 
@@ -177,26 +185,18 @@ btnCancel?.addEventListener('click', closePresetEditor);
 btnSave?.addEventListener('click', () => {
     const newName = modalNameInput.value.trim();
     if (!newName) { alert("El nombre no puede estar vacío."); return; }
-    
-    // 🛡️ Seguro por si borran todos los puntos en el mini-editor
-    if (mActions.length === 0) {
-        alert("¡Cuidado! El preset no puede estar vacío. Agrega al menos un punto.");
-        return;
-    }
+    if (mActions.length === 0) { alert("¡Cuidado! El preset no puede estar vacío. Agrega al menos un punto."); return; }
 
     mActions.sort((a, b) => a.at - b.at);
     const baseTime = mActions[0].at;
     mActions.forEach(act => { act.at -= baseTime; });
 
-    if (newName !== currentEditingPresetName) {
-        delete savedPresets[currentEditingPresetName];
-    }
+    if (newName !== currentEditingPresetName) delete savedPresets[currentEditingPresetName];
     
     savedPresets[newName] = mActions;
     localStorage.setItem('funscript_saved_presets', JSON.stringify(savedPresets));
     
-    closePresetEditor();
-    updatePresetsList();
+    closePresetEditor(); updatePresetsList();
 });
 
 function ensureModalCanvasSize() {
@@ -207,26 +207,69 @@ function ensureModalCanvasSize() {
     }
 }
 
-function mTimeToX(t) { return (t / mDuration) * (modalCanvas.width - 20) + 10; }
-function mXToTime(x) { return ((x - 10) / (modalCanvas.width - 20)) * mDuration; }
-function mPosToY(p) { return (modalCanvas.height - 10) - (p / 100) * (modalCanvas.height - 20); }
-function mYToPos(y) { return 100 - ((y - 10) / (modalCanvas.height - 20)) * 100; }
+// Convertidores Matemáticos (Respetando el Zoom y Paneo, dejando 30px a la izquierda para los números)
+function mTimeToX(t) { return 30 + (t * mBasePixelsPerMs * mZoom) + mPanX; }
+function mXToTime(x) { return (x - 30 - mPanX) / (mBasePixelsPerMs * mZoom); }
+function mPosToY(p) { const padT = 20; const padB = 10; return modalCanvas.height - padB - (p / 100) * (modalCanvas.height - padT - padB); }
+function mYToPos(y) { const padT = 20; const padB = 10; const p = ((modalCanvas.height - padB - y) / (modalCanvas.height - padT - padB)) * 100; return Math.max(0, Math.min(100, Math.round(p))); }
+
+// Control de Ruedita (Zoom y Paneo)
+modalCanvas?.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.shiftKey) {
+        const mouseX = e.clientX - modalCanvas.getBoundingClientRect().left;
+        const timeAtMouse = mXToTime(mouseX);
+        if (e.deltaY < 0) mZoom *= 1.15; else mZoom /= 1.15;
+        mZoom = Math.max(0.1, Math.min(mZoom, 20.0));
+        mPanX = mouseX - 30 - (timeAtMouse * mBasePixelsPerMs * mZoom);
+    } else {
+        mPanX -= e.deltaY;
+    }
+    drawModalCanvas();
+}, { passive: false });
 
 function drawModalCanvas() {
     if (!mCtx || !modalCanvas) return;
     ensureModalCanvasSize();
-    
     mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
 
     mCtx.lineWidth = 1;
-    [0, 25, 50, 75, 100].forEach(p => {
+
+    // 1. Grid Horizontal (Porcentajes de 10 en 10)
+    [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
         const y = mPosToY(p);
         mCtx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
-        mCtx.beginPath(); mCtx.moveTo(0, y); mCtx.lineTo(modalCanvas.width, y); mCtx.stroke();
+        mCtx.beginPath(); mCtx.moveTo(30, y); mCtx.lineTo(modalCanvas.width, y); mCtx.stroke();
+        mCtx.fillStyle = '#475569'; mCtx.font = '9px monospace'; mCtx.fillText(`${p}%`, 2, y + 3);
     });
+
+    // 2. Grid Vertical Dinámico (Segundos / Milisegundos adaptables)
+    const visibleMs = modalCanvas.width / (mBasePixelsPerMs * mZoom);
+    let stepMs = 1000;
+    if (visibleMs < 500) stepMs = 50;
+    else if (visibleMs < 1000) stepMs = 100;
+    else if (visibleMs < 5000) stepMs = 500;
+    else if (visibleMs > 20000) stepMs = 5000;
+    else if (visibleMs > 10000) stepMs = 2000;
+
+    const startTime = Math.max(0, mXToTime(30));
+    const endTime = mXToTime(modalCanvas.width);
+    let t = Math.floor(startTime / stepMs) * stepMs;
+
+    mCtx.fillStyle = '#64748b'; mCtx.font = '10px monospace';
+    while (t <= endTime) {
+        const x = mTimeToX(t);
+        if (x >= 30) {
+            mCtx.strokeStyle = 'rgba(30, 41, 59, 0.3)';
+            mCtx.beginPath(); mCtx.moveTo(x, 20); mCtx.lineTo(x, modalCanvas.height); mCtx.stroke();
+            mCtx.fillText(`${(t/1000).toFixed(2)}s`, x + 2, 12);
+        }
+        t += stepMs;
+    }
 
     if (mActions.length === 0) return;
 
+    // 3. Trazos del Preset
     mCtx.lineWidth = 3; mCtx.strokeStyle = '#38bdf8';
     mCtx.beginPath();
     mActions.forEach((act, i) => {
@@ -235,6 +278,7 @@ function drawModalCanvas() {
     });
     mCtx.stroke();
 
+    // 4. Puntos del Preset
     mActions.forEach(act => {
         const x = mTimeToX(act.at); const y = mPosToY(act.pos);
         mCtx.fillStyle = '#f59e0b';
@@ -259,7 +303,7 @@ modalCanvas?.addEventListener('mousedown', (e) => {
         if (clickedNode) {
             mIsDragging = true; mDraggedNode = clickedNode;
         } else {
-            let clickTime = Math.round(mXToTime(pos.x) / 50) * 50; 
+            let clickTime = Math.max(0, Math.round(mXToTime(pos.x) / 50) * 50); 
             let clickPos = Math.round(mYToPos(pos.y) / 5) * 5;
             mActions.push({ at: clickTime, pos: Math.max(0, Math.min(100, clickPos)) });
             mActions.sort((a, b) => a.at - b.at);
