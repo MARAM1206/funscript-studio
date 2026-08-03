@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V12.0 (AUTO-FOCO EN EL TIEMPO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V13.0 (CONTADOR YOUTUBE)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -15,8 +15,20 @@ const vFps = document.getElementById('v-fps');
 const vSpeed = document.getElementById('v-speed');
 const vMute = document.getElementById('v-mute');
 
+// 🕒 Relojes de YouTube
+const vTimeCurrent = document.getElementById('v-time-current');
+const vTimeTotal = document.getElementById('v-time-total');
+
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
+
+// Formateador de tiempo a mm:ss
+function formatTime(seconds) {
+    if (isNaN(seconds) || !isFinite(seconds)) return "00:00";
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+}
 
 videoInput?.addEventListener('change', function(event) {
     const file = event.target.files[0];
@@ -37,12 +49,11 @@ let isSeeking = false;
 videoProgress?.addEventListener('mousedown', () => isSeeking = true);
 videoProgress?.addEventListener('mouseup', () => isSeeking = false);
 
-// 🛡️ Cuando el usuario arrastra la barra de progreso
 videoProgress?.addEventListener('input', () => {
     if (videoPlayer.duration) {
         const targetTime = (videoProgress.value / 100) * videoPlayer.duration;
         videoPlayer.currentTime = targetTime;
-        window.dispatchEvent(new Event('forceTimelinePan')); // Avísale a la línea que se mueva
+        window.dispatchEvent(new Event('forceTimelinePan')); 
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 });
@@ -51,6 +62,8 @@ videoPlayer?.addEventListener('timeupdate', () => {
     if (!isSeeking && videoPlayer.duration && videoProgress) {
         videoProgress.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
     }
+    // 🕒 Actualizamos el contador actual
+    if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
 });
 
 videoPlayer?.addEventListener('play', () => {
@@ -69,6 +82,9 @@ videoPlayer?.addEventListener('seeked', () => {
 videoPlayer?.addEventListener('loadedmetadata', () => {
     if (vRes) vRes.innerText = `📏 ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
     if (vFps) vFps.innerText = `⏱️ ~30 fps`; 
+    // 🕒 Calculamos el total de tiempo al cargar el video
+    if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
+    if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
 });
 
@@ -134,15 +150,13 @@ window.addEventListener('keydown', (event) => {
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dir }));
         }
-        else if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
-            const dir = (key === 'arrowup') ? 'up' : 'down';
-            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+        else if (key === 'arrowleft' || key === 'arrowright') {
+            if (hasSelection) {
+                const dir = (key === 'arrowleft') ? 'left' : 'right';
+                window.dispatchEvent(new CustomEvent('nudgeTime', { detail: dir }));
+            }
         } 
-        else if (!isPlaying && hasSelection && (key === 'arrowleft' || key === 'arrowright')) {
-            const dir = (key === 'arrowleft') ? 'left' : 'right';
-            window.dispatchEvent(new CustomEvent('nudgeTime', { detail: dir }));
-        } 
-        else if (!isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
+        else if (key === 'arrowup' || key === 'arrowdown') {
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
         }
@@ -155,7 +169,6 @@ window.addEventListener('keydown', (event) => {
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     
-    // 🛡️ AL BUSCAR TIEMPO, OBLIGAMOS A LA LÍNEA DEL TIEMPO A SEGUIRNOS
     const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
 
     if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
