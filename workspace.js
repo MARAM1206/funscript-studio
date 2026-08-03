@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V5.0: DISTRIBUCIÓN MINIMALISTA (6 PANELES)
+// WORKSPACE V6.0: OPTIMIZACIÓN DE ESPACIO DE 6 PANELES
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -34,22 +34,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const w = container.clientWidth;
     const h = container.clientHeight;
     
-    // ACOMODO PERFECTO PARA 6 PANELES
+    // 🛡️ REDISTRIBUCIÓN OPTIMIZADA: Video y Línea de Tiempo masivos. Sliders estrechos.
     const defaultLayout = {
-        "panel-video":    { left: GAP, top: GAP, width: (w * 0.45) - GAP*1.5, height: (h * 0.55) - GAP*1.5 },
-        "panel-slider":   { left: (w * 0.45) + GAP/2, top: GAP, width: (w * 0.10) - GAP, height: (h * 0.55) - GAP*1.5 },
-        "panel-quick":    { left: (w * 0.55) + GAP/2, top: GAP, width: (w * 0.20) - GAP, height: (h * 0.55) - GAP*1.5 },
-        "panel-presets":  { left: (w * 0.75) + GAP/2, top: GAP, width: (w * 0.25) - GAP*1.5, height: (h * 0.55) - GAP*1.5 },
+        "panel-video":    { left: GAP, top: GAP, width: (w * 0.55) - GAP*1.5, height: (h * 0.60) - GAP*1.5 },
+        "panel-quick":    { left: (w * 0.55) + GAP/2, top: GAP, width: (w * 0.15) - GAP, height: (h * 0.60) - GAP*1.5 },
+        "panel-slider":   { left: (w * 0.70) + GAP/2, top: GAP, width: (w * 0.10) - GAP, height: (h * 0.60) - GAP*1.5 },
+        "panel-presets":  { left: (w * 0.80) + GAP/2, top: GAP, width: (w * 0.20) - GAP*1.5, height: (h * 0.60) - GAP*1.5 },
         
-        "panel-tracks":   { left: GAP, top: (h * 0.55) + GAP/2, width: (w * 0.20) - GAP*1.5, height: (h * 0.45) - GAP*1.5 },
-        "panel-timeline": { left: (w * 0.20) + GAP/2, top: (h * 0.55) + GAP/2, width: (w * 0.80) - GAP*1.5, height: (h * 0.45) - GAP*1.5 }
+        "panel-tracks":   { left: GAP, top: (h * 0.60) + GAP/2, width: (w * 0.25) - GAP*1.5, height: (h * 0.40) - GAP*1.5 },
+        "panel-timeline": { left: (w * 0.25) + GAP/2, top: (h * 0.60) + GAP/2, width: (w * 0.75) - GAP*1.5, height: (h * 0.40) - GAP*1.5 }
     };
 
-    const STORAGE_KEY = "funscript_workspace_layout_v13"; // Rompe memoria vieja
+    const STORAGE_KEY = "funscript_workspace_layout_v22"; // Rompe memoria vieja
     let savedLayout = null;
     try { savedLayout = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){}
 
-    // Validamos estrictamente que solo haya 6 paneles en la memoria, si no, resetea.
     if (!savedLayout || Object.keys(savedLayout).length !== 6) {
         savedLayout = {};
         for (let id in defaultLayout) {
