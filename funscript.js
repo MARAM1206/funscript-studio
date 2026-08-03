@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS Y MULTI-PISTA V4.1 (SINCRONIZACIÓN AUTOMÁTICA EN VIVO)
+// GESTOR DE ARCHIVOS V5.0 (JERARQUÍA VISUAL LIMPIA)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -44,9 +44,6 @@ window.loadFunscriptFiles = function(filesArray) {
             if (loadedCount === filesArray.length) {
                 window.updateFileManagerUI();
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-                
-                // ☁️ AVISO A LA NUBE: Archivo nuevo cargado, mandar al The Handy
                 if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
             }
         };
@@ -59,39 +56,34 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
-// GESTOR DE ARCHIVOS GLOBAL
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
     
     let htmlContent = '';
 
-    // 1. Mostrar Video
+    // 1. CARPETA PADRE: El Video (Jerarquía superior)
     if (window.currentVideoName) {
         htmlContent += `
-            <div class="track-item" style="border-color: #f59e0b; background: #1e293b;">
-                <div class="track-info">
-                    <span class="track-color-badge" style="background-color: #f59e0b;"></span>
-                    <span class="track-name" title="${window.currentVideoName}">🎬 ${window.currentVideoName}</span>
-                </div>
-                <div class="track-actions">
-                    <button class="track-btn delete-video-btn" style="color: #ef4444;" title="Quitar Video">🗑️</button>
-                </div>
+            <div class="file-manager-video">
+                <span title="${window.currentVideoName}">${window.currentVideoName}</span>
+                <button class="track-btn delete-video-btn" style="color: #ef4444;" title="Quitar Video">🗑️</button>
             </div>
-            <hr style="border-color: #1e293b; margin: 4px 0;">
         `;
     }
 
-    // 2. Mostrar Pistas
+    // 2. RAMAS HIJAS: Los Scripts
     if (window.loadedFunscriptTracks.length === 0) {
         if (!window.currentVideoName) {
-            htmlContent += `<span class="empty-tracks-msg">No hay archivos cargados aún. Importa un Video o FunScript.</span>`;
+            htmlContent += `<span class="empty-tracks-msg">No hay archivos cargados. Importa un Video o FunScript.</span>`;
         }
     } else {
+        // Le aplicamos un margen dinámico: Si hay video, los metemos a la derecha para que se vea anidado.
+        const marginStyle = window.currentVideoName ? "margin-left: 20px;" : "margin-left: 0;";
+        
         htmlContent += window.loadedFunscriptTracks.map(track => `
-            <div class="track-item ${track.isPrimary ? 'is-primary' : ''}">
+            <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="${marginStyle}">
                 <div class="track-info">
-                    <span class="track-color-badge" style="background-color: ${track.color};"></span>
-                    <span class="track-name" title="${track.name}">${track.name}</span>
+                    <span class="track-name" style="color: ${track.isPrimary ? '#38bdf8' : '#94a3b8'};" title="${track.name}">${track.name}</span>
                 </div>
                 <div class="track-actions">
                     ${track.isPrimary ? `<span class="primary-badge">Principal</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}">⭐</button>`}
@@ -104,7 +96,7 @@ window.updateFileManagerUI = function() {
 
     tracksListContainer.innerHTML = htmlContent;
 
-    // EVENTOS DEL GESTOR
+    // EVENTOS
     document.querySelectorAll('.delete-video-btn').forEach(btn => btn.addEventListener('click', function() {
         if (window.videoPlayer) {
             window.videoPlayer.src = "";
@@ -127,9 +119,6 @@ window.updateFileManagerUI = function() {
         
         window.updateFileManagerUI(); 
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        
-        // ☁️ AVISO A LA NUBE: Cambio de pista principal
         if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
     }));
 
@@ -152,9 +141,6 @@ window.updateFileManagerUI = function() {
         }
         window.updateFileManagerUI(); 
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        if (typeof window.updateActionsLog === 'function') window.updateActionsLog();
-        
-        // ☁️ AVISO A LA NUBE: Pista eliminada
         if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
     }));
 };
