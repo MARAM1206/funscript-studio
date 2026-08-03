@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V13.0: REMOCIÓN DEL REGISTRO (LOG PANEL)
+// TIMELINE V14.0: ARRASTRE MASIVO CON SEGURO Y MAGNETISMO DE GUÍAS (MODO CALCA)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -27,6 +27,14 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
+// Variables para Arrastre Múltiple y Modo Calca (Magnetismo)
+let isDraggingNode = false; 
+let dragSelectionInitialStates = [];
+let dragStartXTime = 0;
+let dragStartYPos = 0;
+window.magneticSnapPoint = null;
+window.startMagneticSnapPoint = null;
+
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
 
 canvas?.addEventListener('wheel', (e) => {
@@ -46,6 +54,7 @@ canvas?.addEventListener('wheel', (e) => {
 
 window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
+// ARRASTRE DE PRESETS (GHOST)
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -124,7 +133,6 @@ window.addEventListener('injectPoint', function(e) {
     
     const valA = parseInt(sliderA?.value || '15', 10); const valB = parseInt(sliderB?.value || '85', 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
-
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
 
     saveHistoryState();
@@ -136,13 +144,8 @@ window.addEventListener('injectPoint', function(e) {
     } else {
         actions.forEach(a => { a.selected = false; }); 
         const existingIdx = actions.findIndex(a => a.at === timeMs);
-        if (existingIdx !== -1) { 
-            actions[existingIdx].pos = pos; 
-            actions[existingIdx].selected = false; 
-        } 
-        else {
-            actions.push({ at: timeMs, pos: pos, selected: false });
-        }
+        if (existingIdx !== -1) { actions[existingIdx].pos = pos; actions[existingIdx].selected = false; } 
+        else { actions.push({ at: timeMs, pos: pos, selected: false }); }
     }
     
     actions.sort((a, b) => a.at - b.at);
@@ -300,6 +303,15 @@ function drawTimeline() {
             ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
+        // 🟢 DIBUJO DEL MAGNETISMO PARA GUÍAS SECUNDARIAS
+        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
+            const px = timeToX(window.magneticSnapPoint.at);
+            const py = posToY(window.magneticSnapPoint.pos);
+            ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; // Verde Brillante
+            ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.3)'; ctx.fill();
+        }
+
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         const playheadX = timeToX(actualVideoTimeMs);
         
@@ -347,8 +359,6 @@ pointSlider?.addEventListener('change', function() {
 
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
-let isDraggingNode = false; let draggedNode = null;
-
 canvas?.addEventListener('mousedown', (e) => {
     const actions = getSafeActions();
     const pos = getMousePos(e);
@@ -364,12 +374,21 @@ canvas?.addEventListener('mousedown', (e) => {
         if (clickedNode) {
             saveHistoryState();
             if (!e.ctrlKey && !clickedNode.selected) actions.forEach(a => a.selected = false);
-            clickedNode.selected = true; isDraggingNode = true; draggedNode = clickedNode;
+            clickedNode.selected = true; 
+            isDraggingNode = true; 
+            
+            // 🟢 PREPARAR ARRASTRE MASIVO
+            dragSelectionInitialStates = actions.map(a => ({...a}));
+            dragStartXTime = xToTime(clickX);
+            dragStartYPos = yToPos(clickY);
+
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         } else {
             if (!e.ctrlKey) actions.forEach(a => a.selected = false);
             isSelecting = true; hasDraggedSelection = false; 
             startX = clickX; startY = clickY; currentX = clickX; currentY = clickY;
+            // 🟢 CAPTURAR SI HICIMOS CLIC SOBRE UN IMÁN
+            window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
@@ -383,8 +402,41 @@ canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     const mouseX = pos.x; const mouseY = pos.y;
 
-    if (isDraggingNode && draggedNode) {
-        draggedNode.pos = yToPos(mouseY); 
+    // 🟢 CALCULAR MAGNETISMO (RADAR)
+    window.magneticSnapPoint = null;
+    if (!isDraggingNode && !isSelecting) {
+        let minDistance = 15; 
+        if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
+            window.loadedFunscriptTracks.forEach(track => {
+                if (!track.isPrimary && track.visible && track.actions) {
+                    track.actions.forEach(act => {
+                        const px = timeToX(act.at); const py = posToY(act.pos);
+                        const dist = Math.hypot(mouseX - px, mouseY - py);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            window.magneticSnapPoint = { at: act.at, pos: act.pos };
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    if (isDraggingNode && dragSelectionInitialStates.length > 0) {
+        // 🟢 ARRASTRE MASIVO CON CANDADO DE SEGURIDAD (5% y 50ms)
+        const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
+        const rawPosDelta = yToPos(mouseY) - dragStartYPos;
+        
+        const snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
+        const snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
+
+        actions.forEach((act, i) => {
+            if (dragSelectionInitialStates[i].selected) {
+                act.at = Math.max(0, dragSelectionInitialStates[i].at + snappedTimeDelta);
+                act.pos = Math.max(0, Math.min(100, dragSelectionInitialStates[i].pos + snappedPosDelta));
+            }
+        });
+        
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     } else if (isSelecting) {
         currentX = mouseX; currentY = mouseY;
@@ -402,19 +454,30 @@ canvas?.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseup', (e) => {
     const actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
-        const clickTime = Math.max(0, Math.round(xToTime(startX)));
-        const clickPos = yToPos(startY);
+        
+        let clickTime = Math.max(0, Math.round(xToTime(startX)));
+        let clickPos = Math.round(yToPos(startY) / 5) * 5; // Siempre crea puntos redondeados al 5%
+        
+        // 🟢 SI CAYÓ EN EL IMÁN, USAR LAS COORDENADAS EXACTAS DE LA CALCA
+        if (window.startMagneticSnapPoint) {
+            clickTime = window.startMagneticSnapPoint.at;
+            clickPos = window.startMagneticSnapPoint.pos;
+        }
+
         saveHistoryState();
         actions.push({ at: clickTime, pos: clickPos, selected: true });
         actions.sort((a, b) => a.at - b.at);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); 
-    } else if (isDraggingNode || hasDraggedSelection) { notifyCloud(); }
-    isDraggingNode = false; draggedNode = null; isSelecting = false;
+    } else if (isDraggingNode || hasDraggedSelection) { 
+        actions.sort((a, b) => a.at - b.at); // Reordenar por si el arrastre mezcló tiempos
+        notifyCloud(); 
+    }
+    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false;
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
 function animationLoop() { drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
 
-// Ya no necesitamos los listeners de teclado aquí porque player.js atrapa TODO el teclado globalmente.
+// Teclado general interceptado por player.js
