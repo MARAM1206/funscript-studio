@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V18.0: ORIGEN EN CERO, COLUMNA PROTECTORA Y MALLA DINÁMICA
+// TIMELINE V19.0: ANTI-CLONES, INTERVALOS FIJOS 1S Y FOCO DE TECLADO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -19,10 +19,9 @@ let undoStack = [];
 let redoStack = [];
 const MAX_HISTORY = 50;
 
-// 🎯 VARIABLES DEL NUEVO MOTOR DE PANEO
 let zoom = 1.0; 
-let basePixelsPerMs = 0.1; // 100 Píxeles = 1 Segundo exacto (1:1)
-let scrollLeftMs = 0; // Controla el muro izquierdo (jamás será negativo)
+let basePixelsPerMs = 0.1; 
+let scrollLeftMs = 0; 
 
 let isSelecting = false;
 let hasDraggedSelection = false; 
@@ -39,7 +38,18 @@ let hadSelectionBeforeMousedown = false;
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
 
-// 🎛️ CONTROLES DE ZOOM Y PANEO (Rueda de Ratón)
+// 🛡️ MOTOR DE PURIFICACIÓN (ANTI-CLONES EN EL MISMO MILISEGUNDO)
+function cleanDuplicates() {
+    const actions = getSafeActions();
+    actions.sort((a, b) => a.at - b.at);
+    for (let i = actions.length - 1; i > 0; i--) {
+        if (actions[i].at === actions[i-1].at) {
+            // Si hay choque, conservamos el seleccionado y matamos al clon
+            actions.splice(actions[i].selected ? i-1 : i, 1);
+        }
+    }
+}
+
 canvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.clientX - canvas.getBoundingClientRect().left;
@@ -49,24 +59,19 @@ canvas?.addEventListener('wheel', (e) => {
         if (e.deltaY < 0) zoom *= 1.15; else zoom /= 1.15; 
         zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
         
-        // Ajustamos el scroll para que el ratón siga apuntando al mismo tiempo
         scrollLeftMs = timeAtMouse - (mouseX - 30) / (basePixelsPerMs * zoom);
-        if (scrollLeftMs < 0) scrollLeftMs = 0; // Muro del Cero
+        if (scrollLeftMs < 0) scrollLeftMs = 0; 
     } else {
         if (videoNode && videoNode.paused) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
-            const panStep = visibleMs * 0.10; // Salto del 10% de la pantalla visible
+            const panStep = visibleMs * 0.10; 
             
-            // Inversión corregida: Arriba avanza, Abajo retrocede
             if (e.deltaY < 0) scrollLeftMs += panStep; 
             else scrollLeftMs -= panStep; 
             
-            // 🛡️ REGLA ABSOLUTA: Jamás pasar del cero hacia atrás
             if (scrollLeftMs < 0) scrollLeftMs = 0;
-            
-            // 🛡️ REGLA: No scrollear más allá de lo que dura el video
             if (videoNode.duration) {
-                const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; // 2s extras de colchón
+                const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
                 if (scrollLeftMs > maxScroll && maxScroll > 0) scrollLeftMs = maxScroll;
             }
         }
@@ -74,16 +79,18 @@ canvas?.addEventListener('wheel', (e) => {
     drawTimeline();
 }, { passive: false });
 
-// 🔄 REGRESO AL PLAYHEAD CUANDO SE DA PLAY
-window.addEventListener('videoPlay', () => { 
+window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
+
+// 🛡️ AUTO-FOCO: Si nos movemos por teclado (A, S, B, N), traemos la línea con nosotros
+window.addEventListener('forceTimelinePan', () => {
     const actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     
-    // Si la aguja se quedó muy atrás o muy adelante, saltamos hacia ella
-    if (actualTime < scrollLeftMs || actualTime > scrollLeftMs + visibleMs) {
-        scrollLeftMs = Math.max(0, actualTime - visibleMs * 0.1); 
+    // Si la aguja está fuera del campo de visión izquierdo o derecho, saltamos
+    if (actualTime < scrollLeftMs || actualTime > scrollLeftMs + visibleMs * 0.9) {
+        scrollLeftMs = Math.max(0, actualTime - visibleMs * 0.1);
     }
-    drawTimeline(); 
+    drawTimeline();
 });
 
 // ARRASTRE DE PRESETS (GHOST)
@@ -135,7 +142,7 @@ canvas?.addEventListener('drop', (e) => {
         }));
         
         window.funscriptActions.push(...newActions);
-        window.funscriptActions.sort((a, b) => a.at - b.at);
+        cleanDuplicates(); // Limpieza post-inserción
         
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
@@ -175,12 +182,19 @@ window.addEventListener('injectPoint', function(e) {
         actions.forEach(a => { if (a.selected) a.pos = pos; });
     } else {
         actions.forEach(a => { a.selected = false; }); 
+        
+        // 🛡️ ACTUALIZACIÓN INTELIGENTE (No empuja duplicados, reemplaza el existente)
         const existingIdx = actions.findIndex(a => a.at === timeMs);
-        if (existingIdx !== -1) { actions[existingIdx].pos = pos; actions[existingIdx].selected = false; } 
-        else { actions.push({ at: timeMs, pos: pos, selected: false }); }
+        if (existingIdx !== -1) { 
+            actions[existingIdx].pos = pos; 
+            actions[existingIdx].selected = false; 
+        } 
+        else { 
+            actions.push({ at: timeMs, pos: pos, selected: false }); 
+        }
     }
     
-    actions.sort((a, b) => a.at - b.at);
+    cleanDuplicates();
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     drawTimeline(); notifyCloud(); 
 });
@@ -196,7 +210,7 @@ window.addEventListener('nudgeTime', function(e) {
         }
     });
     if (moved) {
-        actions.sort((a, b) => a.at - b.at);
+        cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         drawTimeline(); notifyCloud(); 
     }
@@ -224,7 +238,7 @@ window.addEventListener('magnetPoint', function() {
     let moved = false; saveHistoryState();
     actions.forEach(act => { if (act.selected) { act.at = timeMs; moved = true; } });
     if (moved) {
-        actions.sort((a, b) => a.at - b.at);
+        cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         drawTimeline(); notifyCloud();
     }
@@ -251,10 +265,7 @@ function ensureCanvasSize() {
         if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
     }
 }
-window.calculateAdaptiveZoom = function() {
-    // Ya no es adaptativo. El zoom 1.0 siempre será 1 segundo = 100 píxeles.
-    basePixelsPerMs = 0.1; 
-};
+window.calculateAdaptiveZoom = function() { basePixelsPerMs = 0.1; };
 
 function saveHistoryState() { undoStack.push(JSON.stringify(getSafeActions())); if (undoStack.length > MAX_HISTORY) undoStack.shift(); redoStack = []; }
 function undo() {
@@ -271,10 +282,7 @@ function redo() {
         notifyCloud(); drawTimeline();
     }
 }
-
-// 🎯 MATEMÁTICAS DEL NUEVO MOTOR DE ORIGEN
 function timeToX(timeMs) {
-    // Retrasamos el inicio 30 píxeles a la derecha para dejar espacio a la Columna de Porcentajes
     return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom);
 }
 function xToTime(x) {
@@ -288,7 +296,6 @@ function drawTimeline() {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
         
-        // AUTO-PAGINACIÓN SI EL VIDEO ESTÁ EN PLAY
         if (videoNode && !videoNode.paused) {
             const actualTime = videoNode.currentTime * 1000;
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
@@ -301,24 +308,18 @@ function drawTimeline() {
         }
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 1. Fondo Oscuro Principal
-        ctx.fillStyle = '#06090e'; 
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 2. Zonas Anatómicas (Inician desde el pixel 30)
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
         ctx.fillStyle = 'rgba(236, 72, 153, 0.08)'; ctx.fillRect(30, y100, canvas.width - 30, y70 - y100);
         ctx.fillStyle = 'rgba(56, 189, 248, 0.05)'; ctx.fillRect(30, y70, canvas.width - 30, y20 - y70);
         ctx.fillStyle = 'rgba(16, 185, 129, 0.08)'; ctx.fillRect(30, y20, canvas.width - 30, y0 - y20);
 
-        // Fronteras Punteadas
         ctx.lineWidth = 2; ctx.setLineDash([5, 5]); 
         ctx.strokeStyle = 'rgba(236, 72, 153, 0.8)'; ctx.beginPath(); ctx.moveTo(30, y70); ctx.lineTo(canvas.width, y70); ctx.stroke();
         ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath(); ctx.moveTo(30, y20); ctx.lineTo(canvas.width, y20); ctx.stroke();
         ctx.setLineDash([]); 
 
-        // 3. Grid Horizontal (Mejorado al 15% de visibilidad)
         ctx.lineWidth = 1;
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
             const y = posToY(p); 
@@ -326,14 +327,17 @@ function drawTimeline() {
             ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         });
 
-        // 4. Grid Vertical (Tiempo Dinámico - MUUUY Tenue)
+        // 🛡️ REJILLA DE TIEMPO (AHORA PERFECTA Y ANCLADA A 1 SEGUNDO POR DEFECTO)
         const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
         let stepMs = 1000;
+        
         if (visibleMs < 500) stepMs = 50;
         else if (visibleMs < 1000) stepMs = 100;
+        else if (visibleMs < 2000) stepMs = 250;
         else if (visibleMs < 5000) stepMs = 500;
-        else if (visibleMs > 20000) stepMs = 5000;
-        else if (visibleMs > 10000) stepMs = 2000;
+        else if (visibleMs > 30000) stepMs = 5000;
+        else if (visibleMs > 15000) stepMs = 2000;
+        else stepMs = 1000; // <--- Defecto siempre en 1s a zoom normal
 
         const startTimeMs = Math.max(0, xToTime(30));
         const endTimeMs = xToTime(canvas.width);
@@ -344,7 +348,7 @@ function drawTimeline() {
             if (t >= 0) {
                 const x = timeToX(t);
                 if (x >= 30) {
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)'; // 4% Visibilidad
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)'; 
                     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
                     ctx.fillText(`${(t/1000).toFixed(2)}s`, x + 4, 12);
                 }
@@ -352,7 +356,6 @@ function drawTimeline() {
             t += stepMs;
         }
 
-        // 5. Pistas Fantasmas (Importadas)
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
                 if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
@@ -364,7 +367,6 @@ function drawTimeline() {
             });
         }
 
-        // 6. Pista Principal (Tu Trabajo)
         const actions = getSafeActions();
         if (actions.length > 0) {
             ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8'; ctx.beginPath();
@@ -380,7 +382,6 @@ function drawTimeline() {
             });
         }
 
-        // 7. Preset Ghost (Arrastrando desde el Gestor)
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
@@ -414,17 +415,14 @@ function drawTimeline() {
             ctx.fillStyle = 'rgba(16, 185, 129, 0.3)'; ctx.fill();
         }
 
-        // 🛡️ BLOQUE PROTECTOR DE LA COLUMNA DE PORCENTAJES (Oculta el rastro de la línea al hacer scroll)
         ctx.fillStyle = '#0b0f17'; ctx.fillRect(0, 0, 30, canvas.height);
         ctx.strokeStyle = '#1e293b'; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
 
-        // 8. Textos de los Porcentajes (Dibujados siempre encima de la columna protectora)
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
             const y = posToY(p); 
             ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
         });
 
-        // 9. Aguja Naranja del Reproductor
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         const playheadX = timeToX(actualVideoTimeMs);
         
@@ -433,7 +431,6 @@ function drawTimeline() {
             ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
         }
 
-        // 10. Radar Óptico de la Pausa
         if (videoNode && videoNode.paused) {
             actions.forEach(act => {
                 const px = timeToX(act.at);
@@ -578,13 +575,22 @@ window.addEventListener('mouseup', (e) => {
             }
 
             saveHistoryState();
-            actions.push({ at: clickTime, pos: clickPos, selected: true });
-            actions.sort((a, b) => a.at - b.at);
+            
+            // 🛡️ REEMPLAZO INTELIGENTE EN LUGAR DE CLONAR PUNTOS
+            const existingIdx = actions.findIndex(a => a.at === clickTime);
+            if (existingIdx !== -1) {
+                actions[existingIdx].pos = clickPos;
+                actions[existingIdx].selected = true;
+            } else {
+                actions.push({ at: clickTime, pos: clickPos, selected: true });
+            }
+            
+            cleanDuplicates();
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
             notifyCloud(); 
         }
     } else if (isDraggingNode || hasDraggedSelection) { 
-        actions.sort((a, b) => a.at - b.at); 
+        cleanDuplicates();
         notifyCloud(); 
     }
     isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; drawTimeline();
