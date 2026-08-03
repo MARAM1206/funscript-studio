@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V5.0: MODAL DE EDICIÓN CON MINI-LÍNEA DE TIEMPO INTERACTIVA
+// PRESETS V15.1: PARCHE DE SEGURIDAD PARA MODAL Y ARRASTRE
 // ==========================================================================
 
 let savedPresets = {};
@@ -92,8 +92,11 @@ function updatePresetsList() {
             window.timelineGhostPreset = savedPresets[name];
         });
         card.addEventListener('dragend', function() {
-            window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0; 
-            if (typeof drawTimeline === 'function') drawTimeline();
+            window.isDraggingPreset = false;
+            window.timelineGhostPreset = null;
+            window.timelineGhostTimeMs = null;
+            window.timelineGhostDeltaPos = 0; 
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
         });
     });
 
@@ -146,15 +149,16 @@ function drawMiniCanvas(canvasId, actions) {
 }
 
 // ==========================================================================
-// 🛠️ LÓGICA DEL MODAL DE EDICIÓN INDEPENDIENTE
+// 🛠️ LÓGICA DEL MODAL DE EDICIÓN INDEPENDIENTE (BLINDADO)
 // ==========================================================================
 
 function openPresetEditor(name) {
     currentEditingPresetName = name;
     modalNameInput.value = name;
     
-    // Clonamos profundamente para no afectar el original hasta dar "Guardar"
     mActions = JSON.parse(JSON.stringify(savedPresets[name]));
+    // 🛡️ Seguro anti-matemáticas rotas
+    if (mActions.length === 0) mActions.push({at: 0, pos: 50});
     mDuration = mActions[mActions.length - 1].at || 1000;
     
     modal.style.display = 'flex';
@@ -174,12 +178,16 @@ btnSave?.addEventListener('click', () => {
     const newName = modalNameInput.value.trim();
     if (!newName) { alert("El nombre no puede estar vacío."); return; }
     
-    // Aseguramos que siempre empiece en el milisegundo 0
+    // 🛡️ Seguro por si borran todos los puntos en el mini-editor
+    if (mActions.length === 0) {
+        alert("¡Cuidado! El preset no puede estar vacío. Agrega al menos un punto.");
+        return;
+    }
+
     mActions.sort((a, b) => a.at - b.at);
     const baseTime = mActions[0].at;
     mActions.forEach(act => { act.at -= baseTime; });
 
-    // Si cambió el nombre, borramos el viejo
     if (newName !== currentEditingPresetName) {
         delete savedPresets[currentEditingPresetName];
     }
@@ -191,7 +199,6 @@ btnSave?.addEventListener('click', () => {
     updatePresetsList();
 });
 
-// MATEMÁTICAS DEL MINI-CANVAS (Con padding de 10px para que las bolas no se corten)
 function ensureModalCanvasSize() {
     if (!modalCanvas) return;
     const rect = modalCanvas.parentElement.getBoundingClientRect();
@@ -211,7 +218,6 @@ function drawModalCanvas() {
     
     mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
 
-    // Rejilla base
     mCtx.lineWidth = 1;
     [0, 25, 50, 75, 100].forEach(p => {
         const y = mPosToY(p);
@@ -253,16 +259,14 @@ modalCanvas?.addEventListener('mousedown', (e) => {
         if (clickedNode) {
             mIsDragging = true; mDraggedNode = clickedNode;
         } else {
-            // Crear punto en el modal
             let clickTime = Math.round(mXToTime(pos.x) / 50) * 50; 
             let clickPos = Math.round(mYToPos(pos.y) / 5) * 5;
             mActions.push({ at: clickTime, pos: Math.max(0, Math.min(100, clickPos)) });
             mActions.sort((a, b) => a.at - b.at);
-            mDuration = Math.max(1000, mActions[mActions.length - 1].at); // Expandir si se sale
+            mDuration = Math.max(1000, mActions[mActions.length - 1].at); 
             drawModalCanvas();
         }
     } else if (e.button === 2) { 
-        // Borrar punto en modal
         e.preventDefault();
         mActions = mActions.filter(act => Math.hypot(pos.x - mTimeToX(act.at), pos.y - mPosToY(act.pos)) > 10);
         drawModalCanvas();
