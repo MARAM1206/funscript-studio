@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V17.0: LABELS DE TIEMPO ADAPTABLES (SEGUNDOS DINÁMICOS)
+// TIMELINE V18.0: ORIGEN EN CERO, COLUMNA PROTECTORA Y MALLA DINÁMICA
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -19,9 +19,11 @@ let undoStack = [];
 let redoStack = [];
 const MAX_HISTORY = 50;
 
+// 🎯 VARIABLES DEL NUEVO MOTOR DE PANEO
 let zoom = 1.0; 
-let basePixelsPerMs = 0.05; 
-let timelineTimeOffset = 0; 
+let basePixelsPerMs = 0.1; // 100 Píxeles = 1 Segundo exacto (1:1)
+let scrollLeftMs = 0; // Controla el muro izquierdo (jamás será negativo)
+
 let isSelecting = false;
 let hasDraggedSelection = false; 
 let startX = 0, startY = 0;
@@ -37,23 +39,54 @@ let hadSelectionBeforeMousedown = false;
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
 
+// 🎛️ CONTROLES DE ZOOM Y PANEO (Rueda de Ratón)
 canvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
+    const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+    
     if (e.shiftKey) {
+        const timeAtMouse = xToTime(mouseX);
         if (e.deltaY < 0) zoom *= 1.15; else zoom /= 1.15; 
         zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
+        
+        // Ajustamos el scroll para que el ratón siga apuntando al mismo tiempo
+        scrollLeftMs = timeAtMouse - (mouseX - 30) / (basePixelsPerMs * zoom);
+        if (scrollLeftMs < 0) scrollLeftMs = 0; // Muro del Cero
     } else {
         if (videoNode && videoNode.paused) {
-            const visibleTimeMs = canvas.width / (basePixelsPerMs * zoom);
-            const panStep = visibleTimeMs * 0.15; 
-            if (e.deltaY < 0) timelineTimeOffset += panStep; else timelineTimeOffset -= panStep; 
+            const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
+            const panStep = visibleMs * 0.10; // Salto del 10% de la pantalla visible
+            
+            // Inversión corregida: Arriba avanza, Abajo retrocede
+            if (e.deltaY < 0) scrollLeftMs += panStep; 
+            else scrollLeftMs -= panStep; 
+            
+            // 🛡️ REGLA ABSOLUTA: Jamás pasar del cero hacia atrás
+            if (scrollLeftMs < 0) scrollLeftMs = 0;
+            
+            // 🛡️ REGLA: No scrollear más allá de lo que dura el video
+            if (videoNode.duration) {
+                const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; // 2s extras de colchón
+                if (scrollLeftMs > maxScroll && maxScroll > 0) scrollLeftMs = maxScroll;
+            }
         }
     }
     drawTimeline();
 }, { passive: false });
 
-window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
+// 🔄 REGRESO AL PLAYHEAD CUANDO SE DA PLAY
+window.addEventListener('videoPlay', () => { 
+    const actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+    const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
+    
+    // Si la aguja se quedó muy atrás o muy adelante, saltamos hacia ella
+    if (actualTime < scrollLeftMs || actualTime > scrollLeftMs + visibleMs) {
+        scrollLeftMs = Math.max(0, actualTime - visibleMs * 0.1); 
+    }
+    drawTimeline(); 
+});
 
+// ARRASTRE DE PRESETS (GHOST)
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -129,6 +162,7 @@ sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mo
 window.addEventListener('injectPoint', function(e) {
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    
     const valA = parseInt(sliderA?.value || '15', 10); const valB = parseInt(sliderB?.value || '85', 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
@@ -218,9 +252,8 @@ function ensureCanvasSize() {
     }
 }
 window.calculateAdaptiveZoom = function() {
-    if (!canvas || !videoNode) return;
-    if (videoNode.duration && videoNode.duration > 0) { const timeWindow = Math.min(videoNode.duration * 1000, 25000); basePixelsPerMs = (canvas.width - 60) / timeWindow; } 
-    else { basePixelsPerMs = 0.05; }
+    // Ya no es adaptativo. El zoom 1.0 siempre será 1 segundo = 100 píxeles.
+    basePixelsPerMs = 0.1; 
 };
 
 function saveHistoryState() { undoStack.push(JSON.stringify(getSafeActions())); if (undoStack.length > MAX_HISTORY) undoStack.shift(); redoStack = []; }
@@ -238,17 +271,14 @@ function redo() {
         notifyCloud(); drawTimeline();
     }
 }
+
+// 🎯 MATEMÁTICAS DEL NUEVO MOTOR DE ORIGEN
 function timeToX(timeMs) {
-    const centerFixedX = canvas.width / 2;
-    const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
-    const screenCenterTime = actualVideoTimeMs + timelineTimeOffset;
-    return centerFixedX + (timeMs - screenCenterTime) * (basePixelsPerMs * zoom);
+    // Retrasamos el inicio 30 píxeles a la derecha para dejar espacio a la Columna de Porcentajes
+    return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom);
 }
 function xToTime(x) {
-    const centerFixedX = canvas.width / 2;
-    const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
-    const screenCenterTime = actualVideoTimeMs + timelineTimeOffset;
-    return screenCenterTime + (x - centerFixedX) / (basePixelsPerMs * zoom);
+    return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
 }
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
@@ -258,27 +288,46 @@ function drawTimeline() {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
         
+        // AUTO-PAGINACIÓN SI EL VIDEO ESTÁ EN PLAY
+        if (videoNode && !videoNode.paused) {
+            const actualTime = videoNode.currentTime * 1000;
+            const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
+            if (actualTime > scrollLeftMs + visibleMs * 0.9) {
+                scrollLeftMs = actualTime - visibleMs * 0.1; 
+            } else if (actualTime < scrollLeftMs) {
+                scrollLeftMs = actualTime - visibleMs * 0.1;
+            }
+            if (scrollLeftMs < 0) scrollLeftMs = 0;
+        }
+        
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. Fondo Oscuro Principal
+        ctx.fillStyle = '#06090e'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // 2. Zonas Anatómicas (Inician desde el pixel 30)
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
-        ctx.fillStyle = 'rgba(236, 72, 153, 0.08)'; ctx.fillRect(0, y100, canvas.width, y70 - y100);
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.05)'; ctx.fillRect(0, y70, canvas.width, y20 - y70);
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)'; ctx.fillRect(0, y20, canvas.width, y0 - y20);
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.08)'; ctx.fillRect(30, y100, canvas.width - 30, y70 - y100);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.05)'; ctx.fillRect(30, y70, canvas.width - 30, y20 - y70);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)'; ctx.fillRect(30, y20, canvas.width - 30, y0 - y20);
 
+        // Fronteras Punteadas
         ctx.lineWidth = 2; ctx.setLineDash([5, 5]); 
-        ctx.strokeStyle = 'rgba(236, 72, 153, 0.8)'; ctx.beginPath(); ctx.moveTo(0, y70); ctx.lineTo(canvas.width, y70); ctx.stroke();
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath(); ctx.moveTo(0, y20); ctx.lineTo(canvas.width, y20); ctx.stroke();
+        ctx.strokeStyle = 'rgba(236, 72, 153, 0.8)'; ctx.beginPath(); ctx.moveTo(30, y70); ctx.lineTo(canvas.width, y70); ctx.stroke();
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath(); ctx.moveTo(30, y20); ctx.lineTo(canvas.width, y20); ctx.stroke();
         ctx.setLineDash([]); 
 
+        // 3. Grid Horizontal (Mejorado al 15% de visibilidad)
         ctx.lineWidth = 1;
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
-            const y = posToY(p); ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-            ctx.fillStyle = '#475569'; ctx.font = '10px monospace'; ctx.fillText(`${p}%`, 6, y - 3);
+            const y = posToY(p); 
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)'; 
+            ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         });
 
-        // 🎯 ETIQUETAS DE TIEMPO ADAPTABLES (SIN LÍNEAS VERTICALES)
-        const visibleMs = canvas.width / (basePixelsPerMs * zoom);
+        // 4. Grid Vertical (Tiempo Dinámico - MUUUY Tenue)
+        const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
         let stepMs = 1000;
         if (visibleMs < 500) stepMs = 50;
         else if (visibleMs < 1000) stepMs = 100;
@@ -286,7 +335,7 @@ function drawTimeline() {
         else if (visibleMs > 20000) stepMs = 5000;
         else if (visibleMs > 10000) stepMs = 2000;
 
-        const startTimeMs = Math.max(0, xToTime(0));
+        const startTimeMs = Math.max(0, xToTime(30));
         const endTimeMs = xToTime(canvas.width);
         let t = Math.floor(startTimeMs / stepMs) * stepMs;
 
@@ -294,11 +343,16 @@ function drawTimeline() {
         while (t <= endTimeMs) {
             if (t >= 0) {
                 const x = timeToX(t);
-                ctx.fillText(`${(t/1000).toFixed(2)}s`, x + 4, 12);
+                if (x >= 30) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)'; // 4% Visibilidad
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+                    ctx.fillText(`${(t/1000).toFixed(2)}s`, x + 4, 12);
+                }
             }
             t += stepMs;
         }
 
+        // 5. Pistas Fantasmas (Importadas)
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
                 if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
@@ -310,6 +364,7 @@ function drawTimeline() {
             });
         }
 
+        // 6. Pista Principal (Tu Trabajo)
         const actions = getSafeActions();
         if (actions.length > 0) {
             ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8'; ctx.beginPath();
@@ -325,6 +380,7 @@ function drawTimeline() {
             });
         }
 
+        // 7. Preset Ghost (Arrastrando desde el Gestor)
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
@@ -358,16 +414,30 @@ function drawTimeline() {
             ctx.fillStyle = 'rgba(16, 185, 129, 0.3)'; ctx.fill();
         }
 
+        // 🛡️ BLOQUE PROTECTOR DE LA COLUMNA DE PORCENTAJES (Oculta el rastro de la línea al hacer scroll)
+        ctx.fillStyle = '#0b0f17'; ctx.fillRect(0, 0, 30, canvas.height);
+        ctx.strokeStyle = '#1e293b'; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
+
+        // 8. Textos de los Porcentajes (Dibujados siempre encima de la columna protectora)
+        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
+            const y = posToY(p); 
+            ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
+        });
+
+        // 9. Aguja Naranja del Reproductor
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         const playheadX = timeToX(actualVideoTimeMs);
         
-        ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
-        ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
+        if (playheadX >= 30) {
+            ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
+            ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
+        }
 
+        // 10. Radar Óptico de la Pausa
         if (videoNode && videoNode.paused) {
             actions.forEach(act => {
                 const px = timeToX(act.at);
-                if (Math.abs(px - playheadX) <= 4) {
+                if (px >= 30 && Math.abs(px - playheadX) <= 4) {
                     const py = posToY(act.pos);
                     let tooltipX = px + 8; let tooltipY = py - 18;
                     if (tooltipY < 5) tooltipY = py + 8;
