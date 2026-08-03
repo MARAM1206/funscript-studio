@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V14.0: ARRASTRE MASIVO CON SEGURO Y MAGNETISMO DE GUÍAS (MODO CALCA)
+// TIMELINE V15.0: DESELECCIÓN INTELIGENTE SIN CREAR PUNTOS Y REPARACIÓN SUPR
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -27,13 +27,15 @@ let hasDraggedSelection = false;
 let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
-// Variables para Arrastre Múltiple y Modo Calca (Magnetismo)
 let isDraggingNode = false; 
 let dragSelectionInitialStates = [];
 let dragStartXTime = 0;
 let dragStartYPos = 0;
 window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
+
+// 🛡️ NUEVA MEMORIA: Para saber si teníamos algo seleccionado antes del clic
+let hadSelectionBeforeMousedown = false; 
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
 
@@ -156,7 +158,6 @@ window.addEventListener('injectPoint', function(e) {
 window.addEventListener('nudgeTime', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
-    
     actions.forEach(act => {
         if (act.selected) {
             if (dir === 'left') act.at = Math.max(0, act.at - 50); 
@@ -164,9 +165,25 @@ window.addEventListener('nudgeTime', function(e) {
             moved = true;
         }
     });
-
     if (moved) {
         actions.sort((a, b) => a.at - b.at);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        drawTimeline(); notifyCloud(); 
+    }
+});
+
+// 🎯 RECEPTOR 3: NUDGE VERTICAL (Ctrl + Flechas Arriba/Abajo)
+window.addEventListener('nudgePoints', function(e) {
+    const actions = getSafeActions(); const dir = e.detail; let moved = false;
+    saveHistoryState();
+    actions.forEach(act => {
+        if (act.selected) {
+            if (dir === 'up') act.pos = Math.min(100, act.pos + 5);
+            if (dir === 'down') act.pos = Math.max(0, act.pos - 5);
+            moved = true;
+        }
+    });
+    if (moved) {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         drawTimeline(); notifyCloud(); 
     }
@@ -182,6 +199,20 @@ window.addEventListener('magnetPoint', function() {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         drawTimeline(); notifyCloud();
     }
+});
+
+// 🎯 RECEPTORES DEL TECLADO CLÁSICO (Delete, Ctrl+Z, etc)
+window.addEventListener('deletePoints', () => {
+    saveHistoryState();
+    window.funscriptActions = getSafeActions().filter(a => !a.selected);
+    drawTimeline(); notifyCloud();
+});
+window.addEventListener('undoAction', () => { undo(); drawTimeline(); });
+window.addEventListener('redoAction', () => { redo(); drawTimeline(); });
+window.addEventListener('selectAllPoints', () => {
+    getSafeActions().forEach(a => a.selected = true);
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    drawTimeline();
 });
 
 function ensureCanvasSize() {
@@ -303,11 +334,10 @@ function drawTimeline() {
             ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
-        // 🟢 DIBUJO DEL MAGNETISMO PARA GUÍAS SECUNDARIAS
         if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
             const px = timeToX(window.magneticSnapPoint.at);
             const py = posToY(window.magneticSnapPoint.pos);
-            ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; // Verde Brillante
+            ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; 
             ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.stroke();
             ctx.fillStyle = 'rgba(16, 185, 129, 0.3)'; ctx.fill();
         }
@@ -377,17 +407,17 @@ canvas?.addEventListener('mousedown', (e) => {
             clickedNode.selected = true; 
             isDraggingNode = true; 
             
-            // 🟢 PREPARAR ARRASTRE MASIVO
             dragSelectionInitialStates = actions.map(a => ({...a}));
             dragStartXTime = xToTime(clickX);
             dragStartYPos = yToPos(clickY);
 
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         } else {
+            // 🎯 LÓGICA DE DESELECCIÓN INTELIGENTE
+            hadSelectionBeforeMousedown = actions.some(a => a.selected);
             if (!e.ctrlKey) actions.forEach(a => a.selected = false);
             isSelecting = true; hasDraggedSelection = false; 
             startX = clickX; startY = clickY; currentX = clickX; currentY = clickY;
-            // 🟢 CAPTURAR SI HICIMOS CLIC SOBRE UN IMÁN
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
@@ -402,7 +432,6 @@ canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     const mouseX = pos.x; const mouseY = pos.y;
 
-    // 🟢 CALCULAR MAGNETISMO (RADAR)
     window.magneticSnapPoint = null;
     if (!isDraggingNode && !isSelecting) {
         let minDistance = 15; 
@@ -423,7 +452,6 @@ canvas?.addEventListener('mousemove', (e) => {
     }
 
     if (isDraggingNode && dragSelectionInitialStates.length > 0) {
-        // 🟢 ARRASTRE MASIVO CON CANDADO DE SEGURIDAD (5% y 50ms)
         const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
         const rawPosDelta = yToPos(mouseY) - dragStartYPos;
         
@@ -455,22 +483,24 @@ window.addEventListener('mouseup', (e) => {
     const actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         
-        let clickTime = Math.max(0, Math.round(xToTime(startX)));
-        let clickPos = Math.round(yToPos(startY) / 5) * 5; // Siempre crea puntos redondeados al 5%
-        
-        // 🟢 SI CAYÓ EN EL IMÁN, USAR LAS COORDENADAS EXACTAS DE LA CALCA
-        if (window.startMagneticSnapPoint) {
-            clickTime = window.startMagneticSnapPoint.at;
-            clickPos = window.startMagneticSnapPoint.pos;
-        }
+        // 🎯 EVITAMOS CREAR PUNTO SI SOLO QUERÍAMOS DESELECCIONAR
+        if (!hadSelectionBeforeMousedown) {
+            let clickTime = Math.max(0, Math.round(xToTime(startX)));
+            let clickPos = Math.round(yToPos(startY) / 5) * 5; 
+            
+            if (window.startMagneticSnapPoint) {
+                clickTime = window.startMagneticSnapPoint.at;
+                clickPos = window.startMagneticSnapPoint.pos;
+            }
 
-        saveHistoryState();
-        actions.push({ at: clickTime, pos: clickPos, selected: true });
-        actions.sort((a, b) => a.at - b.at);
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); 
+            saveHistoryState();
+            actions.push({ at: clickTime, pos: clickPos, selected: true });
+            actions.sort((a, b) => a.at - b.at);
+            if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+            notifyCloud(); 
+        }
     } else if (isDraggingNode || hasDraggedSelection) { 
-        actions.sort((a, b) => a.at - b.at); // Reordenar por si el arrastre mezcló tiempos
+        actions.sort((a, b) => a.at - b.at); 
         notifyCloud(); 
     }
     isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false;
@@ -479,5 +509,3 @@ window.addEventListener('mouseup', (e) => {
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
 function animationLoop() { drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
-
-// Teclado general interceptado por player.js
