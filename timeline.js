@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V19.0: ANTI-CLONES, INTERVALOS FIJOS 1S Y FOCO DE TECLADO
+// TIMELINE V20.0: MAGNETISMO EN ARRASTRE Y REDONDEO PURO AL 5%
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -29,6 +29,7 @@ let startX = 0, startY = 0;
 let currentX = 0, currentY = 0;
 
 let isDraggingNode = false; 
+let draggedNodeIndex = -1; // 🎯 NUEVO: Identificador del punto que ancla el imán
 let dragSelectionInitialStates = [];
 let dragStartXTime = 0;
 let dragStartYPos = 0;
@@ -38,13 +39,11 @@ let hadSelectionBeforeMousedown = false;
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
 
-// 🛡️ MOTOR DE PURIFICACIÓN (ANTI-CLONES EN EL MISMO MILISEGUNDO)
 function cleanDuplicates() {
     const actions = getSafeActions();
     actions.sort((a, b) => a.at - b.at);
     for (let i = actions.length - 1; i > 0; i--) {
         if (actions[i].at === actions[i-1].at) {
-            // Si hay choque, conservamos el seleccionado y matamos al clon
             actions.splice(actions[i].selected ? i-1 : i, 1);
         }
     }
@@ -81,12 +80,10 @@ canvas?.addEventListener('wheel', (e) => {
 
 window.addEventListener('videoPlay', () => { timelineTimeOffset = 0; drawTimeline(); });
 
-// 🛡️ AUTO-FOCO: Si nos movemos por teclado (A, S, B, N), traemos la línea con nosotros
 window.addEventListener('forceTimelinePan', () => {
     const actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     
-    // Si la aguja está fuera del campo de visión izquierdo o derecho, saltamos
     if (actualTime < scrollLeftMs || actualTime > scrollLeftMs + visibleMs * 0.9) {
         scrollLeftMs = Math.max(0, actualTime - visibleMs * 0.1);
     }
@@ -142,7 +139,7 @@ canvas?.addEventListener('drop', (e) => {
         }));
         
         window.funscriptActions.push(...newActions);
-        cleanDuplicates(); // Limpieza post-inserción
+        cleanDuplicates(); 
         
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
@@ -183,7 +180,6 @@ window.addEventListener('injectPoint', function(e) {
     } else {
         actions.forEach(a => { a.selected = false; }); 
         
-        // 🛡️ ACTUALIZACIÓN INTELIGENTE (No empuja duplicados, reemplaza el existente)
         const existingIdx = actions.findIndex(a => a.at === timeMs);
         if (existingIdx !== -1) { 
             actions[existingIdx].pos = pos; 
@@ -216,13 +212,20 @@ window.addEventListener('nudgeTime', function(e) {
     }
 });
 
+// 🎯 REDONDEO PURO AL EMPUJAR CON TECLADO (NUDGE VERTICAL)
 window.addEventListener('nudgePoints', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
     actions.forEach(act => {
         if (act.selected) {
-            if (dir === 'up') act.pos = Math.min(100, act.pos + 5);
-            if (dir === 'down') act.pos = Math.max(0, act.pos - 5);
+            if (dir === 'up') {
+                if (act.pos % 5 !== 0) act.pos = Math.ceil(act.pos / 5) * 5;
+                else act.pos = Math.min(100, act.pos + 5);
+            }
+            if (dir === 'down') {
+                if (act.pos % 5 !== 0) act.pos = Math.floor(act.pos / 5) * 5;
+                else act.pos = Math.max(0, act.pos - 5);
+            }
             moved = true;
         }
     });
@@ -327,7 +330,6 @@ function drawTimeline() {
             ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         });
 
-        // 🛡️ REJILLA DE TIEMPO (AHORA PERFECTA Y ANCLADA A 1 SEGUNDO POR DEFECTO)
         const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
         let stepMs = 1000;
         
@@ -337,7 +339,7 @@ function drawTimeline() {
         else if (visibleMs < 5000) stepMs = 500;
         else if (visibleMs > 30000) stepMs = 5000;
         else if (visibleMs > 15000) stepMs = 2000;
-        else stepMs = 1000; // <--- Defecto siempre en 1s a zoom normal
+        else stepMs = 1000; 
 
         const startTimeMs = Math.max(0, xToTime(30));
         const endTimeMs = xToTime(canvas.width);
@@ -407,7 +409,7 @@ function drawTimeline() {
             ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
-        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
+        if (window.magneticSnapPoint && !isSelecting) {
             const px = timeToX(window.magneticSnapPoint.at);
             const py = posToY(window.magneticSnapPoint.pos);
             ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; 
@@ -479,9 +481,10 @@ canvas?.addEventListener('mousedown', (e) => {
 
     if (e.button === 0) { 
         let clickedNode = null;
-        for (let act of actions) {
-            const nx = timeToX(act.at); const ny = posToY(act.pos);
-            if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = act; break; }
+        let cIndex = -1;
+        for (let i = 0; i < actions.length; i++) {
+            const nx = timeToX(actions[i].at); const ny = posToY(actions[i].pos);
+            if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = actions[i]; cIndex = i; break; }
         }
 
         if (clickedNode) {
@@ -489,6 +492,7 @@ canvas?.addEventListener('mousedown', (e) => {
             if (!e.ctrlKey && !clickedNode.selected) actions.forEach(a => a.selected = false);
             clickedNode.selected = true; 
             isDraggingNode = true; 
+            draggedNodeIndex = cIndex; // 🎯 Anclar el índice para el Imán de arrastre
             
             dragSelectionInitialStates = actions.map(a => ({...a}));
             dragStartXTime = xToTime(clickX);
@@ -515,7 +519,8 @@ canvas?.addEventListener('mousemove', (e) => {
     const mouseX = pos.x; const mouseY = pos.y;
 
     window.magneticSnapPoint = null;
-    if (!isDraggingNode && !isSelecting) {
+    // 🎯 PERMITIMOS BUSCAR EL IMÁN INCLUSO SI ESTAMOS ARRASTRANDO (Modo Calca Avanzado)
+    if (!isSelecting) {
         let minDistance = 15; 
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
@@ -534,16 +539,33 @@ canvas?.addEventListener('mousemove', (e) => {
     }
 
     if (isDraggingNode && dragSelectionInitialStates.length > 0) {
-        const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
-        const rawPosDelta = yToPos(mouseY) - dragStartYPos;
-        
-        const snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
-        const snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
+        let snappedTimeDelta = 0;
+        let snappedPosDelta = 0;
+        let useMagnet = false;
+
+        // 🎯 LÓGICA DEL IMÁN PARA BLOQUES ARRASTRADOS
+        if (window.magneticSnapPoint && draggedNodeIndex !== -1) {
+            const initialDragged = dragSelectionInitialStates[draggedNodeIndex];
+            snappedTimeDelta = window.magneticSnapPoint.at - initialDragged.at;
+            snappedPosDelta = window.magneticSnapPoint.pos - initialDragged.pos;
+            useMagnet = true;
+        } else {
+            const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
+            const rawPosDelta = yToPos(mouseY) - dragStartYPos;
+            snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
+            snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
+        }
 
         actions.forEach((act, i) => {
             if (dragSelectionInitialStates[i].selected) {
                 act.at = Math.max(0, dragSelectionInitialStates[i].at + snappedTimeDelta);
-                act.pos = Math.max(0, Math.min(100, dragSelectionInitialStates[i].pos + snappedPosDelta));
+                if (useMagnet) {
+                    act.pos = Math.max(0, Math.min(100, dragSelectionInitialStates[i].pos + snappedPosDelta));
+                } else {
+                    const rawP = dragSelectionInitialStates[i].pos + snappedPosDelta;
+                    // Forzamos que la altura absoluta siempre sea múltiplo de 5, incluso al arrastrar libremente
+                    act.pos = Math.max(0, Math.min(100, Math.round(rawP / 5) * 5));
+                }
             }
         });
         
@@ -566,7 +588,8 @@ window.addEventListener('mouseup', (e) => {
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         
         if (!hadSelectionBeforeMousedown) {
-            let clickTime = Math.max(0, Math.round(xToTime(startX)));
+            // 🎯 FORZAMOS AL 50ms EN CLICS NUEVOS (Precisión Limpia)
+            let clickTime = Math.max(0, Math.round(xToTime(startX) / 50) * 50);
             let clickPos = Math.round(yToPos(startY) / 5) * 5; 
             
             if (window.startMagneticSnapPoint) {
@@ -576,7 +599,6 @@ window.addEventListener('mouseup', (e) => {
 
             saveHistoryState();
             
-            // 🛡️ REEMPLAZO INTELIGENTE EN LUGAR DE CLONAR PUNTOS
             const existingIdx = actions.findIndex(a => a.at === clickTime);
             if (existingIdx !== -1) {
                 actions[existingIdx].pos = clickPos;
@@ -593,7 +615,7 @@ window.addEventListener('mouseup', (e) => {
         cleanDuplicates();
         notifyCloud(); 
     }
-    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; drawTimeline();
+    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1; drawTimeline();
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
