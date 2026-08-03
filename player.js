@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V11.0 (RECUPERACIÓN DE TECLAS DE EDICIÓN)
+// REPRODUCTOR Y MOTOR DE ATAJOS V12.0 (AUTO-FOCO EN EL TIEMPO)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -37,10 +37,12 @@ let isSeeking = false;
 videoProgress?.addEventListener('mousedown', () => isSeeking = true);
 videoProgress?.addEventListener('mouseup', () => isSeeking = false);
 
+// 🛡️ Cuando el usuario arrastra la barra de progreso
 videoProgress?.addEventListener('input', () => {
     if (videoPlayer.duration) {
         const targetTime = (videoProgress.value / 100) * videoPlayer.duration;
         videoPlayer.currentTime = targetTime;
+        window.dispatchEvent(new Event('forceTimelinePan')); // Avísale a la línea que se mueva
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 });
@@ -104,10 +106,9 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🛡️ MODO CAPTURA (true) EN TECLADO
 window.addEventListener('keydown', (event) => {
-    // Si el usuario escribe en un input (como el editor de preset o handy), ignorar teclado
-    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+    if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
+    if (event.ctrlKey && key !== 'z' && key !== 'y' && key !== 'a' && key !== 'arrowup' && key !== 'arrowdown') return; 
 
     const key = event.key.toLowerCase();
     const fps = window.videoFPS;
@@ -116,7 +117,6 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 RECUPERACIÓN DE TECLAS DE EDICIÓN CLÁSICAS
     if (key === 'delete' || key === 'backspace') {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
@@ -124,14 +124,12 @@ window.addEventListener('keydown', (event) => {
     if (event.ctrlKey && key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
     if (event.ctrlKey && key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
 
-    // 🎯 REGLAS DE LAS FLECHAS
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); 
         event.stopPropagation();
         
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
 
-        // NUEVO: Ctrl + Arriba/Abajo para subir y bajar de 5% en 5% exactamente
         if (event.ctrlKey && (key === 'arrowup' || key === 'arrowdown')) {
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dir }));
@@ -157,11 +155,14 @@ window.addEventListener('keydown', (event) => {
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     
-    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
-    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    // 🛡️ AL BUSCAR TIEMPO, OBLIGAMOS A LA LÍNEA DEL TIEMPO A SEGUIRNOS
+    const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
+
+    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
     
-    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); }
-    if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); }
+    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forcePan(); }
+    if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forcePan(); }
 
     if (key === 'b' && !event.ctrlKey) {
         event.preventDefault();
@@ -172,7 +173,7 @@ window.addEventListener('keydown', (event) => {
                 const target = prevPoints[prevPoints.length - 1];
                 videoPlayer.currentTime = target.at / 1000;
                 window.funscriptActions.forEach(a => a.selected = false);
-                target.selected = true; syncSlider();
+                target.selected = true; syncSlider(); forcePan();
             }
         }
     }
@@ -185,7 +186,7 @@ window.addEventListener('keydown', (event) => {
                 const target = nextPoints[0];
                 videoPlayer.currentTime = target.at / 1000;
                 window.funscriptActions.forEach(a => a.selected = false);
-                target.selected = true; syncSlider();
+                target.selected = true; syncSlider(); forcePan();
             }
         }
     }
