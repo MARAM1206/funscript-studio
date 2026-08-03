@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V10.0 (PRIORIDAD ABSOLUTA A INYECTOR RÁPIDO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V11.0 (RECUPERACIÓN DE TECLAS DE EDICIÓN)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -104,60 +104,66 @@ window.addEventListener('drop', (e) => {
     if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🛡️ MODO CAPTURA (true) EN TECLADO:
+// 🛡️ MODO CAPTURA (true) EN TECLADO
 window.addEventListener('keydown', (event) => {
-    if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
-    if (event.ctrlKey) return; 
+    // Si el usuario escribe en un input (como el editor de preset o handy), ignorar teclado
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
 
     const key = event.key.toLowerCase();
     const fps = window.videoFPS;
     const stepTime = 3 / fps; 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
+    const isPlaying = !videoPlayer.paused;
 
-    // ==================================================
-    // 🎯 REGLAS DEFINITIVAS DE LAS FLECHAS
-    // ==================================================
+    // 🎯 RECUPERACIÓN DE TECLAS DE EDICIÓN CLÁSICAS
+    if (key === 'delete' || key === 'backspace') {
+        event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
+    }
+    if (event.ctrlKey && key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
+    if (event.ctrlKey && key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
+    if (event.ctrlKey && key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
+
+    // 🎯 REGLAS DE LAS FLECHAS
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
-        
-        // Bloquear acción nativa de scroll o mover sliders accidentalmente
         event.preventDefault(); 
         event.stopPropagation();
         
-        // Si el usuario tenía foco en un slider de Ajuste o Inyector, se lo quitamos a la fuerza
-        if (document.activeElement && typeof document.activeElement.blur === 'function') {
-            document.activeElement.blur();
-        }
+        if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
 
-        // Flecha Arriba / Abajo: SIEMPRE disparan el Inyector Rápido (Max/Min)
-        if (key === 'arrowup' || key === 'arrowdown') {
+        // NUEVO: Ctrl + Arriba/Abajo para subir y bajar de 5% en 5% exactamente
+        if (event.ctrlKey && (key === 'arrowup' || key === 'arrowdown')) {
+            const dir = (key === 'arrowup') ? 'up' : 'down';
+            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dir }));
+        }
+        else if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
+            const dir = (key === 'arrowup') ? 'up' : 'down';
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+        } 
+        else if (!isPlaying && hasSelection && (key === 'arrowleft' || key === 'arrowright')) {
+            const dir = (key === 'arrowleft') ? 'left' : 'right';
+            window.dispatchEvent(new CustomEvent('nudgeTime', { detail: dir }));
+        } 
+        else if (!isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
             const dir = (key === 'arrowup') ? 'up' : 'down';
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
         }
-        // Flecha Izquierda / Derecha: SOLO funcionan para recorrer puntos en el tiempo
-        else if (key === 'arrowleft' || key === 'arrowright') {
-            if (hasSelection) {
-                const dir = (key === 'arrowleft') ? 'left' : 'right';
-                window.dispatchEvent(new CustomEvent('nudgeTime', { detail: dir }));
-            }
-        }
-        return; // Terminamos aquí para no procesar nada más
+        return; 
     }
 
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
     if (event.code === 'Space') { event.preventDefault(); if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); }
-    if (key === 'm') { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
-    if (key === 'e') { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
-    if (key === 'r') { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
+    if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
     
-    // Q y W mandan el aviso de redibujar la línea del tiempo
-    if (key === 'q') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
-    if (key === 'w') { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
     
-    if (key === 'a') { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); }
-    if (key === 's') { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); }
+    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); }
+    if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); }
 
-    if (key === 'b') {
+    if (key === 'b' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
             const currentTimeMs = videoPlayer.currentTime * 1000;
@@ -170,7 +176,7 @@ window.addEventListener('keydown', (event) => {
             }
         }
     }
-    if (key === 'n') {
+    if (key === 'n' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
             const currentTimeMs = videoPlayer.currentTime * 1000;
@@ -183,4 +189,4 @@ window.addEventListener('keydown', (event) => {
             }
         }
     }
-}, true); // <---- El "true" garantiza la prioridad absoluta sobre el navegador
+}, true);
