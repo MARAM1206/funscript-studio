@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=14">
+    <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
 
@@ -30,6 +30,26 @@
 
     <div id="drag-drop-overlay" class="drag-drop-overlay">
         <div class="drag-drop-message">📂 Suelta tu Video o archivos FunScript aquí</div>
+    </div>
+
+    <div id="preset-editor-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor de Preset</h3>
+            
+            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
+            <input type="text" id="preset-editor-name" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
+            
+            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Patrón:</label>
+            <div style="position: relative; width: 100%; height: 200px; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
+                <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 20px; text-align: center;">Click Izq: Crear/Mover punto | Click Der: Eliminar punto</p>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="preset-editor-cancel" class="menu-btn" style="background: #334155;">Cancelar</button>
+                <button id="preset-editor-save" class="menu-btn success-btn">Guardar Cambios</button>
+            </div>
+        </div>
     </div>
 
     <div class="workspace-container">
@@ -96,12 +116,12 @@
 
     </div>
 
-    <script src="workspace.js?v=14"></script>
-    <script src="handy.js?v=14"></script> 
-    <script src="funscript.js?v=14"></script>
-    <script src="player.js?v=14"></script>
-    <script src="tracking.js?v=14"></script>
-    <script src="presets.js?v=14"></script>
-    <script src="timeline.js?v=14"></script>
+    <script src="workspace.js?v=15"></script>
+    <script src="handy.js?v=15"></script> 
+    <script src="funscript.js?v=15"></script>
+    <script src="player.js?v=15"></script>
+    <script src="tracking.js?v=15"></script>
+    <script src="presets.js?v=15"></script>
+    <script src="timeline.js?v=15"></script>
 </body>
 </html>
