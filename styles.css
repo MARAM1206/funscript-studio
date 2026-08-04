@@ -29,19 +29,19 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 .video-bottom-unified-bar { background: #0b0f17; display: flex; flex-direction: column; border: none; overflow: visible; }
 
-/* 📊 ESTILOS DE BARRA Y MAPA DE CALOR */
-.progress-bar-container { width: 100%; padding: 10px 12px 6px 12px; background: #0b0f17; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: none; overflow: visible; }
-.progress-slider-wrapper { flex-grow: 1; display: flex; flex-direction: column; gap: 4px; position: relative; }
+/* 📊 ESTILOS DE BARRA Y MAPA DE CALOR (MÁS ESPACIO Y GROSOR) */
+.progress-bar-container { width: 100%; padding: 12px 12px 6px 12px; background: #0b0f17; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: none; overflow: visible; }
+.progress-slider-wrapper { flex-grow: 1; display: flex; flex-direction: column; gap: 12px; position: relative; } /* Gap aumentado de 4px a 12px */
 
 #v-time-current, #v-time-total { color: #94a3b8; font-size: 0.75rem; font-family: monospace; font-weight: bold; min-width: 45px; }
 #v-time-current { text-align: right; color: #e2e8f0; }
 #v-time-total { text-align: left; }
 
-.custom-progress { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: #1e293b; border-radius: 4px; outline: none; cursor: pointer; border: none; position: relative; z-index: 2; }
+.custom-progress { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: #1e293b; border-radius: 4px; outline: none; cursor: pointer; border: none; position: relative; z-index: 2; margin: 0; }
 .custom-progress::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #38bdf8; cursor: pointer; transition: transform 0.1s, background 0.1s; }
 .custom-progress::-webkit-slider-thumb:hover { transform: scale(1.3); background: #f97316; }
 
-.heatmap-canvas { width: 100%; height: 10px; border-radius: 4px; display: block; z-index: 1; }
+.heatmap-canvas { width: 100%; height: 14px; border-radius: 4px; display: block; z-index: 1; opacity: 0.9; } /* Altura incrementada de 10px a 14px */
 
 .video-info-bar { background: #0b0f17; padding: 0px 12px 8px 12px; font-size: 0.8rem; font-family: monospace; color: #38bdf8; border: none !important; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; flex-shrink: 0; }
 .video-info-bar .info-text-white { color: #e2e8f0; }
