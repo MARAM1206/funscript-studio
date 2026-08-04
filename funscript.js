@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V5.0 (JERARQUÍA VISUAL LIMPIA)
+// GESTOR DE ARCHIVOS V5.1 (TRIGGERS DE TELEMETRÍA ACTIVADOS)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -45,6 +45,7 @@ window.loadFunscriptFiles = function(filesArray) {
                 window.updateFileManagerUI();
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
                 if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
+                if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); // 🎯 NUEVO TRIGGER
             }
         };
         reader.readAsText(file);
@@ -61,7 +62,6 @@ window.updateFileManagerUI = function() {
     
     let htmlContent = '';
 
-    // 1. CARPETA PADRE: El Video (Jerarquía superior)
     if (window.currentVideoName) {
         htmlContent += `
             <div class="file-manager-video">
@@ -71,13 +71,11 @@ window.updateFileManagerUI = function() {
         `;
     }
 
-    // 2. RAMAS HIJAS: Los Scripts
     if (window.loadedFunscriptTracks.length === 0) {
         if (!window.currentVideoName) {
             htmlContent += `<span class="empty-tracks-msg">No hay archivos cargados. Importa un Video o FunScript.</span>`;
         }
     } else {
-        // Le aplicamos un margen dinámico: Si hay video, los metemos a la derecha para que se vea anidado.
         const marginStyle = window.currentVideoName ? "margin-left: 20px;" : "margin-left: 0;";
         
         htmlContent += window.loadedFunscriptTracks.map(track => `
@@ -96,7 +94,6 @@ window.updateFileManagerUI = function() {
 
     tracksListContainer.innerHTML = htmlContent;
 
-    // EVENTOS
     document.querySelectorAll('.delete-video-btn').forEach(btn => btn.addEventListener('click', function() {
         if (window.videoPlayer) {
             window.videoPlayer.src = "";
@@ -120,6 +117,7 @@ window.updateFileManagerUI = function() {
         window.updateFileManagerUI(); 
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
+        if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); // 🎯 NUEVO TRIGGER
     }));
 
     document.querySelectorAll('.toggle-vis-btn').forEach(btn => btn.addEventListener('click', function() {
@@ -142,6 +140,7 @@ window.updateFileManagerUI = function() {
         window.updateFileManagerUI(); 
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
+        if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); // 🎯 NUEVO TRIGGER
     }));
 };
 
