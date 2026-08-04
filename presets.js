@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V33.0: MULTI-EDICIÓN, ZOOM FINO, IMÁN, Y FUSIONES LIMPIAS
+// PRESETS V34.0: RUEDA INVERTIDA Y SOPORTE PARA TEMA CLARO
 // ==========================================================================
 
 let savedPresets = {};
@@ -17,8 +17,8 @@ const modal = document.getElementById('preset-editor-modal');
 const modalNameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
 const btnCancel = document.getElementById('preset-editor-cancel');
-const btnSave = document.getElementById('preset-editor-save');
-const btnSaveNew = document.getElementById('preset-editor-save-new'); // 🎯 NUEVO BOTÓN
+const btnSave = document.getElementById('preset-editor-save'); // Guardar (Sobrescribir)
+const btnSaveNew = document.getElementById('preset-editor-save-new'); 
 
 let mCtx = modalCanvas ? modalCanvas.getContext('2d') : null;
 let currentEditingPresetName = "";
@@ -41,7 +41,6 @@ let mPanX = 0;
 let mBasePixelsPerMs = 0.1; 
 let mSnapPoint = null; 
 
-// Formateador dinámico (Minutos)
 function formatModalLabel(timeMs) {
     const totalSecs = timeMs / 1000;
     if (totalSecs < 60) return `${totalSecs.toFixed(1)}s`; 
@@ -83,7 +82,6 @@ presetsBtn?.addEventListener('click', function() {
     updatePresetsList();
 });
 
-// Para crear el HTML ghost invisible y bloquear la sombra por defecto de Windows
 const emptyImage = new Image();
 emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
@@ -123,14 +121,12 @@ function updatePresetsList() {
     }, 50);
 
     document.querySelectorAll('.preset-card').forEach(card => {
-        // 🎯 DOBLE CLIC EN LIBRERÍA DEL MODAL ABRE EL PRESET RÁPIDO
         if (card.classList.contains('modal-lib-card')) {
             card.addEventListener('dblclick', function() {
                 openPresetEditor(this.getAttribute('data-preset'));
             });
         }
 
-        // 🛡️ SIN GHOSTING IMAGE NATIVO (Bloqueado)
         card.addEventListener('dragstart', function(e) {
             e.dataTransfer.setDragImage(emptyImage, 0, 0); 
             window.isDraggingPreset = true; 
@@ -164,6 +160,7 @@ function updatePresetsList() {
     });
 }
 
+// 🎨 Ajusta los colores de los minicanvas si está el tema claro activado
 function drawMiniCanvas(canvasId, actions) {
     const c = document.getElementById(canvasId);
     if (!c || !actions || actions.length === 0) return;
@@ -188,6 +185,8 @@ function drawMiniCanvas(canvasId, actions) {
         ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
     });
 }
+
+window.drawMiniCanvas = drawMiniCanvas;
 
 function openPresetEditor(name) {
     currentEditingPresetName = name;
@@ -236,7 +235,6 @@ function modalKeydownHandler(e) {
 
 btnCancel?.addEventListener('click', closePresetEditor);
 
-// 🎯 BOTÓN: SOBRESCRIBIR
 btnSave?.addEventListener('click', () => {
     const newName = modalNameInput.value.trim();
     if (!newName) { alert("El nombre no puede estar vacío."); return; }
@@ -253,7 +251,6 @@ btnSave?.addEventListener('click', () => {
     closePresetEditor(); updatePresetsList();
 });
 
-// 🎯 BOTÓN: CREAR COMO NUEVO
 btnSaveNew?.addEventListener('click', () => {
     let newName = modalNameInput.value.trim();
     if (!newName) { alert("El nombre no puede estar vacío."); return; }
@@ -288,7 +285,7 @@ function mXToTime(x) { return ((x - 30 - mPanX) / (mBasePixelsPerMs * mZoom)); }
 function mPosToY(p) { const padT = 20; const padB = 10; return modalCanvas.height - padB - (p / 100) * (modalCanvas.height - padT - padB); }
 function mYToPos(y) { const padT = 20; const padB = 10; const p = ((modalCanvas.height - padB - y) / (modalCanvas.height - padT - padB)) * 100; return Math.max(0, Math.min(100, Math.round(p))); }
 
-// 🎯 ZOOM EXTRA FINO
+// 🎯 DIRECCIÓN CORREGIDA PARA COINCIDIR CON LA LÍNEA DEL TIEMPO
 modalCanvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.shiftKey) {
@@ -298,12 +295,15 @@ modalCanvas?.addEventListener('wheel', (e) => {
         mZoom = Math.max(0.05, Math.min(mZoom, 20.0));
         mPanX = mouseX - 30 - (timeAtMouse * mBasePixelsPerMs * mZoom);
     } else {
-        mPanX -= e.deltaY; 
+        const panStep = 40;
+        // e.deltaY < 0 es Scroll Arriba. Arriba en timeline.js avanza el tiempo (la pantalla se mueve a la izq)
+        // Por ende mPanX debe disminuir
+        if (e.deltaY < 0) mPanX -= panStep; 
+        else mPanX += panStep; 
     }
     drawModalCanvas();
 }, { passive: false });
 
-// 🧲 IMÁN TRIPLE EN EL MODAL (FUSIÓN PERFECTA DE PRESETS)
 modalCanvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -341,11 +341,9 @@ modalCanvas?.addEventListener('dragover', (e) => {
         drawModalCanvas();
     }
 });
-
 modalCanvas?.addEventListener('dragleave', () => {
     if (window.isDraggingPreset) { window.timelineGhostTimeMs = null; drawModalCanvas(); }
 });
-
 modalCanvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
@@ -358,7 +356,6 @@ modalCanvas?.addEventListener('drop', (e) => {
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
         const endTimeMs = dropTimeMs + presetDuration;
 
-        // Limpiar puntos viejos en el área para evitar colisiones feas
         mActions = mActions.filter(act => act.at < dropTimeMs || act.at > endTimeMs);
         mActions.forEach(a => a.selected = false); 
         
@@ -377,17 +374,28 @@ modalCanvas?.addEventListener('drop', (e) => {
     }
 });
 
-function drawModalCanvas() {
+// 🎨 DIBUJADO DE MODAL CON COLORES ADAPTATIVOS
+window.drawModalCanvas = function() {
     if (!mCtx || !modalCanvas) return;
     ensureModalCanvasSize();
+    
+    // Variables dinámicas para el Tema Claro/Oscuro
+    const isLight = document.body.classList.contains('light-theme');
+    const bgColor = isLight ? '#f8fafc' : '#06090e';
+    const gridColor = isLight ? 'rgba(100, 116, 139, 0.2)' : 'rgba(30, 41, 59, 0.5)';
+    const textColor = isLight ? '#475569' : '#94a3b8';
+    const timeLineColor = isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+
     mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+    mCtx.fillStyle = bgColor;
+    mCtx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
 
     mCtx.lineWidth = 1;
     [0, 25, 50, 75, 100].forEach(p => {
         const y = mPosToY(p);
-        mCtx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
+        mCtx.strokeStyle = gridColor;
         mCtx.beginPath(); mCtx.moveTo(30, y); mCtx.lineTo(modalCanvas.width, y); mCtx.stroke();
-        mCtx.fillStyle = '#475569'; mCtx.font = '10px monospace'; mCtx.fillText(`${p}%`, 2, y + 3);
+        mCtx.fillStyle = textColor; mCtx.font = '10px monospace'; mCtx.fillText(`${p}%`, 2, y + 3);
     });
 
     const visibleMs = modalCanvas.width / (mBasePixelsPerMs * mZoom);
@@ -404,12 +412,12 @@ function drawModalCanvas() {
     const endTimeMs = mXToTime(modalCanvas.width);
     let t = Math.floor(startTimeMs / stepMs) * stepMs;
 
-    mCtx.fillStyle = '#64748b'; mCtx.font = '10px monospace';
+    mCtx.fillStyle = textColor; mCtx.font = '10px monospace';
     while (t <= endTimeMs) {
         if (t >= 0) {
             const x = mTimeToX(t);
             if (x >= 30) {
-                mCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; 
+                mCtx.strokeStyle = timeLineColor; 
                 mCtx.beginPath(); mCtx.moveTo(x, 0); mCtx.lineTo(x, modalCanvas.height); mCtx.stroke();
                 mCtx.fillText(formatModalLabel(t), x + 4, 12);
             }
@@ -430,7 +438,7 @@ function drawModalCanvas() {
             const x = mTimeToX(act.at); const y = mPosToY(act.pos);
             mCtx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
             mCtx.beginPath(); mCtx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); mCtx.fill();
-            mCtx.strokeStyle = '#ffffff'; mCtx.lineWidth = 1.5; mCtx.stroke();
+            mCtx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; mCtx.lineWidth = 1.5; mCtx.stroke();
         });
     }
 
@@ -456,7 +464,6 @@ function drawModalCanvas() {
         });
     }
     
-    // RADAR MAGNÉTICO PARA MOVER PUNTOS EN EL MODAL
     if (mSnapPoint && !mIsSelecting && !mIsDragging) {
         const px = mTimeToX(mSnapPoint.at);
         const py = mPosToY(mSnapPoint.pos);
@@ -516,7 +523,6 @@ modalCanvas?.addEventListener('mousedown', (e) => {
 modalCanvas?.addEventListener('mousemove', (e) => {
     const pos = getModalMousePos(e);
     
-    // RADAR DE IMÁN INTERNO
     mSnapPoint = null;
     if (!mIsSelecting && !mIsDragging) {
         let minDist = 15;
