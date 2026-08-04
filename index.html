@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=30">
+    <link rel="stylesheet" href="styles.css?v=31">
 </head>
 <body>
 
@@ -33,21 +33,29 @@
     </div>
 
     <div id="preset-editor-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor de Preset</h3>
+        <div class="modal-content" style="width: 1000px; max-width: 95vw;">
+            <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor Maestro de Presets</h3>
             
             <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
             <input type="text" id="preset-editor-name" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
             
-            <div style="display: flex; justify-content: space-between; align-items:flex-end;">
-                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Patrón:</label>
-                <span style="font-size: 0.7rem; color: #64748b; margin-bottom: 4px;">Ruedita: Mover | Shift+Ruedita: Zoom</span>
+            <div style="display: flex; gap: 15px; height: 350px; margin-bottom: 20px;">
+                <div style="flex-grow: 1; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items:flex-end;">
+                        <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Patrón:</label>
+                        <span style="font-size: 0.7rem; color: #64748b; margin-bottom: 4px;">Atajos activados (Ctrl+Z, Y, A) | Zoom fino: Shift+Ruedita</span>
+                    </div>
+                    <div style="position: relative; width: 100%; flex-grow: 1; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden;">
+                        <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
+                    </div>
+                </div>
+
+                <div style="width: 250px; display: flex; flex-direction: column; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; padding: 10px;">
+                    <h4 style="color:#94a3b8; font-size:0.8rem; margin-bottom:10px; text-align: center;">Tus Presets (Arrastrar)</h4>
+                    <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
+                        </div>
+                </div>
             </div>
-            
-            <div style="position: relative; width: 100%; height: 220px; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
-                <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
-            </div>
-            <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 20px; text-align: center;">Click Izq: Crear/Mover punto | Click Der: Eliminar punto</p>
             
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
                 <button id="preset-editor-cancel" class="menu-btn" style="background: #334155;">Cancelar</button>
@@ -73,11 +81,15 @@
                         <span id="v-time-total">00:00</span>
                     </div>
                     <div class="video-info-bar">
-                        <span id="v-name" class="info-text-white">Sin video</span> <span class="divider">|</span> 
-                        <span id="v-res">--x--</span> <span class="divider">|</span> 
-                        <span id="v-fps">-- fps</span> <span class="divider">|</span> 
-                        <span id="v-speed">Vel: 1.0x</span> <span class="divider">|</span> 
-                        <span id="v-mute">🔊 Sonido On</span>
+                        <div class="video-info-left">
+                            <span id="v-name" class="info-text-white" style="font-weight: bold;">Sin video</span>
+                        </div>
+                        <div class="video-info-right" style="display: flex; align-items: center; gap: 12px;">
+                            <span id="v-res">--x--</span> <span class="divider">|</span> 
+                            <span id="v-fps">-- fps</span> <span class="divider">|</span> 
+                            <span id="v-speed">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
+                            <span id="v-mute">🔊 Sonido On</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -120,17 +132,19 @@
         </div>
 
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
-            <div class="panel-content" style="position: relative; padding: 0;"><canvas id="timeline-canvas"></canvas></div>
+            <div class="panel-content" style="position: relative; padding: 0;">
+                <canvas id="timeline-canvas"></canvas>
+            </div>
         </div>
 
     </div>
 
-    <script src="workspace.js?v=30"></script>
-    <script src="handy.js?v=30"></script> 
-    <script src="funscript.js?v=30"></script>
-    <script src="player.js?v=30"></script>
-    <script src="tracking.js?v=30"></script>
-    <script src="presets.js?v=30"></script>
-    <script src="timeline.js?v=30"></script>
+    <script src="workspace.js?v=31"></script>
+    <script src="handy.js?v=31"></script> 
+    <script src="funscript.js?v=31"></script>
+    <script src="player.js?v=31"></script>
+    <script src="tracking.js?v=31"></script>
+    <script src="presets.js?v=31"></script>
+    <script src="timeline.js?v=31"></script>
 </body>
 </html>
