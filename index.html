@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=32">
+    <link rel="stylesheet" href="styles.css?v=33">
 </head>
 <body>
 
@@ -36,7 +36,7 @@
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 500px;">
             
             <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
-                <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor de Preset</h3>
+                <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor de Presets</h3>
                 
                 <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
                 <input type="text" id="preset-editor-name" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
@@ -54,14 +54,15 @@
                     <p style="font-size: 0.75rem; color: #64748b; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar</p>
                     <div style="display: flex; gap: 10px;">
                         <button id="preset-editor-cancel" class="menu-btn" style="background: #334155;">Cancelar</button>
-                        <button id="preset-editor-save" class="menu-btn success-btn">Guardar Cambios</button>
+                        <button id="preset-editor-save-new" class="menu-btn" style="background: #0891b2;">Crear como Nuevo</button>
+                        <button id="preset-editor-save" class="menu-btn success-btn">Sobrescribir</button>
                     </div>
                 </div>
             </div>
 
             <div class="modal-content" style="width: 250px; display: flex; flex-direction: column; padding: 15px;">
                 <h4 style="color:#94a3b8; font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">Tus Presets</h4>
-                <p style="font-size: 0.7rem; color: #64748b; text-align: center; margin-bottom: 10px;">(Arrastra hacia el lienzo para fusionar)</p>
+                <p style="font-size: 0.7rem; color: #64748b; text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
                 <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
                     </div>
             </div>
@@ -144,12 +145,12 @@
 
     </div>
 
-    <script src="workspace.js?v=32"></script>
-    <script src="handy.js?v=32"></script> 
-    <script src="funscript.js?v=32"></script>
-    <script src="player.js?v=32"></script>
-    <script src="tracking.js?v=32"></script>
-    <script src="presets.js?v=32"></script>
-    <script src="timeline.js?v=32"></script>
+    <script src="workspace.js?v=33"></script>
+    <script src="handy.js?v=33"></script> 
+    <script src="funscript.js?v=33"></script>
+    <script src="player.js?v=33"></script>
+    <script src="tracking.js?v=33"></script>
+    <script src="presets.js?v=33"></script>
+    <script src="timeline.js?v=33"></script>
 </body>
 </html>
