@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V28.0: LAZY INITIALIZATION (CREA SCRIPT AL TOCAR)
+// TIMELINE V31.0: AUDIO WAVEFORM, INYECTOR AUTO-SELECT Y DESLIZADOR EN VIVO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -49,7 +49,6 @@ function cleanDuplicates() {
     }
 }
 
-// 🎯 NUEVO: Creador Inteligente Bajo Demanda
 function ensureTrackExists() {
     if (!window.loadedFunscriptTracks || window.loadedFunscriptTracks.length === 0) {
         let baseName = "Nuevo_Script";
@@ -80,32 +79,23 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            let totalIntervalMs = 0;
-            let validIntervals = 0;
-            
+            let totalDistance = 0;
             for (let i = 1; i < actions.length; i++) {
-                const deltaT = actions[i].at - actions[i-1].at;
-                if (deltaT > 0 && deltaT < 2500) { 
-                    totalIntervalMs += deltaT;
-                    validIntervals++;
-                }
+                totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
             }
-            
-            if (validIntervals > 0) {
-                const avgInterval = totalIntervalMs / validIntervals;
-                const spm = Math.round(60000 / avgInterval); 
-                
-                if (spm >= 501) speedText = `Very Fast 🔴 (${spm})`;
-                else if (spm >= 301) speedText = `Fast 🟠 (${spm})`;
-                else if (spm >= 151) speedText = `Medium 🟡 (${spm})`; 
+            const totalStrokes = totalDistance / 200;
+            const durationMins = actions[actions.length - 1].at / 60000;
+
+            if (durationMins > 0) {
+                const spm = Math.round(totalStrokes / durationMins);
+                if (spm >= 301) speedText = `Very Fast 🔴 (${spm})`;
+                else if (spm >= 151) speedText = `Fast 🟠 (${spm})`;
+                else if (spm >= 51) speedText = `Medium 🟡 (${spm})`; 
                 else speedText = `Slow 🟢 (${spm})`;
-            } else {
-                speedText = `Slow 🟢 (0)`;
             }
         } else if (actions.length === 1) {
             speedText = "Slow 🟢 (0)";
         }
-        
         statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong>${speedText}</strong>`;
     }
 
@@ -113,11 +103,8 @@ window.updateHeatmapAndStats = function() {
     if (!hCanvas) return;
     
     let totalDurationMs = 0;
-    if (videoNode && videoNode.duration) {
-        totalDurationMs = videoNode.duration * 1000;
-    } else if (actions.length > 0) {
-        totalDurationMs = actions[actions.length - 1].at;
-    }
+    if (actions.length > 0) { totalDurationMs = actions[actions.length - 1].at; } 
+    else if (videoNode && videoNode.duration) { totalDurationMs = videoNode.duration * 1000; }
 
     if (totalDurationMs === 0 || actions.length === 0) {
         const hCtx = hCanvas.getContext('2d');
@@ -132,7 +119,7 @@ window.updateHeatmapAndStats = function() {
     const hCtx = hCanvas.getContext('2d');
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
-    const bucketCount = 200; 
+    const bucketCount = 150; 
     const bucketDuration = totalDurationMs / bucketCount;
     const buckets = new Array(bucketCount).fill(0);
 
@@ -154,7 +141,6 @@ window.updateHeatmapAndStats = function() {
 
     const sortedBuckets = [...smoothedBuckets].sort((a,b) => a-b);
     const maxDistance = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
-    
     const bucketWidth = hCanvas.width / bucketCount;
     
     for (let i = 0; i < bucketCount; i++) {
@@ -179,7 +165,8 @@ canvas?.addEventListener('wheel', (e) => {
     
     if (e.shiftKey) {
         const timeAtMouse = xToTime(mouseX);
-        if (e.deltaY < 0) zoom *= 1.15; else zoom /= 1.15; 
+        // 🎯 ZOOM FINO (Smooth Additive Zoom)
+        zoom = Math.round((zoom + (e.deltaY < 0 ? 0.05 : -0.05)) * 100) / 100;
         zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
         
         scrollLeftMs = timeAtMouse - (mouseX - 30) / (basePixelsPerMs * zoom);
@@ -188,10 +175,7 @@ canvas?.addEventListener('wheel', (e) => {
         if (videoNode && videoNode.paused) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             const panStep = visibleMs * 0.10; 
-            
-            if (e.deltaY < 0) scrollLeftMs += panStep; 
-            else scrollLeftMs -= panStep; 
-            
+            if (e.deltaY < 0) scrollLeftMs += panStep; else scrollLeftMs -= panStep; 
             if (scrollLeftMs < 0) scrollLeftMs = 0;
             if (videoNode.duration) {
                 const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
@@ -212,7 +196,6 @@ window.addEventListener('forceTimelinePan', () => {
     drawTimeline();
 });
 
-// ARRASTRE DE PRESETS CON LAZY INITIALIZATION
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -258,8 +241,6 @@ canvas?.addEventListener('dragleave', () => {
 canvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
-        
-        // 🎯 SI CAE UN PRESET Y ESTÁ EN BLANCO, CREAMOS LA PISTA AHORA MISMO
         ensureTrackExists();
         let actions = getSafeActions();
 
@@ -298,6 +279,16 @@ function updateDualSlider() {
     if (!sliderA || !sliderB) return;
     const valA = parseInt(sliderA.value, 10); const valB = parseInt(sliderB.value, 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
+    
+    // 🎯 COLORES DINÁMICOS SEGÚN QUIÉN ES MÁS ALTO
+    if (valA > valB) {
+        sliderA.style.setProperty('--thumb-color', '#f97316'); // A es Naranja (Max)
+        sliderB.style.setProperty('--thumb-color', '#38bdf8'); // B es Azul (Min)
+    } else {
+        sliderA.style.setProperty('--thumb-color', '#38bdf8'); // A es Azul (Min)
+        sliderB.style.setProperty('--thumb-color', '#f97316'); // B es Naranja (Max)
+    }
+
     if (minLabel) minLabel.innerText = `⬇️ Mínimo: ${currentMin}%`; if (maxLabel) maxLabel.innerText = `⬆️ Máximo: ${currentMax}%`;
     if (dualFill) { dualFill.style.left = `${currentMin}%`; dualFill.style.width = `${currentMax - currentMin}%`; }
 }
@@ -306,9 +297,8 @@ sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener(
 sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
-// 🎯 INYECTOR RÁPIDO CON LAZY INITIALIZATION
 window.addEventListener('injectPoint', function(e) {
-    ensureTrackExists(); // 🎯 CREAMOS LA PISTA SI NO EXISTE
+    ensureTrackExists(); 
     const actions = getSafeActions();
 
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
@@ -323,10 +313,10 @@ window.addEventListener('injectPoint', function(e) {
     const existingIdx = actions.findIndex(a => a.at === timeMs);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
-        actions[existingIdx].selected = false; 
+        actions[existingIdx].selected = true; // 🎯 AUTO-SELECCIÓN ACTIVA
     } 
     else { 
-        actions.push({ at: timeMs, pos: pos, selected: false }); 
+        actions.push({ at: timeMs, pos: pos, selected: true }); // 🎯 AUTO-SELECCIÓN ACTIVA
     }
     
     cleanDuplicates();
@@ -461,6 +451,29 @@ function drawTimeline() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // 🔊 1. DIBUJO DE ONDA DE AUDIO (WAVEFORM)
+        if (window.audioPeaks && window.audioPeaksSampleRate) {
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; // Color de la onda
+            ctx.beginPath();
+            
+            const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
+            const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
+
+            const yCenter = canvas.height / 2;
+            for(let i = startIdx; i <= endIdx; i++) {
+                const timeMs = (i / window.audioPeaksSampleRate) * 1000;
+                const x = timeToX(timeMs);
+                if (x >= 30) {
+                    const amplitude = window.audioPeaks[i] * (canvas.height / 2.2); // Altura de la onda
+                    ctx.moveTo(x, yCenter - amplitude);
+                    ctx.lineTo(x, yCenter + amplitude);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // 2. FONDOS TÉRMICOS Y ZONAS
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
         ctx.fillStyle = 'rgba(236, 72, 153, 0.08)'; ctx.fillRect(30, y100, canvas.width - 30, y70 - y100);
         ctx.fillStyle = 'rgba(56, 189, 248, 0.05)'; ctx.fillRect(30, y70, canvas.width - 30, y20 - y70);
@@ -631,9 +644,8 @@ pointSlider?.addEventListener('change', function() {
 
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
-// 🎯 CLICS CON LAZY INITIALIZATION
 canvas?.addEventListener('mousedown', (e) => {
-    let actions = getSafeActions();
+    const actions = getSafeActions();
     const pos = getMousePos(e);
     const clickX = pos.x; const clickY = pos.y;
 
@@ -738,14 +750,13 @@ canvas?.addEventListener('mousemove', (e) => {
     }
 });
 
-// 🎯 CREACIÓN DE PUNTOS CON LAZY INITIALIZATION
 window.addEventListener('mouseup', (e) => {
     let actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         
         if (!hadSelectionBeforeMousedown) {
-            ensureTrackExists(); // 🎯 Inyecta el script vacío si es necesario
-            actions = getSafeActions(); // Refresca las acciones
+            ensureTrackExists(); 
+            actions = getSafeActions(); 
 
             let clickTime = Math.max(0, Math.round(xToTime(startX) / 50) * 50);
             let clickPos = Math.round(yToPos(startY) / 5) * 5; 
