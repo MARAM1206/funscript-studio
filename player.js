@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V16.0 (CORRECCIÓN DE LAG EN SEEKING)
+// REPRODUCTOR Y MOTOR DE ATAJOS V17.0 (CARGA INTELIGENTE DE TRACKS)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -30,10 +30,11 @@ function formatTime(seconds) {
 
 videoInput?.addEventListener('change', function(event) {
     const file = event.target.files[0];
-    if (file) loadVideoFile(file);
+    if (file) loadVideoFile(file, false);
 });
 
-function loadVideoFile(file) {
+// 🎯 NUEVO: `hasFunscripts` previene crear capa vacía si importaste video y script juntos
+function loadVideoFile(file, hasFunscripts = false) {
     const videoURL = URL.createObjectURL(file);
     videoPlayer.src = videoURL;
     videoPlayer.load();
@@ -41,6 +42,14 @@ function loadVideoFile(file) {
     window.currentVideoName = file.name;
     if (vName) vName.innerText = `📄 ${file.name}`;
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
+
+    // 🎯 AUTO-CREAR SCRIPT EN BLANCO si no hay ninguno importado
+    if (!hasFunscripts && window.loadedFunscriptTracks && window.loadedFunscriptTracks.length === 0) {
+        const baseName = file.name.replace(/\.[^/.]+$/, ""); // Quita el .mp4
+        if (typeof window.createEmptyTrack === 'function') {
+            window.createEmptyTrack(baseName);
+        }
+    }
 }
 
 let isSeeking = false;
@@ -81,6 +90,7 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     if (vFps) vFps.innerText = `⏱️ ~30 fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+    
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
 });
@@ -120,11 +130,13 @@ window.addEventListener('drop', (e) => {
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
 
-    if (videoFiles.length > 0) loadVideoFile(videoFiles[0]);
-    if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
+    const hasFunscripts = funscriptFiles.length > 0;
+
+    // Pasamos el aviso de si trajiste scripts para no auto-crear uno en blanco
+    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
+    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🛡️ MODO CAPTURA EN TECLADO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
 
@@ -181,7 +193,6 @@ window.addEventListener('keydown', (event) => {
     
     const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
 
-    // ⚡ EXTIRPADO EL .pause() PARA EVITAR TIRONES AL NAVEGAR CON Q Y W
     if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
     if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
     
