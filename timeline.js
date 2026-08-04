@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V33.0: FORMATO DE TIEMPO (MINUTOS) Y WAVEFORM ROJO CARMESÍ
+// TIMELINE V34.0: SOPORTE DE TEMA CLARO DINÁMICO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -37,15 +37,12 @@ window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 
-// 🎯 FORMATEADOR DE TIEMPO PROFESIONAL PARA LA ESCALA (MM:SS o Segundos)
 function formatTimelineLabel(timeMs) {
     const totalSecs = timeMs / 1000;
     if (totalSecs < 60) return `${totalSecs.toFixed(1)}s`; 
-    
-    // Si pasamos del minuto, cambiamos a formato 1:05, 2:30, etc.
     const m = Math.floor(totalSecs / 60);
-    const s = (totalSecs % 60).toFixed(1).padStart(4, '0'); // Mantiene el .0 para que no brinque la vista
-    return `${m}:${s.replace('.0', '')}`; // Si es .0 lo limpia un poco visualmente
+    const s = (totalSecs % 60).toFixed(1).padStart(4, '0');
+    return `${m}:${s.replace('.0', '')}`;
 }
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
@@ -450,7 +447,8 @@ function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
-function drawTimeline() {
+// 🎨 DIBUJADO DE LA LÍNEA DEL TIEMPO CON TEMA CLARO/OSCURO
+window.drawTimeline = function() {
     try {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
@@ -461,17 +459,27 @@ function drawTimeline() {
             scrollLeftMs = actualTime - (visibleMs / 2);
             if (scrollLeftMs < 0) scrollLeftMs = 0;
         }
+
+        // Variables de Tema
+        const isLight = document.body.classList.contains('light-theme');
+        const bgColor = isLight ? '#f8fafc' : '#06090e';
+        const gridColor = isLight ? 'rgba(100, 116, 139, 0.2)' : 'rgba(148, 163, 184, 0.15)';
+        const timeLineColor = isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.04)';
+        const colBgColor = isLight ? '#e2e8f0' : '#0b0f17';
+        const colBorder = isLight ? '#cbd5e1' : '#1e293b';
+        const textDimColor = isLight ? '#475569' : '#94a3b8';
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = bgColor; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 🔊 1. AUDIO WAVEFORM (ROJO VIVO SI MUTE)
+        // 🔊 AUDIO WAVEFORM
         if (window.audioPeaks && window.audioPeaksSampleRate) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
             
-            // Rojo Carmesí Intenso (#e11d48)
-            ctx.strokeStyle = isMuted ? 'rgba(225, 29, 72, 0.7)' : 'rgba(255, 255, 255, 0.15)'; 
+            // Rojo puro en mute, blanco/gris en normal
+            ctx.strokeStyle = isMuted ? 'rgba(225, 29, 72, 0.8)' : (isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)'); 
             ctx.beginPath();
             
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
@@ -505,7 +513,7 @@ function drawTimeline() {
         ctx.lineWidth = 1;
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
             const y = posToY(p); 
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)'; 
+            ctx.strokeStyle = gridColor; 
             ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         });
 
@@ -524,14 +532,14 @@ function drawTimeline() {
         const endTimeMs = xToTime(canvas.width);
         let t = Math.floor(startTimeMs / stepMs) * stepMs;
 
-        ctx.fillStyle = '#94a3b8'; ctx.font = '10px monospace';
+        ctx.fillStyle = textDimColor; ctx.font = '10px monospace';
         while (t <= endTimeMs) {
             if (t >= 0) {
                 const x = timeToX(t);
                 if (x >= 30) {
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)'; 
+                    ctx.strokeStyle = timeLineColor; 
                     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-                    ctx.fillText(formatTimelineLabel(t), x + 4, 12); // 🎯 NUEVO: Formato Dinámico de Minutos
+                    ctx.fillText(formatTimelineLabel(t), x + 4, 12);
                 }
             }
             t += stepMs;
@@ -558,12 +566,11 @@ function drawTimeline() {
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
                     ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
-                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                 }
             });
         }
 
-        // 🛡️ SIN GHOSTING IMAGE: Dibujamos solo el fantasma limpio de líneas verdes
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
@@ -597,12 +604,12 @@ function drawTimeline() {
             ctx.fillStyle = 'rgba(16, 185, 129, 0.3)'; ctx.fill();
         }
 
-        ctx.fillStyle = '#0b0f17'; ctx.fillRect(0, 0, 30, canvas.height);
-        ctx.strokeStyle = '#1e293b'; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
+        ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
+        ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
 
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
             const y = posToY(p); 
-            ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
+            ctx.fillStyle = textDimColor; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
         });
 
         const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
