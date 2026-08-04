@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V26.0: FAPTAP ALGORITHM Y MAPA DE CALOR FLUIDO (ULTRA HD)
+// TIMELINE V27.0: VELOCIDAD FAPTAP (INTERVALOS) Y HEATMAP SUAVIZADO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -55,30 +55,35 @@ function cleanDuplicates() {
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     
-    // 1. CÁLCULO DE ESTADÍSTICAS (FAPTAP ALGORITHM - DISTANCIA RECORRIDA)
+    // 1. CÁLCULO DE ESTADÍSTICAS (ALGORITMO DE INTERVALOS)
     const statsSpan = document.getElementById('timeline-stats');
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            // La magia está en medir la DISTANCIA real, no solo contar los puntos
-            let totalDistance = 0;
+            let totalIntervalMs = 0;
+            let validIntervals = 0;
+            
+            // FapTap saca un promedio del tiempo que tardas entre punto y punto
             for (let i = 1; i < actions.length; i++) {
-                totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
+                const deltaT = actions[i].at - actions[i-1].at;
+                // Ignoramos pausas largas (mayores a 2.5 segundos) para no arruinar el promedio
+                if (deltaT > 0 && deltaT < 2500) { 
+                    totalIntervalMs += deltaT;
+                    validIntervals++;
+                }
             }
             
-            // 1 Stroke Completo = Recorrer del 0 al 100 y volver al 0 (200 unidades)
-            const totalStrokes = totalDistance / 200;
-            
-            // FapTap usa el tiempo total que dura el archivo script
-            const durationMins = actions[actions.length - 1].at / 60000;
-
-            if (durationMins > 0) {
-                const spm = Math.round(totalStrokes / durationMins);
+            if (validIntervals > 0) {
+                const avgInterval = totalIntervalMs / validIntervals;
+                // SPM = 60,000 milisegundos / Intervalo promedio
+                const spm = Math.round(60000 / avgInterval); 
                 
                 if (spm >= 301) speedText = `Very Fast 🔴 (${spm})`;
                 else if (spm >= 151) speedText = `Fast 🟠 (${spm})`;
                 else if (spm >= 51) speedText = `Medium 🟡 (${spm})`; 
                 else speedText = `Slow 🟢 (${spm})`;
+            } else {
+                speedText = `Slow 🟢 (0)`;
             }
         } else if (actions.length === 1) {
             speedText = "Slow 🟢 (0)";
@@ -87,15 +92,15 @@ window.updateHeatmapAndStats = function() {
         statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong>${speedText}</strong>`;
     }
 
-    // 2. DIBUJO DEL MAPA DE CALOR (150 BLOQUES FLUIDOS)
+    // 2. DIBUJO DEL MAPA DE CALOR (NUBE TÉRMICA FLUIDA)
     const hCanvas = document.getElementById('heatmap-canvas');
     if (!hCanvas) return;
     
     let totalDurationMs = 0;
-    if (actions.length > 0) {
-        totalDurationMs = actions[actions.length - 1].at;
-    } else if (videoNode && videoNode.duration) {
+    if (videoNode && videoNode.duration) {
         totalDurationMs = videoNode.duration * 1000;
+    } else if (actions.length > 0) {
+        totalDurationMs = actions[actions.length - 1].at;
     }
 
     if (totalDurationMs === 0 || actions.length === 0) {
@@ -111,36 +116,39 @@ window.updateHeatmapAndStats = function() {
     const hCtx = hCanvas.getContext('2d');
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
-    // 🎯 RESOLUCIÓN ULTRA-HD: 150 bloques, adiós al efecto Minecraft
-    const bucketCount = 150; 
+    // Más bloques para mayor fluidez (200 piezas)
+    const bucketCount = 200; 
     const bucketDuration = totalDurationMs / bucketCount;
     const buckets = new Array(bucketCount).fill(0);
 
-    // Mide la INTENSIDAD de la distancia, no solo la cantidad de puntos
-    actions.forEach((act, idx) => {
+    // Contamos puntos por bloque
+    actions.forEach(act => {
         const b = Math.floor(act.at / bucketDuration);
-        if (b >= 0 && b < bucketCount) {
-            if (idx > 0) {
-                buckets[b] += Math.abs(act.pos - actions[idx-1].pos);
-            } else {
-                buckets[b] += 50; 
-            }
-        }
+        if (b >= 0 && b < bucketCount) buckets[b]++;
     });
 
-    // Percentil 95 para ignorar los picos que apagan el resto de los bloques
-    const sortedBuckets = [...buckets].sort((a,b) => a-b);
-    const maxDistance = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
+    // 🌟 ANTI-MINECRAFT: Suavizado Matemático (Moving Average)
+    const smoothedBuckets = new Array(bucketCount).fill(0);
+    for (let i = 0; i < bucketCount; i++) {
+        let sum = buckets[i];
+        let count = 1;
+        if (i > 0) { sum += buckets[i-1]; count++; }
+        if (i < bucketCount - 1) { sum += buckets[i+1]; count++; }
+        smoothedBuckets[i] = sum / count; // Promedia con los bloques vecinos
+    }
+
+    const sortedBuckets = [...smoothedBuckets].sort((a,b) => a-b);
+    const maxPoints = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
     
     const bucketWidth = hCanvas.width / bucketCount;
     
     for (let i = 0; i < bucketCount; i++) {
-        if (buckets[i] > 0) {
-            const intensity = Math.min(1.0, 0.2 + (0.8 * (buckets[i] / maxDistance)));
-            const hue = (1 - intensity) * 200; // De azul a rojo
+        if (smoothedBuckets[i] > 0) {
+            const intensity = Math.min(1.0, 0.2 + (0.8 * (smoothedBuckets[i] / maxPoints)));
+            const hue = (1 - intensity) * 200; 
             hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity)})`;
-            // Sumamos +0.5 para solapar microscópicamente los bloques y borrar la separación negra
-            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
+            // Dibujamos con +1 píxel de ancho para asegurar fusión total sin rayitas negras
+            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 1, hCanvas.height);
         }
     }
 };
@@ -573,7 +581,7 @@ pointSlider?.addEventListener('input', function() {
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         selected.forEach(act => act.pos = val); 
-        drawTimeline(); window.updateHeatmapAndStats();
+        drawTimeline(); 
     }
 });
 
