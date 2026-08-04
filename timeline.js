@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V27.0: VELOCIDAD FAPTAP (INTERVALOS) Y HEATMAP SUAVIZADO
+// TIMELINE V28.0: AUTO-SELECCIÓN DE AGUJA Y LÍMITES FAPTAP CORRECTOS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -49,13 +49,24 @@ function cleanDuplicates() {
     }
 }
 
+// 🎯 RADAR DE AGUJA (Auto-Selección si el ratón no está seleccionando nada)
+function getPointUnderPlayhead(actions) {
+    const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    let closest = null; 
+    let minDiff = 50; // Tolerancia de 50 milisegundos
+    actions.forEach(act => {
+        const diff = Math.abs(act.at - timeMs);
+        if (diff <= minDiff) { minDiff = diff; closest = act; }
+    });
+    return closest;
+}
+
 // ==========================================================================
-// 📊 MOTOR DE TELEMETRÍA (FAPTAP EXACT MATCH)
+// 📊 MOTOR DE TELEMETRÍA CORREGIDO (LÍMITES FAPTAP EXACTOS)
 // ==========================================================================
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     
-    // 1. CÁLCULO DE ESTADÍSTICAS (ALGORITMO DE INTERVALOS)
     const statsSpan = document.getElementById('timeline-stats');
     if (statsSpan) {
         let speedText = "--";
@@ -63,10 +74,8 @@ window.updateHeatmapAndStats = function() {
             let totalIntervalMs = 0;
             let validIntervals = 0;
             
-            // FapTap saca un promedio del tiempo que tardas entre punto y punto
             for (let i = 1; i < actions.length; i++) {
                 const deltaT = actions[i].at - actions[i-1].at;
-                // Ignoramos pausas largas (mayores a 2.5 segundos) para no arruinar el promedio
                 if (deltaT > 0 && deltaT < 2500) { 
                     totalIntervalMs += deltaT;
                     validIntervals++;
@@ -75,12 +84,12 @@ window.updateHeatmapAndStats = function() {
             
             if (validIntervals > 0) {
                 const avgInterval = totalIntervalMs / validIntervals;
-                // SPM = 60,000 milisegundos / Intervalo promedio
                 const spm = Math.round(60000 / avgInterval); 
                 
-                if (spm >= 301) speedText = `Very Fast 🔴 (${spm})`;
-                else if (spm >= 151) speedText = `Fast 🟠 (${spm})`;
-                else if (spm >= 51) speedText = `Medium 🟡 (${spm})`; 
+                // 🎯 LIMITES CORREGIDOS: Slow (0-150), Medium (151-300), Fast (301-500), Very Fast (500+)
+                if (spm >= 501) speedText = `Very Fast 🔴 (${spm})`;
+                else if (spm >= 301) speedText = `Fast 🟠 (${spm})`;
+                else if (spm >= 151) speedText = `Medium 🟡 (${spm})`; 
                 else speedText = `Slow 🟢 (${spm})`;
             } else {
                 speedText = `Slow 🟢 (0)`;
@@ -92,7 +101,6 @@ window.updateHeatmapAndStats = function() {
         statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong>${speedText}</strong>`;
     }
 
-    // 2. DIBUJO DEL MAPA DE CALOR (NUBE TÉRMICA FLUIDA)
     const hCanvas = document.getElementById('heatmap-canvas');
     if (!hCanvas) return;
     
@@ -116,38 +124,36 @@ window.updateHeatmapAndStats = function() {
     const hCtx = hCanvas.getContext('2d');
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
-    // Más bloques para mayor fluidez (200 piezas)
     const bucketCount = 200; 
     const bucketDuration = totalDurationMs / bucketCount;
     const buckets = new Array(bucketCount).fill(0);
 
-    // Contamos puntos por bloque
-    actions.forEach(act => {
+    actions.forEach((act, idx) => {
         const b = Math.floor(act.at / bucketDuration);
-        if (b >= 0 && b < bucketCount) buckets[b]++;
+        if (b >= 0 && b < bucketCount) {
+            if (idx > 0) { buckets[b] += Math.abs(act.pos - actions[idx-1].pos); } 
+            else { buckets[b] += 50; }
+        }
     });
 
-    // 🌟 ANTI-MINECRAFT: Suavizado Matemático (Moving Average)
     const smoothedBuckets = new Array(bucketCount).fill(0);
     for (let i = 0; i < bucketCount; i++) {
-        let sum = buckets[i];
-        let count = 1;
+        let sum = buckets[i]; let count = 1;
         if (i > 0) { sum += buckets[i-1]; count++; }
         if (i < bucketCount - 1) { sum += buckets[i+1]; count++; }
-        smoothedBuckets[i] = sum / count; // Promedia con los bloques vecinos
+        smoothedBuckets[i] = sum / count; 
     }
 
     const sortedBuckets = [...smoothedBuckets].sort((a,b) => a-b);
-    const maxPoints = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
+    const maxDistance = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
     
     const bucketWidth = hCanvas.width / bucketCount;
     
     for (let i = 0; i < bucketCount; i++) {
         if (smoothedBuckets[i] > 0) {
-            const intensity = Math.min(1.0, 0.2 + (0.8 * (smoothedBuckets[i] / maxPoints)));
+            const intensity = Math.min(1.0, 0.2 + (0.8 * (smoothedBuckets[i] / maxDistance)));
             const hue = (1 - intensity) * 200; 
             hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity)})`;
-            // Dibujamos con +1 píxel de ancho para asegurar fusión total sin rayitas negras
             hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 1, hCanvas.height);
         }
     }
@@ -330,9 +336,17 @@ window.addEventListener('nudgeTime', function(e) {
     }
 });
 
+// 🎯 RECEPTOR CONECTADO AL RADAR DE LA AGUJA
 window.addEventListener('nudgePoints', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
+    
+    let hasSelection = actions.some(a => a.selected);
+    if (!hasSelection) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; // El Radar seleccionó el punto automáticamente
+    }
+
     actions.forEach(act => {
         if (act.selected) {
             if (dir === 'up') {
@@ -346,6 +360,7 @@ window.addEventListener('nudgePoints', function(e) {
             moved = true;
         }
     });
+    
     if (moved) {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         drawTimeline(); notifyCloud(); window.updateHeatmapAndStats(); 
@@ -364,11 +379,22 @@ window.addEventListener('magnetPoint', function() {
     }
 });
 
+// 🎯 RECEPTOR CONECTADO AL RADAR DE LA AGUJA
 window.addEventListener('deletePoints', () => {
-    saveHistoryState();
-    window.funscriptActions = getSafeActions().filter(a => !a.selected);
-    drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+    const actions = getSafeActions();
+    let hasSelection = actions.some(a => a.selected);
+    if (!hasSelection) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; // El Radar lo selecciona para borrarlo
+    }
+    
+    if (actions.some(a => a.selected)) {
+        saveHistoryState();
+        window.funscriptActions = actions.filter(a => !a.selected);
+        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+    }
 });
+
 window.addEventListener('undoAction', () => { undo(); });
 window.addEventListener('redoAction', () => { redo(); });
 window.addEventListener('selectAllPoints', () => {
