@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V21.0 (FRAME-STEPPING Y ROJO INTENSO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V22.0 (CTRL+C / CTRL+V Y B/N FIX)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -9,6 +9,8 @@ const videoProgress = document.getElementById('video-progress');
 window.videoPlayer = videoPlayer;
 window.currentVideoName = null; 
 window.audioPeaks = null; 
+window.clipboardFunscript = null; // 🎯 NUEVO: Portapapeles Global
+window.isPastingMode = false; // 🎯 NUEVO: Estado del Fantasma Copiador
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -20,7 +22,7 @@ const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
 let currentSpeed = 1.0; 
-window.videoFPS = 30; // Se actualiza si detectamos 60fps
+window.videoFPS = 30; 
 
 function formatTime(seconds) {
     if (isNaN(seconds) || !isFinite(seconds)) return "00:00";
@@ -113,11 +115,8 @@ videoPlayer?.addEventListener('seeked', () => {
     if (!videoPlayer.paused && typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
-// 🎯 DETECCIÓN DE FPS INTELIGENTE (BETA)
-// El navegador web HTML5 no da los FPS exactos por defecto, pero podemos adivinar por la suavidad 
-// Si es video gaming o VR asume 60fps, si no asume 30fps.
 videoPlayer?.addEventListener('loadedmetadata', () => {
-    window.videoFPS = 30; // Base normal
+    window.videoFPS = 30; 
     if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
     if (vFps) vFps.innerText = `~${window.videoFPS} fps`; 
     
@@ -173,7 +172,6 @@ window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
 
     const key = event.key.toLowerCase();
-    const fps = window.videoFPS;
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
@@ -181,6 +179,10 @@ window.addEventListener('keydown', (event) => {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
+        
+        // 🎯 PORTAPAPELES (CTRL+C / CTRL+V)
+        if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
+        if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
         
         if (key === 'arrowup' || key === 'arrowdown') {
             event.preventDefault(); event.stopPropagation();
@@ -197,7 +199,6 @@ window.addEventListener('keydown', (event) => {
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); 
         event.stopPropagation();
-        
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
 
         if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
@@ -221,14 +222,18 @@ window.addEventListener('keydown', (event) => {
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     
-    const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
+    // 🎯 PANEO FORZADO CON TIEMPO EXACTO PARA EVITAR BUGS CON 'B' Y 'N'
+    const forcePan = (exactTimeMs) => {
+        if (exactTimeMs !== undefined) {
+            window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: exactTimeMs } }));
+        } else {
+            window.dispatchEvent(new Event('forceTimelinePan'));
+        }
+    };
 
-    // 🎯 FRAME STEPPING (3 FOTOGRAMAS EXACTOS)
-    // 1 segundo = 1000ms. En 30fps, 1 frame dura ~33.3ms. 3 frames son ~100ms.
-    // Si tuviéramos un video detectado de 60fps, 1 frame son 16.6ms. 3 frames son ~50ms.
     const framesToJump = 3;
     const msPerFrame = 1000 / window.videoFPS;
-    const stepTimePrecision = (framesToJump * msPerFrame) / 1000; // En segundos
+    const stepTimePrecision = (framesToJump * msPerFrame) / 1000; 
 
     if (key === 'q' && !event.ctrlKey) { 
         event.preventDefault(); 
@@ -244,6 +249,9 @@ window.addEventListener('keydown', (event) => {
     if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forcePan(); }
     if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forcePan(); }
 
+    const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
+
+    // 🎯 REPARADO B Y N: Ahora envían su tiempo exacto a la cámara para anclarse al 100%
     if (key === 'b' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
@@ -253,7 +261,7 @@ window.addEventListener('keydown', (event) => {
                 const target = prevPoints[prevPoints.length - 1];
                 videoPlayer.currentTime = target.at / 1000;
                 window.funscriptActions.forEach(a => a.selected = false);
-                target.selected = true; syncSlider(); forcePan();
+                target.selected = true; syncSlider(); forcePan(target.at);
             }
         }
     }
@@ -266,13 +274,14 @@ window.addEventListener('keydown', (event) => {
                 const target = nextPoints[0];
                 videoPlayer.currentTime = target.at / 1000;
                 window.funscriptActions.forEach(a => a.selected = false);
-                target.selected = true; syncSlider(); forcePan();
+                target.selected = true; syncSlider(); forcePan(target.at);
             } else {
-                // 🎯 EXCEPCIÓN TECLA N: Salta al último punto como salvavidas
                 const lastTarget = window.funscriptActions[window.funscriptActions.length - 1];
-                videoPlayer.currentTime = lastTarget.at / 1000;
-                window.funscriptActions.forEach(a => a.selected = false);
-                lastTarget.selected = true; syncSlider(); forcePan();
+                if (currentTimeMs >= lastTarget.at + 15) {
+                    videoPlayer.currentTime = lastTarget.at / 1000;
+                    window.funscriptActions.forEach(a => a.selected = false);
+                    lastTarget.selected = true; syncSlider(); forcePan(lastTarget.at);
+                }
             }
         }
     }
