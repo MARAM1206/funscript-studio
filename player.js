@@ -169,3 +169,50 @@ window.addEventListener('keydown', (event) => {
             window.dispatchEvent(new CustomEvent('nudgeTime', { detail: dir }));
         } 
         else if (!isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
+            const dir = (key === 'arrowup') ? 'up' : 'down';
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+        }
+        return; 
+    }
+
+    if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
+    if (event.code === 'Space') { event.preventDefault(); if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); }
+    if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
+    if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    
+    const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
+
+    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    
+    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forcePan(); }
+    if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forcePan(); }
+
+    if (key === 'b' && !event.ctrlKey) {
+        event.preventDefault();
+        if (window.funscriptActions && window.funscriptActions.length > 0) {
+            const currentTimeMs = videoPlayer.currentTime * 1000;
+            const prevPoints = window.funscriptActions.filter(act => act.at < currentTimeMs - 15);
+            if (prevPoints.length > 0) {
+                const target = prevPoints[prevPoints.length - 1];
+                videoPlayer.currentTime = target.at / 1000;
+                window.funscriptActions.forEach(a => a.selected = false);
+                target.selected = true; syncSlider(); forcePan();
+            }
+        }
+    }
+    if (key === 'n' && !event.ctrlKey) {
+        event.preventDefault();
+        if (window.funscriptActions && window.funscriptActions.length > 0) {
+            const currentTimeMs = videoPlayer.currentTime * 1000;
+            const nextPoints = window.funscriptActions.filter(act => act.at > currentTimeMs + 15);
+            if (nextPoints.length > 0) {
+                const target = nextPoints[0];
+                videoPlayer.currentTime = target.at / 1000;
+                window.funscriptActions.forEach(a => a.selected = false);
+                target.selected = true; syncSlider(); forcePan();
+            }
+        }
+    }
+}, true);
