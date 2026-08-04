@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V32.0: WAVEFORM ROJA, INYECTOR AUTO-SELECT Y HEATMAP SYNC
+// TIMELINE V33.0: FORMATO DE TIEMPO (MINUTOS) Y WAVEFORM ROJO CARMESÍ
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -36,6 +36,17 @@ let dragStartYPos = 0;
 window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
+
+// 🎯 FORMATEADOR DE TIEMPO PROFESIONAL PARA LA ESCALA (MM:SS o Segundos)
+function formatTimelineLabel(timeMs) {
+    const totalSecs = timeMs / 1000;
+    if (totalSecs < 60) return `${totalSecs.toFixed(1)}s`; 
+    
+    // Si pasamos del minuto, cambiamos a formato 1:05, 2:30, etc.
+    const m = Math.floor(totalSecs / 60);
+    const s = (totalSecs % 60).toFixed(1).padStart(4, '0'); // Mantiene el .0 para que no brinque la vista
+    return `${m}:${s.replace('.0', '')}`; // Si es .0 lo limpia un poco visualmente
+}
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
 
@@ -102,7 +113,6 @@ window.updateHeatmapAndStats = function() {
     const hCanvas = document.getElementById('heatmap-canvas');
     if (!hCanvas) return;
     
-    // 🛡️ Candado Estricto de Duración: El mapa siempre dura lo que dura el video.
     let totalDurationMs = 0;
     if (videoNode && videoNode.duration) { totalDurationMs = videoNode.duration * 1000; } 
     else if (actions.length > 0) { totalDurationMs = actions[actions.length - 1].at; }
@@ -125,7 +135,6 @@ window.updateHeatmapAndStats = function() {
     const buckets = new Array(bucketCount).fill(0);
 
     actions.forEach((act, idx) => {
-        // Los puntos más allá del video se ignoran en el mapa de calor
         if (act.at <= totalDurationMs) {
             const b = Math.floor(act.at / bucketDuration);
             if (b >= 0 && b < bucketCount) {
@@ -172,7 +181,6 @@ canvas?.addEventListener('wheel', (e) => {
     
     if (e.shiftKey) {
         const timeAtMouse = xToTime(mouseX);
-        // 🎯 ZOOM FINO
         zoom = Math.round((zoom + (e.deltaY < 0 ? 0.05 : -0.05)) * 100) / 100;
         zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
         
@@ -319,10 +327,10 @@ window.addEventListener('injectPoint', function(e) {
     const existingIdx = actions.findIndex(a => a.at === timeMs);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
-        actions[existingIdx].selected = true; // 🎯 AUTO-SELECT AL INYECTAR
+        actions[existingIdx].selected = true; 
     } 
     else { 
-        actions.push({ at: timeMs, pos: pos, selected: true }); // 🎯 AUTO-SELECT
+        actions.push({ at: timeMs, pos: pos, selected: true }); 
     }
     
     cleanDuplicates();
@@ -457,18 +465,20 @@ function drawTimeline() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 🔊 AUDIO WAVEFORM (Del 45% al 55% de la altura, centrado absoluto)
+        // 🔊 1. AUDIO WAVEFORM (ROJO VIVO SI MUTE)
         if (window.audioPeaks && window.audioPeaksSampleRate) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
-            ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.15)'; 
+            
+            // Rojo Carmesí Intenso (#e11d48)
+            ctx.strokeStyle = isMuted ? 'rgba(225, 29, 72, 0.7)' : 'rgba(255, 255, 255, 0.15)'; 
             ctx.beginPath();
             
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
             const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
 
             const yCenter = canvas.height / 2;
-            const maxAmplitude = canvas.height * 0.05; // 5% arriba y 5% abajo = Rango del 45% al 55%
+            const maxAmplitude = canvas.height * 0.05; 
 
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
@@ -521,7 +531,7 @@ function drawTimeline() {
                 if (x >= 30) {
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)'; 
                     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-                    ctx.fillText(`${(t/1000).toFixed(2)}s`, x + 4, 12);
+                    ctx.fillText(formatTimelineLabel(t), x + 4, 12); // 🎯 NUEVO: Formato Dinámico de Minutos
                 }
             }
             t += stepMs;
@@ -553,6 +563,7 @@ function drawTimeline() {
             });
         }
 
+        // 🛡️ SIN GHOSTING IMAGE: Dibujamos solo el fantasma limpio de líneas verdes
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
@@ -781,7 +792,7 @@ window.addEventListener('mouseup', (e) => {
                 actions[existingIdx].pos = clickPos;
                 actions[existingIdx].selected = true;
             } else {
-                actions.push({ at: clickTime, pos: clickPos, selected: true }); // 🎯 Nace seleccionado
+                actions.push({ at: clickTime, pos: clickPos, selected: true });
             }
             
             cleanDuplicates();
