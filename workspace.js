@@ -1,11 +1,29 @@
 // ==========================================================================
-// WORKSPACE V6.1: INYECCIÓN DE TELEMETRÍA (PUNTOS Y VELOCIDAD)
+// WORKSPACE V7.0: TEMA CLARO E INYECCIÓN DE TELEMETRÍA
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
     const container = document.querySelector(".workspace-container");
     const toggleContainer = document.getElementById("top-center-toggles");
     if (!container || !toggleContainer) return;
+
+    // 🌗 MOTOR DE TEMA CLARO / OSCURO
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    const currentTheme = localStorage.getItem('funscript_theme') || 'dark';
+    if (currentTheme === 'light') {
+        document.body.classList.add('light-theme');
+        if (themeBtn) themeBtn.innerText = '🌙 Oscuro';
+    }
+    themeBtn?.addEventListener('click', () => {
+        document.body.classList.toggle('light-theme');
+        const isLight = document.body.classList.contains('light-theme');
+        localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+        themeBtn.innerText = isLight ? '🌙 Oscuro' : '☀️ Claro';
+        
+        // Avisar a los Canvas que deben redibujarse con los nuevos colores
+        if (typeof drawTimeline === 'function') drawTimeline();
+        if (typeof drawModalCanvas === 'function') drawModalCanvas();
+    });
 
     const panels = Array.from(document.querySelectorAll(".workspace-panel"));
     const GAP = 8; 
@@ -75,7 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const header = document.createElement("div");
             header.className = "panel-header";
             
-            // 🎯 INYECTAMOS EL CONTENEDOR DE TELEMETRÍA EN LA LÍNEA DEL TIEMPO
             let extraInfo = "";
             if (panel.id === "panel-timeline") {
                 extraInfo = `<span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; margin-left: auto;">Puntos: 0 | Velocidad: --</span>`;
