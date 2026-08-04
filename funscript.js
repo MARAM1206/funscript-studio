@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V6.0 (AUTO-CREACIÓN DE SCRIPTS)
+// GESTOR DE ARCHIVOS V6.1 (COLORES VIVOS Y TEXTO HEREDADO)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -8,14 +8,13 @@ const funscriptInput = document.getElementById('funscript-input');
 const exportBtn = document.getElementById('export-btn');
 const tracksListContainer = document.getElementById('tracks-list');
 
-// 🎯 NUEVO: Creador de Scripts en Blanco
 window.createEmptyTrack = function(baseName) {
     const colorIndex = window.loadedFunscriptTracks.length % TRACK_COLORS.length;
     const isFirst = window.loadedFunscriptTracks.length === 0;
 
     window.loadedFunscriptTracks.push({
         id: 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        name: baseName, // Hereda el nombre del video
+        name: baseName, 
         color: TRACK_COLORS[colorIndex],
         actions: [],
         visible: true,
@@ -99,18 +98,22 @@ window.updateFileManagerUI = function() {
     } else {
         const marginStyle = window.currentVideoName ? "margin-left: 20px;" : "margin-left: 0;";
         
-        htmlContent += window.loadedFunscriptTracks.map(track => `
-            <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="${marginStyle}">
+        htmlContent += window.loadedFunscriptTracks.map(track => {
+            // 🎨 ESTILO DE COLORES HEREDADOS DEL SCRIPT
+            const borderColor = track.isPrimary ? track.color : '#334155';
+            const textColor = track.isPrimary ? track.color : '#94a3b8';
+            return `
+            <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="${marginStyle} border-left-color: ${borderColor};">
                 <div class="track-info">
-                    <span class="track-name" style="color: ${track.isPrimary ? '#38bdf8' : '#94a3b8'};" title="${track.name}">${track.name}</span>
+                    <span class="track-name" style="color: ${textColor};" title="${track.name}">${track.name}</span>
                 </div>
                 <div class="track-actions">
-                    ${track.isPrimary ? `<span class="primary-badge">Principal</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}">⭐</button>`}
+                    ${track.isPrimary ? `<span class="primary-badge" style="background: ${track.color};">Principal</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}">⭐</button>`}
                     <button class="track-btn toggle-vis-btn" data-id="${track.id}">${track.visible ? '👁️' : '🙈'}</button>
                     <button class="track-btn delete-track-btn" data-id="${track.id}" style="color: #ef4444;">🗑️</button>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     }
 
     tracksListContainer.innerHTML = htmlContent;
@@ -119,6 +122,7 @@ window.updateFileManagerUI = function() {
         if (window.videoPlayer) {
             window.videoPlayer.src = "";
             window.currentVideoName = null;
+            window.audioPeaks = null; // Purga de audio
             const vName = document.getElementById('v-name');
             if (vName) vName.innerText = "Sin video";
             window.updateFileManagerUI();
