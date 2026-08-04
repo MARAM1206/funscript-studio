@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V19.0 (AUDIO WAVEFORM Y RETORNO 'N')
+// REPRODUCTOR Y MOTOR DE ATAJOS V20.0 (WAVEFORM RED Y N-RETURN)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -8,7 +8,7 @@ const videoProgress = document.getElementById('video-progress');
 
 window.videoPlayer = videoPlayer;
 window.currentVideoName = null; 
-window.audioPeaks = null; // Matriz de ondas de sonido
+window.audioPeaks = null; 
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -50,15 +50,14 @@ async function loadVideoFile(file, hasFunscripts = false) {
         }
     }
 
-    // 🔊 EXTRACCIÓN DE AUDIO PROFESIONAL (WAVEFORM)
-    if (vMute) { vMute.innerText = "⏳ Extrayendo audio..."; vMute.style.color = "#f59e0b"; }
+    if (vMute) { vMute.innerText = "⏳ Audio..."; vMute.style.color = "#f59e0b"; }
     try {
         const arrayBuffer = await file.arrayBuffer();
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); // Ligero
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); 
         const audioData = await audioCtx.decodeAudioData(arrayBuffer);
-        const channelData = audioData.getChannelData(0); // Mono track
+        const channelData = audioData.getChannelData(0); 
         
-        const samplesPerSec = 100; // Resolución visual (100 FPS)
+        const samplesPerSec = 100; 
         const step = Math.floor(audioData.sampleRate / samplesPerSec);
         const peaks = new Float32Array(Math.floor(channelData.length / step));
         
@@ -77,7 +76,6 @@ async function loadVideoFile(file, hasFunscripts = false) {
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
 
     } catch (err) {
-        console.warn("No se pudo extraer la pista de audio o el video no tiene sonido.", err);
         if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.style.color = "#94a3b8"; }
     }
 }
@@ -116,8 +114,8 @@ videoPlayer?.addEventListener('seeked', () => {
 });
 
 videoPlayer?.addEventListener('loadedmetadata', () => {
-    if (vRes) vRes.innerText = `📏 ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
-    if (vFps) vFps.innerText = `⏱️ ~30 fps`; 
+    if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
+    if (vFps) vFps.innerText = `~30 fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
     
@@ -126,10 +124,12 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
 });
 
 videoPlayer?.addEventListener('volumechange', () => {
-    if (vMute && window.audioPeaks) {
+    if (vMute) {
         vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On";
         vMute.style.color = videoPlayer.muted || videoPlayer.volume === 0 ? "#ef4444" : "#38bdf8";
     }
+    // 🛡️ RE-DIBUJAR PARA CAMBIAR COLOR DE LA ONDA A ROJO
+    if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
 const dragOverlay = document.getElementById('drag-drop-overlay');
@@ -251,7 +251,7 @@ window.addEventListener('keydown', (event) => {
                 window.funscriptActions.forEach(a => a.selected = false);
                 target.selected = true; syncSlider(); forcePan();
             } else {
-                // 🎯 EXCEPCIÓN TECLA N (Saltar al último punto si estamos más allá del final)
+                // 🛡️ REGLA: Si no hay puntos adelante, saltar al ÚLTIMO punto.
                 const lastTarget = window.funscriptActions[window.funscriptActions.length - 1];
                 if (currentTimeMs >= lastTarget.at + 15) {
                     videoPlayer.currentTime = lastTarget.at / 1000;
