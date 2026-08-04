@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V7.0: TEMA CLARO E INYECCIÓN DE TELEMETRÍA
+// WORKSPACE V7.1: TEMA CLARO E INYECCIÓN DE TELEMETRÍA (REPINTE ACTIVO)
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -20,9 +20,10 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
         themeBtn.innerText = isLight ? '🌙 Oscuro' : '☀️ Claro';
         
-        // Avisar a los Canvas que deben redibujarse con los nuevos colores
-        if (typeof drawTimeline === 'function') drawTimeline();
-        if (typeof drawModalCanvas === 'function') drawModalCanvas();
+        // 🎯 FORZAMOS EL REDIBUJADO DE LA INTERFAZ PARA APLICAR COLORES AL VUELO
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+        if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
     });
 
     const panels = Array.from(document.querySelectorAll(".workspace-panel"));
