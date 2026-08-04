@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V34.0: SOPORTE DE TEMA CLARO DINÁMICO
+// TIMELINE V35.0: PORTAPAPELES GHOST Y SOBRESCRIBIR SELECCIÓN MULTIPLE
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -38,11 +38,13 @@ window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 
 function formatTimelineLabel(timeMs) {
-    const totalSecs = timeMs / 1000;
-    if (totalSecs < 60) return `${totalSecs.toFixed(1)}s`; 
+    const isNeg = timeMs < 0;
+    const totalSecs = Math.abs(timeMs) / 1000;
+    let sign = isNeg ? "-" : "";
+    if (totalSecs < 60) return `${sign}${totalSecs.toFixed(1)}s`; 
     const m = Math.floor(totalSecs / 60);
     const s = (totalSecs % 60).toFixed(1).padStart(4, '0');
-    return `${m}:${s.replace('.0', '')}`;
+    return `${sign}${m}:${s.replace('.0', '')}`;
 }
 
 function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
@@ -200,14 +202,37 @@ canvas?.addEventListener('wheel', (e) => {
 
 window.addEventListener('videoPlay', () => { drawTimeline(); });
 
-window.addEventListener('forceTimelinePan', () => {
-    const actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+// 🎯 REPARACIÓN B/N: Lee el tiempo exacto que le manda el teclado
+window.addEventListener('forceTimelinePan', (e) => {
+    let actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+    if (e && e.detail && e.detail.timeMs !== undefined) {
+        actualTime = e.detail.timeMs;
+    }
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     scrollLeftMs = actualTime - (visibleMs / 2);
     if (scrollLeftMs < 0) scrollLeftMs = 0;
     drawTimeline();
 });
 
+// 🎯 PORTAPAPELES: COPIAR
+window.addEventListener('copyPoints', () => {
+    const selected = getSafeActions().filter(a => a.selected);
+    if (selected.length > 0) {
+        const baseTime = selected[0].at;
+        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: a.pos }));
+    }
+});
+
+// 🎯 PORTAPAPELES: ACTIVAR FANTASMA PARA PEGAR
+window.addEventListener('pastePoints', () => {
+    const modal = document.getElementById('preset-editor-modal');
+    if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && modal.style.display !== 'flex') {
+        window.isPastingMode = true;
+        window.timelineGhostPreset = window.clipboardFunscript;
+    }
+});
+
+// ARRASTRE DE PRESETS (GHOST)
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -265,15 +290,16 @@ canvas?.addEventListener('drop', (e) => {
 
         saveHistoryState();
         
-        window.funscriptActions = actions.filter(act => act.at < dropTimeMs || act.at > endTimeMs);
-        window.funscriptActions.forEach(a => a.selected = false); 
-
+        // 🎯 SOBRESCRIBIR AL SOLTAR PRESET
         const newActions = window.timelineGhostPreset.map(act => ({
             at: dropTimeMs + act.at,
             pos: Math.max(0, Math.min(100, act.pos + deltaY)),
             selected: true 
         }));
         
+        const newTimes = new Set(newActions.map(a => a.at));
+        window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
+        window.funscriptActions.forEach(a => a.selected = false); 
         window.funscriptActions.push(...newActions);
         cleanDuplicates(); 
         
@@ -447,8 +473,7 @@ function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
-// 🎨 DIBUJADO DE LA LÍNEA DEL TIEMPO CON TEMA CLARO/OSCURO
-window.drawTimeline = function() {
+function drawTimeline() {
     try {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
@@ -459,26 +484,15 @@ window.drawTimeline = function() {
             scrollLeftMs = actualTime - (visibleMs / 2);
             if (scrollLeftMs < 0) scrollLeftMs = 0;
         }
-
-        // Variables de Tema
-        const isLight = document.body.classList.contains('light-theme');
-        const bgColor = isLight ? '#f8fafc' : '#06090e';
-        const gridColor = isLight ? 'rgba(100, 116, 139, 0.2)' : 'rgba(148, 163, 184, 0.15)';
-        const timeLineColor = isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.04)';
-        const colBgColor = isLight ? '#e2e8f0' : '#0b0f17';
-        const colBorder = isLight ? '#cbd5e1' : '#1e293b';
-        const textDimColor = isLight ? '#475569' : '#94a3b8';
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = bgColor; 
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 🔊 AUDIO WAVEFORM
         if (window.audioPeaks && window.audioPeaksSampleRate) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
             
-            // Rojo puro en mute, blanco/gris en normal
+            const isLight = document.body.classList.contains('light-theme');
             ctx.strokeStyle = isMuted ? 'rgba(225, 29, 72, 0.8)' : (isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)'); 
             ctx.beginPath();
             
@@ -499,6 +513,14 @@ window.drawTimeline = function() {
             }
             ctx.stroke();
         }
+
+        const isLight = document.body.classList.contains('light-theme');
+        const bgColor = isLight ? '#f8fafc' : '#06090e';
+        const gridColor = isLight ? 'rgba(100, 116, 139, 0.2)' : 'rgba(148, 163, 184, 0.15)';
+        const timeLineColor = isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.04)';
+        const colBgColor = isLight ? '#e2e8f0' : '#0b0f17';
+        const colBorder = isLight ? '#cbd5e1' : '#1e293b';
+        const textDimColor = isLight ? '#475569' : '#94a3b8';
 
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
         ctx.fillStyle = 'rgba(236, 72, 153, 0.08)'; ctx.fillRect(30, y100, canvas.width - 30, y70 - y100);
@@ -571,7 +593,8 @@ window.drawTimeline = function() {
             });
         }
 
-        if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+        // 🎯 DIBUJO DEL FANTASMA AL PEGAR O ARRASTRAR
+        if (window.isPastingMode && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
             ctx.lineWidth = 3; 
             ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; 
@@ -671,6 +694,38 @@ pointSlider?.addEventListener('change', function() {
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
 canvas?.addEventListener('mousedown', (e) => {
+    // 🎯 MODO PEGAR: Si está el fantasma activado, un clic lo suelta
+    if (window.isPastingMode && window.timelineGhostPreset) {
+        if (e.button === 0) { 
+            ensureTrackExists();
+            saveHistoryState();
+            const pos = getMousePos(e);
+            let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
+            const deltaY = window.timelineGhostDeltaPos || 0;
+            
+            const newActions = window.timelineGhostPreset.map(act => ({
+                at: Math.max(0, dropTimeMs + act.at),
+                pos: Math.max(0, Math.min(100, act.pos + deltaY)),
+                selected: true 
+            }));
+            
+            const newTimes = new Set(newActions.map(a => a.at));
+            window.funscriptActions = getSafeActions().filter(a => !newTimes.has(a.at));
+            window.funscriptActions.forEach(a => a.selected = false);
+            window.funscriptActions.push(...newActions);
+            cleanDuplicates(); 
+            
+            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+            drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+            return;
+        } else if (e.button === 2) { 
+            // Clic derecho cancela el Pegar
+            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            drawTimeline(); return;
+        }
+    }
+
     const actions = getSafeActions();
     const pos = getMousePos(e);
     const clickX = pos.x; const clickY = pos.y;
@@ -710,8 +765,44 @@ canvas?.addEventListener('mousedown', (e) => {
 });
 
 canvas?.addEventListener('mousemove', (e) => {
-    const actions = getSafeActions();
     const pos = getMousePos(e);
+    
+    // 🎯 MOTOR DEL FANTASMA AL PEGAR
+    if (window.isPastingMode && window.timelineGhostPreset) {
+        let hoverTimeMs = xToTime(pos.x);
+        let hoverPosRaw = yToPos(pos.y);
+        
+        const snapDistMs = 350; 
+        const actions = getSafeActions();
+        const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+        
+        const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
+        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+        const presetMid = presetDuration / 2; 
+
+        let bestSnapTime = hoverTimeMs;
+        let minDistance = snapDistMs;
+
+        snapTargets.forEach(target => {
+            let distStart = Math.abs(hoverTimeMs - target);
+            if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
+            let distMid = Math.abs((hoverTimeMs + presetMid) - target);
+            if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
+            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
+            if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
+        });
+
+        if (bestSnapTime < 0) bestSnapTime = 0;
+        window.timelineGhostTimeMs = bestSnapTime;
+        
+        let hoverPos = Math.round(hoverPosRaw / 5) * 5;
+        const basePos = window.timelineGhostPreset[0].pos;
+        window.timelineGhostDeltaPos = hoverPos - basePos;
+        drawTimeline();
+        return; // Detiene el mousemove normal
+    }
+
+    const actions = getSafeActions();
     const mouseX = pos.x; const mouseY = pos.y;
 
     window.magneticSnapPoint = null;
@@ -777,9 +868,10 @@ canvas?.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
+    if (window.isPastingMode) return; // Si estamos pegando, el click ya se procesó en mousedown
+
     let actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
-        
         if (!hadSelectionBeforeMousedown) {
             ensureTrackExists(); 
             actions = getSafeActions(); 
@@ -807,6 +899,10 @@ window.addEventListener('mouseup', (e) => {
             notifyCloud(); window.updateHeatmapAndStats();
         }
     } else if (isDraggingNode || hasDraggedSelection) { 
+        // 🎯 SOBRESCRIBIR AL ARRASTRAR MULTI-SELECCIÓN
+        const selectedTimes = new Set(actions.filter(a => a.selected).map(a => a.at));
+        window.funscriptActions = actions.filter(a => a.selected || !selectedTimes.has(a.at));
+        
         cleanDuplicates();
         notifyCloud(); window.updateHeatmapAndStats();
     }
