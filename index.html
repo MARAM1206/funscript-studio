@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=33">
+    <link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body>
 
@@ -18,9 +18,11 @@
         <div id="top-center-toggles" class="top-center-toggles"></div>
         <div class="top-right-actions" style="display: flex; align-items: center; gap: 15px;">
             
-            <div style="display: flex; align-items: center; gap: 8px; background: #0f131a; padding: 4px 10px; border-radius: 8px; border: 1px solid #1e293b;">
+            <button id="theme-toggle-btn" class="menu-btn" style="background: #334155; padding: 4px 10px; font-size: 0.75rem;">☀️ Claro</button>
+
+            <div style="display: flex; align-items: center; gap: 8px; background: var(--panel-bg, #0f131a); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--border-color, #1e293b);">
                 <span id="handy-status" style="font-size:0.75rem; color:#64748b; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
-                <input type="text" id="handy-key" placeholder="Tu Connection Key" style="width: 140px; padding: 4px 8px; border-radius: 4px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; font-size: 0.75rem; text-align: center; outline: none;">
+                <input type="text" id="handy-key" placeholder="Tu Connection Key" style="width: 140px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color, #1e293b); background: var(--input-bg, #020617); color: var(--text-main, #e2e8f0); font-size: 0.75rem; text-align: center; outline: none;">
                 <button id="handy-connect-btn" class="menu-btn" style="background:#ea580c; padding: 4px 10px; font-size: 0.75rem;">🛜 Conectar Handy</button>
             </div>
 
@@ -36,35 +38,35 @@
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 500px;">
             
             <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
-                <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor de Presets</h3>
+                <h3 style="margin-bottom: 15px; color: var(--text-main, #e2e8f0); font-size: 1.1rem;">✏️ Editor de Presets</h3>
                 
-                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
-                <input type="text" id="preset-editor-name" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
+                <label style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
+                <input type="text" id="preset-editor-name" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color, #1e293b); background: var(--input-bg, #020617); color: var(--text-main, #e2e8f0); margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
                 
                 <div style="display: flex; justify-content: space-between; align-items:flex-end;">
-                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Patrón:</label>
-                    <span style="font-size: 0.7rem; color: #64748b; margin-bottom: 4px;">Atajos activados (Ctrl+Z, Y, A) | Zoom: Shift+Ruedita</span>
+                    <label style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Patrón:</label>
+                    <span style="font-size: 0.7rem; color: var(--text-dim, #64748b); margin-bottom: 4px;">Atajos activados (Ctrl+Z, Y, A) | Zoom: Shift+Ruedita</span>
                 </div>
                 
-                <div style="position: relative; width: 100%; flex-grow: 1; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
+                <div style="position: relative; width: 100%; flex-grow: 1; border: 1px solid var(--border-color, #1e293b); border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
                     <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
                 </div>
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                    <p style="font-size: 0.75rem; color: #64748b; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar</p>
+                    <p style="font-size: 0.75rem; color: var(--text-dim, #64748b); margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar</p>
                     <div style="display: flex; gap: 10px;">
                         <button id="preset-editor-cancel" class="menu-btn" style="background: #334155;">Cancelar</button>
                         <button id="preset-editor-save-new" class="menu-btn" style="background: #0891b2;">Crear como Nuevo</button>
-                        <button id="preset-editor-save" class="menu-btn success-btn">Sobrescribir</button>
+                        <button id="preset-editor-save" class="menu-btn success-btn">Guardar</button>
                     </div>
                 </div>
             </div>
 
             <div class="modal-content" style="width: 250px; display: flex; flex-direction: column; padding: 15px;">
-                <h4 style="color:#94a3b8; font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">Tus Presets</h4>
-                <p style="font-size: 0.7rem; color: #64748b; text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
+                <h4 style="color:var(--text-dim, #94a3b8); font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom: 1px solid var(--border-color, #1e293b); padding-bottom: 10px;">Tus Presets</h4>
+                <p style="font-size: 0.7rem; color: var(--text-dim, #64748b); text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
                 <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
-                    </div>
+                </div>
             </div>
 
         </div>
@@ -118,7 +120,7 @@
 
         <div id="panel-quick" class="workspace-panel" data-title="⚡ Inyector Rápido">
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
+                <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
                 <div class="dual-slider-labels">
                     <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 15%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 85%</span>
                 </div>
@@ -145,12 +147,12 @@
 
     </div>
 
-    <script src="workspace.js?v=33"></script>
-    <script src="handy.js?v=33"></script> 
-    <script src="funscript.js?v=33"></script>
-    <script src="player.js?v=33"></script>
-    <script src="tracking.js?v=33"></script>
-    <script src="presets.js?v=33"></script>
-    <script src="timeline.js?v=33"></script>
+    <script src="workspace.js?v=34"></script>
+    <script src="handy.js?v=34"></script> 
+    <script src="funscript.js?v=34"></script>
+    <script src="player.js?v=34"></script>
+    <script src="tracking.js?v=34"></script>
+    <script src="presets.js?v=34"></script>
+    <script src="timeline.js?v=34"></script>
 </body>
 </html>
