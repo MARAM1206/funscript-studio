@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V31.0: AUDIO WAVEFORM, INYECTOR AUTO-SELECT Y DESLIZADOR EN VIVO
+// TIMELINE V32.0: WAVEFORM ROJA, INYECTOR AUTO-SELECT Y HEATMAP SYNC
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -102,13 +102,14 @@ window.updateHeatmapAndStats = function() {
     const hCanvas = document.getElementById('heatmap-canvas');
     if (!hCanvas) return;
     
+    // 🛡️ Candado Estricto de Duración: El mapa siempre dura lo que dura el video.
     let totalDurationMs = 0;
-    if (actions.length > 0) { totalDurationMs = actions[actions.length - 1].at; } 
-    else if (videoNode && videoNode.duration) { totalDurationMs = videoNode.duration * 1000; }
+    if (videoNode && videoNode.duration) { totalDurationMs = videoNode.duration * 1000; } 
+    else if (actions.length > 0) { totalDurationMs = actions[actions.length - 1].at; }
 
-    if (totalDurationMs === 0 || actions.length === 0) {
+    if (totalDurationMs <= 0) {
         const hCtx = hCanvas.getContext('2d');
-        hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+        if (hCtx) hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
         return;
     }
 
@@ -124,10 +125,16 @@ window.updateHeatmapAndStats = function() {
     const buckets = new Array(bucketCount).fill(0);
 
     actions.forEach((act, idx) => {
-        const b = Math.floor(act.at / bucketDuration);
-        if (b >= 0 && b < bucketCount) {
-            if (idx > 0) { buckets[b] += Math.abs(act.pos - actions[idx-1].pos); } 
-            else { buckets[b] += 50; }
+        // Los puntos más allá del video se ignoran en el mapa de calor
+        if (act.at <= totalDurationMs) {
+            const b = Math.floor(act.at / bucketDuration);
+            if (b >= 0 && b < bucketCount) {
+                if (idx > 0 && actions[idx-1].at <= totalDurationMs) { 
+                    buckets[b] += Math.abs(act.pos - actions[idx-1].pos); 
+                } else { 
+                    buckets[b] += 50; 
+                }
+            }
         }
     });
 
@@ -148,7 +155,7 @@ window.updateHeatmapAndStats = function() {
             const intensity = Math.min(1.0, 0.2 + (0.8 * (smoothedBuckets[i] / maxDistance)));
             const hue = (1 - intensity) * 200; 
             hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity)})`;
-            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 1, hCanvas.height);
+            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
         }
     }
 };
@@ -165,7 +172,7 @@ canvas?.addEventListener('wheel', (e) => {
     
     if (e.shiftKey) {
         const timeAtMouse = xToTime(mouseX);
-        // 🎯 ZOOM FINO (Smooth Additive Zoom)
+        // 🎯 ZOOM FINO
         zoom = Math.round((zoom + (e.deltaY < 0 ? 0.05 : -0.05)) * 100) / 100;
         zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
         
@@ -280,13 +287,12 @@ function updateDualSlider() {
     const valA = parseInt(sliderA.value, 10); const valB = parseInt(sliderB.value, 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
     
-    // 🎯 COLORES DINÁMICOS SEGÚN QUIÉN ES MÁS ALTO
     if (valA > valB) {
-        sliderA.style.setProperty('--thumb-color', '#f97316'); // A es Naranja (Max)
-        sliderB.style.setProperty('--thumb-color', '#38bdf8'); // B es Azul (Min)
+        sliderA.style.setProperty('--thumb-color', '#f97316'); 
+        sliderB.style.setProperty('--thumb-color', '#38bdf8'); 
     } else {
-        sliderA.style.setProperty('--thumb-color', '#38bdf8'); // A es Azul (Min)
-        sliderB.style.setProperty('--thumb-color', '#f97316'); // B es Naranja (Max)
+        sliderA.style.setProperty('--thumb-color', '#38bdf8'); 
+        sliderB.style.setProperty('--thumb-color', '#f97316'); 
     }
 
     if (minLabel) minLabel.innerText = `⬇️ Mínimo: ${currentMin}%`; if (maxLabel) maxLabel.innerText = `⬆️ Máximo: ${currentMax}%`;
@@ -313,10 +319,10 @@ window.addEventListener('injectPoint', function(e) {
     const existingIdx = actions.findIndex(a => a.at === timeMs);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
-        actions[existingIdx].selected = true; // 🎯 AUTO-SELECCIÓN ACTIVA
+        actions[existingIdx].selected = true; // 🎯 AUTO-SELECT AL INYECTAR
     } 
     else { 
-        actions.push({ at: timeMs, pos: pos, selected: true }); // 🎯 AUTO-SELECCIÓN ACTIVA
+        actions.push({ at: timeMs, pos: pos, selected: true }); // 🎯 AUTO-SELECT
     }
     
     cleanDuplicates();
@@ -451,21 +457,24 @@ function drawTimeline() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 🔊 1. DIBUJO DE ONDA DE AUDIO (WAVEFORM)
+        // 🔊 AUDIO WAVEFORM (Del 45% al 55% de la altura, centrado absoluto)
         if (window.audioPeaks && window.audioPeaksSampleRate) {
             ctx.lineWidth = 1;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; // Color de la onda
+            const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
+            ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.15)'; 
             ctx.beginPath();
             
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
             const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
 
             const yCenter = canvas.height / 2;
+            const maxAmplitude = canvas.height * 0.05; // 5% arriba y 5% abajo = Rango del 45% al 55%
+
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
                 if (x >= 30) {
-                    const amplitude = window.audioPeaks[i] * (canvas.height / 2.2); // Altura de la onda
+                    const amplitude = window.audioPeaks[i] * maxAmplitude; 
                     ctx.moveTo(x, yCenter - amplitude);
                     ctx.lineTo(x, yCenter + amplitude);
                 }
@@ -473,7 +482,6 @@ function drawTimeline() {
             ctx.stroke();
         }
 
-        // 2. FONDOS TÉRMICOS Y ZONAS
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
         ctx.fillStyle = 'rgba(236, 72, 153, 0.08)'; ctx.fillRect(30, y100, canvas.width - 30, y70 - y100);
         ctx.fillStyle = 'rgba(56, 189, 248, 0.05)'; ctx.fillRect(30, y70, canvas.width - 30, y20 - y70);
@@ -773,7 +781,7 @@ window.addEventListener('mouseup', (e) => {
                 actions[existingIdx].pos = clickPos;
                 actions[existingIdx].selected = true;
             } else {
-                actions.push({ at: clickTime, pos: clickPos, selected: true });
+                actions.push({ at: clickTime, pos: clickPos, selected: true }); // 🎯 Nace seleccionado
             }
             
             cleanDuplicates();
