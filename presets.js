@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V31.0: EDITOR GIGANTE CON MULTI-SELECT, IMÁN Y ZOOM FINO
+// PRESETS V33.0: MULTI-EDICIÓN, ZOOM FINO, IMÁN, Y FUSIONES LIMPIAS
 // ==========================================================================
 
 let savedPresets = {};
@@ -18,13 +18,13 @@ const modalNameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
 const btnCancel = document.getElementById('preset-editor-cancel');
 const btnSave = document.getElementById('preset-editor-save');
+const btnSaveNew = document.getElementById('preset-editor-save-new'); // 🎯 NUEVO BOTÓN
 
 let mCtx = modalCanvas ? modalCanvas.getContext('2d') : null;
 let currentEditingPresetName = "";
 let mActions = [];
 let mDuration = 1000;
 
-// 🛡️ MOTOR DE INTERACCIÓN DEL MODAL
 let mIsDragging = false;
 let mIsSelecting = false;
 let mHasDraggedSelection = false;
@@ -39,6 +39,16 @@ let mRedoStack = [];
 let mZoom = 1.0;
 let mPanX = 0;
 let mBasePixelsPerMs = 0.1; 
+let mSnapPoint = null; 
+
+// Formateador dinámico (Minutos)
+function formatModalLabel(timeMs) {
+    const totalSecs = timeMs / 1000;
+    if (totalSecs < 60) return `${totalSecs.toFixed(1)}s`; 
+    const m = Math.floor(totalSecs / 60);
+    const s = (totalSecs % 60).toFixed(1).padStart(4, '0');
+    return `${m}:${s.replace('.0', '')}`;
+}
 
 function saveModalHistory() { mUndoStack.push(JSON.stringify(mActions)); if(mUndoStack.length > 30) mUndoStack.shift(); mRedoStack = []; }
 function undoModal() { if(mUndoStack.length > 0) { mRedoStack.push(JSON.stringify(mActions)); mActions = JSON.parse(mUndoStack.pop()); drawModalCanvas(); } }
@@ -73,6 +83,10 @@ presetsBtn?.addEventListener('click', function() {
     updatePresetsList();
 });
 
+// Para crear el HTML ghost invisible y bloquear la sombra por defecto de Windows
+const emptyImage = new Image();
+emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 function updatePresetsList() {
     const listContainer = document.getElementById('presets-list');
     const modalLibrary = document.getElementById('modal-presets-library-list');
@@ -84,44 +98,41 @@ function updatePresetsList() {
         return;
     }
 
-    const htmlContent = presetNames.map((name, index) => {
-        return `
-            <div class="preset-card" draggable="true" data-preset="${name}">
-                <div class="preset-card-header">
-                    <span class="preset-card-title">${name}</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="preset-action-btn edit-preset-btn" data-preset="${name}" title="Editar Preset">✏️</button>
-                        <button class="preset-action-btn delete-preset-btn" data-preset="${name}" style="color: #ef4444;" title="Eliminar">🗑️</button>
-                    </div>
-                </div>
-                <canvas id="mini-canvas-${index}" class="preset-mini-canvas" width="200" height="36"></canvas>
+    const buildCardHTML = (name, index, isModal) => `
+        <div class="preset-card ${isModal ? 'modal-lib-card' : ''}" draggable="true" data-preset="${name}">
+            <div class="preset-card-header">
+                <span class="preset-card-title">${name}</span>
+                ${!isModal ? `
+                <div style="display: flex; gap: 4px;">
+                    <button class="preset-action-btn edit-preset-btn" data-preset="${name}" title="Editar Preset">✏️</button>
+                    <button class="preset-action-btn delete-preset-btn" data-preset="${name}" style="color: #ef4444;" title="Eliminar">🗑️</button>
+                </div>` : ''}
             </div>
-        `;
-    }).join('');
+            <canvas id="${isModal ? 'modal-lib-canvas' : 'mini-canvas'}-${index}" class="preset-mini-canvas" width="200" height="36"></canvas>
+        </div>
+    `;
 
-    if (listContainer) listContainer.innerHTML = htmlContent;
-
-    // 🎯 INYECTAR LA LIBRERÍA EN EL PANEL DERECHO DEL MODAL
-    if (modalLibrary) {
-        modalLibrary.innerHTML = presetNames.map((name, index) => {
-            return `
-                <div class="preset-card" draggable="true" data-preset="${name}" style="cursor: grab;">
-                    <div class="preset-card-title">${name}</div>
-                    <canvas id="modal-lib-canvas-${index}" class="preset-mini-canvas" width="200" height="36"></canvas>
-                </div>
-            `;
-        }).join('');
-    }
+    if (listContainer) listContainer.innerHTML = presetNames.map((name, i) => buildCardHTML(name, i, false)).join('');
+    if (modalLibrary) modalLibrary.innerHTML = presetNames.map((name, i) => buildCardHTML(name, i, true)).join('');
 
     setTimeout(() => {
-        presetNames.forEach((name, index) => {
-            drawMiniCanvas(`mini-canvas-${index}`, savedPresets[name]);
-            drawMiniCanvas(`modal-lib-canvas-${index}`, savedPresets[name]);
+        presetNames.forEach((name, i) => {
+            drawMiniCanvas(`mini-canvas-${i}`, savedPresets[name]);
+            drawMiniCanvas(`modal-lib-canvas-${i}`, savedPresets[name]);
         });
     }, 50);
 
     document.querySelectorAll('.preset-card').forEach(card => {
+        // 🎯 DOBLE CLIC EN LIBRERÍA DEL MODAL ABRE EL PRESET RÁPIDO
+        if (card.classList.contains('modal-lib-card')) {
+            card.addEventListener('dblclick', function() {
+                openPresetEditor(this.getAttribute('data-preset'));
+            });
+        }
+
+        // 🛡️ SIN GHOSTING IMAGE NATIVO (Bloqueado)
         card.addEventListener('dragstart', function(e) {
+            e.dataTransfer.setDragImage(emptyImage, 0, 0); 
             window.isDraggingPreset = true; 
             const name = this.getAttribute('data-preset');
             window.timelineGhostPreset = savedPresets[name];
@@ -129,7 +140,7 @@ function updatePresetsList() {
         card.addEventListener('dragend', function() {
             window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0; 
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
-            drawModalCanvas(); // Limpia el fantasma del modal
+            drawModalCanvas(); 
         });
     });
 
@@ -186,13 +197,13 @@ function openPresetEditor(name) {
     mActions = JSON.parse(JSON.stringify(savedPresets[name]));
     mActions.forEach(a => a.selected = false);
     if (mActions.length === 0) mActions.push({at: 0, pos: 50, selected: false});
-    mDuration = mActions[mActions.length - 1].at || 1000;
+    mDuration = Math.max(1000, mActions[mActions.length - 1].at);
     
     mZoom = 1.0; mPanX = 0;
 
     modal.style.display = 'flex';
     ensureModalCanvasSize();
-    mBasePixelsPerMs = (modalCanvas.width - 60) / (mDuration === 0 ? 1000 : mDuration);
+    mBasePixelsPerMs = (modalCanvas.width - 60) / mDuration;
     drawModalCanvas();
 
     document.addEventListener('keydown', modalKeydownHandler);
@@ -205,7 +216,6 @@ function closePresetEditor() {
     document.removeEventListener('keydown', modalKeydownHandler);
 }
 
-// 🛡️ TECLADO DEL MODAL (Ctrl+Z, Y, A)
 function modalKeydownHandler(e) {
     if (e.target.tagName === 'INPUT') return;
     const key = e.key.toLowerCase();
@@ -226,17 +236,39 @@ function modalKeydownHandler(e) {
 
 btnCancel?.addEventListener('click', closePresetEditor);
 
+// 🎯 BOTÓN: SOBRESCRIBIR
 btnSave?.addEventListener('click', () => {
     const newName = modalNameInput.value.trim();
     if (!newName) { alert("El nombre no puede estar vacío."); return; }
-    if (mActions.length === 0) { alert("¡Cuidado! El preset no puede estar vacío. Agrega al menos un punto."); return; }
+    if (mActions.length === 0) { alert("¡Cuidado! El preset no puede estar vacío."); return; }
 
     mActions.sort((a, b) => a.at - b.at);
     const baseTime = mActions[0].at;
     mActions.forEach(act => { act.at -= baseTime; act.selected = false; });
 
     if (newName !== currentEditingPresetName) delete savedPresets[currentEditingPresetName];
+    savedPresets[newName] = mActions;
+    localStorage.setItem('funscript_saved_presets', JSON.stringify(savedPresets));
     
+    closePresetEditor(); updatePresetsList();
+});
+
+// 🎯 BOTÓN: CREAR COMO NUEVO
+btnSaveNew?.addEventListener('click', () => {
+    let newName = modalNameInput.value.trim();
+    if (!newName) { alert("El nombre no puede estar vacío."); return; }
+    if (mActions.length === 0) { alert("¡Cuidado! El preset no puede estar vacío."); return; }
+
+    if (savedPresets[newName] && newName === currentEditingPresetName) {
+        newName = newName + " (Copia)";
+    } else if (savedPresets[newName]) {
+        alert("Ese nombre ya existe. Por favor cámbialo."); return;
+    }
+
+    mActions.sort((a, b) => a.at - b.at);
+    const baseTime = mActions[0].at;
+    mActions.forEach(act => { act.at -= baseTime; act.selected = false; });
+
     savedPresets[newName] = mActions;
     localStorage.setItem('funscript_saved_presets', JSON.stringify(savedPresets));
     
@@ -256,7 +288,7 @@ function mXToTime(x) { return ((x - 30 - mPanX) / (mBasePixelsPerMs * mZoom)); }
 function mPosToY(p) { const padT = 20; const padB = 10; return modalCanvas.height - padB - (p / 100) * (modalCanvas.height - padT - padB); }
 function mYToPos(y) { const padT = 20; const padB = 10; const p = ((modalCanvas.height - padB - y) / (modalCanvas.height - padT - padB)) * 100; return Math.max(0, Math.min(100, Math.round(p))); }
 
-// 🎯 ZOOM SEDOSO EN EL MODAL (0.02)
+// 🎯 ZOOM EXTRA FINO
 modalCanvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.shiftKey) {
@@ -271,7 +303,7 @@ modalCanvas?.addEventListener('wheel', (e) => {
     drawModalCanvas();
 }, { passive: false });
 
-// 🧲 DROP PRESET ADENTRO DEL MODAL (Fusión de presets)
+// 🧲 IMÁN TRIPLE EN EL MODAL (FUSIÓN PERFECTA DE PRESETS)
 modalCanvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -282,6 +314,26 @@ modalCanvas?.addEventListener('dragover', (e) => {
         let hoverTimeMs = mXToTime(mouseX);
         let hoverPosRaw = mYToPos(mouseY);
         
+        const snapDistMs = 250; 
+        const snapTargets = mActions.map(a => a.at);
+        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+        const presetMid = presetDuration / 2; 
+
+        let bestSnapTime = hoverTimeMs;
+        let minDistance = snapDistMs;
+
+        snapTargets.forEach(target => {
+            let distStart = Math.abs(hoverTimeMs - target);
+            if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
+            let distMid = Math.abs((hoverTimeMs + presetMid) - target);
+            if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
+            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
+            if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
+        });
+
+        if (bestSnapTime < 0) bestSnapTime = 0;
+        hoverTimeMs = bestSnapTime;
+        
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
@@ -289,17 +341,26 @@ modalCanvas?.addEventListener('dragover', (e) => {
         drawModalCanvas();
     }
 });
+
 modalCanvas?.addEventListener('dragleave', () => {
     if (window.isDraggingPreset) { window.timelineGhostTimeMs = null; drawModalCanvas(); }
 });
+
 modalCanvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
         saveModalHistory();
         
         const rect = modalCanvas.getBoundingClientRect();
-        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : mXToTime(e.clientX - rect.left);
+        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, mXToTime(e.clientX - rect.left));
         const deltaY = window.timelineGhostDeltaPos || 0;
+        
+        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+        const endTimeMs = dropTimeMs + presetDuration;
+
+        // Limpiar puntos viejos en el área para evitar colisiones feas
+        mActions = mActions.filter(act => act.at < dropTimeMs || act.at > endTimeMs);
+        mActions.forEach(a => a.selected = false); 
         
         const newActions = window.timelineGhostPreset.map(act => ({
             at: Math.max(0, dropTimeMs + act.at),
@@ -307,7 +368,6 @@ modalCanvas?.addEventListener('drop', (e) => {
             selected: true 
         }));
         
-        mActions.forEach(a => a.selected = false);
         mActions.push(...newActions);
         mActions.sort((a, b) => a.at - b.at);
         mDuration = Math.max(mDuration, mActions[mActions.length-1].at);
@@ -351,7 +411,7 @@ function drawModalCanvas() {
             if (x >= 30) {
                 mCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; 
                 mCtx.beginPath(); mCtx.moveTo(x, 0); mCtx.lineTo(x, modalCanvas.height); mCtx.stroke();
-                mCtx.fillText(`${(t/1000).toFixed(2)}s`, x + 4, 12);
+                mCtx.fillText(formatModalLabel(t), x + 4, 12);
             }
         }
         t += stepMs;
@@ -379,7 +439,6 @@ function drawModalCanvas() {
         mCtx.setLineDash([2, 2]); mCtx.beginPath(); mCtx.fillRect(mStartX, mStartY, mCurrentX - mStartX, mCurrentY - mStartY); mCtx.strokeRect(mStartX, mStartY, mCurrentX - mStartX, mCurrentY - mStartY); mCtx.setLineDash([]);
     }
 
-    // Dibujo del fantasma al fusionar presets en el modal
     if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
         const deltaY = window.timelineGhostDeltaPos || 0;
         mCtx.lineWidth = 3; mCtx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; mCtx.beginPath();
@@ -396,6 +455,15 @@ function drawModalCanvas() {
             mCtx.beginPath(); mCtx.arc(x, y, 5, 0, Math.PI * 2); mCtx.fill();
         });
     }
+    
+    // RADAR MAGNÉTICO PARA MOVER PUNTOS EN EL MODAL
+    if (mSnapPoint && !mIsSelecting && !mIsDragging) {
+        const px = mTimeToX(mSnapPoint.at);
+        const py = mPosToY(mSnapPoint.pos);
+        mCtx.lineWidth = 2; mCtx.strokeStyle = '#10b981'; 
+        mCtx.beginPath(); mCtx.arc(px, py, 9, 0, Math.PI * 2); mCtx.stroke();
+        mCtx.fillStyle = 'rgba(16, 185, 129, 0.3)'; mCtx.fill();
+    }
 }
 
 function getModalMousePos(e) {
@@ -403,7 +471,6 @@ function getModalMousePos(e) {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-// 🛡️ MOTOR DE INTERACCIÓN MÚLTIPLE EN EL MODAL (Igual a la Línea de Tiempo)
 modalCanvas?.addEventListener('mousedown', (e) => {
     const pos = getModalMousePos(e);
     if (e.button === 0) { 
@@ -425,15 +492,15 @@ modalCanvas?.addEventListener('mousedown', (e) => {
             let hadSelection = mActions.some(a => a.selected);
             if (!e.ctrlKey) mActions.forEach(a => a.selected = false);
             if (!hadSelection) {
-                // Inyectar punto rápido si no había nada seleccionado
                 saveModalHistory();
                 let clickTime = Math.max(0, Math.round(mXToTime(pos.x) / 50) * 50);
                 let clickPos = Math.round(mYToPos(pos.y) / 5) * 5;
+                if (mSnapPoint) { clickTime = mSnapPoint.at; clickPos = mSnapPoint.pos; }
+                
                 mActions.push({ at: clickTime, pos: Math.max(0, Math.min(100, clickPos)), selected: true });
                 mActions.sort((a, b) => a.at - b.at);
                 mDuration = Math.max(mDuration, mActions[mActions.length - 1].at);
             } else {
-                // Solo limpiar selección
                 mIsSelecting = true; mHasDraggedSelection = false; 
                 mStartX = pos.x; mStartY = pos.y; mCurrentX = pos.x; mCurrentY = pos.y;
             }
@@ -448,17 +515,37 @@ modalCanvas?.addEventListener('mousedown', (e) => {
 
 modalCanvas?.addEventListener('mousemove', (e) => {
     const pos = getModalMousePos(e);
+    
+    // RADAR DE IMÁN INTERNO
+    mSnapPoint = null;
+    if (!mIsSelecting && !mIsDragging) {
+        let minDist = 15;
+        mActions.forEach(act => {
+            const px = mTimeToX(act.at); const py = mPosToY(act.pos);
+            const dist = Math.hypot(pos.x - px, pos.y - py);
+            if(dist < minDist) { minDist = dist; mSnapPoint = { at: act.at, pos: act.pos }; }
+        });
+    }
+
     if (mIsDragging && mDragInitialStates.length > 0) {
-        const rawTimeDelta = mXToTime(pos.x) - mStartX;
-        const rawPosDelta = mYToPos(pos.y) - mStartY;
-        const snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
-        const snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
+        let snappedTimeDelta = 0; let snappedPosDelta = 0; let useMagnet = false;
+        if (mSnapPoint && mDraggedNodeIndex !== -1) {
+            const initial = mDragInitialStates[mDraggedNodeIndex];
+            snappedTimeDelta = mSnapPoint.at - initial.at;
+            snappedPosDelta = mSnapPoint.pos - initial.pos;
+            useMagnet = true;
+        } else {
+            const rawTimeDelta = mXToTime(pos.x) - mStartX;
+            const rawPosDelta = mYToPos(pos.y) - mStartY;
+            snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
+            snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
+        }
 
         mActions.forEach((act, i) => {
             if (mDragInitialStates[i].selected) {
                 act.at = Math.max(0, mDragInitialStates[i].at + snappedTimeDelta);
-                const rawP = mDragInitialStates[i].pos + snappedPosDelta;
-                act.pos = Math.max(0, Math.min(100, Math.round(rawP / 5) * 5));
+                if (useMagnet) act.pos = Math.max(0, Math.min(100, mDragInitialStates[i].pos + snappedPosDelta));
+                else act.pos = Math.max(0, Math.min(100, Math.round((mDragInitialStates[i].pos + snappedPosDelta) / 5) * 5));
             }
         });
         drawModalCanvas();
@@ -476,8 +563,12 @@ modalCanvas?.addEventListener('mousemove', (e) => {
 });
 
 modalCanvas?.addEventListener('mouseup', () => { 
-    if (mIsDragging || mHasDraggedSelection) { mActions.sort((a, b) => a.at - b.at); mDuration = Math.max(mDuration, mActions[mActions.length - 1].at); }
-    mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; drawModalCanvas(); 
+    if (mIsDragging || mHasDraggedSelection) { 
+        mActions.sort((a, b) => a.at - b.at); 
+        for (let i = mActions.length - 1; i > 0; i--) { if (mActions[i].at === mActions[i-1].at) mActions.splice(mActions[i].selected ? i-1 : i, 1); }
+        mDuration = Math.max(mDuration, mActions[mActions.length - 1].at); 
+    }
+    mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; mDraggedNodeIndex = -1; drawModalCanvas(); 
 });
-modalCanvas?.addEventListener('mouseleave', () => { mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; drawModalCanvas(); });
+modalCanvas?.addEventListener('mouseleave', () => { mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; mDraggedNodeIndex = -1; drawModalCanvas(); });
 modalCanvas?.addEventListener('contextmenu', e => e.preventDefault());
