@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V5.1 (TRIGGERS DE TELEMETRÍA ACTIVADOS)
+// GESTOR DE ARCHIVOS V6.0 (AUTO-CREACIÓN DE SCRIPTS)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -7,6 +7,27 @@ window.loadedFunscriptTracks = [];
 const funscriptInput = document.getElementById('funscript-input');
 const exportBtn = document.getElementById('export-btn');
 const tracksListContainer = document.getElementById('tracks-list');
+
+// 🎯 NUEVO: Creador de Scripts en Blanco
+window.createEmptyTrack = function(baseName) {
+    const colorIndex = window.loadedFunscriptTracks.length % TRACK_COLORS.length;
+    const isFirst = window.loadedFunscriptTracks.length === 0;
+
+    window.loadedFunscriptTracks.push({
+        id: 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        name: baseName, // Hereda el nombre del video
+        color: TRACK_COLORS[colorIndex],
+        actions: [],
+        visible: true,
+        isPrimary: isFirst
+    });
+
+    if (isFirst) window.funscriptActions = [];
+    
+    window.updateFileManagerUI();
+    if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
+};
 
 window.loadFunscriptFiles = function(filesArray) {
     if (filesArray.length === 0) return;
@@ -45,7 +66,7 @@ window.loadFunscriptFiles = function(filesArray) {
                 window.updateFileManagerUI();
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
                 if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
-                if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); // 🎯 NUEVO TRIGGER
+                if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); 
             }
         };
         reader.readAsText(file);
@@ -117,7 +138,7 @@ window.updateFileManagerUI = function() {
         window.updateFileManagerUI(); 
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
-        if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); // 🎯 NUEVO TRIGGER
+        if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); 
     }));
 
     document.querySelectorAll('.toggle-vis-btn').forEach(btn => btn.addEventListener('click', function() {
@@ -140,7 +161,7 @@ window.updateFileManagerUI = function() {
         window.updateFileManagerUI(); 
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate();
-        if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); // 🎯 NUEVO TRIGGER
+        if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats(); 
     }));
 };
 
@@ -153,6 +174,6 @@ exportBtn?.addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = currentPrimary ? `${currentPrimary.name}_editado.funscript` : "script.funscript";
+    link.download = currentPrimary ? `${currentPrimary.name}.funscript` : "script.funscript";
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
 });
