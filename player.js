@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V18.0 (LIMPIEZA DE AUTOCREACIÓN DE TRACKS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V19.0 (AUDIO WAVEFORM Y RETORNO 'N')
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -8,6 +8,7 @@ const videoProgress = document.getElementById('video-progress');
 
 window.videoPlayer = videoPlayer;
 window.currentVideoName = null; 
+window.audioPeaks = null; // Matriz de ondas de sonido
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -30,10 +31,10 @@ function formatTime(seconds) {
 
 videoInput?.addEventListener('change', function(event) {
     const file = event.target.files[0];
-    if (file) loadVideoFile(file);
+    if (file) loadVideoFile(file, false);
 });
 
-function loadVideoFile(file) {
+async function loadVideoFile(file, hasFunscripts = false) {
     const videoURL = URL.createObjectURL(file);
     videoPlayer.src = videoURL;
     videoPlayer.load();
@@ -41,8 +42,44 @@ function loadVideoFile(file) {
     window.currentVideoName = file.name;
     if (vName) vName.innerText = `📄 ${file.name}`;
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
-    // 🗑️ AQUÍ SE ELIMINÓ LA CREACIÓN AUTOMÁTICA DE LA PISTA. 
-    // Ahora el script esperará pacientemente a que agregues un punto.
+
+    if (!hasFunscripts && window.loadedFunscriptTracks && window.loadedFunscriptTracks.length === 0) {
+        const baseName = file.name.replace(/\.[^/.]+$/, ""); 
+        if (typeof window.createEmptyTrack === 'function') {
+            window.createEmptyTrack(baseName);
+        }
+    }
+
+    // 🔊 EXTRACCIÓN DE AUDIO PROFESIONAL (WAVEFORM)
+    if (vMute) { vMute.innerText = "⏳ Extrayendo audio..."; vMute.style.color = "#f59e0b"; }
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); // Ligero
+        const audioData = await audioCtx.decodeAudioData(arrayBuffer);
+        const channelData = audioData.getChannelData(0); // Mono track
+        
+        const samplesPerSec = 100; // Resolución visual (100 FPS)
+        const step = Math.floor(audioData.sampleRate / samplesPerSec);
+        const peaks = new Float32Array(Math.floor(channelData.length / step));
+        
+        for(let i = 0; i < peaks.length; i++) {
+            let max = 0;
+            for(let j = 0; j < step; j++) {
+                let val = Math.abs(channelData[i*step + j]);
+                if(val > max) max = val;
+            }
+            peaks[i] = max;
+        }
+        window.audioPeaks = peaks;
+        window.audioPeaksSampleRate = samplesPerSec;
+        
+        if (vMute) { vMute.innerText = videoPlayer.muted ? "🔇 Sonido Off" : "🔊 Sonido On"; vMute.style.color = videoPlayer.muted ? "#ef4444" : "#38bdf8"; }
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+
+    } catch (err) {
+        console.warn("No se pudo extraer la pista de audio o el video no tiene sonido.", err);
+        if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.style.color = "#94a3b8"; }
+    }
 }
 
 let isSeeking = false;
@@ -89,8 +126,8 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
 });
 
 videoPlayer?.addEventListener('volumechange', () => {
-    if (vMute) {
-        vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Muteado" : "🔊 Sonido On";
+    if (vMute && window.audioPeaks) {
+        vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On";
         vMute.style.color = videoPlayer.muted || videoPlayer.volume === 0 ? "#ef4444" : "#38bdf8";
     }
 });
@@ -123,8 +160,9 @@ window.addEventListener('drop', (e) => {
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
 
-    if (videoFiles.length > 0) loadVideoFile(videoFiles[0]);
-    if (funscriptFiles.length > 0 && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
+    const hasFunscripts = funscriptFiles.length > 0;
+    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
+    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
 window.addEventListener('keydown', (event) => {
@@ -178,8 +216,8 @@ window.addEventListener('keydown', (event) => {
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
     if (event.code === 'Space') { event.preventDefault(); if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); }
     if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
-    if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
-    if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
+    if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     
     const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
 
@@ -212,6 +250,14 @@ window.addEventListener('keydown', (event) => {
                 videoPlayer.currentTime = target.at / 1000;
                 window.funscriptActions.forEach(a => a.selected = false);
                 target.selected = true; syncSlider(); forcePan();
+            } else {
+                // 🎯 EXCEPCIÓN TECLA N (Saltar al último punto si estamos más allá del final)
+                const lastTarget = window.funscriptActions[window.funscriptActions.length - 1];
+                if (currentTimeMs >= lastTarget.at + 15) {
+                    videoPlayer.currentTime = lastTarget.at / 1000;
+                    window.funscriptActions.forEach(a => a.selected = false);
+                    lastTarget.selected = true; syncSlider(); forcePan();
+                }
             }
         }
     }
