@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V21.0: HEATMAP, CÁLCULO DE VELOCIDAD Y DESLIZADOR EN VIVO
+// TIMELINE V24.0: MOTOR DE VELOCIDAD FAPTAP Y HEATMAP EN BLOQUES (LEGO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -49,34 +49,52 @@ function cleanDuplicates() {
     }
 }
 
-// 📊 MOTOR DE TELEMETRÍA (PUNTOS Y MAPA DE CALOR)
+// ==========================================================================
+// 📊 MOTOR DE TELEMETRÍA (NUEVO ALGORITMO FAPTAP)
+// ==========================================================================
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     
-    // 1. CÁLCULO DE ESTADÍSTICAS EN EL HEADER
+    // 1. CÁLCULO DE ESTADÍSTICAS Y VELOCIDAD (ESTILO FAPTAP)
     const statsSpan = document.getElementById('timeline-stats');
     if (statsSpan) {
         let speedText = "--";
-        const durationMins = (videoNode && videoNode.duration) ? (videoNode.duration / 60) : 0;
-        
-        if (durationMins > 0 && actions.length > 0) {
-            const spm = Math.round(actions.length / durationMins);
-            if (spm > 500) speedText = `Very Fast 🔴 (${spm})`;
-            else if (spm > 300) speedText = `Fast 🟠 (${spm})`;
-            else if (spm > 150) speedText = `Medium 🟡 (${spm})`;
-            else speedText = `Slow 🟢 (${spm})`;
+        if (actions.length > 1) {
+            // FapTap usa la duración "Activa" del script, no la del video
+            const firstMs = actions[0].at;
+            const lastMs = actions[actions.length - 1].at;
+            const activeMins = (lastMs - firstMs) / 60000;
+
+            if (activeMins > 0) {
+                // SPM = Strokes Per Minute (1 Stroke = 2 Puntos)
+                const spm = Math.round((actions.length / 2) / activeMins);
+                
+                if (spm >= 301) speedText = `Very Fast 🔴 (${spm})`;
+                else if (spm >= 151) speedText = `Fast 🟠 (${spm})`;
+                else if (spm >= 51) speedText = `Medium 🟡 (${spm})`; 
+                else speedText = `Slow 🟢 (${spm})`;
+            }
+        } else if (actions.length === 1) {
+            speedText = "Slow 🟢 (0)";
         }
         
         statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong>${speedText}</strong>`;
     }
 
-    // 2. DIBUJO DEL MAPA DE CALOR
+    // 2. DIBUJO DEL MAPA DE CALOR (ZONAS TIPO LEGO)
     const hCanvas = document.getElementById('heatmap-canvas');
-    if (!hCanvas || !videoNode || !videoNode.duration || actions.length === 0) {
-        if (hCanvas) {
-            const hCtx = hCanvas.getContext('2d');
-            hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
-        }
+    if (!hCanvas) return;
+    
+    let totalDurationMs = 0;
+    if (videoNode && videoNode.duration) {
+        totalDurationMs = videoNode.duration * 1000;
+    } else if (actions.length > 0) {
+        totalDurationMs = actions[actions.length - 1].at;
+    }
+
+    if (totalDurationMs === 0 || actions.length === 0) {
+        const hCtx = hCanvas.getContext('2d');
+        hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
         return;
     }
 
@@ -87,10 +105,9 @@ window.updateHeatmapAndStats = function() {
     const hCtx = hCanvas.getContext('2d');
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
-    const durationMs = videoNode.duration * 1000;
-    const width = hCanvas.width;
-    const bucketCount = Math.min(width, 600); // Resolución del Heatmap
-    const bucketDuration = durationMs / bucketCount;
+    // 🎯 REGLA DE BLOQUES (Siempre dividimos el video en 50 zonas gruesas para leerlo fácil)
+    const bucketCount = 50; 
+    const bucketDuration = totalDurationMs / bucketCount;
     const buckets = new Array(bucketCount).fill(0);
 
     actions.forEach(act => {
@@ -98,21 +115,23 @@ window.updateHeatmapAndStats = function() {
         if (b >= 0 && b < bucketCount) buckets[b]++;
     });
 
-    const maxPoints = Math.max(...buckets, 1);
-    const bucketWidth = width / bucketCount;
+    // Usamos el percentil 95 para que un solo pico loco no apague todo el mapa
+    const sortedBuckets = [...buckets].sort((a,b) => a-b);
+    const maxPoints = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
+    
+    const bucketWidth = hCanvas.width / bucketCount;
     
     for (let i = 0; i < bucketCount; i++) {
         if (buckets[i] > 0) {
-            const intensity = 0.1 + (0.9 * (buckets[i] / maxPoints));
-            // Color de Azul frío (200) a Rojo ardiente (0)
-            const hue = (1 - intensity) * 200; 
-            hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${intensity})`;
-            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth), hCanvas.height);
+            const intensity = Math.min(1.0, 0.2 + (0.8 * (buckets[i] / maxPoints)));
+            const hue = (1 - intensity) * 200; // 200 es azul, 0 es rojo
+            hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity)})`;
+            // Dibujamos el bloque con 1px de separación para que parezcan legos
+            hCtx.fillRect(i * bucketWidth, 0, bucketWidth - 1, hCanvas.height);
         }
     }
 };
 
-// Enganchar telemetría silenciosamente para no sobrescribir tus viejos llamados
 const originalUpdateActionsLog = window.updateActionsLog;
 window.updateActionsLog = function() {
     if (typeof originalUpdateActionsLog === 'function') originalUpdateActionsLog();
@@ -158,7 +177,7 @@ window.addEventListener('forceTimelinePan', () => {
     drawTimeline();
 });
 
-// ARRASTRE DE PRESETS (GHOST)
+// ARRASTRE DE PRESETS
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -478,7 +497,7 @@ function drawTimeline() {
             ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
-        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
+        if (window.magneticSnapPoint && !isSelecting) {
             const px = timeToX(window.magneticSnapPoint.at);
             const py = posToY(window.magneticSnapPoint.pos);
             ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; 
@@ -534,7 +553,6 @@ pointSlider?.addEventListener('mousedown', () => {
     if (!isSliderDragging) { saveHistoryState(); isSliderDragging = true; }
 });
 
-// 🎯 MOVIMIENTO EN TIEMPO REAL DEL DESLIZADOR
 pointSlider?.addEventListener('input', function() {
     const val = parseInt(this.value, 10);
     if (sliderValueDisplay) sliderValueDisplay.innerText = `${val}%`;
