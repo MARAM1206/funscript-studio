@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body>
 
     <div class="top-bar-menu">
         <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
-            <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Seleccionar Video</label>
+            <label for="video-input" class="menu-btn select-btn" style="cursor: pointer;">📁 Importar Video</label>
             <input type="file" id="video-input" accept="video/*" style="display: none;">
-            <label for="funscript-input" class="menu-btn" style="background: #2563eb; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none;">📂 Importar FunScripts</label>
+            <label for="funscript-input" class="menu-btn" style="background: #2563eb; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; display: inline-flex; align-items: center; color: white; border: none;">📂 Importar FunScript</label>
             <input type="file" id="funscript-input" accept=".funscript, .json" multiple style="display: none;">
         </div>
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -33,34 +33,39 @@
     </div>
 
     <div id="preset-editor-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 1000px; max-width: 95vw;">
-            <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor Maestro de Presets</h3>
+        <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 500px;">
             
-            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
-            <input type="text" id="preset-editor-name" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
-            
-            <div style="display: flex; gap: 15px; height: 350px; margin-bottom: 20px;">
-                <div style="flex-grow: 1; display: flex; flex-direction: column;">
-                    <div style="display: flex; justify-content: space-between; align-items:flex-end;">
-                        <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Patrón:</label>
-                        <span style="font-size: 0.7rem; color: #64748b; margin-bottom: 4px;">Atajos activados (Ctrl+Z, Y, A) | Zoom fino: Shift+Ruedita</span>
-                    </div>
-                    <div style="position: relative; width: 100%; flex-grow: 1; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden;">
-                        <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
+            <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
+                <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 1.1rem;">✏️ Editor de Preset</h3>
+                
+                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
+                <input type="text" id="preset-editor-name" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #1e293b; background: #020617; color: #e2e8f0; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
+                
+                <div style="display: flex; justify-content: space-between; align-items:flex-end;">
+                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Patrón:</label>
+                    <span style="font-size: 0.7rem; color: #64748b; margin-bottom: 4px;">Atajos activados (Ctrl+Z, Y, A) | Zoom: Shift+Ruedita</span>
+                </div>
+                
+                <div style="position: relative; width: 100%; flex-grow: 1; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
+                    <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <p style="font-size: 0.75rem; color: #64748b; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar</p>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="preset-editor-cancel" class="menu-btn" style="background: #334155;">Cancelar</button>
+                        <button id="preset-editor-save" class="menu-btn success-btn">Guardar Cambios</button>
                     </div>
                 </div>
+            </div>
 
-                <div style="width: 250px; display: flex; flex-direction: column; background: #06090e; border: 1px solid #1e293b; border-radius: 8px; padding: 10px;">
-                    <h4 style="color:#94a3b8; font-size:0.8rem; margin-bottom:10px; text-align: center;">Tus Presets (Arrastrar)</h4>
-                    <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
-                        </div>
-                </div>
+            <div class="modal-content" style="width: 250px; display: flex; flex-direction: column; padding: 15px;">
+                <h4 style="color:#94a3b8; font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">Tus Presets</h4>
+                <p style="font-size: 0.7rem; color: #64748b; text-align: center; margin-bottom: 10px;">(Arrastra hacia el lienzo para fusionar)</p>
+                <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
+                    </div>
             </div>
-            
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button id="preset-editor-cancel" class="menu-btn" style="background: #334155;">Cancelar</button>
-                <button id="preset-editor-save" class="menu-btn success-btn">Guardar Cambios</button>
-            </div>
+
         </div>
     </div>
 
@@ -84,11 +89,11 @@
                         <div class="video-info-left">
                             <span id="v-name" class="info-text-white" style="font-weight: bold;">Sin video</span>
                         </div>
-                        <div class="video-info-right" style="display: flex; align-items: center; gap: 12px;">
-                            <span id="v-res">--x--</span> <span class="divider">|</span> 
-                            <span id="v-fps">-- fps</span> <span class="divider">|</span> 
-                            <span id="v-speed">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
-                            <span id="v-mute">🔊 Sonido On</span>
+                        <div class="video-info-right">
+                            <span id="v-res" class="fixed-info">--x--</span> <span class="divider">|</span> 
+                            <span id="v-fps" class="fixed-info">-- fps</span> <span class="divider">|</span> 
+                            <span id="v-speed" class="fixed-info">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
+                            <span id="v-mute" class="fixed-info">🔊 Sonido On</span>
                         </div>
                     </div>
                 </div>
@@ -139,12 +144,12 @@
 
     </div>
 
-    <script src="workspace.js?v=31"></script>
-    <script src="handy.js?v=31"></script> 
-    <script src="funscript.js?v=31"></script>
-    <script src="player.js?v=31"></script>
-    <script src="tracking.js?v=31"></script>
-    <script src="presets.js?v=31"></script>
-    <script src="timeline.js?v=31"></script>
+    <script src="workspace.js?v=32"></script>
+    <script src="handy.js?v=32"></script> 
+    <script src="funscript.js?v=32"></script>
+    <script src="player.js?v=32"></script>
+    <script src="tracking.js?v=32"></script>
+    <script src="presets.js?v=32"></script>
+    <script src="timeline.js?v=32"></script>
 </body>
 </html>
