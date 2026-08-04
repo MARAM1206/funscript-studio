@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V15.0 (DRAG/DROP CERRADO A ARCHIVOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V16.0 (CORRECCIÓN DE LAG EN SEEKING)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -81,8 +81,6 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     if (vFps) vFps.innerText = `⏱️ ~30 fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
-    
-    // 🎯 RECALCULAR ESTADÍSTICAS CUANDO SE CARGA EL VIDEO (Punto Clave)
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
 });
@@ -94,7 +92,6 @@ videoPlayer?.addEventListener('volumechange', () => {
     }
 });
 
-// 🛡️ REPARACIÓN DEL DRAG AND DROP (NO SALTAR CON TEXTO)
 const dragOverlay = document.getElementById('drag-drop-overlay');
 let dragCounter = 0;
 
@@ -184,8 +181,9 @@ window.addEventListener('keydown', (event) => {
     
     const forcePan = () => window.dispatchEvent(new Event('forceTimelinePan'));
 
-    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
-    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.pause(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    // ⚡ EXTIRPADO EL .pause() PARA EVITAR TIRONES AL NAVEGAR CON Q Y W
+    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
+    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTime); forcePan(); if (typeof window.drawTimeline === 'function') window.drawTimeline(); }
     
     if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forcePan(); }
     if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forcePan(); }
