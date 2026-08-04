@@ -195,7 +195,6 @@ function openPresetEditor(name) {
     mBasePixelsPerMs = (modalCanvas.width - 60) / (mDuration === 0 ? 1000 : mDuration);
     drawModalCanvas();
 
-    // Atajos de Teclado exclusivos para el Modal
     document.addEventListener('keydown', modalKeydownHandler);
 }
 
@@ -253,7 +252,7 @@ function ensureModalCanvasSize() {
 }
 
 function mTimeToX(t) { return 30 + (t * mBasePixelsPerMs * mZoom) + mPanX; }
-function mXToTime(x) { return (x - 30 - mPanX) / (mBasePixelsPerMs * mZoom); }
+function mXToTime(x) { return ((x - 30 - mPanX) / (mBasePixelsPerMs * mZoom)); }
 function mPosToY(p) { const padT = 20; const padB = 10; return modalCanvas.height - padB - (p / 100) * (modalCanvas.height - padT - padB); }
 function mYToPos(y) { const padT = 20; const padB = 10; const p = ((modalCanvas.height - padB - y) / (modalCanvas.height - padT - padB)) * 100; return Math.max(0, Math.min(100, Math.round(p))); }
 
@@ -330,6 +329,33 @@ function drawModalCanvas() {
         mCtx.beginPath(); mCtx.moveTo(30, y); mCtx.lineTo(modalCanvas.width, y); mCtx.stroke();
         mCtx.fillStyle = '#475569'; mCtx.font = '10px monospace'; mCtx.fillText(`${p}%`, 2, y + 3);
     });
+
+    const visibleMs = modalCanvas.width / (mBasePixelsPerMs * mZoom);
+    let stepMs = 1000;
+    if (visibleMs < 500) stepMs = 50;
+    else if (visibleMs < 1000) stepMs = 100;
+    else if (visibleMs < 2000) stepMs = 250;
+    else if (visibleMs < 5000) stepMs = 500;
+    else if (visibleMs > 30000) stepMs = 5000;
+    else if (visibleMs > 15000) stepMs = 2000;
+    else stepMs = 1000; 
+
+    const startTimeMs = Math.max(0, mXToTime(30));
+    const endTimeMs = mXToTime(modalCanvas.width);
+    let t = Math.floor(startTimeMs / stepMs) * stepMs;
+
+    mCtx.fillStyle = '#64748b'; mCtx.font = '10px monospace';
+    while (t <= endTimeMs) {
+        if (t >= 0) {
+            const x = mTimeToX(t);
+            if (x >= 30) {
+                mCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; 
+                mCtx.beginPath(); mCtx.moveTo(x, 0); mCtx.lineTo(x, modalCanvas.height); mCtx.stroke();
+                mCtx.fillText(`${(t/1000).toFixed(2)}s`, x + 4, 12);
+            }
+        }
+        t += stepMs;
+    }
 
     if (mActions.length > 0) {
         mCtx.lineWidth = 3; mCtx.strokeStyle = '#38bdf8';
