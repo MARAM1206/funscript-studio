@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V24.0: MOTOR DE VELOCIDAD FAPTAP Y HEATMAP EN BLOQUES (LEGO)
+// TIMELINE V26.0: FAPTAP ALGORITHM Y MAPA DE CALOR FLUIDO (ULTRA HD)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -50,24 +50,30 @@ function cleanDuplicates() {
 }
 
 // ==========================================================================
-// 📊 MOTOR DE TELEMETRÍA (NUEVO ALGORITMO FAPTAP)
+// 📊 MOTOR DE TELEMETRÍA (FAPTAP EXACT MATCH)
 // ==========================================================================
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     
-    // 1. CÁLCULO DE ESTADÍSTICAS Y VELOCIDAD (ESTILO FAPTAP)
+    // 1. CÁLCULO DE ESTADÍSTICAS (FAPTAP ALGORITHM - DISTANCIA RECORRIDA)
     const statsSpan = document.getElementById('timeline-stats');
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            // FapTap usa la duración "Activa" del script, no la del video
-            const firstMs = actions[0].at;
-            const lastMs = actions[actions.length - 1].at;
-            const activeMins = (lastMs - firstMs) / 60000;
+            // La magia está en medir la DISTANCIA real, no solo contar los puntos
+            let totalDistance = 0;
+            for (let i = 1; i < actions.length; i++) {
+                totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
+            }
+            
+            // 1 Stroke Completo = Recorrer del 0 al 100 y volver al 0 (200 unidades)
+            const totalStrokes = totalDistance / 200;
+            
+            // FapTap usa el tiempo total que dura el archivo script
+            const durationMins = actions[actions.length - 1].at / 60000;
 
-            if (activeMins > 0) {
-                // SPM = Strokes Per Minute (1 Stroke = 2 Puntos)
-                const spm = Math.round((actions.length / 2) / activeMins);
+            if (durationMins > 0) {
+                const spm = Math.round(totalStrokes / durationMins);
                 
                 if (spm >= 301) speedText = `Very Fast 🔴 (${spm})`;
                 else if (spm >= 151) speedText = `Fast 🟠 (${spm})`;
@@ -81,15 +87,15 @@ window.updateHeatmapAndStats = function() {
         statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong>${speedText}</strong>`;
     }
 
-    // 2. DIBUJO DEL MAPA DE CALOR (ZONAS TIPO LEGO)
+    // 2. DIBUJO DEL MAPA DE CALOR (150 BLOQUES FLUIDOS)
     const hCanvas = document.getElementById('heatmap-canvas');
     if (!hCanvas) return;
     
     let totalDurationMs = 0;
-    if (videoNode && videoNode.duration) {
-        totalDurationMs = videoNode.duration * 1000;
-    } else if (actions.length > 0) {
+    if (actions.length > 0) {
         totalDurationMs = actions[actions.length - 1].at;
+    } else if (videoNode && videoNode.duration) {
+        totalDurationMs = videoNode.duration * 1000;
     }
 
     if (totalDurationMs === 0 || actions.length === 0) {
@@ -105,29 +111,36 @@ window.updateHeatmapAndStats = function() {
     const hCtx = hCanvas.getContext('2d');
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
-    // 🎯 REGLA DE BLOQUES (Siempre dividimos el video en 50 zonas gruesas para leerlo fácil)
-    const bucketCount = 50; 
+    // 🎯 RESOLUCIÓN ULTRA-HD: 150 bloques, adiós al efecto Minecraft
+    const bucketCount = 150; 
     const bucketDuration = totalDurationMs / bucketCount;
     const buckets = new Array(bucketCount).fill(0);
 
-    actions.forEach(act => {
+    // Mide la INTENSIDAD de la distancia, no solo la cantidad de puntos
+    actions.forEach((act, idx) => {
         const b = Math.floor(act.at / bucketDuration);
-        if (b >= 0 && b < bucketCount) buckets[b]++;
+        if (b >= 0 && b < bucketCount) {
+            if (idx > 0) {
+                buckets[b] += Math.abs(act.pos - actions[idx-1].pos);
+            } else {
+                buckets[b] += 50; 
+            }
+        }
     });
 
-    // Usamos el percentil 95 para que un solo pico loco no apague todo el mapa
+    // Percentil 95 para ignorar los picos que apagan el resto de los bloques
     const sortedBuckets = [...buckets].sort((a,b) => a-b);
-    const maxPoints = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
+    const maxDistance = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
     
     const bucketWidth = hCanvas.width / bucketCount;
     
     for (let i = 0; i < bucketCount; i++) {
         if (buckets[i] > 0) {
-            const intensity = Math.min(1.0, 0.2 + (0.8 * (buckets[i] / maxPoints)));
-            const hue = (1 - intensity) * 200; // 200 es azul, 0 es rojo
+            const intensity = Math.min(1.0, 0.2 + (0.8 * (buckets[i] / maxDistance)));
+            const hue = (1 - intensity) * 200; // De azul a rojo
             hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity)})`;
-            // Dibujamos el bloque con 1px de separación para que parezcan legos
-            hCtx.fillRect(i * bucketWidth, 0, bucketWidth - 1, hCanvas.height);
+            // Sumamos +0.5 para solapar microscópicamente los bloques y borrar la separación negra
+            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
         }
     }
 };
@@ -327,7 +340,7 @@ window.addEventListener('nudgePoints', function(e) {
     });
     if (moved) {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        drawTimeline(); notifyCloud(); 
+        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats(); 
     }
 });
 
@@ -497,7 +510,7 @@ function drawTimeline() {
             ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
         }
 
-        if (window.magneticSnapPoint && !isSelecting) {
+        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
             const px = timeToX(window.magneticSnapPoint.at);
             const py = posToY(window.magneticSnapPoint.pos);
             ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; 
@@ -560,7 +573,7 @@ pointSlider?.addEventListener('input', function() {
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         selected.forEach(act => act.pos = val); 
-        drawTimeline(); 
+        drawTimeline(); window.updateHeatmapAndStats();
     }
 });
 
