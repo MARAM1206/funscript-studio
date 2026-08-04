@@ -6,8 +6,11 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 .top-bar-menu { height: 44px; background: #0b0f17; border-bottom: 1px solid #141b29; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 9999; position: relative; }
 .top-center-toggles { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+/* 🛡️ PESTAÑAS (TABS) EN CIAN NEÓN */
 .toggle-panel-btn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; font-weight: bold; }
-.toggle-panel-btn.active { background: #7c3aed; color: white; border-color: #6d28d9; }
+.toggle-panel-btn.active { background: #0891b2; color: white; border-color: #06b6d4; }
+
 .menu-btn { color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: normal; cursor: pointer; transition: transform 0.1s; }
 .menu-btn:active { transform: scale(0.98); }
 .success-btn { background: #059669; font-weight: bold; }
@@ -20,16 +23,15 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .drag-drop-overlay.active { display: flex; }
 .drag-drop-message { background: #2563eb; color: white; padding: 24px 48px; border-radius: 16px; font-size: 1.5rem; font-weight: bold; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 2px dashed #93c5fd; }
 
+/* 🛡️ MODAL ACTUALIZADO PARA PANELES DOBLES */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(6, 9, 14, 0.9); z-index: 20000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
-.modal-content { background: #0b0f17; padding: 24px; border-radius: 14px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); border: 1px solid #1e293b; }
+.modal-content { background: #0b0f17; padding: 20px; border-radius: 14px; border: 1px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
 
 .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); overflow: hidden; }
 .workspace-panel { position: absolute; background: #0f131a; border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #1e293b; overflow: hidden; }
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
 
 .video-bottom-unified-bar { background: #0b0f17; display: flex; flex-direction: column; border: none; overflow: visible; }
-
-/* 🕒 ALINEACIÓN PERFECTA DEL YOUTUBE COUNTER */
 .progress-bar-container { width: 100%; padding: 12px 12px 6px 12px; background: #0b0f17; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: none; overflow: visible; }
 .progress-slider-wrapper { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; position: relative; justify-content: center; } 
 
@@ -43,13 +45,21 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 .heatmap-canvas { width: 100%; height: 14px; border-radius: 4px; display: block; z-index: 1; opacity: 0.9; }
 
-/* ℹ️ INFO BARRA (Nombre Izq / Info Der) */
+/* 🛡️ INFO BARRA (Nombre largo Izq / Bloques Inamovibles Der) */
 .video-info-bar { background: #0b0f17; padding: 0px 12px 8px 12px; font-size: 0.8rem; font-family: monospace; color: #38bdf8; border: none !important; display: flex; justify-content: space-between; align-items: center; width: 100%; flex-shrink: 0; }
 .video-info-bar .info-text-white { color: #e2e8f0; }
 .video-info-bar .divider { color: #334155; }
 .video-info-left { display: flex; align-items: center; }
-.video-info-right { display: flex; align-items: center; gap: 12px; }
-#v-name { max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+.video-info-right { display: flex; align-items: center; gap: 8px; }
+
+#v-name { max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+
+/* Anchos fijos para que jamás brinquen los píxeles */
+.fixed-info { display: inline-block; text-align: center; }
+#v-res { width: 70px; }
+#v-fps { width: 60px; }
+#v-speed { width: 85px; }
+#v-mute { width: 95px; text-align: left; }
 
 .resize-handle { position: absolute; z-index: 20; }
 .resize-handle-n  { top: 0; left: 0; width: 100%; height: 6px; cursor: ns-resize; }
@@ -95,7 +105,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .dual-slider-track { position: absolute; width: 100%; height: 8px; background: #1e293b; border-radius: 4px; z-index: 1;}
 .dual-slider-fill { position: absolute; height: 8px; background: rgba(56, 189, 248, 0.4); z-index: 2; border-radius: 4px;}
 
-/* 🎨 COLORES DINÁMICOS DEL DESLIZADOR MEDIANTE CSS VARIABLES */
 .dual-range { --thumb-color: #38bdf8; position: absolute; width: 100%; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; z-index: 3; outline: none; margin: 0;}
 .dual-range::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--thumb-color); cursor: pointer; border: 2px solid #0f131a; box-shadow: 0 0 5px rgba(0,0,0,0.5); transition: transform 0.1s;}
 .dual-range::-webkit-slider-thumb:hover { transform: scale(1.2); }
