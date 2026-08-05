@@ -51,7 +51,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .custom-progress::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #38bdf8; cursor: pointer; transition: transform 0.1s, background 0.1s; }
 .custom-progress::-webkit-slider-thumb:hover { transform: scale(1.3); background: #f97316; }
 
-/* 🎯 CORRECCIÓN: MAPA DE CALOR CON OFFSET MATEMÁTICO (restamos el tamaño del thumb de 14px) */
 .heatmap-canvas { width: calc(100% - 14px); margin: 0 7px; height: 14px; border-radius: 4px; display: block; z-index: 1; opacity: 0.9; }
 
 .video-info-bar { background: #0b0f17; padding: 0px 12px 8px 12px; font-size: 0.8rem; font-family: monospace; color: #38bdf8; border: none !important; display: flex; justify-content: space-between; align-items: center; width: 100%; flex-shrink: 0; }
@@ -92,9 +91,12 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .preset-card { background: #070a0f; border: 1px solid #1e293b; padding: 10px; margin-bottom: 8px; border-radius: 8px; display: flex; flex-direction: column; cursor: grab; transition: border-color 0.2s; position: relative; }
 .preset-card:active { cursor: grabbing; border-color: #38bdf8; }
 .preset-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 6px; }
+.preset-card-header > div { display: flex; gap: 6px; }
 .preset-card-title { font-weight: bold; font-size: 0.85rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin-right: 8px; }
 .preset-mini-canvas { width: 100%; height: 36px; background: #020617; border-radius: 4px; border: 1px solid #0f131a; pointer-events: none; }
-.preset-action-btn { background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 2px; transition: transform 0.1s; }
+
+/* 🎯 CORRECCIÓN: BOTONES DEL PRESET (15% MÁS CHICOS) */
+.preset-action-btn { background: none; border: none; cursor: pointer; font-size: 0.65rem; padding: 2px; transition: transform 0.1s; }
 .preset-action-btn:hover { transform: scale(1.2); }
 
 .vertical-slider-wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; height: 100%; justify-content: center; width: 100%; }
@@ -114,13 +116,7 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 #timeline-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; position: relative; z-index: 2; }
 
-/* 🎯 CORRECCIÓN: FLECHAS PANTALLA COMPLETA FUERTES (Blanco + Sombra Oscura Profunda para verse en video negro o claro) */
-.fs-mini-icon { 
-    position: absolute; bottom: 10px; right: 15px; font-size: 0.9rem; 
-    color: #ffffff; cursor: pointer; user-select: none; transition: transform 0.2s, color 0.2s; 
-    z-index: 10; font-weight: bold; 
-    text-shadow: 0px 2px 4px rgba(0,0,0,0.9); /* Sombra alta para máximo contraste */
-}
+.fs-mini-icon { position: absolute; bottom: 10px; right: 15px; font-size: 0.9rem; color: #ffffff; cursor: pointer; user-select: none; transition: transform 0.2s, color 0.2s; z-index: 10; font-weight: bold; text-shadow: 0px 2px 4px rgba(0,0,0,0.9); }
 .fs-mini-icon:hover { transform: scale(1.3); color: #38bdf8; }
 :fullscreen .fs-mini-icon { display: none; }
 :-webkit-full-screen .fs-mini-icon { display: none; }
@@ -165,6 +161,8 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .dual-slider-track { background: #e2e8f0; }
 
 .light-theme #theme-toggle-btn { background: #1e293b !important; color: #ffffff !important; border-color: #0f172a !important; font-weight: bold; }
+.light-theme .fs-mini-icon { color: #333333 !important; }
+.light-theme .fs-mini-icon:hover { color: #000000 !important; }
 .light-theme .adaptive-btn.off { background: rgba(239, 68, 68, 0.05); border-color: #ef4444; color: #ef4444; }
 
 .light-theme .info-text-white,
