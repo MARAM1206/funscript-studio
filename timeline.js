@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V38.0: PANTALLA COMPLETA, ANIMACIÓN CARMESÍ Y BORDES FIJOS
+// TIMELINE V42.0: FIX MATEMÁTICO DE VELOCIDAD (SPM) Y EVENTOS DE ARRASTRE
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -82,7 +82,6 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 MATEMÁTICAS ESTRICTAS: EL PRIMER Y ÚLTIMO PUNTO SE ATORNILLAN A LA SELECCIÓN
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
@@ -106,7 +105,6 @@ window.getMorphedPreset = function(preset, selectedActions) {
             newPos = y_min + normalizedY * (y_max - y_min);
         }
 
-        // 🛡️ BORDES DE HIERRO: Respeta al 100% los puntos originales seleccionados
         if (index === 0) newPos = selectedActions[0].pos;
         if (index === preset.length - 1) newPos = selectedActions[selectedActions.length - 1].pos;
 
@@ -126,7 +124,10 @@ window.updateHeatmapAndStats = function() {
                 totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
             }
             const totalStrokes = totalDistance / 200;
-            const durationMins = actions[actions.length - 1].at / 60000;
+            
+            // 🎯 FIX DE VELOCIDAD: Calcular la duración basándose SÓLO en la porción real del script
+            const durationMs = actions[actions.length - 1].at - actions[0].at;
+            const durationMins = durationMs / 60000;
 
             if (durationMins > 0) {
                 const spm = Math.round(totalStrokes / durationMins);
@@ -229,7 +230,6 @@ canvas?.addEventListener('wheel', (e) => {
             }
         }
     }
-    drawTimeline();
 }, { passive: false });
 
 window.addEventListener('videoPlay', () => { drawTimeline(); });
@@ -242,7 +242,6 @@ window.addEventListener('forceTimelinePan', (e) => {
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     scrollLeftMs = actualTime - (visibleMs / 2);
     if (scrollLeftMs < 0) scrollLeftMs = 0;
-    drawTimeline();
 });
 
 window.addEventListener('copyPoints', () => {
@@ -261,10 +260,15 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-canvas?.addEventListener('dragover', (e) => {
+// ⚡ LÓGICA DE EVENTOS DE ARRASTRE PERSONALIZADO (CUSTOM DRAG)
+window.addEventListener('presetCustomDragOver', (e) => {
+    if (!canvas) return;
     if (window.isDraggingPreset && window.timelineGhostPreset) {
-        e.preventDefault(); 
-        const pos = getMousePos(e);
+        const rect = canvas.getBoundingClientRect();
+        const pos = {
+            x: (e.detail.clientX - rect.left) * (canvas.width / rect.width),
+            y: (e.detail.clientY - rect.top) * (canvas.height / rect.height)
+        };
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
@@ -272,8 +276,7 @@ canvas?.addEventListener('dragover', (e) => {
         const selected = actions.filter(a => a.selected);
 
         if (window.isAdaptiveModeActive && selected.length >= 2) {
-            drawTimeline(); 
-            return;
+            return; // Adaptive mode handles itself
         }
         
         const snapDistMs = 350; 
@@ -302,17 +305,12 @@ canvas?.addEventListener('dragover', (e) => {
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
         window.timelineGhostTimeMs = hoverTimeMs;
-        drawTimeline(); 
     }
 });
 
-canvas?.addEventListener('dragleave', () => {
-    if (window.isDraggingPreset) { window.timelineGhostTimeMs = null; drawTimeline(); }
-});
-
-canvas?.addEventListener('drop', (e) => {
+window.addEventListener('presetCustomDrop', (e) => {
+    if (!canvas) return;
     if (window.isDraggingPreset && window.timelineGhostPreset) {
-        e.preventDefault();
         ensureTrackExists();
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
@@ -328,17 +326,20 @@ canvas?.addEventListener('drop', (e) => {
                 
                 window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-                drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+                notifyCloud(); window.updateHeatmapAndStats();
                 return;
             }
         }
 
-        const pos = getMousePos(e);
+        const rect = canvas.getBoundingClientRect();
+        const pos = {
+            x: (e.detail.clientX - rect.left) * (canvas.width / rect.width),
+            y: (e.detail.clientY - rect.top) * (canvas.height / rect.height)
+        };
         let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
         const deltaY = window.timelineGhostDeltaPos || 0;
         
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-        const endTimeMs = dropTimeMs + presetDuration;
 
         saveHistoryState();
         
@@ -357,7 +358,7 @@ canvas?.addEventListener('drop', (e) => {
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+        notifyCloud(); window.updateHeatmapAndStats();
     }
 });
 
@@ -409,7 +410,7 @@ window.addEventListener('injectPoint', function(e) {
     
     cleanDuplicates();
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    drawTimeline(); notifyCloud(); window.updateHeatmapAndStats(); 
+    notifyCloud(); window.updateHeatmapAndStats(); 
 });
 
 window.addEventListener('nudgeTime', function(e) {
@@ -425,7 +426,7 @@ window.addEventListener('nudgeTime', function(e) {
     if (moved) {
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        drawTimeline(); notifyCloud(); 
+        notifyCloud(); 
     }
 });
 
@@ -455,7 +456,7 @@ window.addEventListener('nudgePoints', function(e) {
     
     if (moved) {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats(); 
+        notifyCloud(); window.updateHeatmapAndStats(); 
     }
 });
 
@@ -467,7 +468,7 @@ window.addEventListener('magnetPoint', function() {
     if (moved) {
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+        notifyCloud(); window.updateHeatmapAndStats();
     }
 });
 
@@ -482,7 +483,7 @@ window.addEventListener('deletePoints', () => {
     if (actions.some(a => a.selected)) {
         saveHistoryState();
         window.funscriptActions = actions.filter(a => !a.selected);
-        drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+        notifyCloud(); window.updateHeatmapAndStats();
     }
 });
 
@@ -491,7 +492,6 @@ window.addEventListener('redoAction', () => { redo(); });
 window.addEventListener('selectAllPoints', () => {
     getSafeActions().forEach(a => a.selected = true);
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    drawTimeline();
 });
 
 function ensureCanvasSize() {
@@ -509,14 +509,14 @@ function undo() {
     if (undoStack.length > 0) {
         redoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(undoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); drawTimeline(); window.updateHeatmapAndStats();
+        notifyCloud(); window.updateHeatmapAndStats();
     }
 }
 function redo() {
     if (redoStack.length > 0) {
         undoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(redoStack.pop());
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); drawTimeline(); window.updateHeatmapAndStats();
+        notifyCloud(); window.updateHeatmapAndStats();
     }
 }
 function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
@@ -632,7 +632,6 @@ window.drawTimeline = function() {
         }
 
         if (actions.length > 0) {
-            // 🎯 LÍNEAS (CON PULSO ROJO PARA PUNTOS CONDENADOS)
             for (let i = 0; i < actions.length - 1; i++) {
                 const act1 = actions[i]; const act2 = actions[i+1];
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
@@ -653,7 +652,6 @@ window.drawTimeline = function() {
                 ctx.stroke();
             }
 
-            // 🎯 PUNTOS
             actions.forEach(act => {
                 const x = timeToX(act.at);
                 if (x >= -20 && x <= canvas.width + 20) {
@@ -674,13 +672,12 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 RENDERIZADO DEL FANTASMA ADAPTATIVO O NORMAL (VERDE PULSANTE)
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const selected = actions.filter(a => a.selected);
             if (window.isAdaptiveModeActive && selected.length >= 2) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
                 if (morphed) {
-                    const pulseG = 0.6 + 0.4 * Math.sin(Date.now() / 150 + Math.PI); // Pulso invertido
+                    const pulseG = 0.6 + 0.4 * Math.sin(Date.now() / 150 + Math.PI); 
                     ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
                     morphed.forEach((act, index) => {
                         const x = timeToX(act.at); const y = posToY(act.pos); 
@@ -758,7 +755,6 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 RENDERIZAR LÍNEA TRANSPARENTE EN FULLSCREEN
         if (document.fullscreenElement) {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) {
@@ -828,7 +824,6 @@ pointSlider?.addEventListener('input', function() {
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         selected.forEach(act => act.pos = val); 
-        window.drawTimeline(); 
     }
 });
 
@@ -860,7 +855,7 @@ canvas?.addEventListener('mousedown', (e) => {
                     cleanDuplicates();
                     window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
                     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-                    window.drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+                    notifyCloud(); window.updateHeatmapAndStats();
                     return;
                 }
             }
@@ -879,11 +874,11 @@ canvas?.addEventListener('mousedown', (e) => {
             
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-            window.drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+            notifyCloud(); window.updateHeatmapAndStats();
             return;
         } else if (e.button === 2) { 
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-            window.drawTimeline(); return;
+            return;
         }
     }
 
@@ -921,7 +916,7 @@ canvas?.addEventListener('mousedown', (e) => {
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
-        notifyCloud(); window.drawTimeline(); window.updateHeatmapAndStats();
+        notifyCloud(); window.updateHeatmapAndStats();
     }
 });
 
@@ -958,7 +953,6 @@ canvas?.addEventListener('mousemove', (e) => {
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
-        window.drawTimeline();
         return; 
     }
 
@@ -1066,9 +1060,10 @@ window.addEventListener('mouseup', (e) => {
         cleanDuplicates();
         notifyCloud(); window.updateHeatmapAndStats();
     }
-    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1; window.drawTimeline();
+    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1;
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
+
 function animationLoop() { window.drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
