@@ -141,9 +141,6 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .panel-content { background: #ffffff; }
 .light-theme .custom-progress { background: #e2e8f0; }
 
-/* 🎯 INFO TEXTO SIN NEGRITAS */
-.light-theme .info-text-white { color: #334155; font-weight: normal; }
-
 .light-theme .divider { color: #94a3b8; }
 .light-theme .tracks-list-container, .light-theme .log-container, .light-theme .presets-list-container { background-color: #f1f5f9; border: 1px solid #e2e8f0; }
 .light-theme .empty-tracks-msg, .light-theme .empty-log { color: #64748b; }
@@ -163,11 +160,24 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme #v-time-current { color: #0f172a; }
 .light-theme .dual-slider-track { background: #e2e8f0; }
 
-/* 🎯 CORRECCIONES DE MODO CLARO */
+/* 🎯 CORRECCIONES DE MODO CLARO Y TEXTOS DEL REPRODUCTOR */
 .light-theme #theme-toggle-btn { background: #1e293b !important; color: #ffffff !important; border-color: #0f172a !important; font-weight: bold; }
-.light-theme .fs-mini-icon { color: rgba(15, 23, 42, 0.6); }
-.light-theme .fs-mini-icon:hover { color: #0f172a; }
+.light-theme .fs-mini-icon { color: #333333 !important; }
+.light-theme .fs-mini-icon:hover { color: #000000 !important; }
 .light-theme .adaptive-btn.off { background: rgba(239, 68, 68, 0.05); border-color: #ef4444; color: #ef4444; }
+
+/* 🎯 INFO TEXTO REPRODUCTOR: AZUL MÁS PROFUNDO, SIN NEGRITAS Y SOMBRA BLANCA SUTIL */
+.light-theme .info-text-white,
+.light-theme .video-info-bar .fixed-info,
+.light-theme #v-name,
+.light-theme #v-res,
+.light-theme #v-fps,
+.light-theme #v-speed,
+.light-theme #v-mute { 
+    color: #0056b3 !important; 
+    text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.9); 
+    font-weight: normal !important; 
+}
 
 .light-theme .handy-container { background: #f8fafc; border-color: #cbd5e1; }
 .light-theme .handy-input { background: #ffffff; color: #0f172a; border-color: #cbd5e1; }
