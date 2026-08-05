@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V50.0: PORCENTAJES RESPETADOS Y ESPACIADORA CORREGIDA
+// TIMELINE V52.0: RECONOCIMIENTO DE CICLOS INTELIGENTE Y PORCENTAJES
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -39,7 +39,6 @@ window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 
-// 🎯 FIX: Tecla espacio reforzada (ahora detecta Drag y Paste)
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
         e.preventDefault();
@@ -93,17 +92,47 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
+// 🎯 FIX: RECONOCIMIENTO DE CICLOS (Convierte varias M en varias V perfectamente)
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
     
     if (window.presetMorphMode === 'repeat' && selectedActions.length >= 3) {
         let results = [];
-        for (let i = 0; i < selectedActions.length - 1; i += 2) {
-            const chunk = selectedActions.slice(i, i + 3);
-            if (chunk.length < 2) break; 
+        let p0 = selectedActions[0].pos;
+        let anchors = [0];
+        
+        // Calculamos la amplitud de la selección para hacer una detección inteligente
+        const y_min = Math.min(...selectedActions.map(a => a.pos));
+        const y_max = Math.max(...selectedActions.map(a => a.pos));
+        const amplitude = y_max - y_min;
+        const cycleThreshold = Math.max(10, amplitude * 0.4); 
+        const returnTolerance = Math.max(5, amplitude * 0.15);
+
+        for (let i = 1; i < selectedActions.length; i++) {
+            if (Math.abs(selectedActions[i].pos - p0) <= returnTolerance) {
+                let maxDist = 0;
+                for (let j = anchors[anchors.length-1]; j <= i; j++) {
+                    if (Math.abs(selectedActions[j].pos - p0) > maxDist) maxDist = Math.abs(selectedActions[j].pos - p0);
+                }
+                if (maxDist >= cycleThreshold) { 
+                    anchors.push(i);
+                }
+            }
+        }
+        
+        if (anchors.length < 2) {
+            return window.getMorphedPresetChunk(preset, selectedActions);
+        }
+        
+        if (anchors[anchors.length - 1] !== selectedActions.length - 1) {
+            anchors.push(selectedActions.length - 1);
+        }
+
+        for (let k = 0; k < anchors.length - 1; k++) {
+            const chunk = selectedActions.slice(anchors[k], anchors[k+1] + 1);
             const subPreset = window.getMorphedPresetChunk(preset, chunk);
-            if (i > 0) subPreset.shift(); 
+            if (k > 0) subPreset.shift();
             results.push(...subPreset);
         }
         return results;
@@ -112,13 +141,12 @@ window.getMorphedPreset = function(preset, selectedActions) {
     }
 };
 
-// 🎯 FIX: Restaurada la Caja Delimitadora para respetar % originales
+// 🎯 FIX: RESPETA LOS PORCENTAJES (ALTURA) ORIGINALES
 window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
     
-    // Mapeamos los topes de la selección original
     const y_min = Math.min(...selectedActions.map(a => a.pos));
     const y_max = Math.max(...selectedActions.map(a => a.pos));
     
@@ -130,7 +158,6 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
         let newT = t_min + (preset_t_max === 0 ? 0 : (act.at / preset_t_max) * targetDuration);
         let newPos = act.pos;
         
-        // Escala matemática para encerrar la V dentro de la M (Respeta %).
         if (preset_y_max !== preset_y_min) {
             let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
             newPos = y_min + (normalizedY * (y_max - y_min));
