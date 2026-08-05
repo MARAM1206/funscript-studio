@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 41.1
- * Módulo: GESTIÓN DE PRESETS, AVISOS Y ANIMACIÓN CARMESÍ (FIX CHOQUE DE CANVAS)
+ * PRESETS.JS - VERSIÓN 42.0
+ * Módulo: GESTIÓN DE PRESETS, ARRASTRE PERSONALIZADO VISUAL Y TECLADO LIBRE
  * ============================================================================
  */
 
@@ -20,8 +20,6 @@ let modalAnimationFrame = null;
 const modalEl = document.getElementById('preset-editor-modal');
 const nameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
-
-// 🎯 FIX CLAVE: Renombrado a modalCtx para que no choque con el "ctx" de timeline.js
 const modalCtx = modalCanvas ? modalCanvas.getContext('2d') : null;
 
 // Inicializar LocalStorage
@@ -45,10 +43,11 @@ function renderPresetsList() {
     const listModal = document.getElementById('modal-presets-library-list');
     const keys = Object.keys(window.savedPresets);
     
+    // 🎯 FIX: Quitamos draggable="true" nativo para usar nuestro propio motor
     const html = keys.length === 0 
         ? '<span class="empty-log">No hay presets aún.</span>' 
         : keys.map(k => `
-            <div class="preset-card" draggable="true" data-name="${k}">
+            <div class="preset-card" data-name="${k}">
                 <div class="preset-card-header">
                     <span class="preset-card-title" title="${k}">${k}</span>
                     <button class="preset-action-btn preset-delete-btn" data-name="${k}" title="Eliminar Preset">🗑️</button>
@@ -60,20 +59,14 @@ function renderPresetsList() {
     if (listMain) listMain.innerHTML = html;
     if (listModal) listModal.innerHTML = html;
 
-    // Eventos de Arrastre y Soltado (Drag & Drop)
+    // 🎯 NUEVO MOTOR DE ARRASTRE PERSONALIZADO (Libera el teclado y dibuja el patrón)
     document.querySelectorAll('.preset-card').forEach(card => {
-        card.addEventListener('dragstart', (e) => {
+        card.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.preset-action-btn')) return; // Ignorar si dio clic en borrar
             const name = card.getAttribute('data-name');
             if (window.savedPresets[name]) {
-                window.isDraggingPreset = true;
-                window.timelineGhostPreset = window.savedPresets[name];
-                createDragGhost(e, name);
+                startCustomDrag(e, name, window.savedPresets[name]);
             }
-        });
-        card.addEventListener('dragend', () => {
-            window.isDraggingPreset = false;
-            window.timelineGhostPreset = null;
-            if(typeof window.drawTimeline === 'function') window.drawTimeline();
         });
     });
 
@@ -94,26 +87,108 @@ function renderPresetsList() {
 
 window.updatePresetsList = renderPresetsList;
 
-function createDragGhost(e, text) {
-    const dragGhost = document.createElement('div');
-    dragGhost.innerText = "⚙️ Aplicando: " + text;
-    dragGhost.style.backgroundColor = "rgba(220, 20, 60, 0.9)";
-    dragGhost.style.color = "white";
-    dragGhost.style.padding = "10px 18px";
-    dragGhost.style.borderRadius = "8px";
-    dragGhost.style.fontFamily = "sans-serif";
-    dragGhost.style.fontSize = "14px";
-    dragGhost.style.fontWeight = "bold";
-    dragGhost.style.position = "absolute";
-    dragGhost.style.top = "-1000px";
-    dragGhost.style.zIndex = "9999";
-    document.body.appendChild(dragGhost);
+// ⚡ LÓGICA DE ARRASTRE FLOTANTE
+function startCustomDrag(e, name, actions) {
+    e.preventDefault(); // Prevenir selecciones de texto por error
     
-    if (e.dataTransfer) {
-        e.dataTransfer.setDragImage(dragGhost, 20, 20);
+    window.isDraggingPreset = true;
+    window.timelineGhostPreset = actions;
+    window.timelineGhostTimeMs = null;
+    window.timelineGhostDeltaPos = 0;
+
+    // 1. Crear el fantasma visual ultra-profesional
+    const ghost = document.createElement('canvas');
+    ghost.id = "custom-drag-ghost";
+    ghost.width = 160; 
+    ghost.height = 70;
+    ghost.style.position = 'fixed';
+    ghost.style.pointerEvents = 'none'; // Clave para que no estorbe los clics
+    ghost.style.zIndex = '999999';
+    ghost.style.transform = 'translate(-50%, -50%)'; // Centrado en el ratón
+    document.body.appendChild(ghost);
+
+    // 2. Dibujarle el diseño y patrón
+    const ctxGhost = ghost.getContext('2d');
+    ctxGhost.fillStyle = 'rgba(15, 23, 42, 0.9)'; // Fondo oscuro elegante
+    ctxGhost.beginPath(); ctxGhost.roundRect(0, 0, ghost.width, ghost.height, 8); ctxGhost.fill();
+    ctxGhost.strokeStyle = '#38bdf8'; ctxGhost.lineWidth = 1.5; ctxGhost.stroke();
+    
+    ctxGhost.fillStyle = '#94a3b8'; ctxGhost.font = 'bold 10px sans-serif';
+    ctxGhost.fillText(name, 10, 16);
+
+    if (actions && actions.length > 0) {
+        const duration = actions[actions.length - 1].at || 1;
+        const padX = 10, padY = 24, w = ghost.width - padX*2, h = ghost.height - padY - 8;
+        
+        ctxGhost.strokeStyle = '#f97316'; ctxGhost.lineWidth = 2.5; ctxGhost.beginPath();
+        actions.forEach((act, i) => {
+            const px = padX + (act.at / duration) * w;
+            const py = padY + h - (act.pos / 100) * h;
+            if (i === 0) ctxGhost.moveTo(px, py); else ctxGhost.lineTo(px, py);
+        });
+        ctxGhost.stroke();
+
+        actions.forEach(act => {
+            const px = padX + (act.at / duration) * w;
+            const py = padY + h - (act.pos / 100) * h;
+            ctxGhost.fillStyle = '#ffffff'; ctxGhost.beginPath(); ctxGhost.arc(px, py, 2.5, 0, Math.PI*2); ctxGhost.fill();
+        });
     }
-    
-    setTimeout(() => { if(document.body.contains(dragGhost)) document.body.removeChild(dragGhost); }, 0);
+
+    // 3. Lógica de seguimiento
+    function moveGhost(clientX, clientY) {
+        ghost.style.left = clientX + 'px';
+        ghost.style.top = clientY + 'px';
+    }
+    moveGhost(e.clientX, e.clientY);
+
+    const onMouseMove = (moveEvent) => {
+        moveGhost(moveEvent.clientX, moveEvent.clientY);
+        
+        const timelineCanvas = document.getElementById('timeline-canvas');
+        if (timelineCanvas) {
+            const rect = timelineCanvas.getBoundingClientRect();
+            if (moveEvent.clientX >= rect.left && moveEvent.clientX <= rect.right &&
+                moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom) {
+                // Notificar a timeline.js que estamos arrastrando
+                const ev = new CustomEvent('presetCustomDragOver', {
+                    detail: { clientX: moveEvent.clientX, clientY: moveEvent.clientY }
+                });
+                window.dispatchEvent(ev);
+            } else {
+                window.timelineGhostTimeMs = null;
+            }
+        }
+    };
+
+    const onMouseUp = (upEvent) => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        if (document.body.contains(ghost)) document.body.removeChild(ghost);
+        
+        const timelineCanvas = document.getElementById('timeline-canvas');
+        let droppedOnTimeline = false;
+        if (timelineCanvas) {
+            const rect = timelineCanvas.getBoundingClientRect();
+            if (upEvent.clientX >= rect.left && upEvent.clientX <= rect.right &&
+                upEvent.clientY >= rect.top && upEvent.clientY <= rect.bottom) {
+                droppedOnTimeline = true;
+            }
+        }
+
+        if (droppedOnTimeline) {
+            const ev = new CustomEvent('presetCustomDrop', {
+                detail: { clientX: upEvent.clientX, clientY: upEvent.clientY }
+            });
+            window.dispatchEvent(ev);
+        } else {
+            window.isDraggingPreset = false;
+            window.timelineGhostPreset = null;
+        }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
 }
 
 function drawMiniCanvas(name, actions) {
@@ -190,7 +265,6 @@ function closeModal() {
     if(modalAnimationFrame) cancelAnimationFrame(modalAnimationFrame);
 }
 
-// 🎯 FIX CLAVE 2: Enlazar la función para que el botón de Tema Claro no truene
 window.drawModalCanvas = renderModalCanvas;
 
 function renderModalCanvas() {
@@ -203,7 +277,6 @@ function renderModalCanvas() {
         modalCtx.fillStyle = 'rgba(15, 10, 12, 0.4)'; 
         modalCtx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
 
-        // Efecto Carmesí (Fondo)
         crimsonIntensity = Math.abs(Math.sin(Date.now() / 600)) * 0.4 + 0.6;
         wavePhase += 0.05;
         modalCtx.beginPath(); modalCtx.moveTo(0, modalCanvas.height / 2);
@@ -218,7 +291,6 @@ function renderModalCanvas() {
         modalCtx.stroke();
         modalCtx.shadowBlur = 0;
 
-        // Dibujar Puntos del Preset por encima de la onda
         if(window.currentEditingPreset && window.currentEditingPreset.length > 0) {
             const duration = window.currentEditingPreset[window.currentEditingPreset.length - 1].at || 1;
             const padX = 20; const padY = 20;
