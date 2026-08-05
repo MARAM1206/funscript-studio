@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V35.0: TIEMPO NEGATIVO, TECLADO COMPLETO Y PORTAPAPELES
+// PRESETS V35.0: TIEMPO NEGATIVO Y REEMPLAZO POR PORTAPAPELES
 // ==========================================================================
 
 let savedPresets = {};
@@ -41,7 +41,7 @@ let mPanX = 0;
 let mBasePixelsPerMs = 0.1; 
 let mSnapPoint = null; 
 
-// 🎯 FORMATEADOR DE TIEMPO SOPORTA NEGATIVOS
+// 🎯 FORMATEADOR DE TIEMPO (AHORA SOPORTA NEGATIVOS)
 function formatModalLabel(timeMs) {
     const isNeg = timeMs < 0;
     const totalSecs = Math.abs(timeMs) / 1000;
@@ -227,7 +227,7 @@ function modalKeydownHandler(e) {
     if (e.ctrlKey && key === 'y') { e.preventDefault(); redoModal(); return; }
     if (e.ctrlKey && key === 'a') { e.preventDefault(); mActions.forEach(a => a.selected = true); drawModalCanvas(); return; }
     
-    // 🎯 PORTAPAPELES (COPIAR/PEGAR EN MODAL)
+    // 🎯 PORTAPAPELES EN EL MODAL (CTRL+C / CTRL+V)
     if (e.ctrlKey && key === 'c') {
         const selected = mActions.filter(a => a.selected);
         if (selected.length > 0) {
@@ -240,6 +240,7 @@ function modalKeydownHandler(e) {
         if (window.clipboardFunscript && window.clipboardFunscript.length > 0) {
             window.isPastingMode = true;
             window.timelineGhostPreset = window.clipboardFunscript;
+            drawModalCanvas();
         }
         return;
     }
@@ -347,7 +348,6 @@ modalCanvas?.addEventListener('wheel', (e) => {
     drawModalCanvas();
 }, { passive: false });
 
-// 🧲 DROP PRESET ADENTRO DEL MODAL (Fusión de presets)
 modalCanvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -375,7 +375,7 @@ modalCanvas?.addEventListener('dragover', (e) => {
             if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
         });
 
-        // 🔥 PERMITE TIEMPO NEGATIVO: Quitamos el Math.max(0)
+        // 🔥 TIEMPO NEGATIVO PERMITIDO: Sin Math.max
         hoverTimeMs = bestSnapTime;
         
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
@@ -397,16 +397,18 @@ modalCanvas?.addEventListener('drop', (e) => {
         let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : mXToTime(e.clientX - rect.left);
         const deltaY = window.timelineGhostDeltaPos || 0;
         
+        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+        const endTimeMs = dropTimeMs + presetDuration;
+
+        mActions = mActions.filter(act => act.at < dropTimeMs || act.at > endTimeMs);
+        mActions.forEach(a => a.selected = false); 
+        
         const newActions = window.timelineGhostPreset.map(act => ({
             at: dropTimeMs + act.at,
             pos: Math.max(0, Math.min(100, act.pos + deltaY)),
             selected: true 
         }));
         
-        // 🎯 SOBRESCRIBIR FUSIÓN EN MODAL
-        const newTimes = new Set(newActions.map(a => a.at));
-        mActions = mActions.filter(a => !newTimes.has(a.at));
-        mActions.forEach(a => a.selected = false);
         mActions.push(...newActions);
         mActions.sort((a, b) => a.at - b.at);
         mDuration = Math.max(mDuration, mActions[mActions.length-1].at);
@@ -416,7 +418,7 @@ modalCanvas?.addEventListener('drop', (e) => {
     }
 });
 
-// 🎨 DIBUJADO DE MODAL
+// 🎨 DIBUJADO DE MODAL CON GRID DEL 10%
 window.drawModalCanvas = function() {
     if (!mCtx || !modalCanvas) return;
     ensureModalCanvasSize();
@@ -432,7 +434,7 @@ window.drawModalCanvas = function() {
     mCtx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
 
     mCtx.lineWidth = 1;
-    // 🎯 GRID HORIZONTAL 10%
+    // 🎯 GRID 10%
     [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
         const y = mPosToY(p);
         mCtx.strokeStyle = gridColor;
@@ -450,7 +452,7 @@ window.drawModalCanvas = function() {
     else if (visibleMs > 15000) stepMs = 2000;
     else stepMs = 1000; 
 
-    // 🎯 TIEMPO NEGATIVO SOPORTADO EN PANTALLA
+    // 🎯 PERMITE DIBUJAR NÚMEROS NEGATIVOS
     const startTimeMs = mXToTime(30);
     const endTimeMs = mXToTime(modalCanvas.width);
     let t = Math.floor(startTimeMs / stepMs) * stepMs;
@@ -488,7 +490,7 @@ window.drawModalCanvas = function() {
         mCtx.setLineDash([2, 2]); mCtx.beginPath(); mCtx.fillRect(mStartX, mStartY, mCurrentX - mStartX, mCurrentY - mStartY); mCtx.strokeRect(mStartX, mStartY, mCurrentX - mStartX, mCurrentY - mStartY); mCtx.setLineDash([]);
     }
 
-    // 🎯 FANTASMA DE PEGAR O ARRASTRAR
+    // 🎯 FANTASMA DE PEGAR O ARRASTRAR EN EL MODAL
     if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
         const deltaY = window.timelineGhostDeltaPos || 0;
         mCtx.lineWidth = 3; mCtx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; mCtx.beginPath();
@@ -506,6 +508,7 @@ window.drawModalCanvas = function() {
         });
     }
     
+    // RADAR MAGNÉTICO
     if (mSnapPoint && !mIsSelecting && !mIsDragging) {
         const px = mTimeToX(mSnapPoint.at);
         const py = mPosToY(mSnapPoint.pos);
@@ -571,7 +574,7 @@ modalCanvas?.addEventListener('mousedown', (e) => {
             if (!e.ctrlKey) mActions.forEach(a => a.selected = false);
             if (!hadSelection) {
                 saveModalHistory();
-                let clickTime = Math.round(mXToTime(pos.x) / 50) * 50; // Sin Math.max(0)
+                let clickTime = Math.round(mXToTime(pos.x) / 50) * 50; 
                 let clickPos = Math.round(mYToPos(pos.y) / 5) * 5;
                 if (mSnapPoint) { clickTime = mSnapPoint.at; clickPos = mSnapPoint.pos; }
                 
@@ -650,7 +653,7 @@ modalCanvas?.addEventListener('mousemove', (e) => {
 
         mActions.forEach((act, i) => {
             if (mDragInitialStates[i].selected) {
-                act.at = mDragInitialStates[i].at + snappedTimeDelta; // Sin Math.max
+                act.at = mDragInitialStates[i].at + snappedTimeDelta; 
                 if (useMagnet) act.pos = Math.max(0, Math.min(100, mDragInitialStates[i].pos + snappedPosDelta));
                 else act.pos = Math.max(0, Math.min(100, Math.round((mDragInitialStates[i].pos + snappedPosDelta) / 5) * 5));
             }
