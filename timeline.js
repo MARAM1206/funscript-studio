@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V44.0: ANIMACIÓN ULTRA FLUIDA (SMOOTH PULSE) Y FANTASMA LIBRE
+// TIMELINE V45.0: FÓRMULA DE VELOCIDAD FAPTAP Y COPIAR/PEGAR SEPARADO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -119,16 +119,21 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            const totalStrokes = (actions.length - 1) / 2;
-            const durationMs = actions[actions.length - 1].at - actions[0].at;
-            const durationMins = durationMs / 60000;
+            // 🎯 FIX DEFINITIVO DE VELOCIDAD FAPTAP
+            // FapTap calcula la Velocidad Total sumando toda la distancia recorrida (%)
+            // y dividiéndola entre la duración total del script en Segundos.
+            let totalDistance = 0;
+            for (let i = 1; i < actions.length; i++) {
+                totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
+            }
+            const durationSecs = actions[actions.length - 1].at / 1000;
 
-            if (durationMins > 0) {
-                const spm = Math.round(totalStrokes / durationMins);
-                if (spm >= 301) speedText = `Very Fast 🔴 (${spm})`;
-                else if (spm >= 151) speedText = `Fast 🟠 (${spm})`;
-                else if (spm >= 51) speedText = `Medium 🟡 (${spm})`; 
-                else speedText = `Slow 🟢 (${spm})`;
+            if (durationSecs > 0) {
+                const fapTapSpeed = Math.round(totalDistance / durationSecs);
+                if (fapTapSpeed >= 250) speedText = `Very Fast 🔴 (${fapTapSpeed})`;
+                else if (fapTapSpeed >= 150) speedText = `Fast 🟠 (${fapTapSpeed})`;
+                else if (fapTapSpeed >= 80) speedText = `Medium 🟡 (${fapTapSpeed})`; 
+                else speedText = `Slow 🟢 (${fapTapSpeed})`;
             }
         } else if (actions.length === 1) {
             speedText = "Slow 🟢 (0)";
@@ -246,11 +251,16 @@ window.addEventListener('copyPoints', () => {
     }
 });
 
+// 🎯 FIX: El pegado con teclado (Ctrl+V) ya NO usa Modo Adaptativo.
+// Quita la selección previa y pega el fantasma libremente.
 window.addEventListener('pastePoints', () => {
     const modal = document.getElementById('preset-editor-modal');
     if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && modal.style.display !== 'flex') {
+        getSafeActions().forEach(a => a.selected = false); // Evita conflicto con Modo Adaptativo
         window.isPastingMode = true;
         window.timelineGhostPreset = window.clipboardFunscript;
+        window.timelineGhostTimeMs = null;
+        window.drawTimeline();
     }
 });
 
@@ -299,6 +309,7 @@ window.addEventListener('presetCustomDrop', (e) => {
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
+        // 🎯 FIX: Solo aplica Modo Adaptativo si estás ARRASTRANDO (no Pegando).
         if (window.isAdaptiveModeActive && selected.length >= 2) {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
             if (morphed) {
@@ -619,12 +630,12 @@ window.drawTimeline = function() {
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
                 const x2 = timeToX(act2.at); const y2 = posToY(act2.pos);
 
-                let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
+                // 🎯 FIX: Animación Solo si es Drag de Preset
+                let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset;
                 
                 ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
                 
                 if (isMorphLine) {
-                    // 🎯 FIX ANIMACIÓN FLUIDA: Adiós a los rebotes y pasos duros, hola onda sinusoidal perfecta.
                     const pulse = 0.3 + 0.7 * (Math.sin(performance.now() / 250) * 0.5 + 0.5);
                     ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
                     ctx.lineWidth = 4;
@@ -639,7 +650,7 @@ window.drawTimeline = function() {
                 const x = timeToX(act.at);
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
-                    let isTargetForMorph = act.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
+                    let isTargetForMorph = act.selected && window.isAdaptiveModeActive && window.isDraggingPreset;
                     
                     if (isTargetForMorph) {
                         const pulse = 0.3 + 0.7 * (Math.sin(performance.now() / 250) * 0.5 + 0.5);
@@ -657,10 +668,10 @@ window.drawTimeline = function() {
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const selected = actions.filter(a => a.selected);
-            if (window.isAdaptiveModeActive && selected.length >= 2) {
+            // 🎯 FIX: El pegado (Ctrl+V) usa la forma estándar, solo el Arrastre de presets usa Adaptativo.
+            if (window.isDraggingPreset && window.isAdaptiveModeActive && selected.length >= 2) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
                 if (morphed) {
-                    // 🎯 FIX ANIMACIÓN FLUIDA
                     const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
                     ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
                     morphed.forEach((act, index) => {
@@ -828,21 +839,8 @@ canvas?.addEventListener('mousedown', (e) => {
             let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
             const deltaY = window.timelineGhostDeltaPos || 0;
             
-            const selected = actions.filter(a => a.selected);
-
-            if (window.isAdaptiveModeActive && selected.length >= 2) {
-                const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
-                if (morphed) {
-                    window.funscriptActions = actions.filter(a => !a.selected); 
-                    morphed.forEach(m => m.selected = true);
-                    window.funscriptActions.push(...morphed);
-                    cleanDuplicates();
-                    window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-                    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-                    notifyCloud(); window.updateHeatmapAndStats();
-                    return;
-                }
-            }
+            // Simplemente pega los puntos
+            getSafeActions().forEach(a => a.selected = false); 
             
             const newActions = window.timelineGhostPreset.map(act => ({
                 at: Math.max(0, dropTimeMs + act.at),
