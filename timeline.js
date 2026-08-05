@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V42.0: FIX MATEMÁTICO DE VELOCIDAD (SPM) Y EVENTOS DE ARRASTRE
+// TIMELINE V43.0: SPM FIX FAPTAP Y ARRASTRE MULTITAREA (LIBERACIÓN DE TECLADO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -119,13 +119,8 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            let totalDistance = 0;
-            for (let i = 1; i < actions.length; i++) {
-                totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
-            }
-            const totalStrokes = totalDistance / 200;
-            
-            // 🎯 FIX DE VELOCIDAD: Calcular la duración basándose SÓLO en la porción real del script
+            // 🎯 FIX SPM FAPTAP: 1 stroke = 2 puntos. SPM = Strokes / Duración en Minutos del Script.
+            const totalStrokes = (actions.length - 1) / 2;
             const durationMs = actions[actions.length - 1].at - actions[0].at;
             const durationMins = durationMs / 60000;
 
@@ -273,12 +268,10 @@ window.addEventListener('presetCustomDragOver', (e) => {
         let hoverPosRaw = yToPos(pos.y);
         
         const actions = getSafeActions();
-        const selected = actions.filter(a => a.selected);
-
-        if (window.isAdaptiveModeActive && selected.length >= 2) {
-            return; // Adaptive mode handles itself
-        }
         
+        // 🎯 FIX: Eliminada la barrera que impedía que el Fantasma Adaptativo se calculara.
+        // Ahora el modo Adaptativo permite rastrear el ratón en todo momento.
+
         const snapDistMs = 350; 
         const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         
