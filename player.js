@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V25.0 (FULLSCREEN Y ADAPTATIVO CORRECTO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V26.0 (TECLA P, ADAPTATIVO Y PORTAPAPELES)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -82,14 +82,11 @@ async function loadVideoFile(file, hasFunscripts = false) {
     }
 }
 
-// 🎯 CONTROL DE PANTALLA COMPLETA (ICONO FLOTANTE)
 const fsMiniBtn = document.getElementById('fs-mini-btn');
 const videoContainer = document.getElementById('video-container-wrapper');
 
 fsMiniBtn?.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-        videoContainer.requestFullscreen().catch(err => console.error(err));
-    }
+    if (!document.fullscreenElement) videoContainer.requestFullscreen().catch(err => console.error(err));
 });
 
 let isSeeking = false;
@@ -129,7 +126,6 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     window.videoFPS = 30; 
     if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
     if (vFps) vFps.innerText = `~${window.videoFPS} fps`; 
-    
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
@@ -191,7 +187,6 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 TECLA F: Pantalla Completa
     if (key === 'f' && !event.ctrlKey) {
         event.preventDefault();
         if (!document.fullscreenElement) videoContainer.requestFullscreen().catch(err => console.error(err));
@@ -199,20 +194,14 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 MODO ADAPTATIVO POR TECLADO
-    if (event.code === 'Space') {
-        if (window.isDraggingPreset || window.isPastingMode) {
-            event.preventDefault(); 
-            window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
-            if (typeof window.syncAdaptiveCheckboxes === 'function') window.syncAdaptiveCheckboxes(window.isAdaptiveModeActive);
-            if (typeof window.drawTimeline === 'function') window.drawTimeline();
-            if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
-            return;
-        } else {
-            event.preventDefault(); 
-            if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); 
-            return;
-        }
+    // 🎯 TECLA P: TOGGLE MODO ADAPTATIVO
+    if (key === 'p' && !event.ctrlKey) {
+        event.preventDefault(); 
+        window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
+        if (typeof window.syncAdaptiveButtons === 'function') window.syncAdaptiveButtons(window.isAdaptiveModeActive);
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+        return;
     }
 
     if (event.ctrlKey) {
@@ -254,16 +243,19 @@ window.addEventListener('keydown', (event) => {
     }
 
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
+    
+    if (event.code === 'Space' && !window.isDraggingPreset && !window.isPastingMode) { 
+        event.preventDefault(); 
+        if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); 
+    }
+    
     if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     
     const forcePan = (exactTimeMs) => {
-        if (exactTimeMs !== undefined) {
-            window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: exactTimeMs } }));
-        } else {
-            window.dispatchEvent(new Event('forceTimelinePan'));
-        }
+        if (exactTimeMs !== undefined) window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: exactTimeMs } }));
+        else window.dispatchEvent(new Event('forceTimelinePan'));
     };
 
     const framesToJump = 3;
