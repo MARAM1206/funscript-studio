@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V22.0 (CTRL+C / CTRL+V Y B/N FIX)
+// REPRODUCTOR Y MOTOR DE ATAJOS V23.0 (MODO ADAPTATIVO ESPACIO Y CTRL C/V)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -9,8 +9,11 @@ const videoProgress = document.getElementById('video-progress');
 window.videoPlayer = videoPlayer;
 window.currentVideoName = null; 
 window.audioPeaks = null; 
-window.clipboardFunscript = null; // 🎯 NUEVO: Portapapeles Global
-window.isPastingMode = false; // 🎯 NUEVO: Estado del Fantasma Copiador
+window.clipboardFunscript = null; 
+window.isPastingMode = false; 
+
+// 🎯 VARIABLE GLOBAL PARA EL MODO ADAPTATIVO
+window.isSpaceDown = false;
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -167,7 +170,17 @@ window.addEventListener('drop', (e) => {
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🛡️ MODO CAPTURA EN TECLADO
+// 🎯 DETECTOR GLOBAL DEL MODO ADAPTATIVO (TECLA ESPACIO)
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+        window.isSpaceDown = false;
+        if (window.isDraggingPreset) {
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+        }
+    }
+});
+
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
 
@@ -175,12 +188,22 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
+    // 🎯 ACTIVADOR DEL MODO ADAPTATIVO DURANTE ARRASTRE
+    if (event.code === 'Space') {
+        window.isSpaceDown = true;
+        if (window.isDraggingPreset) {
+            event.preventDefault(); 
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+            return;
+        }
+    }
+
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
         
-        // 🎯 PORTAPAPELES (CTRL+C / CTRL+V)
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
         
@@ -217,12 +240,17 @@ window.addEventListener('keydown', (event) => {
     }
 
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
-    if (event.code === 'Space') { event.preventDefault(); if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); }
+    
+    // Play/Pause normal solo si NO estamos arrastrando
+    if (event.code === 'Space' && !window.isDraggingPreset) { 
+        event.preventDefault(); 
+        if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); 
+    }
+    
     if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     
-    // 🎯 PANEO FORZADO CON TIEMPO EXACTO PARA EVITAR BUGS CON 'B' Y 'N'
     const forcePan = (exactTimeMs) => {
         if (exactTimeMs !== undefined) {
             window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: exactTimeMs } }));
@@ -251,7 +279,6 @@ window.addEventListener('keydown', (event) => {
 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
-    // 🎯 REPARADO B Y N: Ahora envían su tiempo exacto a la cámara para anclarse al 100%
     if (key === 'b' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
