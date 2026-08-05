@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V23.0 (MODO ADAPTATIVO ESPACIO Y CTRL C/V)
+// REPRODUCTOR Y MOTOR DE ATAJOS V24.0 (FULLSCREEN Y TOGGLE ADAPTATIVO)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -12,15 +12,15 @@ window.audioPeaks = null;
 window.clipboardFunscript = null; 
 window.isPastingMode = false; 
 
-// 🎯 VARIABLE GLOBAL PARA EL MODO ADAPTATIVO
-window.isSpaceDown = false;
+// 🎯 INTERRUPTOR (TOGGLE) DEL MODO ADAPTATIVO
+window.isAdaptiveModeActive = false;
+window.fsTimelineVisible = true; // Control de Línea Transparente en Fullscreen
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
 const vFps = document.getElementById('v-fps');
 const vSpeed = document.getElementById('v-speed');
 const vMute = document.getElementById('v-mute');
-
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
@@ -50,9 +50,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
 
     if (!hasFunscripts && window.loadedFunscriptTracks && window.loadedFunscriptTracks.length === 0) {
         const baseName = file.name.replace(/\.[^/.]+$/, ""); 
-        if (typeof window.createEmptyTrack === 'function') {
-            window.createEmptyTrack(baseName);
-        }
+        if (typeof window.createEmptyTrack === 'function') window.createEmptyTrack(baseName);
     }
 
     if (vMute) { vMute.innerText = "⏳ Audio..."; vMute.style.color = "#f59e0b"; }
@@ -84,6 +82,18 @@ async function loadVideoFile(file, hasFunscripts = false) {
         if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.style.color = "#94a3b8"; }
     }
 }
+
+// 🎯 CONTROL DE PANTALLA COMPLETA
+const fsBtn = document.getElementById('fullscreen-btn');
+const videoContainer = document.getElementById('video-container-wrapper');
+
+fsBtn?.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+        videoContainer.requestFullscreen().catch(err => console.error(err));
+    } else {
+        document.exitFullscreen();
+    }
+});
 
 let isSeeking = false;
 videoProgress?.addEventListener('mousedown', () => isSeeking = true);
@@ -170,31 +180,31 @@ window.addEventListener('drop', (e) => {
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🎯 DETECTOR GLOBAL DEL MODO ADAPTATIVO (TECLA ESPACIO)
-window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') {
-        window.isSpaceDown = false;
-        if (window.isDraggingPreset) {
-            if (typeof window.drawTimeline === 'function') window.drawTimeline();
-            if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
-        }
-    }
-});
-
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
+
+    // 🎯 OCULTAR/MOSTRAR LÍNEA TRANSPARENTE EN FULLSCREEN
+    if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
+        window.fsTimelineVisible = !window.fsTimelineVisible;
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
+    }
 
     const key = event.key.toLowerCase();
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 ACTIVADOR DEL MODO ADAPTATIVO DURANTE ARRASTRE
+    // 🎯 INTERRUPTOR DEL MODO ADAPTATIVO (TOGGLE)
     if (event.code === 'Space') {
-        window.isSpaceDown = true;
-        if (window.isDraggingPreset) {
+        if (window.isDraggingPreset || window.isPastingMode) {
             event.preventDefault(); 
+            window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+            return;
+        } else {
+            event.preventDefault(); 
+            if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); 
             return;
         }
     }
@@ -203,10 +213,8 @@ window.addEventListener('keydown', (event) => {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
-        
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
-        
         if (key === 'arrowup' || key === 'arrowdown') {
             event.preventDefault(); event.stopPropagation();
             const dir = (key === 'arrowup') ? 'up' : 'down';
@@ -240,13 +248,6 @@ window.addEventListener('keydown', (event) => {
     }
 
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
-    
-    // Play/Pause normal solo si NO estamos arrastrando
-    if (event.code === 'Space' && !window.isDraggingPreset) { 
-        event.preventDefault(); 
-        if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); 
-    }
-    
     if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
