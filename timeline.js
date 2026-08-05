@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V43.0: SPM FIX FAPTAP Y ARRASTRE MULTITAREA (LIBERACIÓN DE TECLADO)
+// TIMELINE V44.0: ANIMACIÓN ULTRA FLUIDA (SMOOTH PULSE) Y FANTASMA LIBRE
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -119,7 +119,6 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            // 🎯 FIX SPM FAPTAP: 1 stroke = 2 puntos. SPM = Strokes / Duración en Minutos del Script.
             const totalStrokes = (actions.length - 1) / 2;
             const durationMs = actions[actions.length - 1].at - actions[0].at;
             const durationMins = durationMs / 60000;
@@ -255,23 +254,15 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// ⚡ LÓGICA DE EVENTOS DE ARRASTRE PERSONALIZADO (CUSTOM DRAG)
 window.addEventListener('presetCustomDragOver', (e) => {
     if (!canvas) return;
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         const rect = canvas.getBoundingClientRect();
-        const pos = {
-            x: (e.detail.clientX - rect.left) * (canvas.width / rect.width),
-            y: (e.detail.clientY - rect.top) * (canvas.height / rect.height)
-        };
+        const pos = { x: (e.detail.clientX - rect.left) * (canvas.width / rect.width), y: (e.detail.clientY - rect.top) * (canvas.height / rect.height) };
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
         const actions = getSafeActions();
-        
-        // 🎯 FIX: Eliminada la barrera que impedía que el Fantasma Adaptativo se calculara.
-        // Ahora el modo Adaptativo permite rastrear el ratón en todo momento.
-
         const snapDistMs = 350; 
         const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         
@@ -325,15 +316,10 @@ window.addEventListener('presetCustomDrop', (e) => {
         }
 
         const rect = canvas.getBoundingClientRect();
-        const pos = {
-            x: (e.detail.clientX - rect.left) * (canvas.width / rect.width),
-            y: (e.detail.clientY - rect.top) * (canvas.height / rect.height)
-        };
+        const pos = { x: (e.detail.clientX - rect.left) * (canvas.width / rect.width), y: (e.detail.clientY - rect.top) * (canvas.height / rect.height) };
         let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
         const deltaY = window.timelineGhostDeltaPos || 0;
         
-        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-
         saveHistoryState();
         
         const newActions = window.timelineGhostPreset.map(act => ({
@@ -625,6 +611,9 @@ window.drawTimeline = function() {
         }
 
         if (actions.length > 0) {
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
             for (let i = 0; i < actions.length - 1; i++) {
                 const act1 = actions[i]; const act2 = actions[i+1];
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
@@ -635,7 +624,8 @@ window.drawTimeline = function() {
                 ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
                 
                 if (isMorphLine) {
-                    const pulse = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 150));
+                    // 🎯 FIX ANIMACIÓN FLUIDA: Adiós a los rebotes y pasos duros, hola onda sinusoidal perfecta.
+                    const pulse = 0.3 + 0.7 * (Math.sin(performance.now() / 250) * 0.5 + 0.5);
                     ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
                     ctx.lineWidth = 4;
                 } else {
@@ -652,7 +642,7 @@ window.drawTimeline = function() {
                     let isTargetForMorph = act.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
                     
                     if (isTargetForMorph) {
-                        const pulse = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 150));
+                        const pulse = 0.3 + 0.7 * (Math.sin(performance.now() / 250) * 0.5 + 0.5);
                         ctx.fillStyle = `rgba(239, 68, 68, ${pulse})`;
                         ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
@@ -670,7 +660,8 @@ window.drawTimeline = function() {
             if (window.isAdaptiveModeActive && selected.length >= 2) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
                 if (morphed) {
-                    const pulseG = 0.6 + 0.4 * Math.sin(Date.now() / 150 + Math.PI); 
+                    // 🎯 FIX ANIMACIÓN FLUIDA
+                    const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
                     ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
                     morphed.forEach((act, index) => {
                         const x = timeToX(act.at); const y = posToY(act.pos); 
