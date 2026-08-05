@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V45.0 (TECLA P, PORTAPAPELES Y TECLA ESCAPE)
+// REPRODUCTOR Y MOTOR DE ATAJOS V46.0 (SIN AUTO-CREACIÓN DE PISTA)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -47,10 +47,8 @@ async function loadVideoFile(file, hasFunscripts = false) {
     if (vName) vName.innerText = `📄 ${file.name}`;
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
 
-    if (!hasFunscripts && window.loadedFunscriptTracks && window.loadedFunscriptTracks.length === 0) {
-        const baseName = file.name.replace(/\.[^/.]+$/, ""); 
-        if (typeof window.createEmptyTrack === 'function') window.createEmptyTrack(baseName);
-    }
+    // 🎯 FIX: Eliminamos la creación automática de "Nuevo_Script".
+    // Ahora solo se creará cuando el usuario dé el primer clic en la gráfica.
 
     if (vMute) { vMute.innerText = "⏳ Audio..."; vMute.style.color = "#f59e0b"; }
     try {
@@ -177,7 +175,6 @@ window.addEventListener('drop', (e) => {
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
 
-    // 🎯 FIX: CANCELAR PEGADO O ARRASTRE CON ESCAPE
     if (event.key === 'Escape' || event.key === 'Esc') {
         if (window.isPastingMode || window.isDraggingPreset) {
             window.isPastingMode = false;
