@@ -1,13 +1,13 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 47.0
- * Módulo: SOBRESCRITURA INTELIGENTE, ZOOM MILIMÉTRICO Y TEMA CLARO DINÁMICO
+ * PRESETS.JS - VERSIÓN 49.0
+ * Módulo: IMÁN CUÁNTICO (100ms / 5%) Y ATADURAS DE TECLADO SINCRONIZADAS
  * ============================================================================
  */
 
 window.savedPresets = {};
 window.currentEditingPreset = [];
-window.originalEditingPresetName = null; // Memoria para saber qué preset estamos editando
+window.originalEditingPresetName = null; 
 window.isDraggingPreset = false;
 window.timelineGhostPreset = null;
 window.timelineGhostTimeMs = null;
@@ -35,7 +35,6 @@ const nameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
 const modalCtx = modalCanvas ? modalCanvas.getContext('2d') : null;
 
-// Inicializar LocalStorage
 function loadPresets() {
     try { window.savedPresets = JSON.parse(localStorage.getItem('funscript_saved_presets')) || {}; } 
     catch (e) { window.savedPresets = {}; }
@@ -83,7 +82,6 @@ function renderPresetsList() {
     if (listMain) listMain.innerHTML = html;
     if (listModal) listModal.innerHTML = html;
 
-    // Iniciar Arrastre Personalizado
     document.querySelectorAll('.preset-card').forEach(card => {
         card.addEventListener('mousedown', (e) => {
             if (e.target.closest('.preset-action-btn')) return; 
@@ -101,7 +99,7 @@ function renderPresetsList() {
             if (window.savedPresets[name]) {
                 window.currentEditingPreset = JSON.parse(JSON.stringify(window.savedPresets[name])); 
                 window.currentEditingPreset.forEach(a => a.selected = false);
-                window.originalEditingPresetName = name; // 🎯 FIX: Guardamos qué preset es
+                window.originalEditingPresetName = name; 
                 if (nameInput) nameInput.value = name;
                 openModal();
             }
@@ -324,7 +322,6 @@ window.addEventListener('modalCustomDrop', (e) => {
     }
 });
 
-// Guardar desde el panel Timeline
 document.getElementById('save-preset-btn')?.addEventListener('click', () => {
     if (!window.funscriptActions) return;
     const selected = window.funscriptActions.filter(a => a.selected).sort((a,b) => a.at - b.at);
@@ -333,12 +330,11 @@ document.getElementById('save-preset-btn')?.addEventListener('click', () => {
     const baseTime = selected[0].at;
     window.currentEditingPreset = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, selected: false }));
     
-    window.originalEditingPresetName = null; // 🎯 FIX: Es un preset virgen
+    window.originalEditingPresetName = null; 
     if (nameInput) nameInput.value = "Nuevo Preset";
     openModal();
 });
 
-// 🎯 FIX: Lógica de Guardado y Sobrescritura Silenciosa
 function handleSave(forceNew) {
     let name = nameInput ? nameInput.value.trim() : "Preset";
     if (!name) name = "Preset Sin Nombre";
@@ -351,21 +347,19 @@ function handleSave(forceNew) {
             name = newName;
         }
     } else {
-        // Solo pregunta si cambiaste el nombre y el nuevo nombre ya existe
         if (window.savedPresets[name] && name !== window.originalEditingPresetName) {
             const conf = confirm(`⚠️ Ya existe un preset llamado "${name}".\n¿Deseas reemplazarlo?`);
             if (!conf) return; 
         }
     }
 
-    // Si no es "Crear Nuevo", y le cambiamos el nombre a uno existente, borramos el original
     if (!forceNew && window.originalEditingPresetName && name !== window.originalEditingPresetName) {
         delete window.savedPresets[window.originalEditingPresetName];
     }
 
     const finalPreset = window.currentEditingPreset.map(a => ({at: a.at, pos: a.pos}));
     window.savedPresets[name] = finalPreset;
-    window.originalEditingPresetName = name; // Se actualiza la memoria
+    window.originalEditingPresetName = name; 
     savePresetsToStorage();
     closeModal();
 }
@@ -402,7 +396,6 @@ function renderModalCanvas() {
     const loop = () => {
         if(modalEl.style.display === 'none') return;
         
-        // 🎯 FIX: SOPORTE TOTAL MODO CLARO Y OSCURO EN MODAL
         const isLight = document.body.classList.contains('light-theme');
         
         modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
@@ -512,6 +505,7 @@ function redoModal() {
     }
 }
 
+// 🎯 ATADURAS DE TECLADO IDÉNTICAS A LA LÍNEA DE TIEMPO
 document.addEventListener('keydown', (e) => {
     if (modalEl && modalEl.style.display === 'flex') {
         const key = e.key.toLowerCase();
@@ -519,6 +513,26 @@ document.addEventListener('keydown', (e) => {
             if (key === 'z') { e.preventDefault(); undoModal(); }
             if (key === 'y') { e.preventDefault(); redoModal(); }
             if (key === 'a') { e.preventDefault(); window.currentEditingPreset.forEach(a => a.selected = true); }
+            if (key === 'arrowup' || key === 'arrowdown') {
+                e.preventDefault();
+                saveModalHistoryState();
+                window.currentEditingPreset.forEach(act => {
+                    if (act.selected) {
+                        if (key === 'arrowup') act.pos = Math.min(100, act.pos + 5);
+                        if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 5);
+                    }
+                });
+            }
+            if (key === 'arrowleft' || key === 'arrowright') {
+                e.preventDefault();
+                saveModalHistoryState();
+                window.currentEditingPreset.forEach(act => {
+                    if (act.selected) {
+                        if (key === 'arrowleft') act.at = Math.max(0, act.at - 100);
+                        if (key === 'arrowright') act.at = act.at + 100;
+                    }
+                });
+            }
         } else if (key === 'delete' || key === 'backspace') {
             const hasSel = window.currentEditingPreset.some(a => a.selected);
             if(hasSel) {
@@ -577,8 +591,9 @@ modalCanvas?.addEventListener('mousemove', (e) => {
     if (mIsDragging) {
         window.currentEditingPreset.forEach(act => {
             if (act.selected) {
-                act.at = Math.max(0, Math.round(mXToTime(pos.x) / 10) * 10);
-                act.pos = mYToPos(pos.y);
+                // 🧲 IMÁN CUÁNTICO: Snap al 5% en altura y a 100ms (0.1s) en tiempo
+                act.at = Math.max(0, Math.round(mXToTime(pos.x) / 100) * 100);
+                act.pos = Math.max(0, Math.min(100, Math.round(mYToPos(pos.y) / 5) * 5));
             }
         });
     } else if (mIsSelecting) {
@@ -596,8 +611,10 @@ modalCanvas?.addEventListener('mousemove', (e) => {
 modalCanvas?.addEventListener('mouseup', () => {
     if (mIsSelecting && !mHasDragged) {
         saveModalHistoryState(); 
-        const clickTime = Math.max(0, Math.round(mXToTime(mStartX) / 10) * 10);
-        const clickPos = mYToPos(mStartY);
+        // 🧲 IMÁN CUÁNTICO: Snap para puntos nuevos creados con clic
+        const clickTime = Math.max(0, Math.round(mXToTime(mStartX) / 100) * 100);
+        const clickPos = Math.max(0, Math.min(100, Math.round(mYToPos(mStartY) / 5) * 5));
+        
         window.currentEditingPreset.push({ at: clickTime, pos: clickPos, selected: true });
     }
     mIsDragging = false; mIsSelecting = false; mHasDragged = false;
