@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V26.0 (TECLA P, ADAPTATIVO Y PORTAPAPELES)
+// REPRODUCTOR Y MOTOR DE ATAJOS V27.0 (TECLA P, ADAPTATIVO Y PORTAPAPELES)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -125,7 +125,8 @@ videoPlayer?.addEventListener('seeked', () => {
 videoPlayer?.addEventListener('loadedmetadata', () => {
     window.videoFPS = 30; 
     if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
-    if (vFps) vFps.innerText = `~${window.videoFPS} fps`; 
+    // 🎯 EMOJI EN FPS
+    if (vFps) vFps.innerText = `🎞️ ${window.videoFPS} fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
@@ -162,7 +163,7 @@ window.addEventListener('dragover', (e) => {
 window.addEventListener('drop', (e) => {
     if (window.isDraggingPreset) return; 
     if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); dragCounter = 0; dragOverlay?.classList.remove('active');
+    e.preventDefault(); dragCounter = 0; dragOverlay?.classList.remove('active'); 
     
     const files = Array.from(e.dataTransfer.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
