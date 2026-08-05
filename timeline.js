@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V52.0: RECONOCIMIENTO DE CICLOS INTELIGENTE Y PORCENTAJES
+// TIMELINE V53.0: CIZALLADURA MATEMÁTICA Y SELECCIÓN ANCLADA AL TIEMPO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -25,10 +25,11 @@ let zoom = 1.0;
 let basePixelsPerMs = 0.1; 
 let scrollLeftMs = 0; 
 
+// 🎯 FIX: Variables de selección ahora ancladas al Tiempo, no a la pantalla
 let isSelecting = false;
 let hasDraggedSelection = false; 
-let startX = 0, startY = 0;
-let currentX = 0, currentY = 0;
+let selStartT = 0, selStartY = 0;
+let selCurrT = 0, selCurrY = 0;
 
 let isDraggingNode = false; 
 let draggedNodeIndex = -1; 
@@ -92,7 +93,6 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: RECONOCIMIENTO DE CICLOS (Convierte varias M en varias V perfectamente)
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
@@ -102,7 +102,6 @@ window.getMorphedPreset = function(preset, selectedActions) {
         let p0 = selectedActions[0].pos;
         let anchors = [0];
         
-        // Calculamos la amplitud de la selección para hacer una detección inteligente
         const y_min = Math.min(...selectedActions.map(a => a.pos));
         const y_max = Math.max(...selectedActions.map(a => a.pos));
         const amplitude = y_max - y_min;
@@ -141,11 +140,15 @@ window.getMorphedPreset = function(preset, selectedActions) {
     }
 };
 
-// 🎯 FIX: RESPETA LOS PORCENTAJES (ALTURA) ORIGINALES
+// 🎯 FIX: CIZALLADURA MATEMÁTICA (Fuerza inicios y finales exactos)
 window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
+    
+    // Obtenemos los puntos exactos donde DEBE iniciar y terminar el preset
+    const origStartPos = selectedActions[0].pos;
+    const origEndPos = selectedActions[selectedActions.length - 1].pos;
     
     const y_min = Math.min(...selectedActions.map(a => a.pos));
     const y_max = Math.max(...selectedActions.map(a => a.pos));
@@ -155,17 +158,33 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
     const preset_y_max = Math.max(...preset.map(a => a.pos));
     
     return preset.map((act) => {
-        let newT = t_min + (preset_t_max === 0 ? 0 : (act.at / preset_t_max) * targetDuration);
-        let newPos = act.pos;
+        let progress = preset_t_max === 0 ? 0 : (act.at / preset_t_max);
+        let newT = t_min + progress * targetDuration;
         
+        // 1. Mapeo Base (Bounding Box Clásico)
+        let baseMappedPos = act.pos;
         if (preset_y_max !== preset_y_min) {
             let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
-            newPos = y_min + (normalizedY * (y_max - y_min));
+            baseMappedPos = y_min + (normalizedY * (y_max - y_min));
         } else {
-            newPos = y_min + (y_max - y_min) / 2;
+            baseMappedPos = y_min + (y_max - y_min) / 2;
         }
         
-        return { at: Math.round(newT), pos: Math.max(0, Math.min(100, Math.round(newPos))) };
+        return { at: newT, pos: baseMappedPos, progress: progress };
+    }).map((mappedAct, i, arr) => {
+        // 2. Corrección de Cizalladura (Shear)
+        // Calculamos el error que tiene el Mapeo Base vs lo que TÚ querías
+        let E_start = origStartPos - arr[0].pos;
+        let E_end = origEndPos - arr[arr.length - 1].pos;
+        
+        // Aplicamos el error gradualmente a lo largo de la figura para no deformarla
+        let correction = (E_start * (1 - mappedAct.progress)) + (E_end * mappedAct.progress);
+        let finalPos = mappedAct.pos + correction;
+        
+        return { 
+            at: Math.round(mappedAct.at), 
+            pos: Math.max(0, Math.min(100, Math.round(finalPos))) 
+        };
     });
 };
 
@@ -269,6 +288,7 @@ window.updateActionsLog = function() {
 canvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+    const mouseY = e.clientY - canvas.getBoundingClientRect().top;
     
     if (e.shiftKey) {
         const timeAtMouse = xToTime(mouseX);
@@ -288,6 +308,24 @@ canvas?.addEventListener('wheel', (e) => {
                 if (scrollLeftMs > maxScroll && maxScroll > 0) scrollLeftMs = maxScroll;
             }
         }
+    }
+    
+    // 🎯 FIX: Al usar la Ruedita, actualizamos en vivo el tamaño del cuadro de selección
+    if (isSelecting) {
+        selCurrT = xToTime(mouseX);
+        selCurrY = mouseY;
+        const startX_px = timeToX(selStartT);
+        if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
+        
+        const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
+        const minY = Math.min(selStartY, selCurrY); const maxY = Math.max(selStartY, selCurrY);
+        
+        const actions = getSafeActions();
+        actions.forEach(act => {
+            const ny = posToY(act.pos);
+            act.selected = (act.at >= minT && act.at <= maxT && ny >= minY && ny <= maxY);
+        });
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     }
 }, { passive: false });
 
@@ -778,9 +816,15 @@ window.drawTimeline = function() {
             }
         }
 
+        // 🎯 FIX: Dibujo de Selección con Coordenadas de Tiempo Exactas
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-            ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.fillRect(startX, startY, currentX - startX, currentY - startY); ctx.strokeRect(startX, startY, currentX - startX, currentY - startY); ctx.setLineDash([]);
+            ctx.setLineDash([2, 2]); ctx.beginPath(); 
+            const sX = timeToX(selStartT);
+            const cX = timeToX(selCurrT);
+            ctx.fillRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
+            ctx.strokeRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
+            ctx.setLineDash([]);
         }
 
         if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
@@ -961,7 +1005,13 @@ canvas?.addEventListener('mousedown', (e) => {
             hadSelectionBeforeMousedown = actions.some(a => a.selected);
             if (!e.ctrlKey) actions.forEach(a => a.selected = false);
             isSelecting = true; hasDraggedSelection = false; 
-            startX = clickX; startY = clickY; currentX = clickX; currentY = clickY;
+            
+            // 🎯 FIX: El origen de la selección ahora se ancla al TIEMPO real
+            selStartT = xToTime(clickX);
+            selStartY = clickY;
+            selCurrT = selStartT;
+            selCurrY = clickY;
+            
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
@@ -1063,13 +1113,19 @@ canvas?.addEventListener('mousemove', (e) => {
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     } else if (isSelecting) {
-        currentX = mouseX; currentY = mouseY;
-        if (Math.hypot(currentX - startX, currentY - startY) > 5) hasDraggedSelection = true;
-        const minX = Math.min(startX, currentX); const maxX = Math.max(startX, currentX);
-        const minY = Math.min(startY, currentY); const maxY = Math.max(startY, currentY);
+        // 🎯 FIX: Actualización de caja usando cálculos de tiempo
+        selCurrT = xToTime(mouseX);
+        selCurrY = mouseY;
+        
+        const startX_px = timeToX(selStartT);
+        if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
+        
+        const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
+        const minY = Math.min(selStartY, selCurrY); const maxY = Math.max(selStartY, selCurrY);
+        
         actions.forEach(act => {
-            const nx = timeToX(act.at); const ny = posToY(act.pos);
-            act.selected = (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY);
+            const ny = posToY(act.pos);
+            act.selected = (act.at >= minT && act.at <= maxT && ny >= minY && ny <= maxY);
         });
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     }
@@ -1085,8 +1141,8 @@ window.addEventListener('mouseup', (e) => {
             ensureTrackExists(); 
             actions = getSafeActions(); 
 
-            let clickTime = Math.max(0, Math.round(xToTime(startX) / 50) * 50);
-            let clickPos = Math.round(yToPos(startY) / 5) * 5; 
+            let clickTime = Math.max(0, Math.round(selStartT / 50) * 50);
+            let clickPos = Math.round(yToPos(selStartY) / 5) * 5; 
             
             if (window.startMagneticSnapPoint) {
                 clickTime = window.startMagneticSnapPoint.at;
