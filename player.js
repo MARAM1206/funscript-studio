@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V27.0 (TECLA P, ADAPTATIVO Y PORTAPAPELES)
+// REPRODUCTOR Y MOTOR DE ATAJOS V45.0 (TECLA P, PORTAPAPELES Y TECLA ESCAPE)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -125,7 +125,6 @@ videoPlayer?.addEventListener('seeked', () => {
 videoPlayer?.addEventListener('loadedmetadata', () => {
     window.videoFPS = 30; 
     if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
-    // 🎯 EMOJI EN FPS
     if (vFps) vFps.innerText = `🎞️ ${window.videoFPS} fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
@@ -178,6 +177,18 @@ window.addEventListener('drop', (e) => {
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
 
+    // 🎯 FIX: CANCELAR PEGADO O ARRASTRE CON ESCAPE
+    if (event.key === 'Escape' || event.key === 'Esc') {
+        if (window.isPastingMode || window.isDraggingPreset) {
+            window.isPastingMode = false;
+            window.isDraggingPreset = false;
+            window.timelineGhostPreset = null;
+            window.timelineGhostTimeMs = null;
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            return;
+        }
+    }
+
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
         window.fsTimelineVisible = !window.fsTimelineVisible;
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -195,7 +206,6 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 TECLA P: TOGGLE MODO ADAPTATIVO
     if (key === 'p' && !event.ctrlKey) {
         event.preventDefault(); 
         window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
