@@ -51,10 +51,10 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .custom-progress::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #38bdf8; cursor: pointer; transition: transform 0.1s, background 0.1s; }
 .custom-progress::-webkit-slider-thumb:hover { transform: scale(1.3); background: #f97316; }
 
-.heatmap-canvas { width: 100%; height: 14px; border-radius: 4px; display: block; z-index: 1; opacity: 0.9; }
+/* 🎯 CORRECCIÓN: MAPA DE CALOR CON OFFSET MATEMÁTICO (restamos el tamaño del thumb de 14px) */
+.heatmap-canvas { width: calc(100% - 14px); margin: 0 7px; height: 14px; border-radius: 4px; display: block; z-index: 1; opacity: 0.9; }
 
 .video-info-bar { background: #0b0f17; padding: 0px 12px 8px 12px; font-size: 0.8rem; font-family: monospace; color: #38bdf8; border: none !important; display: flex; justify-content: space-between; align-items: center; width: 100%; flex-shrink: 0; }
-/* 🎯 SIN NEGRITAS */
 .video-info-bar .info-text-white { color: #e2e8f0; font-weight: normal; }
 .video-info-bar .divider { color: #334155; }
 .video-info-left { display: flex; align-items: center; }
@@ -114,9 +114,14 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 #timeline-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; position: relative; z-index: 2; }
 
-/* 🛡️ PANTALLA COMPLETA Y MINI-ICONO 25% MÁS CHICO */
-.fs-mini-icon { position: absolute; bottom: 10px; right: 15px; font-size: 0.9rem; color: rgba(255,255,255,0.6); cursor: pointer; user-select: none; transition: transform 0.2s, color 0.2s; z-index: 10; font-weight: bold; }
-.fs-mini-icon:hover { transform: scale(1.3); color: #fff; }
+/* 🎯 CORRECCIÓN: FLECHAS PANTALLA COMPLETA FUERTES (Blanco + Sombra Oscura Profunda para verse en video negro o claro) */
+.fs-mini-icon { 
+    position: absolute; bottom: 10px; right: 15px; font-size: 0.9rem; 
+    color: #ffffff; cursor: pointer; user-select: none; transition: transform 0.2s, color 0.2s; 
+    z-index: 10; font-weight: bold; 
+    text-shadow: 0px 2px 4px rgba(0,0,0,0.9); /* Sombra alta para máximo contraste */
+}
+.fs-mini-icon:hover { transform: scale(1.3); color: #38bdf8; }
 :fullscreen .fs-mini-icon { display: none; }
 :-webkit-full-screen .fs-mini-icon { display: none; }
 
@@ -124,7 +129,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 :fullscreen .fs-timeline { display: block; }
 :-webkit-full-screen .fs-timeline { display: block; }
 
-/* 🎯 BOTÓN DE MODO ADAPTATIVO (VERDE / GRIS / ROJO) */
 .adaptive-btn { font-size: 0.7rem; font-weight: bold; border-radius: 12px; padding: 2px 10px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; outline: none; margin-left: auto;}
 .adaptive-btn.on { background: #10b981; color: #ffffff; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); border-color: #059669; }
 .adaptive-btn.off { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; color: #ef4444; }
@@ -160,13 +164,9 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme #v-time-current { color: #0f172a; }
 .light-theme .dual-slider-track { background: #e2e8f0; }
 
-/* 🎯 CORRECCIONES DE MODO CLARO Y TEXTOS DEL REPRODUCTOR */
 .light-theme #theme-toggle-btn { background: #1e293b !important; color: #ffffff !important; border-color: #0f172a !important; font-weight: bold; }
-.light-theme .fs-mini-icon { color: #333333 !important; }
-.light-theme .fs-mini-icon:hover { color: #000000 !important; }
 .light-theme .adaptive-btn.off { background: rgba(239, 68, 68, 0.05); border-color: #ef4444; color: #ef4444; }
 
-/* 🎯 INFO TEXTO REPRODUCTOR: AZUL MÁS PROFUNDO, SIN NEGRITAS Y SOMBRA BLANCA SUTIL */
 .light-theme .info-text-white,
 .light-theme .video-info-bar .fixed-info,
 .light-theme #v-name,
