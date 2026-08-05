@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V49.0: SUSTITUCIÓN PURA DE FORMA Y TEXTOS CURSOR
+// TIMELINE V50.0: PORCENTAJES RESPETADOS Y ESPACIADORA CORREGIDA
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -39,8 +39,9 @@ window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 
+// 🎯 FIX: Tecla espacio reforzada (ahora detecta Drag y Paste)
 window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && window.isDraggingPreset) {
+    if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
         e.preventDefault();
         window.presetMorphMode = window.presetMorphMode === 'stretch' ? 'repeat' : 'stretch';
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -111,20 +112,31 @@ window.getMorphedPreset = function(preset, selectedActions) {
     }
 };
 
-// 🎯 SOLUCIÓN DE SUSTITUCIÓN PURA ("De M a V sin deformación")
+// 🎯 FIX: Restaurada la Caja Delimitadora para respetar % originales
 window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
     
+    // Mapeamos los topes de la selección original
+    const y_min = Math.min(...selectedActions.map(a => a.pos));
+    const y_max = Math.max(...selectedActions.map(a => a.pos));
+    
     const preset_t_max = preset[preset.length - 1].at;
+    const preset_y_min = Math.min(...preset.map(a => a.pos));
+    const preset_y_max = Math.max(...preset.map(a => a.pos));
     
     return preset.map((act) => {
-        // Escala el tiempo para que quepa en el espacio de la selección
         let newT = t_min + (preset_t_max === 0 ? 0 : (act.at / preset_t_max) * targetDuration);
-        
-        // Sustitución Pura: Conservamos el 'pos' (altura) original y matemático del preset 100% puro.
         let newPos = act.pos;
+        
+        // Escala matemática para encerrar la V dentro de la M (Respeta %).
+        if (preset_y_max !== preset_y_min) {
+            let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
+            newPos = y_min + (normalizedY * (y_max - y_min));
+        } else {
+            newPos = y_min + (y_max - y_min) / 2;
+        }
         
         return { at: Math.round(newT), pos: Math.max(0, Math.min(100, Math.round(newPos))) };
     });
