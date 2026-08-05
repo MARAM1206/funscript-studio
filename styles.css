@@ -13,12 +13,10 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .menu-btn { border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: normal; cursor: pointer; transition: transform 0.1s; }
 .menu-btn:active { transform: scale(0.98); }
 
-/* 🛡️ REPARACIÓN: BOTÓN DE EXPORTAR VERDE VIBRANTE */
 .success-btn { background: #10b981 !important; color: #ffffff !important; font-weight: bold; transition: background 0.2s; }
 .success-btn:hover { background: #059669 !important; }
 
-/* 🛡️ BOTÓN DE TEMA CLARO/OSCURO ESTILO BASE */
-#theme-toggle-btn { background: #334155; color: #ffffff; border: 1px solid #1e293b; }
+#theme-toggle-btn { background: #334155; color: #ffffff; border: 1px solid #1e293b; transition: all 0.3s ease; }
 
 .select-btn { display: inline-block; text-align: center; }
 .select-btn:hover { background: #1d4ed8 !important; }
@@ -115,6 +113,15 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 #timeline-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; position: relative; z-index: 2; }
 
+/* 🛡️ PANTALLA COMPLETA: LIENZO TRANSPARENTE */
+.fs-timeline {
+    position: absolute; bottom: 30px; left: 5%; width: 90%; height: 80px;
+    background: rgba(11, 15, 23, 0.7); border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px);
+    z-index: 2147483647; pointer-events: none; display: none;
+}
+:fullscreen .fs-timeline { display: block; }
+:-webkit-full-screen .fs-timeline { display: block; }
 
 /* ==========================================================================
    ☀️ TEMA CLARO (SLATE THEME PROFESIONAL)
@@ -151,7 +158,9 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .dual-slider-track { background: #e2e8f0; }
 
 /* 🛡️ REGLAS INYECTADAS PARA TEMA CLARO */
-.light-theme #theme-toggle-btn { background: #cbd5e1; color: #0f172a; border-color: #94a3b8; font-weight: bold; }
+/* 🎯 Luna con Contraste Perfecto */
+.light-theme #theme-toggle-btn { background: #1e293b !important; color: #ffffff !important; border-color: #0f172a !important; font-weight: bold; }
+
 .light-theme .handy-container { background: #f8fafc; border-color: #cbd5e1; }
 .light-theme .handy-input { background: #ffffff; color: #0f172a; border-color: #cbd5e1; }
 .light-theme .modal-content { background: #ffffff; border-color: #cbd5e1; color: #0f172a; }
