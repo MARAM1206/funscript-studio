@@ -1,10 +1,9 @@
 // ==========================================================================
-// TIMELINE V47.0: FÓRMULA FAPTAP (%), CTRL+V LIMPIO Y MODO REPETIR (ESPACIO)
+// TIMELINE V48.0: MODO REPETIR INTELIGENTE (POR V) Y TEXTOS EN CURSOR
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 
-// 🎯 FIX: Variables Maestras de Modo Adaptativo (Estirar vs Repetir)
 window.presetMorphMode = 'stretch'; // Puede ser 'stretch' o 'repeat'
 
 function getSafeActions() {
@@ -40,7 +39,6 @@ window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 
-// 🎯 FIX: Permite usar ESPACIO mientras arrastras para cambiar el modo de morphing
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && window.isDraggingPreset) {
         e.preventDefault();
@@ -94,23 +92,28 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: Nueva Lógica Dual para MODO ADAPTATIVO (Estirar 1 vez vs Repetir en cada "V")
+// 🎯 FIX MATEMÁTICO: Repetir patrón V por V (agrupando 3 puntos por cada V)
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
     
-    if (window.presetMorphMode === 'repeat' && selectedActions.length > 2) {
+    if (window.presetMorphMode === 'repeat' && selectedActions.length >= 3) {
         let results = [];
-        // Repetimos el patrón clonándolo segmento por segmento (Entre P0 y P1, luego P1 y P2...)
-        for (let i = 0; i < selectedActions.length - 1; i++) {
-            const pair = [selectedActions[i], selectedActions[i+1]];
-            const subPreset = window.getMorphedPresetChunk(preset, pair);
-            if (i < selectedActions.length - 2) subPreset.pop(); // Evita puntos duplicados en los empalmes
+        // Avanzar de a 2 puntos (Inicio, Pico/Valle, Fin) conformando una "V" completa
+        for (let i = 0; i < selectedActions.length - 1; i += 2) {
+            const chunk = selectedActions.slice(i, i + 3);
+            if (chunk.length < 2) break; // Prevención si hay un punto huérfano
+            
+            const subPreset = window.getMorphedPresetChunk(preset, chunk);
+            
+            if (i > 0) {
+                subPreset.shift(); // Evitar crear un punto duplicado en el empalme
+            }
             results.push(...subPreset);
         }
         return results;
     } else {
-        // Modo Clásico "Estirar" (Abarca de la primera a la última V con 1 solo patrón)
+        // Estirar clásico o fallback si solo hay 2 puntos
         return window.getMorphedPresetChunk(preset, selectedActions);
     }
 };
@@ -149,8 +152,6 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            // 🎯 FIX DEFINITIVO DE VELOCIDAD FAPTAP
-            // FapTap suma la distancia ABSOLUTA en porcentaje y la divide entre los Segundos Totales del Script
             let totalDistance = 0;
             for (let i = 1; i < actions.length; i++) {
                 totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
@@ -281,7 +282,6 @@ window.addEventListener('copyPoints', () => {
     }
 });
 
-// 🎯 FIX: Pegado Libre (Ctrl+V) SIN IMPORTAR si el modo Adaptativo está prendido.
 window.addEventListener('pastePoints', () => {
     const modal = document.getElementById('preset-editor-modal');
     if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && (!modal || modal.style.display !== 'flex')) {
@@ -300,6 +300,10 @@ window.addEventListener('presetCustomDragOver', (e) => {
         const pos = { x: (e.detail.clientX - rect.left) * (canvas.width / rect.width), y: (e.detail.clientY - rect.top) * (canvas.height / rect.height) };
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
+        
+        // 🎯 FIX: Guardamos la posición del ratón en la variable global para el texto flotante
+        window.timelineGhostMouseX = pos.x;
+        window.timelineGhostMouseY = pos.y;
         
         const actions = getSafeActions();
         const snapDistMs = 350; 
@@ -338,7 +342,6 @@ window.addEventListener('presetCustomDrop', (e) => {
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
-        // 🎯 FIX: El Adaptativo SÓLO ocurre si estás ARRASTRANDO (No pegando con el teclado)
         if (window.isAdaptiveModeActive && selected.length >= 2) {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
             if (morphed) {
@@ -712,12 +715,15 @@ window.drawTimeline = function() {
                         ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
                     });
                     
-                    // 🎯 FIX: TEXTO FLOTANTE DE INDICADOR (ESTIRAR VS REPETIR) Y ATAJO
+                    // 🎯 FIX TEXTOS: Debajo del cursor y actualizados
+                    const cursorX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(morphed[0].at);
+                    const cursorY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(morphed[0].pos);
+                    
                     ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    const modeText = window.presetMorphMode === 'stretch' ? "ESTIRAR 1 VEZ" : "REPETIR POR 'V'";
-                    ctx.fillText(`⚡ MODO ADAPTATIVO: ${modeText}`, timeToX(morphed[0].at), posToY(morphed[0].pos) - 25);
+                    const modeText = window.presetMorphMode === 'stretch' ? "Estirar" : "Repetir";
+                    ctx.fillText(`Modo Adaptativo: ${modeText}`, cursorX + 15, cursorY + 25);
                     ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
-                    ctx.fillText("(Presiona ESPACIO para alternar modo)", timeToX(morphed[0].at), posToY(morphed[0].pos) - 10);
+                    ctx.fillText("(Presiona ESPACIO para alternar entre modos)", cursorX + 15, cursorY + 40);
                 }
             } else {
                 const deltaY = window.timelineGhostDeltaPos || 0;
@@ -734,9 +740,13 @@ window.drawTimeline = function() {
                     ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                     ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
                 });
+                
                 if (window.isPastingMode) {
+                    const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
+                    const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(window.timelineGhostPreset[0].pos + deltaY);
+                    
                     ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    ctx.fillText("📋 PEGAR (Click para soltar o ESC para cancelar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
+                    ctx.fillText("📋 PEGAR (Click para soltar o ESC para cancelar)", pasteX + 15, pasteY + 25);
                 }
             }
         }
@@ -891,6 +901,7 @@ canvas?.addEventListener('mousedown', (e) => {
             return;
         } else if (e.button === 2) { 
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
     }
@@ -939,6 +950,10 @@ canvas?.addEventListener('mousemove', (e) => {
     if (window.isPastingMode && window.timelineGhostPreset) {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
+        
+        // 🎯 Guardamos coordenadas para dibujar el texto flotante de "Pegar"
+        window.timelineGhostMouseX = pos.x;
+        window.timelineGhostMouseY = pos.y;
         
         const snapDistMs = 350; 
         const actions = getSafeActions();
