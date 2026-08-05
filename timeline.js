@@ -1,8 +1,11 @@
 // ==========================================================================
-// TIMELINE V46.0: VELOCIDAD FAPTAP (DISTANCIA % / S) Y PEGADO LIBRE
+// TIMELINE V47.0: FÓRMULA FAPTAP (%), CTRL+V LIMPIO Y MODO REPETIR (ESPACIO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
+
+// 🎯 FIX: Variables Maestras de Modo Adaptativo (Estirar vs Repetir)
+window.presetMorphMode = 'stretch'; // Puede ser 'stretch' o 'repeat'
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -36,6 +39,15 @@ let dragStartYPos = 0;
 window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
+
+// 🎯 FIX: Permite usar ESPACIO mientras arrastras para cambiar el modo de morphing
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && window.isDraggingPreset) {
+        e.preventDefault();
+        window.presetMorphMode = window.presetMorphMode === 'stretch' ? 'repeat' : 'stretch';
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+});
 
 function formatTimelineLabel(timeMs) {
     const isNeg = timeMs < 0;
@@ -82,10 +94,28 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
+// 🎯 FIX: Nueva Lógica Dual para MODO ADAPTATIVO (Estirar 1 vez vs Repetir en cada "V")
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
     
+    if (window.presetMorphMode === 'repeat' && selectedActions.length > 2) {
+        let results = [];
+        // Repetimos el patrón clonándolo segmento por segmento (Entre P0 y P1, luego P1 y P2...)
+        for (let i = 0; i < selectedActions.length - 1; i++) {
+            const pair = [selectedActions[i], selectedActions[i+1]];
+            const subPreset = window.getMorphedPresetChunk(preset, pair);
+            if (i < selectedActions.length - 2) subPreset.pop(); // Evita puntos duplicados en los empalmes
+            results.push(...subPreset);
+        }
+        return results;
+    } else {
+        // Modo Clásico "Estirar" (Abarca de la primera a la última V con 1 solo patrón)
+        return window.getMorphedPresetChunk(preset, selectedActions);
+    }
+};
+
+window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
@@ -119,24 +149,16 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            // 🎯 FÓRMULA DE TIEMPO ACTIVO (VELOCIDAD PERFECTA FAPTAP)
+            // 🎯 FIX DEFINITIVO DE VELOCIDAD FAPTAP
+            // FapTap suma la distancia ABSOLUTA en porcentaje y la divide entre los Segundos Totales del Script
             let totalDistance = 0;
-            let activeTimeMs = 0;
-            
             for (let i = 1; i < actions.length; i++) {
-                let dt = actions[i].at - actions[i-1].at;
-                let dp = Math.abs(actions[i].pos - actions[i-1].pos);
-                // Si el tiempo entre 2 puntos es menor a 3 segundos (3000ms), 
-                // se considera que la acción es continua y no una pausa
-                if (dt > 0 && dt <= 3000) { 
-                    totalDistance += dp;
-                    activeTimeMs += dt;
-                }
+                totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
             }
+            const durationSecs = (actions[actions.length - 1].at - actions[0].at) / 1000;
 
-            if (activeTimeMs > 0) {
-                // Multiplicamos por 1000 para convertir de ms a segundos
-                const fapTapSpeed = Math.round((totalDistance / activeTimeMs) * 1000);
+            if (durationSecs > 0) {
+                const fapTapSpeed = Math.round(totalDistance / durationSecs);
                 
                 if (fapTapSpeed >= 250) speedText = `Very Fast 🔴 (${fapTapSpeed})`;
                 else if (fapTapSpeed >= 150) speedText = `Fast 🟠 (${fapTapSpeed})`;
@@ -259,10 +281,10 @@ window.addEventListener('copyPoints', () => {
     }
 });
 
-// 🎯 FIX: El pegado (Ctrl+V) es 100% puro y cancela las selecciones de Adaptativo
+// 🎯 FIX: Pegado Libre (Ctrl+V) SIN IMPORTAR si el modo Adaptativo está prendido.
 window.addEventListener('pastePoints', () => {
     const modal = document.getElementById('preset-editor-modal');
-    if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && modal.style.display !== 'flex') {
+    if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && (!modal || modal.style.display !== 'flex')) {
         getSafeActions().forEach(a => a.selected = false); 
         window.isPastingMode = true;
         window.timelineGhostPreset = window.clipboardFunscript;
@@ -316,7 +338,7 @@ window.addEventListener('presetCustomDrop', (e) => {
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
-        // 🎯 Modo Adaptativo SOLAMENTE cuando se arrastra un preset de verdad
+        // 🎯 FIX: El Adaptativo SÓLO ocurre si estás ARRASTRANDO (No pegando con el teclado)
         if (window.isAdaptiveModeActive && selected.length >= 2) {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
             if (morphed) {
@@ -689,8 +711,13 @@ window.drawTimeline = function() {
                         ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
                         ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
                     });
+                    
+                    // 🎯 FIX: TEXTO FLOTANTE DE INDICADOR (ESTIRAR VS REPETIR) Y ATAJO
                     ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    ctx.fillText("⚡ MODO ADAPTATIVO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
+                    const modeText = window.presetMorphMode === 'stretch' ? "ESTIRAR 1 VEZ" : "REPETIR POR 'V'";
+                    ctx.fillText(`⚡ MODO ADAPTATIVO: ${modeText}`, timeToX(morphed[0].at), posToY(morphed[0].pos) - 25);
+                    ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
+                    ctx.fillText("(Presiona ESPACIO para alternar modo)", timeToX(morphed[0].at), posToY(morphed[0].pos) - 10);
                 }
             } else {
                 const deltaY = window.timelineGhostDeltaPos || 0;
@@ -709,7 +736,7 @@ window.drawTimeline = function() {
                 });
                 if (window.isPastingMode) {
                     ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    ctx.fillText("📋 PEGAR (Click para soltar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
+                    ctx.fillText("📋 PEGAR (Click para soltar o ESC para cancelar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
                 }
             }
         }
