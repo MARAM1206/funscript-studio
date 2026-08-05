@@ -95,7 +95,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .preset-card-title { font-weight: bold; font-size: 0.85rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin-right: 8px; }
 .preset-mini-canvas { width: 100%; height: 36px; background: #020617; border-radius: 4px; border: 1px solid #0f131a; pointer-events: none; }
 
-/* 🎯 CORRECCIÓN: BOTONES DEL PRESET (15% MÁS CHICOS) */
 .preset-action-btn { background: none; border: none; cursor: pointer; font-size: 0.65rem; padding: 2px; transition: transform 0.1s; }
 .preset-action-btn:hover { transform: scale(1.2); }
 
@@ -183,3 +182,41 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .modal-input { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
 .light-theme .modal-canvas-container { border-color: #cbd5e1; }
 .light-theme .modal-h4 { color: #0f172a; border-bottom-color: #cbd5e1; }
+
+/* ==========================================================================
+   🎨 SCROLLBARS PERSONALIZADOS (DARK & LIGHT THEME)
+   ========================================================================== */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0f131a; /* Track oscuro por defecto */
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #334155; /* Pulgar gris oscuro */
+    border-radius: 4px;
+    border: 1px solid #0f131a; /* Borde interior invisible para separar */
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #475569; /* Brilla al pasar el ratón */
+}
+
+/* ☀️ OVERRIDES PARA MODO CLARO */
+.light-theme ::-webkit-scrollbar-track {
+    background: #f1f5f9; /* Track claro */
+}
+
+.light-theme ::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* Pulgar gris claro */
+    border: 1px solid #f1f5f9;
+}
+
+.light-theme ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; /* Brilla al pasar el ratón */
+}
