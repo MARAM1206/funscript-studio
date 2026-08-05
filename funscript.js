@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V6.1 (COLORES VIVOS Y TEXTO HEREDADO)
+// GESTOR DE ARCHIVOS V46.0 (COLORES SIEMPRE ACTIVOS)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -99,9 +99,9 @@ window.updateFileManagerUI = function() {
         const marginStyle = window.currentVideoName ? "margin-left: 20px;" : "margin-left: 0;";
         
         htmlContent += window.loadedFunscriptTracks.map(track => {
-            // 🎨 ESTILO DE COLORES HEREDADOS DEL SCRIPT
-            const borderColor = track.isPrimary ? track.color : '#334155';
-            const textColor = track.isPrimary ? track.color : '#94a3b8';
+            // 🎯 FIX: El color SIEMPRE se muestra vibrante, sea o no el principal
+            const borderColor = track.color;
+            const textColor = track.color;
             return `
             <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="${marginStyle} border-left-color: ${borderColor};">
                 <div class="track-info">
@@ -122,7 +122,7 @@ window.updateFileManagerUI = function() {
         if (window.videoPlayer) {
             window.videoPlayer.src = "";
             window.currentVideoName = null;
-            window.audioPeaks = null; // Purga de audio
+            window.audioPeaks = null; 
             const vName = document.getElementById('v-name');
             if (vName) vName.innerText = "Sin video";
             window.updateFileManagerUI();
