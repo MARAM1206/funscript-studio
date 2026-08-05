@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 51.0
- * Módulo: ZOOM ACELERADO, PRECISIÓN DINÁMICA Y ETIQUETAS FLOTANTES TENUES
+ * PRESETS.JS - VERSIÓN 52.0
+ * Módulo: CUADRÍCULA CUÁNTICA (0.01s) Y ETIQUETAS INTELIGENTES ESCUDADAS
  * ============================================================================
  */
 
@@ -46,24 +46,27 @@ function savePresetsToStorage() {
     renderPresetsList();
 }
 
+// 🎯 FIX: Formateo condicional para que muestre 0.41s, 0.42s cuando hay mucho zoom
 function formatModalTime(timeMs) {
     const isNeg = timeMs < 0;
     const totalSecs = Math.abs(timeMs) / 1000;
     let sign = isNeg ? "-" : "";
     if (totalSecs < 60) {
-        if (mZoom > 2.5) return `${sign}${totalSecs.toFixed(2)}s`;
-        else return `${sign}${totalSecs.toFixed(1)}s`;
+        if (mZoom >= 3.0) return `${sign}${totalSecs.toFixed(2)}s`;
+        return `${sign}${totalSecs.toFixed(1)}s`;
     }
     const m = Math.floor(totalSecs / 60);
-    const s = (totalSecs % 60).toFixed(1).padStart(4, '0');
+    const s = (totalSecs % 60).toFixed(mZoom >= 3.0 ? 2 : 1).padStart(5, '0');
     return `${sign}${m}:${s.replace('.0', '')}`;
 }
 
-// 🎯 LÓGICA DE IMÁN DINÁMICO: Precisión según el Zoom
+// 🎯 FIX: Precisión Dinámica que baja hasta 10ms (0.01s) al acercarte
 function getModalTimeSnap() {
-    if (mZoom >= 2.5) return 10;  // Zoom Alto: Precisión de 0.01s (0.51, 0.52...)
-    if (mZoom >= 1.5) return 50;  // Zoom Medio: Precisión de 0.05s (0.50, 0.55...)
-    return 100;                   // Zoom Lejano: Precisión de 0.10s (0.50, 0.60...)
+    if (mZoom >= 6.0) return 10;   // Zoom extremo: Precisión de 0.01s
+    if (mZoom >= 3.0) return 50;   // Zoom alto: Precisión de 0.05s
+    if (mZoom >= 1.0) return 100;  // Zoom normal: Precisión de 0.10s
+    if (mZoom >= 0.5) return 500;  // Lejos: Precisión de 0.50s
+    return 1000;                   // Muy Lejos: Precisión de 1.00s
 }
 
 function renderPresetsList() {
@@ -418,10 +421,14 @@ function renderModalCanvas() {
             modalCtx.fillText(p+'%', 5, y+4);
         }
 
+        // 🎯 FIX: La cuadrícula también respeta la nueva precisión del Zoom
         let stepMs = 100;
-        if(mZoom < 2.5) stepMs = 500;
-        if(mZoom < 0.8) stepMs = 1000;
-        if(mZoom < 0.3) stepMs = 2000;
+        if(mZoom >= 6.0) stepMs = 10;
+        else if(mZoom >= 3.0) stepMs = 50;
+        else if(mZoom >= 1.0) stepMs = 100;
+        else if(mZoom >= 0.5) stepMs = 500;
+        else if(mZoom >= 0.2) stepMs = 1000;
+        else stepMs = 2000;
         
         let startT = Math.floor(mXToTime(40) / stepMs) * stepMs;
         let endT = mXToTime(modalCanvas.width);
@@ -462,10 +469,22 @@ function renderModalCanvas() {
                     modalCtx.beginPath(); modalCtx.arc(px, py, act.selected ? 7 : 5, 0, Math.PI*2); modalCtx.fill();
                     modalCtx.strokeStyle = isLight ? '#0f172a' : '#fff'; modalCtx.lineWidth = 1.5; modalCtx.stroke();
                     
-                    // 🎯 ETIQUETA TENUE DEL PORCENTAJE (Visible incluso si se empalman)
-                    modalCtx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.35)';
+                    // 🎯 FIX: ETIQUETAS INTELIGENTES CON CRISTAL ESMERILADO (Fondo tenue)
+                    // Calcula si va arriba o abajo dependiendo de la altura para no estorbar
+                    let txtY = act.pos >= 50 ? py + 16 : py - 10;
+                    let txtX = px + 6;
+                    let text = `${act.pos}%`;
+                    
                     modalCtx.font = 'bold 10px monospace';
-                    modalCtx.fillText(`${act.pos}%`, px + 8, py - 6);
+                    let tWidth = modalCtx.measureText(text).width;
+                    
+                    // Fondo tipo "cristal" para que las líneas no tachen el número
+                    modalCtx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.75)' : 'rgba(6, 9, 14, 0.75)';
+                    modalCtx.fillRect(txtX - 2, txtY - 9, tWidth + 4, 12);
+                    
+                    // Texto nítido
+                    modalCtx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+                    modalCtx.fillText(text, txtX, txtY);
                 }
             });
         }
@@ -556,7 +575,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// 🎯 VELOCIDAD DE ZOOM ACELERADA (0.01 -> 0.08)
 modalCanvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.clientX - modalCanvas.getBoundingClientRect().left;
@@ -602,7 +620,7 @@ modalCanvas?.addEventListener('mousedown', (e) => {
 modalCanvas?.addEventListener('mousemove', (e) => {
     const pos = getModalMousePos(e);
     if (mIsDragging) {
-        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión según el zoom
+        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión dinámica según el zoom
         window.currentEditingPreset.forEach(act => {
             if (act.selected) {
                 act.at = Math.max(0, Math.round(mXToTime(pos.x) / snapMs) * snapMs);
@@ -624,7 +642,7 @@ modalCanvas?.addEventListener('mousemove', (e) => {
 modalCanvas?.addEventListener('mouseup', () => {
     if (mIsSelecting && !mHasDragged) {
         saveModalHistoryState(); 
-        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión según el zoom
+        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión dinámica según el zoom
         const clickTime = Math.max(0, Math.round(mXToTime(mStartX) / snapMs) * snapMs);
         const clickPos = Math.max(0, Math.min(100, Math.round(mYToPos(mStartY) / 5) * 5));
         
