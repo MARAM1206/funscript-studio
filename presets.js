@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 49.0
- * Módulo: IMÁN CUÁNTICO (100ms / 5%) Y ATADURAS DE TECLADO SINCRONIZADAS
+ * PRESETS.JS - VERSIÓN 51.0
+ * Módulo: ZOOM ACELERADO, PRECISIÓN DINÁMICA Y ETIQUETAS FLOTANTES TENUES
  * ============================================================================
  */
 
@@ -57,6 +57,13 @@ function formatModalTime(timeMs) {
     const m = Math.floor(totalSecs / 60);
     const s = (totalSecs % 60).toFixed(1).padStart(4, '0');
     return `${sign}${m}:${s.replace('.0', '')}`;
+}
+
+// 🎯 LÓGICA DE IMÁN DINÁMICO: Precisión según el Zoom
+function getModalTimeSnap() {
+    if (mZoom >= 2.5) return 10;  // Zoom Alto: Precisión de 0.01s (0.51, 0.52...)
+    if (mZoom >= 1.5) return 50;  // Zoom Medio: Precisión de 0.05s (0.50, 0.55...)
+    return 100;                   // Zoom Lejano: Precisión de 0.10s (0.50, 0.60...)
 }
 
 function renderPresetsList() {
@@ -447,12 +454,18 @@ function renderModalCanvas() {
                 if(i===0) modalCtx.moveTo(px, py); else modalCtx.lineTo(px, py);
             });
             modalCtx.stroke();
+            
             window.currentEditingPreset.forEach(act => {
                 const px = mTimeToX(act.at); const py = mPosToY(act.pos);
                 if (px >= 30) {
                     modalCtx.fillStyle = act.selected ? '#f59e0b' : (isLight ? '#0284c7' : '#38bdf8'); 
                     modalCtx.beginPath(); modalCtx.arc(px, py, act.selected ? 7 : 5, 0, Math.PI*2); modalCtx.fill();
                     modalCtx.strokeStyle = isLight ? '#0f172a' : '#fff'; modalCtx.lineWidth = 1.5; modalCtx.stroke();
+                    
+                    // 🎯 ETIQUETA TENUE DEL PORCENTAJE (Visible incluso si se empalman)
+                    modalCtx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.35)';
+                    modalCtx.font = 'bold 10px monospace';
+                    modalCtx.fillText(`${act.pos}%`, px + 8, py - 6);
                 }
             });
         }
@@ -505,7 +518,6 @@ function redoModal() {
     }
 }
 
-// 🎯 ATADURAS DE TECLADO IDÉNTICAS A LA LÍNEA DE TIEMPO
 document.addEventListener('keydown', (e) => {
     if (modalEl && modalEl.style.display === 'flex') {
         const key = e.key.toLowerCase();
@@ -544,12 +556,13 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// 🎯 VELOCIDAD DE ZOOM ACELERADA (0.01 -> 0.08)
 modalCanvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.clientX - modalCanvas.getBoundingClientRect().left;
     if (e.shiftKey) {
         const timeAtMouse = mXToTime(mouseX);
-        mZoom = Math.round((mZoom + (e.deltaY < 0 ? 0.01 : -0.01)) * 100) / 100;
+        mZoom = Math.round((mZoom + (e.deltaY < 0 ? 0.08 : -0.08)) * 100) / 100;
         mZoom = Math.max(0.05, Math.min(mZoom, 15.0)); 
         mScrollMs = timeAtMouse - (mouseX - 40) / (mBasePixels * mZoom);
     } else {
@@ -589,10 +602,10 @@ modalCanvas?.addEventListener('mousedown', (e) => {
 modalCanvas?.addEventListener('mousemove', (e) => {
     const pos = getModalMousePos(e);
     if (mIsDragging) {
+        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión según el zoom
         window.currentEditingPreset.forEach(act => {
             if (act.selected) {
-                // 🧲 IMÁN CUÁNTICO: Snap al 5% en altura y a 100ms (0.1s) en tiempo
-                act.at = Math.max(0, Math.round(mXToTime(pos.x) / 100) * 100);
+                act.at = Math.max(0, Math.round(mXToTime(pos.x) / snapMs) * snapMs);
                 act.pos = Math.max(0, Math.min(100, Math.round(mYToPos(pos.y) / 5) * 5));
             }
         });
@@ -611,8 +624,8 @@ modalCanvas?.addEventListener('mousemove', (e) => {
 modalCanvas?.addEventListener('mouseup', () => {
     if (mIsSelecting && !mHasDragged) {
         saveModalHistoryState(); 
-        // 🧲 IMÁN CUÁNTICO: Snap para puntos nuevos creados con clic
-        const clickTime = Math.max(0, Math.round(mXToTime(mStartX) / 100) * 100);
+        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión según el zoom
+        const clickTime = Math.max(0, Math.round(mXToTime(mStartX) / snapMs) * snapMs);
         const clickPos = Math.max(0, Math.min(100, Math.round(mYToPos(mStartY) / 5) * 5));
         
         window.currentEditingPreset.push({ at: clickTime, pos: clickPos, selected: true });
