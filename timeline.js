@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V48.0: PUREZA DE FORMA (SIN ANCLAS), TEXTOS CURSOR Y FÓRMULA SPM
+// TIMELINE V49.0: SUSTITUCIÓN PURA DE FORMA Y TEXTOS CURSOR
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -92,7 +92,6 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: REPETIR POR "V" (Agrupa de a 3 puntos para detectar cada "V" de la gráfica)
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
@@ -112,27 +111,21 @@ window.getMorphedPreset = function(preset, selectedActions) {
     }
 };
 
+// 🎯 SOLUCIÓN DE SUSTITUCIÓN PURA ("De M a V sin deformación")
 window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
     
-    const y_min = Math.min(...selectedActions.map(a => a.pos));
-    const y_max = Math.max(...selectedActions.map(a => a.pos));
-    
     const preset_t_max = preset[preset.length - 1].at;
-    const preset_y_min = Math.min(...preset.map(a => a.pos));
-    const preset_y_max = Math.max(...preset.map(a => a.pos));
     
     return preset.map((act) => {
+        // Escala el tiempo para que quepa en el espacio de la selección
         let newT = t_min + (preset_t_max === 0 ? 0 : (act.at / preset_t_max) * targetDuration);
+        
+        // Sustitución Pura: Conservamos el 'pos' (altura) original y matemático del preset 100% puro.
         let newPos = act.pos;
-        if (preset_y_max !== preset_y_min) {
-            let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
-            newPos = y_min + normalizedY * (y_max - y_min);
-        }
-        // 🎯 FIX VITAL: Se eliminaron los forzadores de bordes. 
-        // Ahora si metes una V invertida, dibujará una V invertida perfectamente.
+        
         return { at: Math.round(newT), pos: Math.max(0, Math.min(100, Math.round(newPos))) };
     });
 };
@@ -144,7 +137,6 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            // 🎯 FÓRMULA DE "AVERAGE SEGMENT SPEED" DE FAPTAP
             let totalSegmentSpeed = 0;
             let validSegments = 0;
             
@@ -712,7 +704,6 @@ window.drawTimeline = function() {
                         ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
                     });
                     
-                    // 🎯 FIX: Textos de Cursor Ajustados y Moviéndose junto al Ratón
                     const cursorX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(morphed[0].at);
                     const cursorY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(morphed[0].pos);
                     
@@ -720,7 +711,7 @@ window.drawTimeline = function() {
                     const modeText = window.presetMorphMode === 'stretch' ? "Estirar" : "Repetir";
                     ctx.fillText(`Modo Adaptativo: ${modeText}`, cursorX + 15, cursorY + 30);
                     ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
-                    ctx.fillText("(Presiona ESPACIO para alternar entre modos)", cursorX + 15, cursorY + 45);
+                    ctx.fillText("(Presiona ESPACIO para alternar)", cursorX + 15, cursorY + 45);
                 }
             } else {
                 const deltaY = window.timelineGhostDeltaPos || 0;
