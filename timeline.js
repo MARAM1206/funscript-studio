@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V39.0: ADAPTIVE RED GLOW, FULLSCREEN FIX Y MUTE ROJO VIVO
+// TIMELINE V38.0: PANTALLA COMPLETA, ANIMACIÓN CARMESÍ Y BORDES FIJOS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -82,9 +82,11 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
+// 🎯 MATEMÁTICAS ESTRICTAS: EL PRIMER Y ÚLTIMO PUNTO SE ATORNILLAN A LA SELECCIÓN
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
+    
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
@@ -96,13 +98,18 @@ window.getMorphedPreset = function(preset, selectedActions) {
     const preset_y_min = Math.min(...preset.map(a => a.pos));
     const preset_y_max = Math.max(...preset.map(a => a.pos));
     
-    return preset.map(act => {
+    return preset.map((act, index) => {
         let newT = t_min + (preset_t_max === 0 ? 0 : (act.at / preset_t_max) * targetDuration);
         let newPos = act.pos;
         if (preset_y_max !== preset_y_min) {
             let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
             newPos = y_min + normalizedY * (y_max - y_min);
         }
+
+        // 🛡️ BORDES DE HIERRO: Respeta al 100% los puntos originales seleccionados
+        if (index === 0) newPos = selectedActions[0].pos;
+        if (index === preset.length - 1) newPos = selectedActions[selectedActions.length - 1].pos;
+
         return { at: Math.round(newT), pos: Math.max(0, Math.min(100, Math.round(newPos))) };
     });
 };
@@ -541,12 +548,10 @@ window.drawTimeline = function() {
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 🔊 AUDIO WAVEFORM (ROJO VIVO INTENSO EN MUTE)
         if (window.audioPeaks && window.audioPeaksSampleRate) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
             
-            // 🎯 Color Rojo mucho más vivo (#ef4444 en opacidad alta)
             ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.9)' : (isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)'); 
             ctx.beginPath();
             
@@ -627,31 +632,56 @@ window.drawTimeline = function() {
         }
 
         if (actions.length > 0) {
-            ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8'; ctx.beginPath();
-            actions.forEach((act, index) => { const x = timeToX(act.at); const y = posToY(act.pos); if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
-            ctx.stroke();
+            // 🎯 LÍNEAS (CON PULSO ROJO PARA PUNTOS CONDENADOS)
+            for (let i = 0; i < actions.length - 1; i++) {
+                const act1 = actions[i]; const act2 = actions[i+1];
+                const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
+                const x2 = timeToX(act2.at); const y2 = posToY(act2.pos);
+
+                let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
+                
+                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+                
+                if (isMorphLine) {
+                    const pulse = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 150));
+                    ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
+                    ctx.lineWidth = 4;
+                } else {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 3;
+                }
+                ctx.stroke();
+            }
+
+            // 🎯 PUNTOS
             actions.forEach(act => {
                 const x = timeToX(act.at);
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
-                    
-                    // 🎯 ALERTA ROJA EN MODO ADAPTATIVO
                     let isTargetForMorph = act.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
                     
-                    ctx.fillStyle = isTargetForMorph ? '#ef4444' : (act.selected ? '#f59e0b' : '#38bdf8');
-                    ctx.beginPath(); ctx.arc(x, y, isTargetForMorph ? 8 : (act.selected ? 7 : 5), 0, Math.PI * 2); ctx.fill();
-                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    if (isTargetForMorph) {
+                        const pulse = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 150));
+                        ctx.fillStyle = `rgba(239, 68, 68, ${pulse})`;
+                        ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    } else {
+                        ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
+                        ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    }
                 }
             });
         }
 
-        // 🎯 RENDERIZADO DEL FANTASMA ADAPTATIVO O NORMAL
-        if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+        // 🎯 RENDERIZADO DEL FANTASMA ADAPTATIVO O NORMAL (VERDE PULSANTE)
+        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const selected = actions.filter(a => a.selected);
             if (window.isAdaptiveModeActive && selected.length >= 2) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
                 if (morphed) {
-                    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(244, 63, 94, 0.9)'; ctx.beginPath();
+                    const pulseG = 0.6 + 0.4 * Math.sin(Date.now() / 150 + Math.PI); // Pulso invertido
+                    ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
                     morphed.forEach((act, index) => {
                         const x = timeToX(act.at); const y = posToY(act.pos); 
                         if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
@@ -659,11 +689,11 @@ window.drawTimeline = function() {
                     ctx.stroke();
                     morphed.forEach(act => {
                         const x = timeToX(act.at); const y = posToY(act.pos);
-                        ctx.fillStyle = 'rgba(244, 63, 94, 1)';
-                        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
+                        ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
                     });
-                    ctx.fillStyle = '#f43f5e'; ctx.font = 'bold 12px monospace';
-                    ctx.fillText("⚡ MODO ADAPTATIVO ACTIVADO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
+                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                    ctx.fillText("⚡ MODO ADAPTATIVO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
                 }
             } else {
                 const deltaY = window.timelineGhostDeltaPos || 0;
@@ -680,46 +710,10 @@ window.drawTimeline = function() {
                     ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                     ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
                 });
-            }
-        }
-
-        // 🎯 RENDERIZADO DEL FANTASMA AL PEGAR (PORTAPAPELES)
-        if (window.isPastingMode && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
-            const selected = actions.filter(a => a.selected);
-            if (window.isAdaptiveModeActive && selected.length >= 2) {
-                const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
-                if (morphed) {
-                    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(244, 63, 94, 0.9)'; ctx.beginPath();
-                    morphed.forEach((act, index) => {
-                        const x = timeToX(act.at); const y = posToY(act.pos); 
-                        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                    });
-                    ctx.stroke();
-                    morphed.forEach(act => {
-                        const x = timeToX(act.at); const y = posToY(act.pos);
-                        ctx.fillStyle = 'rgba(244, 63, 94, 1)';
-                        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
-                    });
-                    ctx.fillStyle = '#f43f5e'; ctx.font = 'bold 12px monospace';
-                    ctx.fillText("⚡ PEGAR MODO ADAPTATIVO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
+                if (window.isPastingMode) {
+                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                    ctx.fillText("📋 PEGAR (Click para soltar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
                 }
-            } else {
-                const deltaY = window.timelineGhostDeltaPos || 0;
-                ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
-                window.timelineGhostPreset.forEach((act, index) => {
-                    const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
-                    if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                });
-                ctx.stroke();
-                window.timelineGhostPreset.forEach(act => {
-                    const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY)));
-                    ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-                    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
-                });
-                ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                ctx.fillText("📋 PEGAR (Click para soltar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
             }
         }
 
@@ -780,7 +774,6 @@ window.drawTimeline = function() {
                     fCtx.clearRect(0,0, fsCanvas.width, fsCanvas.height);
                     
                     const fsTimeToX = (t) => 10 + (t - scrollLeftMs) * (basePixelsPerMs * zoom);
-                    // Dejar más margen arriba para el texto
                     const fsPosToY = (p) => fsCanvas.height - 10 - (p/100)*(fsCanvas.height - 35);
 
                     if (actions.length > 0) {
@@ -800,7 +793,6 @@ window.drawTimeline = function() {
                     fCtx.strokeStyle = '#f97316'; fCtx.lineWidth = 2;
                     fCtx.beginPath(); fCtx.moveTo(phX, 0); fCtx.lineTo(phX, fsCanvas.height); fCtx.stroke();
                     
-                    // 🎯 TEXTO SEGURO Y LIMPIO EN EL TECHO
                     fCtx.fillStyle = 'rgba(255,255,255,0.8)'; fCtx.font = '12px monospace';
                     fCtx.fillText("Tecla 'H' oculta gráfica | 'Esc' o 'F' para salir", 15, 20);
                 }
@@ -836,7 +828,7 @@ pointSlider?.addEventListener('input', function() {
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         selected.forEach(act => act.pos = val); 
-        drawTimeline(); 
+        window.drawTimeline(); 
     }
 });
 
@@ -848,7 +840,6 @@ pointSlider?.addEventListener('change', function() {
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
 canvas?.addEventListener('mousedown', (e) => {
-    // 🎯 MODO PORTAPAPELES: PEGAR CLICK
     if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
@@ -937,19 +928,12 @@ canvas?.addEventListener('mousedown', (e) => {
 canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     
-    // 🎯 MOTOR DEL FANTASMA AL PEGAR (PORTAPAPELES)
     if (window.isPastingMode && window.timelineGhostPreset) {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
-        const actions = getSafeActions();
-        const selected = actions.filter(a => a.selected);
-        if (window.isAdaptiveModeActive && selected.length >= 2) {
-            window.drawTimeline(); 
-            return;
-        }
-        
         const snapDistMs = 350; 
+        const actions = getSafeActions();
         const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         
         const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
