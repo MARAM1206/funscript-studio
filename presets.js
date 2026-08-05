@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V38.0: MODO ADAPTATIVO VERDE INTEGRADO
+// PRESETS V39.0: GHOST EN MODO ADAPTATIVO
 // ==========================================================================
 
 let savedPresets = {};
@@ -225,6 +225,7 @@ function modalKeydownHandler(e) {
         if (window.isDraggingPreset || window.isPastingMode) {
             e.preventDefault();
             window.isAdaptiveModeActive = !window.isAdaptiveModeActive;
+            if (typeof window.syncAdaptiveCheckboxes === 'function') window.syncAdaptiveCheckboxes(window.isAdaptiveModeActive);
             window.drawModalCanvas();
             return;
         }
@@ -404,6 +405,13 @@ modalCanvas?.addEventListener('drop', (e) => {
         e.preventDefault();
         saveModalHistory();
         
+        const rect = modalCanvas.getBoundingClientRect();
+        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : mXToTime(e.clientX - rect.left);
+        const deltaY = window.timelineGhostDeltaPos || 0;
+        
+        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+        const endTimeMs = dropTimeMs + presetDuration;
+
         const selected = mActions.filter(a => a.selected);
         if (window.isAdaptiveModeActive && selected.length >= 2) {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
@@ -418,13 +426,6 @@ modalCanvas?.addEventListener('drop', (e) => {
                 return;
             }
         }
-
-        const rect = modalCanvas.getBoundingClientRect();
-        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : mXToTime(e.clientX - rect.left);
-        const deltaY = window.timelineGhostDeltaPos || 0;
-        
-        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-        const endTimeMs = dropTimeMs + presetDuration;
 
         mActions = mActions.filter(act => act.at < dropTimeMs || act.at > endTimeMs);
         mActions.forEach(a => a.selected = false); 
@@ -503,7 +504,7 @@ window.drawModalCanvas = function() {
         mActions.forEach(act => {
             const x = mTimeToX(act.at); const y = mPosToY(act.pos);
             
-            // 🎯 ALERTA ROJA EN MODO ADAPTATIVO
+            // 🎯 ROJO NEÓN EN PUNTOS SELECCIONADOS DEL MODAL
             let isTargetForMorph = act.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
             
             mCtx.fillStyle = isTargetForMorph ? '#ef4444' : (act.selected ? '#f59e0b' : '#38bdf8');
