@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V7.1: TEMA CLARO E INYECCIÓN DE TELEMETRÍA (REPINTE ACTIVO)
+// WORKSPACE V8.0: CONTROL VISUAL DEL MODO ADAPTATIVO (CHECKBOXES)
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -20,11 +20,22 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
         themeBtn.innerText = isLight ? '🌙 Oscuro' : '☀️ Claro';
         
-        // 🎯 FORZAMOS EL REDIBUJADO DE LA INTERFAZ PARA APLICAR COLORES AL VUELO
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
         if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
     });
+
+    // 🎯 SINCRONIZACIÓN DE CHECKBOXES ADAPTATIVOS
+    const cbMain = document.getElementById('adaptive-checkbox-main');
+    const cbModal = document.getElementById('adaptive-checkbox-modal');
+
+    window.syncAdaptiveCheckboxes = function(isActive) {
+        if (cbMain) cbMain.checked = isActive;
+        if (cbModal) cbModal.checked = isActive;
+    };
+
+    if (cbMain) cbMain.addEventListener('change', (e) => { window.isAdaptiveModeActive = e.target.checked; window.syncAdaptiveCheckboxes(e.target.checked); if (typeof window.drawTimeline === 'function') window.drawTimeline(); });
+    if (cbModal) cbModal.addEventListener('change', (e) => { window.isAdaptiveModeActive = e.target.checked; window.syncAdaptiveCheckboxes(e.target.checked); if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas(); });
 
     const panels = Array.from(document.querySelectorAll(".workspace-panel"));
     const GAP = 8; 
