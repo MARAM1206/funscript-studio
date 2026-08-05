@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 41.0
- * Módulo: GESTIÓN DE PRESETS, AVISO DE REEMPLAZO Y ANIMACIÓN CARMESÍ
+ * PRESETS.JS - VERSIÓN 41.1
+ * Módulo: GESTIÓN DE PRESETS, AVISOS Y ANIMACIÓN CARMESÍ (FIX CHOQUE DE CANVAS)
  * ============================================================================
  */
 
@@ -20,7 +20,9 @@ let modalAnimationFrame = null;
 const modalEl = document.getElementById('preset-editor-modal');
 const nameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
-const ctx = modalCanvas ? modalCanvas.getContext('2d') : null;
+
+// 🎯 FIX CLAVE: Renombrado a modalCtx para que no choque con el "ctx" de timeline.js
+const modalCtx = modalCanvas ? modalCanvas.getContext('2d') : null;
 
 // Inicializar LocalStorage
 function loadPresets() {
@@ -188,30 +190,33 @@ function closeModal() {
     if(modalAnimationFrame) cancelAnimationFrame(modalAnimationFrame);
 }
 
+// 🎯 FIX CLAVE 2: Enlazar la función para que el botón de Tema Claro no truene
+window.drawModalCanvas = renderModalCanvas;
+
 function renderModalCanvas() {
-    if(!ctx || !modalCanvas) return;
+    if(!modalCtx || !modalCanvas) return;
     const rect = modalCanvas.parentElement.getBoundingClientRect();
     if(rect.width > 0) { modalCanvas.width = rect.width; modalCanvas.height = rect.height; }
 
     const loop = () => {
         if(modalEl.style.display === 'none') return;
-        ctx.fillStyle = 'rgba(15, 10, 12, 0.4)'; 
-        ctx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
+        modalCtx.fillStyle = 'rgba(15, 10, 12, 0.4)'; 
+        modalCtx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
 
         // Efecto Carmesí (Fondo)
         crimsonIntensity = Math.abs(Math.sin(Date.now() / 600)) * 0.4 + 0.6;
         wavePhase += 0.05;
-        ctx.beginPath(); ctx.moveTo(0, modalCanvas.height / 2);
+        modalCtx.beginPath(); modalCtx.moveTo(0, modalCanvas.height / 2);
         for (let x = 0; x < modalCanvas.width; x += 5) {
             const w1 = Math.sin((x * 0.02) + wavePhase) * 15;
             const w2 = Math.cos((x * 0.04) + (wavePhase * 0.8)) * 10;
-            ctx.lineTo(x, (modalCanvas.height / 2) + w1 + w2);
+            modalCtx.lineTo(x, (modalCanvas.height / 2) + w1 + w2);
         }
-        ctx.strokeStyle = `rgba(220, 20, 60, ${crimsonIntensity})`; 
-        ctx.lineWidth = 3; 
-        ctx.shadowColor = '#DC143C'; ctx.shadowBlur = 15 * crimsonIntensity;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        modalCtx.strokeStyle = `rgba(220, 20, 60, ${crimsonIntensity})`; 
+        modalCtx.lineWidth = 3; 
+        modalCtx.shadowColor = '#DC143C'; modalCtx.shadowBlur = 15 * crimsonIntensity;
+        modalCtx.stroke();
+        modalCtx.shadowBlur = 0;
 
         // Dibujar Puntos del Preset por encima de la onda
         if(window.currentEditingPreset && window.currentEditingPreset.length > 0) {
@@ -219,19 +224,19 @@ function renderModalCanvas() {
             const padX = 20; const padY = 20;
             const w = modalCanvas.width - padX*2; const h = modalCanvas.height - padY*2;
 
-            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3; ctx.beginPath();
+            modalCtx.strokeStyle = '#38bdf8'; modalCtx.lineWidth = 3; modalCtx.beginPath();
             window.currentEditingPreset.forEach((act, i) => {
                 const px = padX + (act.at / duration) * w;
                 const py = padY + h - (act.pos / 100) * h;
-                if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                if(i===0) modalCtx.moveTo(px, py); else modalCtx.lineTo(px, py);
             });
-            ctx.stroke();
+            modalCtx.stroke();
 
             window.currentEditingPreset.forEach(act => {
                 const px = padX + (act.at / duration) * w;
                 const py = padY + h - (act.pos / 100) * h;
-                ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                modalCtx.fillStyle = '#f97316'; modalCtx.beginPath(); modalCtx.arc(px, py, 6, 0, Math.PI*2); modalCtx.fill();
+                modalCtx.strokeStyle = '#fff'; modalCtx.lineWidth = 1.5; modalCtx.stroke();
             });
         }
 
