@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V37.0: ADAPTIVE MORPHING (TECLA ESPACIO) + PORTAPAPELES
+// TIMELINE V38.0: PANTALLA COMPLETA Y ALERTA VISUAL ROJA EN MODO ADAPTATIVO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -82,10 +82,8 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 CALCULADORA MATEMÁTICA DE MORPHING (ADAPTACIÓN DE PRESETS)
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
-    
     selectedActions.sort((a, b) => a.at - b.at);
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
@@ -256,7 +254,6 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// 🎯 DRAGOVER (CON SOPORTE PARA MODO ADAPTATIVO ESPACIO)
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -267,9 +264,8 @@ canvas?.addEventListener('dragover', (e) => {
         const actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
-        // Si se pulsa ESPACIO y hay selección -> MODO ADAPTATIVO
-        if (window.isSpaceDown && selected.length >= 2) {
-            drawTimeline(); // Solo redibuja, la función drawTimeline se encargará del Fantasma Adaptativo
+        if (window.isAdaptiveModeActive && selected.length >= 2) {
+            drawTimeline(); 
             return;
         }
         
@@ -307,7 +303,6 @@ canvas?.addEventListener('dragleave', () => {
     if (window.isDraggingPreset) { window.timelineGhostTimeMs = null; drawTimeline(); }
 });
 
-// 🎯 DROP (CON SOPORTE PARA MODO ADAPTATIVO)
 canvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
@@ -315,8 +310,7 @@ canvas?.addEventListener('drop', (e) => {
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
-        // 🎯 DROPEO ADAPTATIVO: Incinera selección vieja y clava la nueva
-        if (window.isSpaceDown && selected.length >= 2) {
+        if (window.isAdaptiveModeActive && selected.length >= 2) {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
             if (morphed) {
                 saveHistoryState();
@@ -523,13 +517,14 @@ function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
+// 🎯 DIBUJADO DE LA LÍNEA DEL TIEMPO PRINCIPAL Y FULLSCREEN
 window.drawTimeline = function() {
     try {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
         
+        let actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         if (videoNode && !videoNode.paused) {
-            const actualTime = videoNode.currentTime * 1000;
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             scrollLeftMs = actualTime - (visibleMs / 2);
             if (scrollLeftMs < 0) scrollLeftMs = 0;
@@ -637,8 +632,13 @@ window.drawTimeline = function() {
             actions.forEach(act => {
                 const x = timeToX(act.at);
                 if (x >= -20 && x <= canvas.width + 20) {
-                    const y = posToY(act.pos); ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
-                    ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
+                    const y = posToY(act.pos); 
+                    
+                    // 🎯 ALERTA ROJA EN MODO ADAPTATIVO
+                    let isTargetForMorph = act.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
+                    
+                    ctx.fillStyle = isTargetForMorph ? '#ef4444' : (act.selected ? '#f59e0b' : '#38bdf8');
+                    ctx.beginPath(); ctx.arc(x, y, isTargetForMorph ? 8 : (act.selected ? 7 : 5), 0, Math.PI * 2); ctx.fill();
                     ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                 }
             });
@@ -647,8 +647,7 @@ window.drawTimeline = function() {
         // 🎯 RENDERIZADO DEL FANTASMA ADAPTATIVO O NORMAL
         if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const selected = actions.filter(a => a.selected);
-            if (window.isSpaceDown && selected.length >= 2) {
-                // ⚡ DIBUJAR FANTASMA ADAPTATIVO
+            if (window.isAdaptiveModeActive && selected.length >= 2) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
                 if (morphed) {
                     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(244, 63, 94, 0.9)'; ctx.beginPath();
@@ -663,10 +662,9 @@ window.drawTimeline = function() {
                         ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
                     });
                     ctx.fillStyle = '#f43f5e'; ctx.font = 'bold 12px monospace';
-                    ctx.fillText("⚡ MODO ADAPTATIVO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
+                    ctx.fillText("⚡ MODO ADAPTATIVO ACTIVADO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
                 }
             } else {
-                // FANTASMA NORMAL
                 const deltaY = window.timelineGhostDeltaPos || 0;
                 ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
                 window.timelineGhostPreset.forEach((act, index) => {
@@ -684,24 +682,43 @@ window.drawTimeline = function() {
             }
         }
 
-        // 🎯 RENDERIZADO DEL FANTASMA AL PEGAR (PORTAPAPELES)
         if (window.isPastingMode && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
-            const deltaY = window.timelineGhostDeltaPos || 0;
-            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
-            window.timelineGhostPreset.forEach((act, index) => {
-                const x = timeToX(window.timelineGhostTimeMs + act.at);
-                const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
-                if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-            window.timelineGhostPreset.forEach(act => {
-                const x = timeToX(window.timelineGhostTimeMs + act.at);
-                const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY)));
-                ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-                ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
-            });
-            ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-            ctx.fillText("📋 PEGAR (Click para soltar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
+            const selected = actions.filter(a => a.selected);
+            if (window.isAdaptiveModeActive && selected.length >= 2) {
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+                if (morphed) {
+                    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(244, 63, 94, 0.9)'; ctx.beginPath();
+                    morphed.forEach((act, index) => {
+                        const x = timeToX(act.at); const y = posToY(act.pos); 
+                        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    });
+                    ctx.stroke();
+                    morphed.forEach(act => {
+                        const x = timeToX(act.at); const y = posToY(act.pos);
+                        ctx.fillStyle = 'rgba(244, 63, 94, 1)';
+                        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                    });
+                    ctx.fillStyle = '#f43f5e'; ctx.font = 'bold 12px monospace';
+                    ctx.fillText("⚡ PEGAR MODO ADAPTATIVO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
+                }
+            } else {
+                const deltaY = window.timelineGhostDeltaPos || 0;
+                ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
+                window.timelineGhostPreset.forEach((act, index) => {
+                    const x = timeToX(window.timelineGhostTimeMs + act.at);
+                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
+                    if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                window.timelineGhostPreset.forEach(act => {
+                    const x = timeToX(window.timelineGhostTimeMs + act.at);
+                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY)));
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+                    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                });
+                ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                ctx.fillText("📋 PEGAR (Click para soltar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
+            }
         }
 
         if (isSelecting) {
@@ -725,9 +742,7 @@ window.drawTimeline = function() {
             ctx.fillStyle = textDimColor; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
         });
 
-        const actualVideoTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
-        const playheadX = timeToX(actualVideoTimeMs);
-        
+        const playheadX = timeToX(actualTime);
         if (playheadX >= 30) {
             ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
             ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
@@ -746,8 +761,53 @@ window.drawTimeline = function() {
                 }
             });
         }
+
+        // 🎯 RENDERIZAR LÍNEA TRANSPARENTE EN FULLSCREEN
+        if (document.fullscreenElement) {
+            const fsCanvas = document.getElementById('fs-timeline-canvas');
+            if (fsCanvas) {
+                if (!window.fsTimelineVisible) {
+                    fsCanvas.style.display = 'none';
+                } else {
+                    fsCanvas.style.display = 'block';
+                    const rect = fsCanvas.getBoundingClientRect();
+                    if (fsCanvas.width !== rect.width || fsCanvas.height !== rect.height) {
+                        fsCanvas.width = rect.width; fsCanvas.height = rect.height;
+                    }
+                    const fCtx = fsCanvas.getContext('2d');
+                    fCtx.clearRect(0,0, fsCanvas.width, fsCanvas.height);
+                    
+                    const fsTimeToX = (t) => 10 + (t - scrollLeftMs) * (basePixelsPerMs * zoom);
+                    const fsPosToY = (p) => fsCanvas.height - 10 - (p/100)*(fsCanvas.height - 20);
+
+                    if (actions.length > 0) {
+                        fCtx.strokeStyle = '#38bdf8'; fCtx.lineWidth = 2; fCtx.beginPath();
+                        actions.forEach((a, i) => {
+                            if(i===0) fCtx.moveTo(fsTimeToX(a.at), fsPosToY(a.pos));
+                            else fCtx.lineTo(fsTimeToX(a.at), fsPosToY(a.pos));
+                        });
+                        fCtx.stroke();
+                        actions.forEach(a => {
+                            fCtx.fillStyle = a.selected ? '#f59e0b' : '#38bdf8';
+                            fCtx.beginPath(); fCtx.arc(fsTimeToX(a.at), fsPosToY(a.pos), a.selected ? 5 : 3, 0, Math.PI*2); fCtx.fill();
+                        });
+                    }
+                    
+                    const phX = fsTimeToX(actualTime);
+                    fCtx.strokeStyle = '#f97316'; fCtx.lineWidth = 2;
+                    fCtx.beginPath(); fCtx.moveTo(phX, 0); fCtx.lineTo(phX, fsCanvas.height); fCtx.stroke();
+                    
+                    fCtx.fillStyle = 'rgba(255,255,255,0.7)'; fCtx.font = '10px monospace';
+                    fCtx.fillText("Tecla 'H' oculta/muestra | Esc para salir", 10, 15);
+                }
+            }
+        } else {
+            const fsCanvas = document.getElementById('fs-timeline-canvas');
+            if (fsCanvas) fsCanvas.style.display = 'none';
+        }
+
     } catch (err) {}
-}
+};
 
 window.syncSliderWithSelection = function() {
     if (!pointSlider) return;
@@ -772,7 +832,7 @@ pointSlider?.addEventListener('input', function() {
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         selected.forEach(act => act.pos = val); 
-        drawTimeline(); 
+        window.drawTimeline(); 
     }
 });
 
@@ -784,7 +844,6 @@ pointSlider?.addEventListener('change', function() {
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
 canvas?.addEventListener('mousedown', (e) => {
-    // 🎯 MODO PORTAPAPELES: PEGAR CLICK
     if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
@@ -794,13 +853,28 @@ canvas?.addEventListener('mousedown', (e) => {
             let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
             const deltaY = window.timelineGhostDeltaPos || 0;
             
+            const selected = actions.filter(a => a.selected);
+
+            if (window.isAdaptiveModeActive && selected.length >= 2) {
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+                if (morphed) {
+                    window.funscriptActions = actions.filter(a => !a.selected); 
+                    morphed.forEach(m => m.selected = true);
+                    window.funscriptActions.push(...morphed);
+                    cleanDuplicates();
+                    window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+                    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+                    window.drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+                    return;
+                }
+            }
+            
             const newActions = window.timelineGhostPreset.map(act => ({
                 at: Math.max(0, dropTimeMs + act.at),
                 pos: Math.max(0, Math.min(100, act.pos + deltaY)),
                 selected: true 
             }));
             
-            // Reemplazo limpio
             const newTimes = new Set(newActions.map(a => a.at));
             window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
             window.funscriptActions.forEach(a => a.selected = false);
@@ -809,11 +883,11 @@ canvas?.addEventListener('mousedown', (e) => {
             
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-            drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+            window.drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
             return;
         } else if (e.button === 2) { 
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-            drawTimeline(); return;
+            window.drawTimeline(); return;
         }
     }
 
@@ -851,20 +925,25 @@ canvas?.addEventListener('mousedown', (e) => {
     } else if (e.button === 2) { 
         e.preventDefault(); saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
-        notifyCloud(); drawTimeline(); window.updateHeatmapAndStats();
+        notifyCloud(); window.drawTimeline(); window.updateHeatmapAndStats();
     }
 });
 
 canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     
-    // 🎯 MOTOR DEL FANTASMA AL PEGAR (PORTAPAPELES)
     if (window.isPastingMode && window.timelineGhostPreset) {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
-        const snapDistMs = 350; 
         const actions = getSafeActions();
+        const selected = actions.filter(a => a.selected);
+        if (window.isAdaptiveModeActive && selected.length >= 2) {
+            window.drawTimeline(); 
+            return;
+        }
+        
+        const snapDistMs = 350; 
         const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         
         const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
@@ -889,7 +968,7 @@ canvas?.addEventListener('mousemove', (e) => {
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
-        drawTimeline();
+        window.drawTimeline();
         return; 
     }
 
@@ -991,16 +1070,15 @@ window.addEventListener('mouseup', (e) => {
             notifyCloud(); window.updateHeatmapAndStats();
         }
     } else if (isDraggingNode || hasDraggedSelection) { 
-        // 🎯 INCINERA PUNTOS VIEJOS AL ARRASTRAR ENCIMA UNA SELECCIÓN
         const selectedTimes = new Set(actions.filter(a => a.selected).map(a => a.at));
         window.funscriptActions = actions.filter(a => a.selected || !selectedTimes.has(a.at));
         
         cleanDuplicates();
         notifyCloud(); window.updateHeatmapAndStats();
     }
-    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1; drawTimeline();
+    isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1; window.drawTimeline();
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
-function animationLoop() { drawTimeline(); requestAnimationFrame(animationLoop); }
+function animationLoop() { window.drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
