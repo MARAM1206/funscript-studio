@@ -12,9 +12,12 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 .menu-btn { border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: normal; cursor: pointer; transition: transform 0.1s; }
 .menu-btn:active { transform: scale(0.98); }
+
 .success-btn { background: #10b981 !important; color: #ffffff !important; font-weight: bold; transition: background 0.2s; }
 .success-btn:hover { background: #059669 !important; }
+
 #theme-toggle-btn { background: #334155; color: #ffffff; border: 1px solid #1e293b; transition: all 0.3s ease; }
+
 .select-btn { display: inline-block; text-align: center; }
 .select-btn:hover { background: #1d4ed8 !important; }
 
@@ -51,7 +54,8 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .heatmap-canvas { width: 100%; height: 14px; border-radius: 4px; display: block; z-index: 1; opacity: 0.9; }
 
 .video-info-bar { background: #0b0f17; padding: 0px 12px 8px 12px; font-size: 0.8rem; font-family: monospace; color: #38bdf8; border: none !important; display: flex; justify-content: space-between; align-items: center; width: 100%; flex-shrink: 0; }
-.video-info-bar .info-text-white { color: #e2e8f0; }
+/* 🎯 SIN NEGRITAS */
+.video-info-bar .info-text-white { color: #e2e8f0; font-weight: normal; }
 .video-info-bar .divider { color: #334155; }
 .video-info-left { display: flex; align-items: center; }
 .video-info-right { display: flex; align-items: center; gap: 8px; }
@@ -110,8 +114,8 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 #timeline-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; position: relative; z-index: 2; }
 
-/* 🛡️ PANTALLA COMPLETA Y MINI-ICONO */
-.fs-mini-icon { position: absolute; bottom: 10px; right: 15px; font-size: 1.2rem; color: rgba(255,255,255,0.6); cursor: pointer; user-select: none; transition: transform 0.2s, color 0.2s; z-index: 10; font-weight: bold; }
+/* 🛡️ PANTALLA COMPLETA Y MINI-ICONO 25% MÁS CHICO */
+.fs-mini-icon { position: absolute; bottom: 10px; right: 15px; font-size: 0.9rem; color: rgba(255,255,255,0.6); cursor: pointer; user-select: none; transition: transform 0.2s, color 0.2s; z-index: 10; font-weight: bold; }
 .fs-mini-icon:hover { transform: scale(1.3); color: #fff; }
 :fullscreen .fs-mini-icon { display: none; }
 :-webkit-full-screen .fs-mini-icon { display: none; }
@@ -120,10 +124,10 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 :fullscreen .fs-timeline { display: block; }
 :-webkit-full-screen .fs-timeline { display: block; }
 
-/* 🛡️ CHECKBOX MODO ADAPTATIVO VISUAL */
-.adaptive-toggle-container { background: #1e293b; padding: 8px; border-radius: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #334155; }
-.adaptive-checkbox { cursor: pointer; accent-color: #f43f5e; width: 14px; height: 14px; }
-.adaptive-toggle-container label { color: #f43f5e; font-size: 0.75rem; font-weight: bold; cursor: pointer; user-select: none; }
+/* 🎯 BOTÓN DE MODO ADAPTATIVO (VERDE / GRIS / ROJO) */
+.adaptive-btn { font-size: 0.7rem; font-weight: bold; border-radius: 12px; padding: 2px 10px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; outline: none; margin-left: auto;}
+.adaptive-btn.on { background: #10b981; color: #ffffff; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); border-color: #059669; }
+.adaptive-btn.off { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; color: #ef4444; }
 
 
 /* ==========================================================================
@@ -136,7 +140,10 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .video-bottom-unified-bar, .light-theme .progress-bar-container, .light-theme .video-info-bar { background: #f8fafc; }
 .light-theme .panel-content { background: #ffffff; }
 .light-theme .custom-progress { background: #e2e8f0; }
-.light-theme .info-text-white { color: #0f172a; font-weight: bold; }
+
+/* 🎯 INFO TEXTO SIN NEGRITAS */
+.light-theme .info-text-white { color: #334155; font-weight: normal; }
+
 .light-theme .divider { color: #94a3b8; }
 .light-theme .tracks-list-container, .light-theme .log-container, .light-theme .presets-list-container { background-color: #f1f5f9; border: 1px solid #e2e8f0; }
 .light-theme .empty-tracks-msg, .light-theme .empty-log { color: #64748b; }
@@ -155,12 +162,13 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .controls-info ul { color: #334155 !important; }
 .light-theme #v-time-current { color: #0f172a; }
 .light-theme .dual-slider-track { background: #e2e8f0; }
-.light-theme .fs-mini-icon { color: rgba(0,0,0,0.4); }
-.light-theme .fs-mini-icon:hover { color: #000; }
-.light-theme .adaptive-toggle-container { background: #e2e8f0; border-color: #cbd5e1; }
 
-/* 🛡️ REGLAS INYECTADAS PARA TEMA CLARO */
+/* 🎯 CORRECCIONES DE MODO CLARO */
 .light-theme #theme-toggle-btn { background: #1e293b !important; color: #ffffff !important; border-color: #0f172a !important; font-weight: bold; }
+.light-theme .fs-mini-icon { color: rgba(15, 23, 42, 0.6); }
+.light-theme .fs-mini-icon:hover { color: #0f172a; }
+.light-theme .adaptive-btn.off { background: rgba(239, 68, 68, 0.05); border-color: #ef4444; color: #ef4444; }
+
 .light-theme .handy-container { background: #f8fafc; border-color: #cbd5e1; }
 .light-theme .handy-input { background: #ffffff; color: #0f172a; border-color: #cbd5e1; }
 .light-theme .modal-content { background: #ffffff; border-color: #cbd5e1; color: #0f172a; }
