@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V38.0: PANTALLA COMPLETA Y ALERTA VISUAL ROJA EN MODO ADAPTATIVO
+// TIMELINE V39.0: ADAPTIVE RED GLOW, FULLSCREEN FIX Y MUTE ROJO VIVO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -517,7 +517,6 @@ function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
-// 🎯 DIBUJADO DE LA LÍNEA DEL TIEMPO PRINCIPAL Y FULLSCREEN
 window.drawTimeline = function() {
     try {
         ensureCanvasSize();
@@ -542,11 +541,13 @@ window.drawTimeline = function() {
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // 🔊 AUDIO WAVEFORM (ROJO VIVO INTENSO EN MUTE)
         if (window.audioPeaks && window.audioPeaksSampleRate) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
             
-            ctx.strokeStyle = isMuted ? 'rgba(225, 29, 72, 0.8)' : (isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)'); 
+            // 🎯 Color Rojo mucho más vivo (#ef4444 en opacidad alta)
+            ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.9)' : (isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)'); 
             ctx.beginPath();
             
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
@@ -682,6 +683,7 @@ window.drawTimeline = function() {
             }
         }
 
+        // 🎯 RENDERIZADO DEL FANTASMA AL PEGAR (PORTAPAPELES)
         if (window.isPastingMode && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const selected = actions.filter(a => a.selected);
             if (window.isAdaptiveModeActive && selected.length >= 2) {
@@ -778,7 +780,8 @@ window.drawTimeline = function() {
                     fCtx.clearRect(0,0, fsCanvas.width, fsCanvas.height);
                     
                     const fsTimeToX = (t) => 10 + (t - scrollLeftMs) * (basePixelsPerMs * zoom);
-                    const fsPosToY = (p) => fsCanvas.height - 10 - (p/100)*(fsCanvas.height - 20);
+                    // Dejar más margen arriba para el texto
+                    const fsPosToY = (p) => fsCanvas.height - 10 - (p/100)*(fsCanvas.height - 35);
 
                     if (actions.length > 0) {
                         fCtx.strokeStyle = '#38bdf8'; fCtx.lineWidth = 2; fCtx.beginPath();
@@ -797,8 +800,9 @@ window.drawTimeline = function() {
                     fCtx.strokeStyle = '#f97316'; fCtx.lineWidth = 2;
                     fCtx.beginPath(); fCtx.moveTo(phX, 0); fCtx.lineTo(phX, fsCanvas.height); fCtx.stroke();
                     
-                    fCtx.fillStyle = 'rgba(255,255,255,0.7)'; fCtx.font = '10px monospace';
-                    fCtx.fillText("Tecla 'H' oculta/muestra | Esc para salir", 10, 15);
+                    // 🎯 TEXTO SEGURO Y LIMPIO EN EL TECHO
+                    fCtx.fillStyle = 'rgba(255,255,255,0.8)'; fCtx.font = '12px monospace';
+                    fCtx.fillText("Tecla 'H' oculta gráfica | 'Esc' o 'F' para salir", 15, 20);
                 }
             }
         } else {
@@ -832,7 +836,7 @@ pointSlider?.addEventListener('input', function() {
     const selected = actions.filter(act => act.selected);
     if (selected.length > 0) {
         selected.forEach(act => act.pos = val); 
-        window.drawTimeline(); 
+        drawTimeline(); 
     }
 });
 
@@ -844,6 +848,7 @@ pointSlider?.addEventListener('change', function() {
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
 canvas?.addEventListener('mousedown', (e) => {
+    // 🎯 MODO PORTAPAPELES: PEGAR CLICK
     if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
@@ -932,6 +937,7 @@ canvas?.addEventListener('mousedown', (e) => {
 canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     
+    // 🎯 MOTOR DEL FANTASMA AL PEGAR (PORTAPAPELES)
     if (window.isPastingMode && window.timelineGhostPreset) {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
