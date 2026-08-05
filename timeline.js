@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V36.0: REPARACIÓN DE GHOST Y FORZADO DE TEMA
+// TIMELINE V37.0: ADAPTIVE MORPHING (TECLA ESPACIO) + PORTAPAPELES
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -81,6 +81,33 @@ function getPointUnderPlayhead(actions) {
     });
     return closest;
 }
+
+// 🎯 CALCULADORA MATEMÁTICA DE MORPHING (ADAPTACIÓN DE PRESETS)
+window.getMorphedPreset = function(preset, selectedActions) {
+    if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
+    
+    selectedActions.sort((a, b) => a.at - b.at);
+    const t_min = selectedActions[0].at;
+    const t_max = selectedActions[selectedActions.length - 1].at;
+    const targetDuration = t_max - t_min;
+    
+    const y_min = Math.min(...selectedActions.map(a => a.pos));
+    const y_max = Math.max(...selectedActions.map(a => a.pos));
+    
+    const preset_t_max = preset[preset.length - 1].at;
+    const preset_y_min = Math.min(...preset.map(a => a.pos));
+    const preset_y_max = Math.max(...preset.map(a => a.pos));
+    
+    return preset.map(act => {
+        let newT = t_min + (preset_t_max === 0 ? 0 : (act.at / preset_t_max) * targetDuration);
+        let newPos = act.pos;
+        if (preset_y_max !== preset_y_min) {
+            let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
+            newPos = y_min + normalizedY * (y_max - y_min);
+        }
+        return { at: Math.round(newT), pos: Math.max(0, Math.min(100, Math.round(newPos))) };
+    });
+};
 
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
@@ -229,7 +256,7 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// 🎯 REPARACIÓN GHOST: LÓGICA DE DIBUJO AL ARRASTRAR DEVUELTA AL CANVAS PRINCIPAL
+// 🎯 DRAGOVER (CON SOPORTE PARA MODO ADAPTATIVO ESPACIO)
 canvas?.addEventListener('dragover', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault(); 
@@ -237,8 +264,16 @@ canvas?.addEventListener('dragover', (e) => {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
         
-        const snapDistMs = 350; 
         const actions = getSafeActions();
+        const selected = actions.filter(a => a.selected);
+
+        // Si se pulsa ESPACIO y hay selección -> MODO ADAPTATIVO
+        if (window.isSpaceDown && selected.length >= 2) {
+            drawTimeline(); // Solo redibuja, la función drawTimeline se encargará del Fantasma Adaptativo
+            return;
+        }
+        
+        const snapDistMs = 350; 
         const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
         
         const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
@@ -264,7 +299,7 @@ canvas?.addEventListener('dragover', (e) => {
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
         window.timelineGhostTimeMs = hoverTimeMs;
-        drawTimeline(); // Llama a la función de dibujo
+        drawTimeline(); 
     }
 });
 
@@ -272,11 +307,30 @@ canvas?.addEventListener('dragleave', () => {
     if (window.isDraggingPreset) { window.timelineGhostTimeMs = null; drawTimeline(); }
 });
 
+// 🎯 DROP (CON SOPORTE PARA MODO ADAPTATIVO)
 canvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
         ensureTrackExists();
         let actions = getSafeActions();
+        const selected = actions.filter(a => a.selected);
+
+        // 🎯 DROPEO ADAPTATIVO: Incinera selección vieja y clava la nueva
+        if (window.isSpaceDown && selected.length >= 2) {
+            const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+            if (morphed) {
+                saveHistoryState();
+                window.funscriptActions = actions.filter(a => !a.selected); 
+                morphed.forEach(m => m.selected = true);
+                window.funscriptActions.push(...morphed);
+                cleanDuplicates();
+                
+                window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+                drawTimeline(); notifyCloud(); window.updateHeatmapAndStats();
+                return;
+            }
+        }
 
         const pos = getMousePos(e);
         let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
@@ -563,6 +617,8 @@ window.drawTimeline = function() {
             t += stepMs;
         }
 
+        const actions = getSafeActions();
+
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
                 if (track.visible && !track.isPrimary && track.actions && track.actions.length > 0) {
@@ -574,7 +630,6 @@ window.drawTimeline = function() {
             });
         }
 
-        const actions = getSafeActions();
         if (actions.length > 0) {
             ctx.lineWidth = 3; ctx.strokeStyle = '#38bdf8'; ctx.beginPath();
             actions.forEach((act, index) => { const x = timeToX(act.at); const y = posToY(act.pos); if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
@@ -589,25 +644,64 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 DIBUJO DEL FANTASMA AL PEGAR O ARRASTRAR
-        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+        // 🎯 RENDERIZADO DEL FANTASMA ADAPTATIVO O NORMAL
+        if (window.isDraggingPreset && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+            const selected = actions.filter(a => a.selected);
+            if (window.isSpaceDown && selected.length >= 2) {
+                // ⚡ DIBUJAR FANTASMA ADAPTATIVO
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+                if (morphed) {
+                    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(244, 63, 94, 0.9)'; ctx.beginPath();
+                    morphed.forEach((act, index) => {
+                        const x = timeToX(act.at); const y = posToY(act.pos); 
+                        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    });
+                    ctx.stroke();
+                    morphed.forEach(act => {
+                        const x = timeToX(act.at); const y = posToY(act.pos);
+                        ctx.fillStyle = 'rgba(244, 63, 94, 1)';
+                        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                    });
+                    ctx.fillStyle = '#f43f5e'; ctx.font = 'bold 12px monospace';
+                    ctx.fillText("⚡ MODO ADAPTATIVO", timeToX(morphed[0].at), posToY(morphed[0].pos) - 15);
+                }
+            } else {
+                // FANTASMA NORMAL
+                const deltaY = window.timelineGhostDeltaPos || 0;
+                ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
+                window.timelineGhostPreset.forEach((act, index) => {
+                    const x = timeToX(window.timelineGhostTimeMs + act.at);
+                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
+                    if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                window.timelineGhostPreset.forEach(act => {
+                    const x = timeToX(window.timelineGhostTimeMs + act.at);
+                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY)));
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+                    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                });
+            }
+        }
+
+        // 🎯 RENDERIZADO DEL FANTASMA AL PEGAR (PORTAPAPELES)
+        if (window.isPastingMode && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const deltaY = window.timelineGhostDeltaPos || 0;
-            ctx.lineWidth = 3; 
-            ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; 
-            ctx.beginPath();
+            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
             window.timelineGhostPreset.forEach((act, index) => {
                 const x = timeToX(window.timelineGhostTimeMs + act.at);
                 const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
                 if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             });
             ctx.stroke();
-
             window.timelineGhostPreset.forEach(act => {
                 const x = timeToX(window.timelineGhostTimeMs + act.at);
                 const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY)));
                 ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                 ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
             });
+            ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+            ctx.fillText("📋 PEGAR (Click para soltar)", timeToX(window.timelineGhostTimeMs), posToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
         }
 
         if (isSelecting) {
@@ -690,10 +784,12 @@ pointSlider?.addEventListener('change', function() {
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
 canvas?.addEventListener('mousedown', (e) => {
+    // 🎯 MODO PORTAPAPELES: PEGAR CLICK
     if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
             saveHistoryState();
+            let actions = getSafeActions();
             const pos = getMousePos(e);
             let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
             const deltaY = window.timelineGhostDeltaPos || 0;
@@ -704,8 +800,9 @@ canvas?.addEventListener('mousedown', (e) => {
                 selected: true 
             }));
             
+            // Reemplazo limpio
             const newTimes = new Set(newActions.map(a => a.at));
-            window.funscriptActions = getSafeActions().filter(a => !newTimes.has(a.at));
+            window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
             window.funscriptActions.forEach(a => a.selected = false);
             window.funscriptActions.push(...newActions);
             cleanDuplicates(); 
@@ -761,6 +858,7 @@ canvas?.addEventListener('mousedown', (e) => {
 canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     
+    // 🎯 MOTOR DEL FANTASMA AL PEGAR (PORTAPAPELES)
     if (window.isPastingMode && window.timelineGhostPreset) {
         let hoverTimeMs = xToTime(pos.x);
         let hoverPosRaw = yToPos(pos.y);
@@ -865,6 +963,7 @@ window.addEventListener('mouseup', (e) => {
 
     let actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
+        
         if (!hadSelectionBeforeMousedown) {
             ensureTrackExists(); 
             actions = getSafeActions(); 
@@ -892,6 +991,7 @@ window.addEventListener('mouseup', (e) => {
             notifyCloud(); window.updateHeatmapAndStats();
         }
     } else if (isDraggingNode || hasDraggedSelection) { 
+        // 🎯 INCINERA PUNTOS VIEJOS AL ARRASTRAR ENCIMA UNA SELECCIÓN
         const selectedTimes = new Set(actions.filter(a => a.selected).map(a => a.at));
         window.funscriptActions = actions.filter(a => a.selected || !selectedTimes.has(a.at));
         
