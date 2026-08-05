@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=38">
 </head>
 <body>
 
@@ -45,7 +45,7 @@
                 
                 <div style="display: flex; justify-content: space-between; align-items:flex-end;">
                     <label style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
-                    <span style="font-size: 0.7rem; color: var(--text-dim, #64748b); margin-bottom: 4px;">Atajos (Ctrl+C, V, Z, Y, A, Flechas) | Zoom: Shift+Ruedita</span>
+                    <span style="font-size: 0.7rem; color: var(--text-dim, #64748b); margin-bottom: 4px;">Atajos (Ctrl+C, V, Z, Y, A, Flechas, Espacio) | Zoom: Shift+Ruedita</span>
                 </div>
                 
                 <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
@@ -75,9 +75,10 @@
     <div class="workspace-container">
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-content" style="padding: 0; display: flex; flex-direction: column; background: #000;">
-                <div class="video-container" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+                <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #000;">
                     <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+                    <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
                 </div>
                 <div class="video-bottom-unified-bar">
                     <div class="progress-bar-container">
@@ -97,6 +98,7 @@
                             <span id="v-fps" class="fixed-info">-- fps</span> <span class="divider">|</span> 
                             <span id="v-speed" class="fixed-info">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
                             <span id="v-mute" class="fixed-info">🔊 Sonido On</span>
+                            <button id="fullscreen-btn" class="track-btn" style="background: #334155; color: white; padding: 4px 8px; border-radius: 6px; margin-left: 10px;">🖥️ Pantalla Completa</button>
                         </div>
                     </div>
                 </div>
@@ -147,12 +149,12 @@
 
     </div>
 
-    <script src="workspace.js?v=37"></script>
-    <script src="handy.js?v=37"></script> 
-    <script src="funscript.js?v=37"></script>
-    <script src="player.js?v=37"></script>
-    <script src="tracking.js?v=37"></script>
-    <script src="presets.js?v=37"></script>
-    <script src="timeline.js?v=37"></script>
+    <script src="workspace.js?v=38"></script>
+    <script src="handy.js?v=38"></script> 
+    <script src="funscript.js?v=38"></script>
+    <script src="player.js?v=38"></script>
+    <script src="tracking.js?v=38"></script>
+    <script src="presets.js?v=38"></script>
+    <script src="timeline.js?v=38"></script>
 </body>
 </html>
