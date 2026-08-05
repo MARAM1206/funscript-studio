@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V8.0: CONTROL VISUAL DEL MODO ADAPTATIVO (CHECKBOXES)
+// WORKSPACE V9.0: BOTONES ADAPTATIVOS EN HEADER Y TEMA CLARO
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -7,7 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleContainer = document.getElementById("top-center-toggles");
     if (!container || !toggleContainer) return;
 
-    // 🌗 MOTOR DE TEMA CLARO / OSCURO
     const themeBtn = document.getElementById('theme-toggle-btn');
     const currentTheme = localStorage.getItem('funscript_theme') || 'dark';
     if (currentTheme === 'light') {
@@ -25,17 +24,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
     });
 
-    // 🎯 SINCRONIZACIÓN DE CHECKBOXES ADAPTATIVOS
-    const cbMain = document.getElementById('adaptive-checkbox-main');
-    const cbModal = document.getElementById('adaptive-checkbox-modal');
-
-    window.syncAdaptiveCheckboxes = function(isActive) {
-        if (cbMain) cbMain.checked = isActive;
-        if (cbModal) cbModal.checked = isActive;
+    // 🎯 SINCRONIZACIÓN DE BOTONES VERDES (MODO ADAPTATIVO)
+    window.syncAdaptiveButtons = function(isActive) {
+        document.querySelectorAll('.adaptive-btn').forEach(btn => {
+            if (isActive) {
+                btn.classList.remove('off'); btn.classList.add('on');
+                btn.innerText = '⚡ Modo Adaptativo (P): ON';
+            } else {
+                btn.classList.remove('on'); btn.classList.add('off');
+                btn.innerText = 'Modo Adaptativo (P): OFF';
+            }
+        });
     };
-
-    if (cbMain) cbMain.addEventListener('change', (e) => { window.isAdaptiveModeActive = e.target.checked; window.syncAdaptiveCheckboxes(e.target.checked); if (typeof window.drawTimeline === 'function') window.drawTimeline(); });
-    if (cbModal) cbModal.addEventListener('change', (e) => { window.isAdaptiveModeActive = e.target.checked; window.syncAdaptiveCheckboxes(e.target.checked); if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas(); });
 
     const panels = Array.from(document.querySelectorAll(".workspace-panel"));
     const GAP = 8; 
@@ -108,6 +108,9 @@ document.addEventListener("DOMContentLoaded", () => {
             let extraInfo = "";
             if (panel.id === "panel-timeline") {
                 extraInfo = `<span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; margin-left: auto;">Puntos: 0 | Velocidad: --</span>`;
+            } else if (panel.id === "panel-presets") {
+                // 🎯 BOTÓN INYECTADO DIRECTAMENTE AL TÍTULO
+                extraInfo = `<button id="adaptive-btn-main" class="adaptive-btn off">Modo Adaptativo (P): OFF</button>`;
             }
 
             header.innerHTML = `<span style="font-weight: bold;">${title}</span>${extraInfo}`;
