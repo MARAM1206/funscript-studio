@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V45.0: FÓRMULA DE VELOCIDAD FAPTAP Y COPIAR/PEGAR SEPARADO
+// TIMELINE V46.0: VELOCIDAD FAPTAP (DISTANCIA % / S) Y PEGADO LIBRE
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -119,17 +119,25 @@ window.updateHeatmapAndStats = function() {
     if (statsSpan) {
         let speedText = "--";
         if (actions.length > 1) {
-            // 🎯 FIX DEFINITIVO DE VELOCIDAD FAPTAP
-            // FapTap calcula la Velocidad Total sumando toda la distancia recorrida (%)
-            // y dividiéndola entre la duración total del script en Segundos.
+            // 🎯 FÓRMULA DE TIEMPO ACTIVO (VELOCIDAD PERFECTA FAPTAP)
             let totalDistance = 0;
+            let activeTimeMs = 0;
+            
             for (let i = 1; i < actions.length; i++) {
-                totalDistance += Math.abs(actions[i].pos - actions[i-1].pos);
+                let dt = actions[i].at - actions[i-1].at;
+                let dp = Math.abs(actions[i].pos - actions[i-1].pos);
+                // Si el tiempo entre 2 puntos es menor a 3 segundos (3000ms), 
+                // se considera que la acción es continua y no una pausa
+                if (dt > 0 && dt <= 3000) { 
+                    totalDistance += dp;
+                    activeTimeMs += dt;
+                }
             }
-            const durationSecs = actions[actions.length - 1].at / 1000;
 
-            if (durationSecs > 0) {
-                const fapTapSpeed = Math.round(totalDistance / durationSecs);
+            if (activeTimeMs > 0) {
+                // Multiplicamos por 1000 para convertir de ms a segundos
+                const fapTapSpeed = Math.round((totalDistance / activeTimeMs) * 1000);
+                
                 if (fapTapSpeed >= 250) speedText = `Very Fast 🔴 (${fapTapSpeed})`;
                 else if (fapTapSpeed >= 150) speedText = `Fast 🟠 (${fapTapSpeed})`;
                 else if (fapTapSpeed >= 80) speedText = `Medium 🟡 (${fapTapSpeed})`; 
@@ -251,12 +259,11 @@ window.addEventListener('copyPoints', () => {
     }
 });
 
-// 🎯 FIX: El pegado con teclado (Ctrl+V) ya NO usa Modo Adaptativo.
-// Quita la selección previa y pega el fantasma libremente.
+// 🎯 FIX: El pegado (Ctrl+V) es 100% puro y cancela las selecciones de Adaptativo
 window.addEventListener('pastePoints', () => {
     const modal = document.getElementById('preset-editor-modal');
     if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && modal.style.display !== 'flex') {
-        getSafeActions().forEach(a => a.selected = false); // Evita conflicto con Modo Adaptativo
+        getSafeActions().forEach(a => a.selected = false); 
         window.isPastingMode = true;
         window.timelineGhostPreset = window.clipboardFunscript;
         window.timelineGhostTimeMs = null;
@@ -309,7 +316,7 @@ window.addEventListener('presetCustomDrop', (e) => {
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
-        // 🎯 FIX: Solo aplica Modo Adaptativo si estás ARRASTRANDO (no Pegando).
+        // 🎯 Modo Adaptativo SOLAMENTE cuando se arrastra un preset de verdad
         if (window.isAdaptiveModeActive && selected.length >= 2) {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
             if (morphed) {
@@ -630,7 +637,6 @@ window.drawTimeline = function() {
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
                 const x2 = timeToX(act2.at); const y2 = posToY(act2.pos);
 
-                // 🎯 FIX: Animación Solo si es Drag de Preset
                 let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset;
                 
                 ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
@@ -668,7 +674,6 @@ window.drawTimeline = function() {
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const selected = actions.filter(a => a.selected);
-            // 🎯 FIX: El pegado (Ctrl+V) usa la forma estándar, solo el Arrastre de presets usa Adaptativo.
             if (window.isDraggingPreset && window.isAdaptiveModeActive && selected.length >= 2) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
                 if (morphed) {
@@ -839,7 +844,6 @@ canvas?.addEventListener('mousedown', (e) => {
             let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
             const deltaY = window.timelineGhostDeltaPos || 0;
             
-            // Simplemente pega los puntos
             getSafeActions().forEach(a => a.selected = false); 
             
             const newActions = window.timelineGhostPreset.map(act => ({
