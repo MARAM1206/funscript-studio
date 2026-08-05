@@ -1,12 +1,13 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 46.0
- * Módulo: ZOOM MICRO-PRECISIÓN (0.01) EN EL MODAL DE EDICIÓN
+ * PRESETS.JS - VERSIÓN 47.0
+ * Módulo: SOBRESCRITURA INTELIGENTE, ZOOM MILIMÉTRICO Y TEMA CLARO DINÁMICO
  * ============================================================================
  */
 
 window.savedPresets = {};
 window.currentEditingPreset = [];
+window.originalEditingPresetName = null; // Memoria para saber qué preset estamos editando
 window.isDraggingPreset = false;
 window.timelineGhostPreset = null;
 window.timelineGhostTimeMs = null;
@@ -100,6 +101,7 @@ function renderPresetsList() {
             if (window.savedPresets[name]) {
                 window.currentEditingPreset = JSON.parse(JSON.stringify(window.savedPresets[name])); 
                 window.currentEditingPreset.forEach(a => a.selected = false);
+                window.originalEditingPresetName = name; // 🎯 FIX: Guardamos qué preset es
                 if (nameInput) nameInput.value = name;
                 openModal();
             }
@@ -322,6 +324,7 @@ window.addEventListener('modalCustomDrop', (e) => {
     }
 });
 
+// Guardar desde el panel Timeline
 document.getElementById('save-preset-btn')?.addEventListener('click', () => {
     if (!window.funscriptActions) return;
     const selected = window.funscriptActions.filter(a => a.selected).sort((a,b) => a.at - b.at);
@@ -330,26 +333,39 @@ document.getElementById('save-preset-btn')?.addEventListener('click', () => {
     const baseTime = selected[0].at;
     window.currentEditingPreset = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, selected: false }));
     
+    window.originalEditingPresetName = null; // 🎯 FIX: Es un preset virgen
     if (nameInput) nameInput.value = "Nuevo Preset";
     openModal();
 });
 
+// 🎯 FIX: Lógica de Guardado y Sobrescritura Silenciosa
 function handleSave(forceNew) {
     let name = nameInput ? nameInput.value.trim() : "Preset";
     if (!name) name = "Preset Sin Nombre";
 
-    if (forceNew && window.savedPresets[name]) {
-        let counter = 1;
-        let newName = `${name} (${counter})`;
-        while (window.savedPresets[newName]) { counter++; newName = `${name} (${counter})`; }
-        name = newName;
-    } else if (!forceNew && window.savedPresets[name]) {
-        const conf = confirm(`⚠️ Ya existe un preset llamado "${name}".\n¿Deseas reemplazarlo?`);
-        if (!conf) return; 
+    if (forceNew) {
+        if (window.savedPresets[name]) {
+            let counter = 1;
+            let newName = `${name} (${counter})`;
+            while (window.savedPresets[newName]) { counter++; newName = `${name} (${counter})`; }
+            name = newName;
+        }
+    } else {
+        // Solo pregunta si cambiaste el nombre y el nuevo nombre ya existe
+        if (window.savedPresets[name] && name !== window.originalEditingPresetName) {
+            const conf = confirm(`⚠️ Ya existe un preset llamado "${name}".\n¿Deseas reemplazarlo?`);
+            if (!conf) return; 
+        }
+    }
+
+    // Si no es "Crear Nuevo", y le cambiamos el nombre a uno existente, borramos el original
+    if (!forceNew && window.originalEditingPresetName && name !== window.originalEditingPresetName) {
+        delete window.savedPresets[window.originalEditingPresetName];
     }
 
     const finalPreset = window.currentEditingPreset.map(a => ({at: a.at, pos: a.pos}));
     window.savedPresets[name] = finalPreset;
+    window.originalEditingPresetName = name; // Se actualiza la memoria
     savePresetsToStorage();
     closeModal();
 }
@@ -385,17 +401,20 @@ function renderModalCanvas() {
 
     const loop = () => {
         if(modalEl.style.display === 'none') return;
-        modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
         
-        modalCtx.fillStyle = '#06090e'; 
+        // 🎯 FIX: SOPORTE TOTAL MODO CLARO Y OSCURO EN MODAL
+        const isLight = document.body.classList.contains('light-theme');
+        
+        modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+        modalCtx.fillStyle = isLight ? '#f1f5f9' : '#06090e'; 
         modalCtx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
 
         modalCtx.lineWidth = 1;
-        modalCtx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
+        modalCtx.strokeStyle = isLight ? 'rgba(100, 116, 139, 0.2)' : 'rgba(148, 163, 184, 0.15)';
         for(let p = 0; p <= 100; p += 10) {
             const y = mPosToY(p);
             modalCtx.beginPath(); modalCtx.moveTo(40, y); modalCtx.lineTo(modalCanvas.width, y); modalCtx.stroke();
-            modalCtx.fillStyle = '#94a3b8'; modalCtx.font = 'bold 10px monospace';
+            modalCtx.fillStyle = isLight ? '#475569' : '#94a3b8'; modalCtx.font = 'bold 10px monospace';
             modalCtx.fillText(p+'%', 5, y+4);
         }
 
@@ -415,17 +434,21 @@ function renderModalCanvas() {
             }
         }
 
-        modalCtx.fillStyle = '#0b0f17'; modalCtx.fillRect(0, 0, 40, modalCanvas.height);
-        modalCtx.strokeStyle = '#1e293b'; modalCtx.beginPath(); modalCtx.moveTo(40, 0); modalCtx.lineTo(40, modalCanvas.height); modalCtx.stroke();
+        modalCtx.fillStyle = isLight ? '#e2e8f0' : '#0b0f17'; 
+        modalCtx.fillRect(0, 0, 40, modalCanvas.height);
+        modalCtx.strokeStyle = isLight ? '#cbd5e1' : '#1e293b'; 
+        modalCtx.beginPath(); modalCtx.moveTo(40, 0); modalCtx.lineTo(40, modalCanvas.height); modalCtx.stroke();
+        
         for(let p = 0; p <= 100; p += 10) {
             const y = mPosToY(p);
-            modalCtx.fillStyle = '#94a3b8'; modalCtx.font = 'bold 10px monospace';
+            modalCtx.fillStyle = isLight ? '#475569' : '#94a3b8'; modalCtx.font = 'bold 10px monospace';
             modalCtx.fillText(p+'%', 5, y+4);
         }
 
         if(window.currentEditingPreset && window.currentEditingPreset.length > 0) {
             window.currentEditingPreset.sort((a,b) => a.at - b.at);
-            modalCtx.strokeStyle = '#38bdf8'; modalCtx.lineWidth = 3; modalCtx.beginPath();
+            modalCtx.strokeStyle = isLight ? '#0284c7' : '#38bdf8'; 
+            modalCtx.lineWidth = 3; modalCtx.beginPath();
             window.currentEditingPreset.forEach((act, i) => {
                 const px = mTimeToX(act.at); const py = mPosToY(act.pos);
                 if(i===0) modalCtx.moveTo(px, py); else modalCtx.lineTo(px, py);
@@ -434,9 +457,9 @@ function renderModalCanvas() {
             window.currentEditingPreset.forEach(act => {
                 const px = mTimeToX(act.at); const py = mPosToY(act.pos);
                 if (px >= 30) {
-                    modalCtx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8'; 
+                    modalCtx.fillStyle = act.selected ? '#f59e0b' : (isLight ? '#0284c7' : '#38bdf8'); 
                     modalCtx.beginPath(); modalCtx.arc(px, py, act.selected ? 7 : 5, 0, Math.PI*2); modalCtx.fill();
-                    modalCtx.strokeStyle = '#fff'; modalCtx.lineWidth = 1.5; modalCtx.stroke();
+                    modalCtx.strokeStyle = isLight ? '#0f172a' : '#fff'; modalCtx.lineWidth = 1.5; modalCtx.stroke();
                 }
             });
         }
@@ -507,7 +530,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// 🎯 FIX ZOOM: Ruedita súper fluida en pasos de 0.01 
 modalCanvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.clientX - modalCanvas.getBoundingClientRect().left;
