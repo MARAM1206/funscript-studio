@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 44.0
- * Módulo: LÁPIZ EDITAR, FONDO LIMPIO, TIEMPO INTELIGENTE Y ATAJOS EN MODAL
+ * PRESETS.JS - VERSIÓN 46.0
+ * Módulo: ZOOM MICRO-PRECISIÓN (0.01) EN EL MODAL DE EDICIÓN
  * ============================================================================
  */
 
@@ -46,7 +46,6 @@ function savePresetsToStorage() {
     renderPresetsList();
 }
 
-// 🎯 FIX: Formatear tiempo en Segundos/Minutos igual que la Timeline
 function formatModalTime(timeMs) {
     const isNeg = timeMs < 0;
     const totalSecs = Math.abs(timeMs) / 1000;
@@ -65,7 +64,6 @@ function renderPresetsList() {
     const listModal = document.getElementById('modal-presets-library-list');
     const keys = Object.keys(window.savedPresets);
     
-    // 🎯 FIX: Regresa el botón "Lápiz" de Edición
     const html = keys.length === 0 
         ? '<span class="empty-log">No hay presets aún.</span>' 
         : keys.map(k => `
@@ -95,13 +93,12 @@ function renderPresetsList() {
         });
     });
 
-    // Botón Lápiz: Cargar preset en el modal
     document.querySelectorAll('.preset-edit-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const name = btn.getAttribute('data-name');
             if (window.savedPresets[name]) {
-                window.currentEditingPreset = JSON.parse(JSON.stringify(window.savedPresets[name])); // Clonar
+                window.currentEditingPreset = JSON.parse(JSON.stringify(window.savedPresets[name])); 
                 window.currentEditingPreset.forEach(a => a.selected = false);
                 if (nameInput) nameInput.value = name;
                 openModal();
@@ -125,7 +122,6 @@ function renderPresetsList() {
 
 window.updatePresetsList = renderPresetsList;
 
-// ⚡ LÓGICA DE ARRASTRE MULTI-VENTANA (Timeline y Modal)
 function startCustomDrag(e, name, actions) {
     e.preventDefault(); 
     window.isDraggingPreset = true;
@@ -179,7 +175,6 @@ function startCustomDrag(e, name, actions) {
         moveGhost(moveEvent.clientX, moveEvent.clientY);
         let hidden = false;
         
-        // 1. Detección en la Timeline principal
         const timelineCanvas = document.getElementById('timeline-canvas');
         if (timelineCanvas && (!modalEl || modalEl.style.display !== 'flex')) {
             const rect = timelineCanvas.getBoundingClientRect();
@@ -192,7 +187,6 @@ function startCustomDrag(e, name, actions) {
             }
         }
         
-        // 2. Detección en el Modal Canvas (Si está abierto)
         if (modalEl && modalEl.style.display === 'flex' && modalCanvas) {
             const rect = modalCanvas.getBoundingClientRect();
             if (moveEvent.clientX >= rect.left && moveEvent.clientX <= rect.right && moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom) {
@@ -275,7 +269,6 @@ function drawMiniCanvas(name, actions) {
     });
 }
 
-// ⚡ LÓGICA DE EVENTOS (Arrastrar hacia el Modal para Fusionar)
 window.addEventListener('modalCustomDragOver', (e) => {
     if (!modalCanvas) return;
     if (window.isDraggingPreset && window.timelineGhostPreset) {
@@ -329,7 +322,6 @@ window.addEventListener('modalCustomDrop', (e) => {
     }
 });
 
-// Modal y Guardado
 document.getElementById('save-preset-btn')?.addEventListener('click', () => {
     if (!window.funscriptActions) return;
     const selected = window.funscriptActions.filter(a => a.selected).sort((a,b) => a.at - b.at);
@@ -377,7 +369,6 @@ function closeModal() {
     if(modalAnimationFrame) cancelAnimationFrame(modalAnimationFrame);
 }
 
-// ⚡ LÓGICA DE DIBUJO E INTERACCIÓN DEL MODAL COMPLETO
 function mTimeToX(timeMs) { return 40 + (timeMs - mScrollMs) * (mBasePixels * mZoom); }
 function mXToTime(x) { return mScrollMs + (x - 40) / (mBasePixels * mZoom); }
 function mPosToY(pos) { const pad = 30; const h = modalCanvas.height - pad*2; return modalCanvas.height - pad - (pos/100)*h; }
@@ -396,11 +387,9 @@ function renderModalCanvas() {
         if(modalEl.style.display === 'none') return;
         modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
         
-        // 🎯 FIX: FONDO LIMPIO, ADIÓS ONDA ROJA MOLESTA
         modalCtx.fillStyle = '#06090e'; 
         modalCtx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
 
-        // Cuadrícula Y (0 a 100%)
         modalCtx.lineWidth = 1;
         modalCtx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
         for(let p = 0; p <= 100; p += 10) {
@@ -410,7 +399,6 @@ function renderModalCanvas() {
             modalCtx.fillText(p+'%', 5, y+4);
         }
 
-        // 🎯 FIX: Cuadrícula X (Tiempo Inteligente en Seg/Min)
         let stepMs = 100;
         if(mZoom < 2.5) stepMs = 500;
         if(mZoom < 0.8) stepMs = 1000;
@@ -427,7 +415,6 @@ function renderModalCanvas() {
             }
         }
 
-        // Borde separador
         modalCtx.fillStyle = '#0b0f17'; modalCtx.fillRect(0, 0, 40, modalCanvas.height);
         modalCtx.strokeStyle = '#1e293b'; modalCtx.beginPath(); modalCtx.moveTo(40, 0); modalCtx.lineTo(40, modalCanvas.height); modalCtx.stroke();
         for(let p = 0; p <= 100; p += 10) {
@@ -436,7 +423,6 @@ function renderModalCanvas() {
             modalCtx.fillText(p+'%', 5, y+4);
         }
 
-        // Renderizado del Preset Principal
         if(window.currentEditingPreset && window.currentEditingPreset.length > 0) {
             window.currentEditingPreset.sort((a,b) => a.at - b.at);
             modalCtx.strokeStyle = '#38bdf8'; modalCtx.lineWidth = 3; modalCtx.beginPath();
@@ -455,7 +441,6 @@ function renderModalCanvas() {
             });
         }
 
-        // Renderizado del Fantasma al arrastrar hacia el Modal
         if (window.isDraggingPreset && window.timelineGhostPreset && window.mGhostTimeMs !== null) {
             const deltaY = window.mGhostDeltaPos || 0;
             modalCtx.lineWidth = 3; modalCtx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; modalCtx.beginPath();
@@ -486,7 +471,6 @@ function renderModalCanvas() {
     loop();
 }
 
-// ⚡ ATAJOS DEL MODAL (Ctrl+Z, Ctrl+Y, Ctrl+A, Borrar)
 function saveModalHistoryState() {
     mUndoStack.push(JSON.stringify(window.currentEditingPreset));
     if (mUndoStack.length > 50) mUndoStack.shift();
@@ -523,14 +507,14 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// ⚡ EVENTOS DE RATÓN DEL MODAL (Zoom y Edición)
+// 🎯 FIX ZOOM: Ruedita súper fluida en pasos de 0.01 
 modalCanvas?.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.clientX - modalCanvas.getBoundingClientRect().left;
     if (e.shiftKey) {
         const timeAtMouse = mXToTime(mouseX);
-        mZoom = Math.round((mZoom + (e.deltaY < 0 ? 0.05 : -0.05)) * 100) / 100;
-        mZoom = Math.max(0.1, Math.min(mZoom, 15.0)); 
+        mZoom = Math.round((mZoom + (e.deltaY < 0 ? 0.01 : -0.01)) * 100) / 100;
+        mZoom = Math.max(0.05, Math.min(mZoom, 15.0)); 
         mScrollMs = timeAtMouse - (mouseX - 40) / (mBasePixels * mZoom);
     } else {
         const panStep = ((modalCanvas.width - 40) / (mBasePixels * mZoom)) * 0.10;
@@ -550,7 +534,7 @@ modalCanvas?.addEventListener('mousedown', (e) => {
         }
 
         if (clickedNode) {
-            saveModalHistoryState(); // Guardar estado antes de mover
+            saveModalHistoryState(); 
             if (!e.ctrlKey && !clickedNode.selected) window.currentEditingPreset.forEach(a => a.selected = false);
             clickedNode.selected = true; 
             mIsDragging = true; 
@@ -561,7 +545,7 @@ modalCanvas?.addEventListener('mousedown', (e) => {
         }
     } else if (e.button === 2) { 
         e.preventDefault();
-        saveModalHistoryState(); // Guardar estado antes de borrar
+        saveModalHistoryState(); 
         window.currentEditingPreset = window.currentEditingPreset.filter(act => Math.hypot(pos.x - mTimeToX(act.at), pos.y - mPosToY(act.pos)) > 10);
     }
 });
@@ -589,7 +573,7 @@ modalCanvas?.addEventListener('mousemove', (e) => {
 
 modalCanvas?.addEventListener('mouseup', () => {
     if (mIsSelecting && !mHasDragged) {
-        saveModalHistoryState(); // Guardar estado antes de crear punto
+        saveModalHistoryState(); 
         const clickTime = Math.max(0, Math.round(mXToTime(mStartX) / 10) * 10);
         const clickPos = mYToPos(mStartY);
         window.currentEditingPreset.push({ at: clickTime, pos: clickPos, selected: true });
