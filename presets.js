@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 39.0
- * Módulo: ANIMACIÓN CARMESÍ EN EL MODAL DE EDICIÓN Y SOPORTE DEL MODO PEGAR
+ * PRESETS.JS - VERSIÓN 40.0
+ * Módulo: ANIMACIÓN CARMESÍ, SOPORTE DEL MODO PEGAR Y DRAG GHOST
  * ============================================================================
  */
 
@@ -26,10 +26,50 @@ class PresetsManager {
         // Escuchar eventos globales para abrir el modal o activar Modo Pegar
         window.addEventListener('openPresetModal', (e) => this.openEditModal(e.detail));
         window.addEventListener('pasteFunscriptActions', (e) => this.enablePasteMode(e.detail));
+
+        // 🎯 LÓGICA GLOBAL: EFECTO FANTASMA CARMESÍ AL ARRASTRAR UN PRESET
+        document.addEventListener('dragstart', (e) => {
+            if (e.target && (e.target.classList.contains('preset-card') || e.target.closest('.preset-card'))) {
+                this.handlePresetDragStart(e);
+            }
+        });
     }
 
     /* ========================================================================
-       1. GESTIÓN DEL MODAL DE EDICIÓN
+       1. EFECTO FANTASMA AL ARRASTRAR (DRAG GHOST)
+       ======================================================================== */
+    handlePresetDragStart(e) {
+        // Crear un elemento visual temporal para el arrastre
+        const dragGhost = document.createElement('div');
+        dragGhost.innerText = "⚙️ Aplicando Preset...";
+        dragGhost.style.backgroundColor = "rgba(220, 20, 60, 0.9)"; // Rojo Carmesí translúcido
+        dragGhost.style.color = "white";
+        dragGhost.style.padding = "10px 18px";
+        dragGhost.style.borderRadius = "8px";
+        dragGhost.style.fontFamily = "sans-serif";
+        dragGhost.style.fontSize = "14px";
+        dragGhost.style.fontWeight = "bold";
+        dragGhost.style.position = "absolute";
+        dragGhost.style.top = "-1000px"; // Oculto en el documento real
+        dragGhost.style.zIndex = "9999";
+        
+        document.body.appendChild(dragGhost);
+        
+        // Decirle al navegador que use este elemento visual como el "cursor arrastrable"
+        if (e.dataTransfer) {
+            e.dataTransfer.setDragImage(dragGhost, 20, 20);
+        }
+        
+        // Limpiar el DOM inmediatamente después (el navegador ya capturó la imagen)
+        setTimeout(() => {
+            if(document.body.contains(dragGhost)) {
+                document.body.removeChild(dragGhost);
+            }
+        }, 0);
+    }
+
+    /* ========================================================================
+       2. GESTIÓN DEL MODAL DE EDICIÓN
        ======================================================================== */
     
     openEditModal(presetData) {
@@ -66,7 +106,7 @@ class PresetsManager {
     }
 
     /* ========================================================================
-       2. RENDERIZADO DE LA ANIMACIÓN CARMESÍ
+       3. RENDERIZADO DE LA ANIMACIÓN CARMESÍ
        ======================================================================== */
     
     startCrimsonAnimation(canvas) {
@@ -121,7 +161,7 @@ class PresetsManager {
     }
 
     /* ========================================================================
-       3. SOPORTE DEL MODO PEGAR (PASTE MODE) Y ADAPTACIÓN DE ACCIONES
+       4. SOPORTE DEL MODO PEGAR (PASTE MODE) Y ADAPTACIÓN DE ACCIONES
        ======================================================================== */
     
     enablePasteMode(clipboardData) {
@@ -180,7 +220,7 @@ class PresetsManager {
     }
 
     /* ========================================================================
-       4. UTILIDADES GENERALES DE PRESETS
+       5. UTILIDADES GENERALES DE PRESETS
        ======================================================================== */
        
     renderPresetOptions(presetData) {
