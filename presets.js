@@ -1,237 +1,243 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 40.0
- * Módulo: ANIMACIÓN CARMESÍ, SOPORTE DEL MODO PEGAR Y DRAG GHOST
+ * PRESETS.JS - VERSIÓN 41.0
+ * Módulo: GESTIÓN DE PRESETS, AVISO DE REEMPLAZO Y ANIMACIÓN CARMESÍ
  * ============================================================================
  */
 
-class PresetsManager {
-    constructor(editorInstance) {
-        this.editor = editorInstance;
-        this.isModalActive = false;
-        this.animationFrameId = null;
-        
-        // Parámetros de Animación Carmesí
-        this.crimsonIntensity = 0;
-        this.wavePhase = 0;
-        
-        // Estado del Modo Pegar
-        this.pasteModeActive = false;
-        this.clipboardBuffer = [];
-        
-        this.initListeners();
+window.savedPresets = {};
+window.currentEditingPreset = [];
+window.isDraggingPreset = false;
+window.timelineGhostPreset = null;
+window.timelineGhostTimeMs = null;
+window.timelineGhostDeltaPos = 0;
+
+// Animación Carmesí
+let crimsonIntensity = 0;
+let wavePhase = 0;
+let modalAnimationFrame = null;
+
+const modalEl = document.getElementById('preset-editor-modal');
+const nameInput = document.getElementById('preset-editor-name');
+const modalCanvas = document.getElementById('preset-editor-canvas');
+const ctx = modalCanvas ? modalCanvas.getContext('2d') : null;
+
+// Inicializar LocalStorage
+function loadPresets() {
+    try { 
+        window.savedPresets = JSON.parse(localStorage.getItem('funscript_saved_presets')) || {}; 
+    } catch (e) { 
+        window.savedPresets = {}; 
     }
-
-    initListeners() {
-        // Escuchar eventos globales para abrir el modal o activar Modo Pegar
-        window.addEventListener('openPresetModal', (e) => this.openEditModal(e.detail));
-        window.addEventListener('pasteFunscriptActions', (e) => this.enablePasteMode(e.detail));
-
-        // 🎯 LÓGICA GLOBAL: EFECTO FANTASMA CARMESÍ AL ARRASTRAR UN PRESET
-        document.addEventListener('dragstart', (e) => {
-            if (e.target && (e.target.classList.contains('preset-card') || e.target.closest('.preset-card'))) {
-                this.handlePresetDragStart(e);
-            }
-        });
-    }
-
-    /* ========================================================================
-       1. EFECTO FANTASMA AL ARRASTRAR (DRAG GHOST)
-       ======================================================================== */
-    handlePresetDragStart(e) {
-        // Crear un elemento visual temporal para el arrastre
-        const dragGhost = document.createElement('div');
-        dragGhost.innerText = "⚙️ Aplicando Preset...";
-        dragGhost.style.backgroundColor = "rgba(220, 20, 60, 0.9)"; // Rojo Carmesí translúcido
-        dragGhost.style.color = "white";
-        dragGhost.style.padding = "10px 18px";
-        dragGhost.style.borderRadius = "8px";
-        dragGhost.style.fontFamily = "sans-serif";
-        dragGhost.style.fontSize = "14px";
-        dragGhost.style.fontWeight = "bold";
-        dragGhost.style.position = "absolute";
-        dragGhost.style.top = "-1000px"; // Oculto en el documento real
-        dragGhost.style.zIndex = "9999";
-        
-        document.body.appendChild(dragGhost);
-        
-        // Decirle al navegador que use este elemento visual como el "cursor arrastrable"
-        if (e.dataTransfer) {
-            e.dataTransfer.setDragImage(dragGhost, 20, 20);
-        }
-        
-        // Limpiar el DOM inmediatamente después (el navegador ya capturó la imagen)
-        setTimeout(() => {
-            if(document.body.contains(dragGhost)) {
-                document.body.removeChild(dragGhost);
-            }
-        }, 0);
-    }
-
-    /* ========================================================================
-       2. GESTIÓN DEL MODAL DE EDICIÓN
-       ======================================================================== */
-    
-    openEditModal(presetData) {
-        this.isModalActive = true;
-        const modalEl = document.getElementById('preset-edit-modal');
-        const canvasEl = document.getElementById('modal-animation-canvas');
-
-        if (modalEl) {
-            // Añadir clases para el tema carmesí y mostrar el modal
-            modalEl.classList.add('modal-visible', 'crimson-glow-theme');
-        }
-
-        if (canvasEl) {
-            this.startCrimsonAnimation(canvasEl);
-        }
-
-        // Cargar datos del preset en la UI (Configurable según tu HTML)
-        this.renderPresetOptions(presetData);
-    }
-
-    closeEditModal() {
-        this.isModalActive = false;
-        
-        // Detener animación para ahorrar memoria
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
-
-        const modalEl = document.getElementById('preset-edit-modal');
-        if (modalEl) {
-            modalEl.classList.remove('modal-visible', 'crimson-glow-theme');
-        }
-    }
-
-    /* ========================================================================
-       3. RENDERIZADO DE LA ANIMACIÓN CARMESÍ
-       ======================================================================== */
-    
-    startCrimsonAnimation(canvas) {
-        const ctx = canvas.getContext('2d');
-        
-        // Ajustar resolución del canvas
-        canvas.width = canvas.parentElement.clientWidth || 400;
-        canvas.height = canvas.parentElement.clientHeight || 150;
-
-        const renderLoop = () => {
-            if (!this.isModalActive) return;
-
-            // Limpiar frame con fondo translúcido para efecto de estela
-            ctx.fillStyle = 'rgba(15, 10, 12, 0.3)'; // Fondo oscuro base
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Calcular pulso Carmesí (Oscilación suave)
-            this.crimsonIntensity = Math.abs(Math.sin(Date.now() / 600)) * 0.4 + 0.6;
-            this.wavePhase += 0.05;
-
-            // Trazado de la onda
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height / 2);
-
-            for (let x = 0; x < canvas.width; x += 5) {
-                // Matemática de la onda combinada para fluidez
-                const wave1 = Math.sin((x * 0.02) + this.wavePhase) * 15;
-                const wave2 = Math.cos((x * 0.04) + (this.wavePhase * 0.8)) * 10;
-                
-                ctx.lineTo(x, (canvas.height / 2) + wave1 + wave2);
-            }
-
-            // Estilos de línea (Rojo Carmesí)
-            ctx.strokeStyle = `rgba(220, 20, 60, ${this.crimsonIntensity})`; // #DC143C
-            ctx.lineWidth = 3;
-            
-            // Sombra/Resplandor (Glow)
-            ctx.shadowColor = '#DC143C';
-            ctx.shadowBlur = 20 * this.crimsonIntensity;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-
-            ctx.stroke();
-            
-            // Resetear sombras para no afectar otros renders
-            ctx.shadowBlur = 0;
-
-            this.animationFrameId = requestAnimationFrame(renderLoop);
-        };
-
-        renderLoop();
-    }
-
-    /* ========================================================================
-       4. SOPORTE DEL MODO PEGAR (PASTE MODE) Y ADAPTACIÓN DE ACCIONES
-       ======================================================================== */
-    
-    enablePasteMode(clipboardData) {
-        if (!clipboardData || !clipboardData.actions || clipboardData.actions.length === 0) {
-            console.warn("[Script IA] El portapapeles de acciones está vacío.");
-            return;
-        }
-
-        this.pasteModeActive = true;
-        this.clipboardBuffer = clipboardData.actions;
-        
-        // Activar indicador visual en la UI
-        const pasteIndicator = document.getElementById('paste-mode-indicator');
-        if (pasteIndicator) {
-            pasteIndicator.style.display = 'block';
-            pasteIndicator.classList.add('crimson-pulse');
-        }
-    }
-
-    executePaste(targetTimeMs) {
-        if (!this.pasteModeActive || this.clipboardBuffer.length === 0) return;
-
-        console.log(`[Script IA] Ejecutando Modo Pegar en T: ${targetTimeMs}ms`);
-
-        // 1. Calcular el desplazamiento de tiempo (Offset)
-        const firstActionTime = this.clipboardBuffer[0].at;
-        const timeOffset = targetTimeMs - firstActionTime;
-
-        // 2. Adaptar las acciones pegadas al nuevo tiempo
-        const adaptedActions = this.clipboardBuffer.map(action => {
-            return {
-                at: Math.round(action.at + timeOffset),
-                pos: action.pos
-            };
-        });
-
-        // 3. Mezclar con el Funscript actual (Llamada al módulo de Workspace/Timeline)
-        if (this.editor && this.editor.workspace) {
-            this.editor.workspace.mergeActions(adaptedActions);
-            this.editor.timeline.render(); // Forzar actualización visual
-        }
-
-        // 4. Limpiar estado
-        this.exitPasteMode();
-    }
-
-    exitPasteMode() {
-        this.pasteModeActive = false;
-        this.clipboardBuffer = [];
-        
-        const pasteIndicator = document.getElementById('paste-mode-indicator');
-        if (pasteIndicator) {
-            pasteIndicator.style.display = 'none';
-            pasteIndicator.classList.remove('crimson-pulse');
-        }
-    }
-
-    /* ========================================================================
-       5. UTILIDADES GENERALES DE PRESETS
-       ======================================================================== */
-       
-    renderPresetOptions(presetData) {
-        // Aquí puedes inyectar lógica para mostrar sliders o inputs numéricos
-        // dependiendo del preset (Ej. Suavizado, Inversión, Limitador)
-        const titleEl = document.getElementById('modal-preset-title');
-        if(titleEl && presetData.name) {
-            titleEl.innerText = `Editando: ${presetData.name}`;
-        }
-    }
+    renderPresetsList();
 }
 
-// Exponer la instancia al entorno global (o exportar según tu bundler)
-window.PresetsModule = PresetsManager;
+function savePresetsToStorage() {
+    localStorage.setItem('funscript_saved_presets', JSON.stringify(window.savedPresets));
+    renderPresetsList();
+}
+
+// Renderizar Listas y Canvas
+function renderPresetsList() {
+    const listMain = document.getElementById('presets-list');
+    const listModal = document.getElementById('modal-presets-library-list');
+    const keys = Object.keys(window.savedPresets);
+    
+    const html = keys.length === 0 
+        ? '<span class="empty-log">No hay presets aún.</span>' 
+        : keys.map(k => `
+            <div class="preset-card" draggable="true" data-name="${k}">
+                <div class="preset-card-header">
+                    <span class="preset-card-title" title="${k}">${k}</span>
+                    <button class="preset-action-btn preset-delete-btn" data-name="${k}" title="Eliminar Preset">🗑️</button>
+                </div>
+                <canvas id="mini-canvas-${k.replace(/\s+/g, '-')}" class="preset-mini-canvas"></canvas>
+            </div>
+        `).join('');
+
+    if (listMain) listMain.innerHTML = html;
+    if (listModal) listModal.innerHTML = html;
+
+    // Eventos de Arrastre y Soltado (Drag & Drop)
+    document.querySelectorAll('.preset-card').forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+            const name = card.getAttribute('data-name');
+            if (window.savedPresets[name]) {
+                window.isDraggingPreset = true;
+                window.timelineGhostPreset = window.savedPresets[name];
+                createDragGhost(e, name);
+            }
+        });
+        card.addEventListener('dragend', () => {
+            window.isDraggingPreset = false;
+            window.timelineGhostPreset = null;
+            if(typeof window.drawTimeline === 'function') window.drawTimeline();
+        });
+    });
+
+    document.querySelectorAll('.preset-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const name = btn.getAttribute('data-name');
+            if (confirm(`¿Eliminar preset "${name}"?`)) {
+                delete window.savedPresets[name];
+                savePresetsToStorage();
+            }
+        });
+    });
+
+    // Dibujar Mini Canvas
+    keys.forEach(k => drawMiniCanvas(k, window.savedPresets[k]));
+}
+
+window.updatePresetsList = renderPresetsList;
+
+function createDragGhost(e, text) {
+    const dragGhost = document.createElement('div');
+    dragGhost.innerText = "⚙️ Aplicando: " + text;
+    dragGhost.style.backgroundColor = "rgba(220, 20, 60, 0.9)";
+    dragGhost.style.color = "white";
+    dragGhost.style.padding = "10px 18px";
+    dragGhost.style.borderRadius = "8px";
+    dragGhost.style.fontFamily = "sans-serif";
+    dragGhost.style.fontSize = "14px";
+    dragGhost.style.fontWeight = "bold";
+    dragGhost.style.position = "absolute";
+    dragGhost.style.top = "-1000px";
+    dragGhost.style.zIndex = "9999";
+    document.body.appendChild(dragGhost);
+    
+    if (e.dataTransfer) {
+        e.dataTransfer.setDragImage(dragGhost, 20, 20);
+    }
+    
+    setTimeout(() => { if(document.body.contains(dragGhost)) document.body.removeChild(dragGhost); }, 0);
+}
+
+function drawMiniCanvas(name, actions) {
+    const safeName = name.replace(/\s+/g, '-');
+    document.querySelectorAll(`#mini-canvas-${safeName}`).forEach(canvas => {
+        const mctx = canvas.getContext('2d');
+        if(!mctx) return;
+        const rect = canvas.getBoundingClientRect();
+        if(rect.width > 0) { canvas.width = rect.width; canvas.height = rect.height; }
+        mctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if(!actions || actions.length === 0) return;
+        const duration = actions[actions.length - 1].at || 1;
+        
+        mctx.strokeStyle = '#38bdf8'; mctx.lineWidth = 2; mctx.beginPath();
+        actions.forEach((act, i) => {
+            const x = (act.at / duration) * canvas.width;
+            const y = canvas.height - (act.pos / 100) * canvas.height;
+            if(i===0) mctx.moveTo(x, y); else mctx.lineTo(x, y);
+        });
+        mctx.stroke();
+
+        actions.forEach(act => {
+            const x = (act.at / duration) * canvas.width;
+            const y = canvas.height - (act.pos / 100) * canvas.height;
+            mctx.fillStyle = '#f97316'; mctx.beginPath(); mctx.arc(x, y, 2.5, 0, Math.PI*2); mctx.fill();
+        });
+    });
+}
+
+// Modal y Guardado
+document.getElementById('save-preset-btn')?.addEventListener('click', () => {
+    if (!window.funscriptActions) return;
+    const selected = window.funscriptActions.filter(a => a.selected).sort((a,b) => a.at - b.at);
+    if (selected.length === 0) return alert("⚠️ Selecciona al menos un punto en la línea de tiempo para crear un Preset.");
+
+    const baseTime = selected[0].at;
+    window.currentEditingPreset = selected.map(a => ({ at: a.at - baseTime, pos: a.pos }));
+    
+    if (nameInput) nameInput.value = "Nuevo Preset";
+    openModal();
+});
+
+function handleSave(forceNew) {
+    let name = nameInput ? nameInput.value.trim() : "Preset";
+    if (!name) name = "Preset Sin Nombre";
+
+    if (forceNew && window.savedPresets[name]) {
+        let counter = 1;
+        let newName = `${name} (${counter})`;
+        while (window.savedPresets[newName]) { counter++; newName = `${name} (${counter})`; }
+        name = newName;
+    } else if (!forceNew && window.savedPresets[name]) {
+        const conf = confirm(`⚠️ Ya existe un preset llamado "${name}".\n¿Deseas reemplazarlo?`);
+        if (!conf) return; 
+    }
+
+    window.savedPresets[name] = window.currentEditingPreset;
+    savePresetsToStorage();
+    closeModal();
+}
+
+document.getElementById('preset-editor-save')?.addEventListener('click', () => handleSave(false));
+document.getElementById('preset-editor-save-new')?.addEventListener('click', () => handleSave(true));
+document.getElementById('preset-editor-cancel')?.addEventListener('click', closeModal);
+
+function openModal() {
+    if(modalEl) modalEl.style.display = 'flex';
+    renderModalCanvas();
+}
+
+function closeModal() {
+    if(modalEl) modalEl.style.display = 'none';
+    if(modalAnimationFrame) cancelAnimationFrame(modalAnimationFrame);
+}
+
+function renderModalCanvas() {
+    if(!ctx || !modalCanvas) return;
+    const rect = modalCanvas.parentElement.getBoundingClientRect();
+    if(rect.width > 0) { modalCanvas.width = rect.width; modalCanvas.height = rect.height; }
+
+    const loop = () => {
+        if(modalEl.style.display === 'none') return;
+        ctx.fillStyle = 'rgba(15, 10, 12, 0.4)'; 
+        ctx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
+
+        // Efecto Carmesí (Fondo)
+        crimsonIntensity = Math.abs(Math.sin(Date.now() / 600)) * 0.4 + 0.6;
+        wavePhase += 0.05;
+        ctx.beginPath(); ctx.moveTo(0, modalCanvas.height / 2);
+        for (let x = 0; x < modalCanvas.width; x += 5) {
+            const w1 = Math.sin((x * 0.02) + wavePhase) * 15;
+            const w2 = Math.cos((x * 0.04) + (wavePhase * 0.8)) * 10;
+            ctx.lineTo(x, (modalCanvas.height / 2) + w1 + w2);
+        }
+        ctx.strokeStyle = `rgba(220, 20, 60, ${crimsonIntensity})`; 
+        ctx.lineWidth = 3; 
+        ctx.shadowColor = '#DC143C'; ctx.shadowBlur = 15 * crimsonIntensity;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Dibujar Puntos del Preset por encima de la onda
+        if(window.currentEditingPreset && window.currentEditingPreset.length > 0) {
+            const duration = window.currentEditingPreset[window.currentEditingPreset.length - 1].at || 1;
+            const padX = 20; const padY = 20;
+            const w = modalCanvas.width - padX*2; const h = modalCanvas.height - padY*2;
+
+            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3; ctx.beginPath();
+            window.currentEditingPreset.forEach((act, i) => {
+                const px = padX + (act.at / duration) * w;
+                const py = padY + h - (act.pos / 100) * h;
+                if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            });
+            ctx.stroke();
+
+            window.currentEditingPreset.forEach(act => {
+                const px = padX + (act.at / duration) * w;
+                const py = padY + h - (act.pos / 100) * h;
+                ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+            });
+        }
+
+        modalAnimationFrame = requestAnimationFrame(loop);
+    };
+    loop();
+}
+
+loadPresets();
