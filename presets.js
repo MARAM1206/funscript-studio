@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS V35.0: TIEMPO NEGATIVO Y REEMPLAZO POR PORTAPAPELES
+// PRESETS V38.0: MODO ADAPTATIVO VERDE INTEGRADO
 // ==========================================================================
 
 let savedPresets = {};
@@ -41,7 +41,6 @@ let mPanX = 0;
 let mBasePixelsPerMs = 0.1; 
 let mSnapPoint = null; 
 
-// 🎯 FORMATEADOR DE TIEMPO (AHORA SOPORTA NEGATIVOS)
 function formatModalLabel(timeMs) {
     const isNeg = timeMs < 0;
     const totalSecs = Math.abs(timeMs) / 1000;
@@ -53,8 +52,8 @@ function formatModalLabel(timeMs) {
 }
 
 function saveModalHistory() { mUndoStack.push(JSON.stringify(mActions)); if(mUndoStack.length > 30) mUndoStack.shift(); mRedoStack = []; }
-function undoModal() { if(mUndoStack.length > 0) { mRedoStack.push(JSON.stringify(mActions)); mActions = JSON.parse(mUndoStack.pop()); drawModalCanvas(); } }
-function redoModal() { if(mRedoStack.length > 0) { mUndoStack.push(JSON.stringify(mActions)); mActions = JSON.parse(mRedoStack.pop()); drawModalCanvas(); } }
+function undoModal() { if(mUndoStack.length > 0) { mRedoStack.push(JSON.stringify(mActions)); mActions = JSON.parse(mUndoStack.pop()); window.drawModalCanvas(); } }
+function redoModal() { if(mRedoStack.length > 0) { mUndoStack.push(JSON.stringify(mActions)); mActions = JSON.parse(mRedoStack.pop()); window.drawModalCanvas(); } }
 
 document.addEventListener("DOMContentLoaded", () => {
     updatePresetsList();
@@ -139,7 +138,7 @@ function updatePresetsList() {
         card.addEventListener('dragend', function() {
             window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0; 
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
-            drawModalCanvas(); 
+            window.drawModalCanvas(); 
         });
     });
 
@@ -205,7 +204,7 @@ function openPresetEditor(name) {
     modal.style.display = 'flex';
     ensureModalCanvasSize();
     mBasePixelsPerMs = (modalCanvas.width - 60) / mDuration;
-    drawModalCanvas();
+    window.drawModalCanvas();
 
     document.addEventListener('keydown', modalKeydownHandler);
 }
@@ -217,17 +216,24 @@ function closePresetEditor() {
     document.removeEventListener('keydown', modalKeydownHandler);
 }
 
-// 🛡️ TECLADO COMPLETO DEL MODAL
 function modalKeydownHandler(e) {
     if (modal.style.display !== 'flex') return;
     if (e.target.tagName === 'INPUT') return;
     const key = e.key.toLowerCase();
+
+    if (e.code === 'Space') {
+        if (window.isDraggingPreset || window.isPastingMode) {
+            e.preventDefault();
+            window.isAdaptiveModeActive = !window.isAdaptiveModeActive;
+            window.drawModalCanvas();
+            return;
+        }
+    }
     
     if (e.ctrlKey && key === 'z') { e.preventDefault(); undoModal(); return; }
     if (e.ctrlKey && key === 'y') { e.preventDefault(); redoModal(); return; }
-    if (e.ctrlKey && key === 'a') { e.preventDefault(); mActions.forEach(a => a.selected = true); drawModalCanvas(); return; }
+    if (e.ctrlKey && key === 'a') { e.preventDefault(); mActions.forEach(a => a.selected = true); window.drawModalCanvas(); return; }
     
-    // 🎯 PORTAPAPELES EN EL MODAL (CTRL+C / CTRL+V)
     if (e.ctrlKey && key === 'c') {
         const selected = mActions.filter(a => a.selected);
         if (selected.length > 0) {
@@ -240,7 +246,7 @@ function modalKeydownHandler(e) {
         if (window.clipboardFunscript && window.clipboardFunscript.length > 0) {
             window.isPastingMode = true;
             window.timelineGhostPreset = window.clipboardFunscript;
-            drawModalCanvas();
+            window.drawModalCanvas();
         }
         return;
     }
@@ -250,12 +256,11 @@ function modalKeydownHandler(e) {
         if (mActions.some(a => a.selected)) {
             saveModalHistory();
             mActions = mActions.filter(a => !a.selected);
-            drawModalCanvas();
+            window.drawModalCanvas();
         }
         return;
     }
 
-    // 🎯 MOVER PUNTOS CON FLECHAS
     if (key === 'arrowup' || key === 'arrowdown') {
         e.preventDefault(); saveModalHistory();
         mActions.forEach(act => {
@@ -265,7 +270,7 @@ function modalKeydownHandler(e) {
                 act.pos = Math.max(0, Math.min(100, rounded));
             }
         });
-        drawModalCanvas(); return;
+        window.drawModalCanvas(); return;
     }
     if (key === 'arrowleft' || key === 'arrowright') {
         e.preventDefault(); saveModalHistory();
@@ -275,7 +280,7 @@ function modalKeydownHandler(e) {
                 act.at += amt; 
             }
         });
-        drawModalCanvas(); return;
+        window.drawModalCanvas(); return;
     }
 }
 
@@ -287,7 +292,6 @@ btnSave?.addEventListener('click', () => {
     if (mActions.length === 0) { alert("¡Cuidado! El preset no puede estar vacío."); return; }
 
     mActions.sort((a, b) => a.at - b.at);
-    // 🎯 MAGIA DEL ESPACIO NEGATIVO: Convierte el punto más lejano a la izquierda en el nuevo 0.
     const baseTime = mActions[0].at;
     mActions.forEach(act => { act.at -= baseTime; act.selected = false; });
 
@@ -345,7 +349,7 @@ modalCanvas?.addEventListener('wheel', (e) => {
         if (e.deltaY < 0) mPanX -= panStep; 
         else mPanX += panStep; 
     }
-    drawModalCanvas();
+    window.drawModalCanvas();
 }, { passive: false });
 
 modalCanvas?.addEventListener('dragover', (e) => {
@@ -358,6 +362,12 @@ modalCanvas?.addEventListener('dragover', (e) => {
         let hoverTimeMs = mXToTime(mouseX);
         let hoverPosRaw = mYToPos(mouseY);
         
+        const selected = mActions.filter(a => a.selected);
+        if (window.isAdaptiveModeActive && selected.length >= 2) {
+            window.drawModalCanvas();
+            return;
+        }
+
         const snapDistMs = 250; 
         const snapTargets = mActions.map(a => a.at);
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
@@ -375,24 +385,40 @@ modalCanvas?.addEventListener('dragover', (e) => {
             if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
         });
 
-        // 🔥 TIEMPO NEGATIVO PERMITIDO: Sin Math.max
         hoverTimeMs = bestSnapTime;
         
         let hoverPos = Math.round(hoverPosRaw / 5) * 5;
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
         window.timelineGhostTimeMs = hoverTimeMs;
-        drawModalCanvas();
+        window.drawModalCanvas();
     }
 });
+
 modalCanvas?.addEventListener('dragleave', () => {
-    if (window.isDraggingPreset) { window.timelineGhostTimeMs = null; drawModalCanvas(); }
+    if (window.isDraggingPreset) { window.timelineGhostTimeMs = null; window.drawModalCanvas(); }
 });
+
 modalCanvas?.addEventListener('drop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         e.preventDefault();
         saveModalHistory();
         
+        const selected = mActions.filter(a => a.selected);
+        if (window.isAdaptiveModeActive && selected.length >= 2) {
+            const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+            if (morphed) {
+                mActions = mActions.filter(a => !a.selected); 
+                morphed.forEach(m => m.selected = true);
+                mActions.push(...morphed);
+                mActions.sort((a, b) => a.at - b.at);
+                mDuration = Math.max(mDuration, mActions[mActions.length-1].at);
+                window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+                window.drawModalCanvas();
+                return;
+            }
+        }
+
         const rect = modalCanvas.getBoundingClientRect();
         let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : mXToTime(e.clientX - rect.left);
         const deltaY = window.timelineGhostDeltaPos || 0;
@@ -414,11 +440,10 @@ modalCanvas?.addEventListener('drop', (e) => {
         mDuration = Math.max(mDuration, mActions[mActions.length-1].at);
         
         window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-        drawModalCanvas();
+        window.drawModalCanvas();
     }
 });
 
-// 🎨 DIBUJADO DE MODAL CON GRID DEL 10%
 window.drawModalCanvas = function() {
     if (!mCtx || !modalCanvas) return;
     ensureModalCanvasSize();
@@ -434,7 +459,6 @@ window.drawModalCanvas = function() {
     mCtx.fillRect(0, 0, modalCanvas.width, modalCanvas.height);
 
     mCtx.lineWidth = 1;
-    // 🎯 GRID 10%
     [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
         const y = mPosToY(p);
         mCtx.strokeStyle = gridColor;
@@ -452,7 +476,6 @@ window.drawModalCanvas = function() {
     else if (visibleMs > 15000) stepMs = 2000;
     else stepMs = 1000; 
 
-    // 🎯 PERMITE DIBUJAR NÚMEROS NEGATIVOS
     const startTimeMs = mXToTime(30);
     const endTimeMs = mXToTime(modalCanvas.width);
     let t = Math.floor(startTimeMs / stepMs) * stepMs;
@@ -479,8 +502,12 @@ window.drawModalCanvas = function() {
 
         mActions.forEach(act => {
             const x = mTimeToX(act.at); const y = mPosToY(act.pos);
-            mCtx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
-            mCtx.beginPath(); mCtx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); mCtx.fill();
+            
+            // 🎯 ALERTA ROJA EN MODO ADAPTATIVO
+            let isTargetForMorph = act.selected && window.isAdaptiveModeActive && (window.isDraggingPreset || window.isPastingMode);
+            
+            mCtx.fillStyle = isTargetForMorph ? '#ef4444' : (act.selected ? '#f59e0b' : '#38bdf8');
+            mCtx.beginPath(); mCtx.arc(x, y, isTargetForMorph ? 8 : (act.selected ? 7 : 5), 0, Math.PI * 2); mCtx.fill();
             mCtx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; mCtx.lineWidth = 1.5; mCtx.stroke();
         });
     }
@@ -490,25 +517,47 @@ window.drawModalCanvas = function() {
         mCtx.setLineDash([2, 2]); mCtx.beginPath(); mCtx.fillRect(mStartX, mStartY, mCurrentX - mStartX, mCurrentY - mStartY); mCtx.strokeRect(mStartX, mStartY, mCurrentX - mStartX, mCurrentY - mStartY); mCtx.setLineDash([]);
     }
 
-    // 🎯 FANTASMA DE PEGAR O ARRASTRAR EN EL MODAL
     if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
-        const deltaY = window.timelineGhostDeltaPos || 0;
-        mCtx.lineWidth = 3; mCtx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; mCtx.beginPath();
-        window.timelineGhostPreset.forEach((act, index) => {
-            const x = mTimeToX(window.timelineGhostTimeMs + act.at);
-            const y = mPosToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
-            if (index === 0) mCtx.moveTo(x, y); else mCtx.lineTo(x, y);
-        });
-        mCtx.stroke();
-        window.timelineGhostPreset.forEach(act => {
-            const x = mTimeToX(window.timelineGhostTimeMs + act.at);
-            const y = mPosToY(Math.max(0, Math.min(100, act.pos + deltaY)));
-            mCtx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-            mCtx.beginPath(); mCtx.arc(x, y, 5, 0, Math.PI * 2); mCtx.fill();
-        });
+        const selected = mActions.filter(a => a.selected);
+        if (window.isAdaptiveModeActive && selected.length >= 2) {
+            const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+            if (morphed) {
+                mCtx.lineWidth = 3; mCtx.strokeStyle = 'rgba(244, 63, 94, 0.9)'; mCtx.beginPath();
+                morphed.forEach((act, index) => {
+                    const x = mTimeToX(act.at); const y = mPosToY(act.pos); 
+                    if (index === 0) mCtx.moveTo(x, y); else mCtx.lineTo(x, y);
+                });
+                mCtx.stroke();
+                morphed.forEach(act => {
+                    const x = mTimeToX(act.at); const y = mPosToY(act.pos);
+                    mCtx.fillStyle = 'rgba(244, 63, 94, 1)';
+                    mCtx.beginPath(); mCtx.arc(x, y, 5, 0, Math.PI * 2); mCtx.fill();
+                });
+                mCtx.fillStyle = '#f43f5e'; mCtx.font = 'bold 12px monospace';
+                mCtx.fillText("⚡ MODO ADAPTATIVO", mTimeToX(morphed[0].at), mPosToY(morphed[0].pos) - 15);
+            }
+        } else {
+            const deltaY = window.timelineGhostDeltaPos || 0;
+            mCtx.lineWidth = 3; mCtx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; mCtx.beginPath();
+            window.timelineGhostPreset.forEach((act, index) => {
+                const x = mTimeToX(window.timelineGhostTimeMs + act.at);
+                const y = mPosToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
+                if (index === 0) mCtx.moveTo(x, y); else mCtx.lineTo(x, y);
+            });
+            mCtx.stroke();
+            window.timelineGhostPreset.forEach(act => {
+                const x = mTimeToX(window.timelineGhostTimeMs + act.at);
+                const y = mPosToY(Math.max(0, Math.min(100, act.pos + deltaY)));
+                mCtx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+                mCtx.beginPath(); mCtx.arc(x, y, 5, 0, Math.PI * 2); mCtx.fill();
+            });
+            if (window.isPastingMode) {
+                mCtx.fillStyle = '#10b981'; mCtx.font = 'bold 12px monospace';
+                mCtx.fillText("📋 PEGAR", mTimeToX(window.timelineGhostTimeMs), mPosToY(window.timelineGhostPreset[0].pos + deltaY) - 15);
+            }
+        }
     }
     
-    // RADAR MAGNÉTICO
     if (mSnapPoint && !mIsSelecting && !mIsDragging) {
         const px = mTimeToX(mSnapPoint.at);
         const py = mPosToY(mSnapPoint.pos);
@@ -524,13 +573,26 @@ function getModalMousePos(e) {
 }
 
 modalCanvas?.addEventListener('mousedown', (e) => {
-    // 🎯 MODAL PEGAR FANTASMA
     if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) {
             saveModalHistory();
             const pos = getModalMousePos(e);
             let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : mXToTime(pos.x);
             const deltaY = window.timelineGhostDeltaPos || 0;
+            
+            const selected = mActions.filter(a => a.selected);
+            if (window.isAdaptiveModeActive && selected.length >= 2) {
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+                if (morphed) {
+                    mActions = mActions.filter(a => !a.selected); 
+                    morphed.forEach(m => m.selected = true);
+                    mActions.push(...morphed);
+                    mActions.sort((a, b) => a.at - b.at);
+                    mDuration = Math.max(mDuration, mActions[mActions.length-1].at);
+                    window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+                    window.drawModalCanvas(); return;
+                }
+            }
             
             const newActions = window.timelineGhostPreset.map(act => ({
                 at: dropTimeMs + act.at,
@@ -546,10 +608,10 @@ modalCanvas?.addEventListener('mousedown', (e) => {
             mDuration = Math.max(mDuration, mActions[mActions.length-1].at);
             
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-            drawModalCanvas(); return;
+            window.drawModalCanvas(); return;
         } else if (e.button === 2) {
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-            drawModalCanvas(); return;
+            window.drawModalCanvas(); return;
         }
     }
 
@@ -568,7 +630,7 @@ modalCanvas?.addEventListener('mousedown', (e) => {
             mIsDragging = true; mDraggedNodeIndex = cIndex; 
             mDragInitialStates = mActions.map(a => ({...a}));
             mStartX = mXToTime(pos.x); mStartY = mYToPos(pos.y);
-            drawModalCanvas();
+            window.drawModalCanvas();
         } else {
             let hadSelection = mActions.some(a => a.selected);
             if (!e.ctrlKey) mActions.forEach(a => a.selected = false);
@@ -585,23 +647,27 @@ modalCanvas?.addEventListener('mousedown', (e) => {
                 mIsSelecting = true; mHasDraggedSelection = false; 
                 mStartX = pos.x; mStartY = pos.y; mCurrentX = pos.x; mCurrentY = pos.y;
             }
-            drawModalCanvas();
+            window.drawModalCanvas();
         }
     } else if (e.button === 2) { 
         e.preventDefault(); saveModalHistory();
         mActions = mActions.filter(act => Math.hypot(pos.x - mTimeToX(act.at), pos.y - mPosToY(act.pos)) > 10);
-        drawModalCanvas();
+        window.drawModalCanvas();
     }
 });
 
 modalCanvas?.addEventListener('mousemove', (e) => {
     const pos = getModalMousePos(e);
     
-    // 🎯 MODAL PEGAR FANTASMA MOUSEMOVE
     if (window.isPastingMode && window.timelineGhostPreset) {
         let hoverTimeMs = mXToTime(pos.x);
         let hoverPosRaw = mYToPos(pos.y);
         
+        const selected = mActions.filter(a => a.selected);
+        if (window.isAdaptiveModeActive && selected.length >= 2) {
+            window.drawModalCanvas(); return;
+        }
+
         const snapDistMs = 250; 
         const snapTargets = mActions.map(a => a.at);
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
@@ -624,7 +690,7 @@ modalCanvas?.addEventListener('mousemove', (e) => {
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
         window.timelineGhostTimeMs = hoverTimeMs;
-        drawModalCanvas(); return;
+        window.drawModalCanvas(); return;
     }
 
     mSnapPoint = null;
@@ -658,7 +724,7 @@ modalCanvas?.addEventListener('mousemove', (e) => {
                 else act.pos = Math.max(0, Math.min(100, Math.round((mDragInitialStates[i].pos + snappedPosDelta) / 5) * 5));
             }
         });
-        drawModalCanvas();
+        window.drawModalCanvas();
     } else if (mIsSelecting) {
         mCurrentX = pos.x; mCurrentY = pos.y;
         if (Math.hypot(mCurrentX - mStartX, mCurrentY - mStartY) > 5) mHasDraggedSelection = true;
@@ -668,21 +734,21 @@ modalCanvas?.addEventListener('mousemove', (e) => {
             const nx = mTimeToX(act.at); const ny = mPosToY(act.pos);
             act.selected = (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY);
         });
-        drawModalCanvas();
+        window.drawModalCanvas();
     }
 });
 
 modalCanvas?.addEventListener('mouseup', () => { 
+    if (window.isPastingMode) return;
     if (mIsDragging || mHasDraggedSelection) { 
         mActions.sort((a, b) => a.at - b.at); 
-        // 🎯 SOBRESCRIBIR AL ARRASTRAR MULTI-SELECCIÓN EN EL MODAL
         const selectedTimes = new Set(mActions.filter(a => a.selected).map(a => a.at));
         mActions = mActions.filter(a => a.selected || !selectedTimes.has(a.at));
 
         for (let i = mActions.length - 1; i > 0; i--) { if (mActions[i].at === mActions[i-1].at) mActions.splice(mActions[i].selected ? i-1 : i, 1); }
         mDuration = Math.max(mDuration, mActions[mActions.length - 1].at); 
     }
-    mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; mDraggedNodeIndex = -1; drawModalCanvas(); 
+    mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; mDraggedNodeIndex = -1; window.drawModalCanvas(); 
 });
-modalCanvas?.addEventListener('mouseleave', () => { mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; mDraggedNodeIndex = -1; drawModalCanvas(); });
+modalCanvas?.addEventListener('mouseleave', () => { mIsDragging = false; mDragInitialStates = []; mIsSelecting = false; mDraggedNodeIndex = -1; window.drawModalCanvas(); });
 modalCanvas?.addEventListener('contextmenu', e => e.preventDefault());
