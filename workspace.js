@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V9.0: BOTONES ADAPTATIVOS EN HEADER Y TEMA CLARO
+// WORKSPACE V10.0: BOTONES ADAPTATIVOS CLICKEABLES Y TEMA CLARO
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -29,13 +29,23 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll('.adaptive-btn').forEach(btn => {
             if (isActive) {
                 btn.classList.remove('off'); btn.classList.add('on');
-                btn.innerText = '⚡ Modo Adaptativo (P): ON';
+                btn.innerText = 'Modo Adaptativo On';
             } else {
                 btn.classList.remove('on'); btn.classList.add('off');
-                btn.innerText = 'Modo Adaptativo (P): OFF';
+                btn.innerText = 'Modo Adaptativo Off';
             }
         });
     };
+
+    // 🎯 HACER QUE EL BOTÓN RESPONDA AL CLIC
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.classList.contains('adaptive-btn')) {
+            window.isAdaptiveModeActive = !window.isAdaptiveModeActive;
+            if (typeof window.syncAdaptiveButtons === 'function') window.syncAdaptiveButtons(window.isAdaptiveModeActive);
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+        }
+    });
 
     const panels = Array.from(document.querySelectorAll(".workspace-panel"));
     const GAP = 8; 
@@ -110,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 extraInfo = `<span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; margin-left: auto;">Puntos: 0 | Velocidad: --</span>`;
             } else if (panel.id === "panel-presets") {
                 // 🎯 BOTÓN INYECTADO DIRECTAMENTE AL TÍTULO
-                extraInfo = `<button id="adaptive-btn-main" class="adaptive-btn off">Modo Adaptativo (P): OFF</button>`;
+                extraInfo = `<button id="adaptive-btn-main" class="adaptive-btn off">Modo Adaptativo Off</button>`;
             }
 
             header.innerHTML = `<span style="font-weight: bold;">${title}</span>${extraInfo}`;
