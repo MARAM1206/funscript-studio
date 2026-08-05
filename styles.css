@@ -12,13 +12,17 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 .menu-btn { border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: normal; cursor: pointer; transition: transform 0.1s; }
 .menu-btn:active { transform: scale(0.98); }
-.success-btn { background: #059669; font-weight: bold; }
-.success-btn:hover { background: #047857; }
+
+/* 🛡️ REPARACIÓN: BOTÓN DE EXPORTAR VERDE VIBRANTE */
+.success-btn { background: #10b981 !important; color: #ffffff !important; font-weight: bold; transition: background 0.2s; }
+.success-btn:hover { background: #059669 !important; }
+
+/* 🛡️ BOTÓN DE TEMA CLARO/OSCURO ESTILO BASE */
+#theme-toggle-btn { background: #334155; color: #ffffff; border: 1px solid #1e293b; }
+
 .select-btn { display: inline-block; text-align: center; }
 .select-btn:hover { background: #1d4ed8 !important; }
-.key { background: #1e293b; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; }
 
-/* 🛡️ REGLAS POR DEFECTO PARA ELEMENTOS (TEMA OSCURO) */
 .handy-container { background: #0f131a; border-color: #1e293b; }
 .handy-input { background: #020617; color: #e2e8f0; border-color: #1e293b; }
 .modal-content { background: #0b0f17; border-color: #1e293b; color: #e2e8f0; }
@@ -147,6 +151,7 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .dual-slider-track { background: #e2e8f0; }
 
 /* 🛡️ REGLAS INYECTADAS PARA TEMA CLARO */
+.light-theme #theme-toggle-btn { background: #cbd5e1; color: #0f172a; border-color: #94a3b8; font-weight: bold; }
 .light-theme .handy-container { background: #f8fafc; border-color: #cbd5e1; }
 .light-theme .handy-input { background: #ffffff; color: #0f172a; border-color: #cbd5e1; }
 .light-theme .modal-content { background: #ffffff; border-color: #cbd5e1; color: #0f172a; }
