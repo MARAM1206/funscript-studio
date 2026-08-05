@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V24.0 (FULLSCREEN Y TOGGLE ADAPTATIVO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V25.0 (FULLSCREEN Y ADAPTATIVO CORRECTO)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -12,9 +12,8 @@ window.audioPeaks = null;
 window.clipboardFunscript = null; 
 window.isPastingMode = false; 
 
-// 🎯 INTERRUPTOR (TOGGLE) DEL MODO ADAPTATIVO
 window.isAdaptiveModeActive = false;
-window.fsTimelineVisible = true; // Control de Línea Transparente en Fullscreen
+window.fsTimelineVisible = true; 
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -83,15 +82,13 @@ async function loadVideoFile(file, hasFunscripts = false) {
     }
 }
 
-// 🎯 CONTROL DE PANTALLA COMPLETA
-const fsBtn = document.getElementById('fullscreen-btn');
+// 🎯 CONTROL DE PANTALLA COMPLETA (ICONO FLOTANTE)
+const fsMiniBtn = document.getElementById('fs-mini-btn');
 const videoContainer = document.getElementById('video-container-wrapper');
 
-fsBtn?.addEventListener('click', () => {
+fsMiniBtn?.addEventListener('click', () => {
     if (!document.fullscreenElement) {
         videoContainer.requestFullscreen().catch(err => console.error(err));
-    } else {
-        document.exitFullscreen();
     }
 });
 
@@ -180,10 +177,10 @@ window.addEventListener('drop', (e) => {
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
+// 🛡️ TECLADO COMPLETO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
 
-    // 🎯 OCULTAR/MOSTRAR LÍNEA TRANSPARENTE EN FULLSCREEN
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
         window.fsTimelineVisible = !window.fsTimelineVisible;
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -194,11 +191,20 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 INTERRUPTOR DEL MODO ADAPTATIVO (TOGGLE)
+    // 🎯 TECLA F: Pantalla Completa
+    if (key === 'f' && !event.ctrlKey) {
+        event.preventDefault();
+        if (!document.fullscreenElement) videoContainer.requestFullscreen().catch(err => console.error(err));
+        else document.exitFullscreen();
+        return;
+    }
+
+    // 🎯 MODO ADAPTATIVO POR TECLADO
     if (event.code === 'Space') {
         if (window.isDraggingPreset || window.isPastingMode) {
             event.preventDefault(); 
             window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
+            if (typeof window.syncAdaptiveCheckboxes === 'function') window.syncAdaptiveCheckboxes(window.isAdaptiveModeActive);
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
             return;
