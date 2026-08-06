@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V57.0: INDICADOR HOLOGRÁFICO DE MOMENTUM Y DIRECCIÓN (WARP GLOW)
+// TIMELINE V58.0: WARP GLOW CLARO, DOBLE CLIC DERECHO Y GHOST THUMB
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -24,7 +24,7 @@ const MAX_HISTORY = 50;
 let zoom = 1.0; 
 let basePixelsPerMs = 0.1; 
 let scrollLeftMs = 0; 
-window.scrollMomentum = 0; // 🎯 NUEVO: Memoria cinética para la animación visual
+window.scrollMomentum = 0; 
 
 let isSelecting = false;
 let hasDraggedSelection = false; 
@@ -39,6 +39,7 @@ let dragStartYPos = 0;
 window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
+let lastRightClickTime = 0; // 🎯 NUEVO: Tracker para el Doble Clic Derecho
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
@@ -315,7 +316,6 @@ canvas?.addEventListener('wheel', (e) => {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             const panStep = visibleMs * 0.10; 
             
-            // 🎯 NUEVO: Inyección de Energía (Momentum) para animar el indicador
             if (e.deltaY < 0) {
                 scrollLeftMs += panStep; 
                 window.scrollMomentum = Math.min((window.scrollMomentum || 0) + 3, 10);
@@ -633,6 +633,25 @@ function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
+// 👻 NUEVO: FUNCIÓN PARA ACTUALIZAR AL FANTASMA DEL TIEMPO
+window.updateGhostThumb = function() {
+    const ghostThumb = document.getElementById('ghost-thumb');
+    if (!ghostThumb || !videoNode || !videoNode.duration) return;
+
+    const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
+    const centerTimeMs = scrollLeftMs + (visibleMs / 2);
+    const actualTimeMs = videoNode.currentTime * 1000;
+
+    // Solo aparece si te alejas de tu Playhead (Línea naranja) por más del 5% del zoom actual
+    if (Math.abs(centerTimeMs - actualTimeMs) > visibleMs * 0.05) {
+        ghostThumb.style.display = 'block';
+        const percentage = (centerTimeMs / (videoNode.duration * 1000)) * 100;
+        ghostThumb.style.left = `${Math.max(0, Math.min(100, percentage))}%`;
+    } else {
+        ghostThumb.style.display = 'none';
+    }
+};
+
 window.drawTimeline = function() {
     try {
         ensureCanvasSize();
@@ -926,10 +945,10 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        // 🎯 CAPA FINAL: INDICADOR HOLOGRÁFICO DE DIRECCIÓN (WARP SPEED)
+        // 🎯 FIX: WARP GLOW MEJORADO EN MODO CLARO
         if (window.scrollMomentum) {
             if (Math.abs(window.scrollMomentum) > 0.1) {
-                window.scrollMomentum *= 0.92; // Fricción aerodinámica
+                window.scrollMomentum *= 0.92;
             } else {
                 window.scrollMomentum = 0;
             }
@@ -939,20 +958,18 @@ window.drawTimeline = function() {
                 const isForward = window.scrollMomentum > 0;
                 
                 ctx.save();
-                ctx.globalAlpha = intensity * 0.6; // Opacidad máxima súper sutil (60%)
+                ctx.globalAlpha = intensity * (isLight ? 1.0 : 0.6); // Más denso en modo claro
 
                 const gradWidth = 200;
                 const centerY = canvas.height / 2;
 
                 if (isForward) {
-                    // ⏩ AVANZANDO (Brillo a la Derecha - Azul/Cian)
                     let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
                     grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
-                    grad.addColorStop(1, isLight ? 'rgba(14, 165, 233, 0.4)' : 'rgba(14, 165, 233, 0.6)');
+                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.8)' : 'rgba(14, 165, 233, 0.6)');
                     ctx.fillStyle = grad;
                     ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
 
-                    // Chevrons cinéticos (Flechas >>>)
                     let offset = (performance.now() / 15) % 30;
                     ctx.lineWidth = 4;
                     ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
@@ -965,20 +982,18 @@ window.drawTimeline = function() {
                         ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
                     }
 
-                    ctx.globalAlpha = intensity * 0.8;
-                    ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
                     ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
                     ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
 
                 } else {
-                    // ⏪ REBOBINANDO (Brillo a la Izquierda - Naranja/Fuego)
                     let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
-                    grad.addColorStop(0, isLight ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.6)'); 
+                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.8)' : 'rgba(249, 115, 22, 0.6)'); 
                     grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
                     ctx.fillStyle = grad;
                     ctx.fillRect(30, 0, gradWidth, canvas.height);
 
-                    // Chevrons cinéticos (Flechas <<<)
                     let offset = (performance.now() / 15) % 30;
                     ctx.lineWidth = 4;
                     ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
@@ -991,14 +1006,17 @@ window.drawTimeline = function() {
                         ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
                     }
 
-                    ctx.globalAlpha = intensity * 0.8;
-                    ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
                     ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
                     ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
                 }
                 ctx.restore();
             }
         }
+        
+        // Invocamos al fantasma al final del renderizado
+        window.updateGhostThumb();
 
     } catch (err) {}
 };
@@ -1108,7 +1126,22 @@ canvas?.addEventListener('mousedown', (e) => {
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
-        e.preventDefault(); saveHistoryState();
+        // 🎯 FIX: DETECCIÓN DE DOBLE CLIC DERECHO
+        e.preventDefault();
+        const now = performance.now();
+        if (now - lastRightClickTime < 350) {
+            // ¡Doble clic detectado! Centramos el Playhead en la pantalla
+            let actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+            const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
+            scrollLeftMs = actualTime - (visibleMs / 2);
+            if (scrollLeftMs < 0) scrollLeftMs = 0;
+            lastRightClickTime = 0;
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            return;
+        }
+        lastRightClickTime = now;
+        
+        saveHistoryState();
         window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
         notifyCloud(); window.updateHeatmapAndStats();
     }
