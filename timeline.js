@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V59.0: TELETRANSPORTE DE PLAYHEAD Y WARP GLOW SUAVIZADO
+// TIMELINE V60.0: TELETRANSPORTE CON PANEO CENTRADO ABSOLUTO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -943,7 +943,7 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        // 🎯 FIX: WARP GLOW SUAVIZADO EN MODO CLARO (Opacidad reducida)
+        // 🎯 FIX: WARP GLOW SUAVIZADO EN MODO CLARO (Opacidad reducida al 50%)
         if (window.scrollMomentum) {
             if (Math.abs(window.scrollMomentum) > 0.1) {
                 window.scrollMomentum *= 0.92;
@@ -956,7 +956,7 @@ window.drawTimeline = function() {
                 const isForward = window.scrollMomentum > 0;
                 
                 ctx.save();
-                ctx.globalAlpha = intensity * 0.6; // Mantenemos el Alpha sutil y equilibrado
+                ctx.globalAlpha = intensity * 0.6; 
 
                 const gradWidth = 200;
                 const centerY = canvas.height / 2;
@@ -964,8 +964,8 @@ window.drawTimeline = function() {
                 if (isForward) {
                     let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
                     grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
-                    // En Modo Claro, usamos un azul denso pero bajamos el Alpha a 0.5 (más translúcido)
-                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.5)' : 'rgba(14, 165, 233, 0.6)');
+                    // En Modo Claro, la intensidad del fondo baja a 0.35 para ser más tenue
+                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
                     ctx.fillStyle = grad;
                     ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
 
@@ -988,8 +988,8 @@ window.drawTimeline = function() {
 
                 } else {
                     let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
-                    // Mismo tratamiento suave para el naranja en Modo Claro (Alpha 0.5)
-                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.5)' : 'rgba(249, 115, 22, 0.6)'); 
+                    // Tratamiento suave para el naranja en Modo Claro (Alpha 0.35)
+                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
                     grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
                     ctx.fillStyle = grad;
                     ctx.fillRect(30, 0, gradWidth, canvas.height);
@@ -1125,13 +1125,16 @@ canvas?.addEventListener('mousedown', (e) => {
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
-        // 🎯 FIX: TELETRANSPORTE (Doble Clic Derecho mueve el video a donde estás viendo)
+        // 🎯 FIX: TELETRANSPORTE CENTRADO (Doble Clic Derecho jala el video y lo centra en la pantalla)
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
             if (videoNode) {
                 let clickedTimeMs = xToTime(clickX);
                 videoNode.currentTime = Math.max(0, clickedTimeMs / 1000);
+                
+                // 🎯 FIX: Obligamos a la gráfica a hacer un paneo (centrado) inmediato a este nuevo tiempo
+                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: clickedTimeMs } }));
             }
             lastRightClickTime = 0;
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
