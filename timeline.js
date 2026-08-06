@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V56.0: RECONOCIMIENTO DE CICLOS POR MEMORIA VISUAL (AMPLITUD)
+// TIMELINE V57.0: INDICADOR HOLOGRÁFICO DE MOMENTUM Y DIRECCIÓN (WARP GLOW)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -24,6 +24,7 @@ const MAX_HISTORY = 50;
 let zoom = 1.0; 
 let basePixelsPerMs = 0.1; 
 let scrollLeftMs = 0; 
+window.scrollMomentum = 0; // 🎯 NUEVO: Memoria cinética para la animación visual
 
 let isSelecting = false;
 let hasDraggedSelection = false; 
@@ -92,7 +93,6 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: MOTOR DE CICLOS POR "MEMORIA VISUAL" (Nunca más se comerá una M)
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
@@ -106,28 +106,25 @@ window.getMorphedPreset = function(preset, selectedActions) {
         const amplitude = y_max - y_min;
         
         if (amplitude > 5) {
-            // Detecta si la selección empieza pegada al piso o al techo
             const startsAtBottom = Math.abs(selectedActions[0].pos - y_min) <= Math.abs(selectedActions[0].pos - y_max);
-            let maxDeviation = 0; // Memoria de cuánto ha viajado la línea
+            let maxDeviation = 0;
 
             for (let i = 1; i < selectedActions.length - 1; i++) {
                 let curr = selectedActions[i].pos;
                 
                 if (startsAtBottom) {
                     let deviation = curr - y_min;
-                    if (deviation > maxDeviation) maxDeviation = deviation; // Registra el pico más alto
+                    if (deviation > maxDeviation) maxDeviation = deviation;
                     
-                    // Si la línea regresó al valle inferior (margen 35%) y previamente viajó más de la mitad (50%)...
                     let isValley = curr <= (y_min + amplitude * 0.35);
                     if (isValley && maxDeviation >= amplitude * 0.50) {
-                        anchors.push(i); // ¡Ciclo completado! Cortamos aquí.
-                        maxDeviation = 0; // Reseteamos memoria para el siguiente patrón
+                        anchors.push(i);
+                        maxDeviation = 0; 
                     }
                 } else {
                     let deviation = y_max - curr;
                     if (deviation > maxDeviation) maxDeviation = deviation;
                     
-                    // Lógica invertida (para W o V normales que inician en 100%)
                     let isPeak = curr >= (y_max - amplitude * 0.35);
                     if (isPeak && maxDeviation >= amplitude * 0.50) {
                         anchors.push(i);
@@ -137,23 +134,20 @@ window.getMorphedPreset = function(preset, selectedActions) {
             }
         }
 
-        // Asegurarnos de que el último punto siempre cierre el último trozo
         if (anchors[anchors.length - 1] !== selectedActions.length - 1) {
             anchors.push(selectedActions.length - 1);
         }
 
-        // Si por alguna razón el usuario seleccionó un trozo minúsculo, estira por seguridad
         if (anchors.length < 2) {
             return window.getMorphedPresetChunk(preset, selectedActions);
         }
 
-        // Recorre los trozos (ciclos) cortados y pégales la figura pura a cada uno
         for (let k = 0; k < anchors.length - 1; k++) {
             const chunk = selectedActions.slice(anchors[k], anchors[k+1] + 1);
-            if (chunk.length < 2) continue; // Protección anti-bugs de puntos empalmados
+            if (chunk.length < 2) continue; 
             
             const subPreset = window.getMorphedPresetChunk(preset, chunk);
-            if (k > 0) subPreset.shift(); // Evitamos duplicar el punto de unión entre ciclos
+            if (k > 0) subPreset.shift(); 
             results.push(...subPreset);
         }
         return results;
@@ -320,7 +314,16 @@ canvas?.addEventListener('wheel', (e) => {
         if (videoNode && videoNode.paused) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             const panStep = visibleMs * 0.10; 
-            if (e.deltaY < 0) scrollLeftMs += panStep; else scrollLeftMs -= panStep; 
+            
+            // 🎯 NUEVO: Inyección de Energía (Momentum) para animar el indicador
+            if (e.deltaY < 0) {
+                scrollLeftMs += panStep; 
+                window.scrollMomentum = Math.min((window.scrollMomentum || 0) + 3, 10);
+            } else {
+                scrollLeftMs -= panStep; 
+                window.scrollMomentum = Math.max((window.scrollMomentum || 0) - 3, -10);
+            }
+            
             if (scrollLeftMs < 0) scrollLeftMs = 0;
             if (videoNode.duration) {
                 const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
@@ -921,6 +924,80 @@ window.drawTimeline = function() {
         } else {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) fsCanvas.style.display = 'none';
+        }
+
+        // 🎯 CAPA FINAL: INDICADOR HOLOGRÁFICO DE DIRECCIÓN (WARP SPEED)
+        if (window.scrollMomentum) {
+            if (Math.abs(window.scrollMomentum) > 0.1) {
+                window.scrollMomentum *= 0.92; // Fricción aerodinámica
+            } else {
+                window.scrollMomentum = 0;
+            }
+
+            if (window.scrollMomentum !== 0) {
+                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
+                const isForward = window.scrollMomentum > 0;
+                
+                ctx.save();
+                ctx.globalAlpha = intensity * 0.6; // Opacidad máxima súper sutil (60%)
+
+                const gradWidth = 200;
+                const centerY = canvas.height / 2;
+
+                if (isForward) {
+                    // ⏩ AVANZANDO (Brillo a la Derecha - Azul/Cian)
+                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
+                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
+                    grad.addColorStop(1, isLight ? 'rgba(14, 165, 233, 0.4)' : 'rgba(14, 165, 233, 0.6)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
+
+                    // Chevrons cinéticos (Flechas >>>)
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    
+                    for(let i = 0; i < 3; i++) {
+                        let cx = canvas.width - 60 + offset - (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.8;
+                    ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
+                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
+
+                } else {
+                    // ⏪ REBOBINANDO (Brillo a la Izquierda - Naranja/Fuego)
+                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
+                    grad.addColorStop(0, isLight ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.6)'); 
+                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(30, 0, gradWidth, canvas.height);
+
+                    // Chevrons cinéticos (Flechas <<<)
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+                    for(let i = 0; i < 3; i++) {
+                        let cx = 80 - offset + (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.8;
+                    ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
+                }
+                ctx.restore();
+            }
         }
 
     } catch (err) {}
