@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 54.0
- * Módulo: PROTECCIÓN ANTI-CRASH PARA IDs (Soporta múltiples presets)
+ * PRESETS.JS - VERSIÓN 62.0
+ * Módulo: ARRASTRE ESPECIAL CON CLIC DERECHO (MODIFICADOR DE ANCLAJE)
  * ============================================================================
  */
 
@@ -12,6 +12,7 @@ window.isDraggingPreset = false;
 window.timelineGhostPreset = null;
 window.timelineGhostTimeMs = null;
 window.timelineGhostDeltaPos = 0;
+window.isRightClickDrag = false; // 🎯 NUEVO: Bandera global para detectar arrastre especial
 
 // Estado del editor en el Modal
 let modalAnimationFrame = null;
@@ -23,7 +24,6 @@ let mIsSelecting = false;
 let mHasDragged = false;
 let mStartX = 0, mStartY = 0, mCurrX = 0, mCurrY = 0;
 
-// Memoria del Modal (Deshacer / Rehacer)
 let mUndoStack = [];
 let mRedoStack = [];
 
@@ -35,7 +35,6 @@ const nameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
 const modalCtx = modalCanvas ? modalCanvas.getContext('2d') : null;
 
-// 🎯 FIX VITAL: Función para crear un ID 100% seguro para HTML (evita crasheos de selectores)
 function getSafeId(str) {
     return Array.from(str).map(c => c.charCodeAt(0).toString(16)).join('');
 }
@@ -96,10 +95,15 @@ function renderPresetsList() {
     if (listModal) listModal.innerHTML = html;
 
     document.querySelectorAll('.preset-card').forEach(card => {
+        // 🎯 FIX: Prevenimos el menú contextual de Windows/Mac para que el Clic Derecho pueda usarse para arrastrar
+        card.addEventListener('contextmenu', e => e.preventDefault());
+        
         card.addEventListener('mousedown', (e) => {
             if (e.target.closest('.preset-action-btn')) return; 
             const name = card.getAttribute('data-name');
             if (window.savedPresets[name]) {
+                // Detecta si es Clic Derecho (botón 2) o Izquierdo (botón 0)
+                window.isRightClickDrag = (e.button === 2);
                 startCustomDrag(e, name, window.savedPresets[name]);
             }
         });
@@ -155,7 +159,10 @@ function startCustomDrag(e, name, actions) {
     const ctxGhost = ghost.getContext('2d');
     ctxGhost.fillStyle = 'rgba(15, 23, 42, 0.9)'; 
     ctxGhost.beginPath(); ctxGhost.roundRect(0, 0, ghost.width, ghost.height, 8); ctxGhost.fill();
-    ctxGhost.strokeStyle = '#38bdf8'; ctxGhost.lineWidth = 1.5; ctxGhost.stroke();
+    
+    // 🎯 FIX: Borde Rojo si es Clic Derecho, Borde Azul si es normal
+    ctxGhost.strokeStyle = window.isRightClickDrag ? '#f43f5e' : '#38bdf8'; 
+    ctxGhost.lineWidth = 1.5; ctxGhost.stroke();
     
     ctxGhost.fillStyle = '#94a3b8'; ctxGhost.font = 'bold 10px sans-serif';
     ctxGhost.fillText(name, 10, 16);
@@ -249,6 +256,9 @@ function startCustomDrag(e, name, actions) {
             window.timelineGhostPreset = null;
             if(typeof window.drawTimeline === 'function') window.drawTimeline();
         }
+        
+        // Limpiamos la bandera del clic derecho después de un milisegundo para que los eventos CustomDrop alcancen a leerla
+        setTimeout(() => { window.isRightClickDrag = false; }, 50);
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -257,7 +267,6 @@ function startCustomDrag(e, name, actions) {
 
 function drawMiniCanvas(name, actions) {
     const safeId = getSafeId(name);
-    // 🎯 FIX: Uso de atributos seguros para inyectar la minigráfica sin crashear el selector CSS
     document.querySelectorAll(`[id="mini-canvas-${safeId}"]`).forEach(canvas => {
         const mctx = canvas.getContext('2d');
         if(!mctx) return;
@@ -385,7 +394,7 @@ document.getElementById('preset-editor-cancel')?.addEventListener('click', close
 function openModal() {
     if(modalEl) modalEl.style.display = 'flex';
     mZoom = 1.0; mScrollMs = -100; mUndoStack = []; mRedoStack = [];
-    if(modalAnimationFrame) cancelAnimationFrame(modalAnimationFrame); // Evita loop doble
+    if(modalAnimationFrame) cancelAnimationFrame(modalAnimationFrame);
     renderModalCanvas();
 }
 
