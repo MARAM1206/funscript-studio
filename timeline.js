@@ -1,10 +1,11 @@
 // ==========================================================================
-// TIMELINE V61.0: WARP DE TIEMPO (ANCLAJE DE PICOS EXACTO) Y 3 MODOS
+// TIMELINE V62.0: MODIFICADOR DE ANCLAJE CON CLIC DERECHO Y TEXTOS UI
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 
-window.presetMorphMode = 'stretch'; // Puede ser 'stretch', 'anchor' o 'repeat'
+// 🎯 FIX: El modo base ahora solo será stretch o repeat (El espacio solo alterna entre estos 2)
+window.presetMorphMode = 'stretch'; 
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -41,14 +42,12 @@ window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
-// 🎯 FIX: Tecla de Espacio ahora rota entre 3 modos profesionales
+// 🎯 FIX: Tecla de Espacio purificada
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
         e.preventDefault();
-        if (window.presetMorphMode === 'stretch') window.presetMorphMode = 'anchor';
-        else if (window.presetMorphMode === 'anchor') window.presetMorphMode = 'repeat';
-        else window.presetMorphMode = 'stretch';
-        
+        // Solo alterna entre Estirar y Repetir. El "Anclaje" es un modificador del ratón.
+        window.presetMorphMode = window.presetMorphMode === 'stretch' ? 'repeat' : 'stretch';
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 });
@@ -102,6 +101,9 @@ window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
     
+    // 🎯 FIX: Detectamos si el usuario está usando el Clic Derecho para arrastrar (Modo Anclar Pico)
+    let useAnchorModifier = window.isRightClickDrag === true;
+    
     if (window.presetMorphMode === 'repeat' && selectedActions.length >= 3) {
         let results = [];
         let anchors = [0];
@@ -144,25 +146,25 @@ window.getMorphedPreset = function(preset, selectedActions) {
         }
 
         if (anchors.length < 2) {
-            return window.getMorphedPresetChunk(preset, selectedActions);
+            return window.getMorphedPresetChunk(preset, selectedActions, useAnchorModifier);
         }
 
         for (let k = 0; k < anchors.length - 1; k++) {
             const chunk = selectedActions.slice(anchors[k], anchors[k+1] + 1);
             if (chunk.length < 2) continue; 
             
-            const subPreset = window.getMorphedPresetChunk(preset, chunk);
+            // Le pasamos el modificador a cada sub-ciclo para que cada M/V se ancle individualmente
+            const subPreset = window.getMorphedPresetChunk(preset, chunk, useAnchorModifier);
             if (k > 0) subPreset.shift(); 
             results.push(...subPreset);
         }
         return results;
     } else {
-        // Ejecuta Estirar Lineal o Anclaje de Picos Exacto
-        return window.getMorphedPresetChunk(preset, selectedActions);
+        return window.getMorphedPresetChunk(preset, selectedActions, useAnchorModifier);
     }
 };
 
-window.getMorphedPresetChunk = function(preset, selectedActions) {
+window.getMorphedPresetChunk = function(preset, selectedActions, useAnchor) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
@@ -177,18 +179,16 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
     const preset_y_min = Math.min(...preset.map(a => a.pos));
     const preset_y_max = Math.max(...preset.map(a => a.pos));
 
-    // 🎯 NUEVO: Escáner de Picos para el modo "Anclar Pico Exacto"
     let origPeakT = t_min + targetDuration / 2;
     let presetPeakT = preset_t_max / 2;
 
-    if (window.presetMorphMode === 'anchor') {
-        // Encontrar el pico/valle más dramático en la selección original
+    // 🎯 LÓGICA DE ANCLAJE ACTIVA SÓLO SI EL USUARIO USÓ CLIC DERECHO
+    if (useAnchor) {
         let maxDevOrig = -1;
         for (let i = 0; i < selectedActions.length; i++) {
             let dev = Math.max(Math.abs(selectedActions[i].pos - origStartPos), Math.abs(selectedActions[i].pos - origEndPos));
             if (dev > maxDevOrig) { maxDevOrig = dev; origPeakT = selectedActions[i].at; }
         }
-        // Encontrar el pico/valle correspondiente en el preset
         let maxDevPreset = -1;
         for (let i = 0; i < preset.length; i++) {
             let dev = Math.max(Math.abs(preset[i].pos - preset[0].pos), Math.abs(preset[i].pos - preset[preset.length-1].pos));
@@ -199,19 +199,15 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
     return preset.map((act, index) => {
         let newT;
 
-        // 🎯 Lógica de Deformación de Tiempo (Time Warping)
-        if (window.presetMorphMode === 'anchor' && presetPeakT > 0 && presetPeakT < preset_t_max && origPeakT > t_min && origPeakT < t_max) {
+        if (useAnchor && presetPeakT > 0 && presetPeakT < preset_t_max && origPeakT > t_min && origPeakT < t_max) {
             if (act.at <= presetPeakT) {
-                // Comprime o estira la primera mitad para que el pico clave encaje perfecto
                 let progress = presetPeakT === 0 ? 0 : act.at / presetPeakT;
                 newT = t_min + progress * (origPeakT - t_min);
             } else {
-                // Comprime o estira la segunda mitad desde el pico hasta el final
                 let progress = (act.at - presetPeakT) / (preset_t_max - presetPeakT);
                 newT = origPeakT + progress * (t_max - origPeakT);
             }
         } else {
-            // Estiramiento Lineal Clásico
             let progress = preset_t_max === 0 ? 0 : (act.at / preset_t_max);
             newT = t_min + progress * targetDuration;
         }
@@ -862,15 +858,24 @@ window.drawTimeline = function() {
                     const cursorX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(morphed[0].at);
                     const cursorY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(morphed[0].pos);
                     
-                    // 🎯 FIX: Mostrar el modo seleccionado
-                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    let modeText = "Estirar (Lineal)";
-                    if (window.presetMorphMode === 'repeat') modeText = "Repetir (Ciclos)";
-                    else if (window.presetMorphMode === 'anchor') modeText = "Anclar (Pico Exacto)";
-                    
-                    ctx.fillText(`Modo: ${modeText}`, cursorX + 15, cursorY + 30);
-                    ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
-                    ctx.fillText("(Presiona ESPACIO para alternar)", cursorX + 15, cursorY + 45);
+                    // 🎯 FIX: TEXTOS UI INTELIGENTES QUE DETECTAN EL CLIC DERECHO
+                    if (window.isRightClickDrag) {
+                        ctx.fillStyle = '#f43f5e'; // Rojo Fuerte
+                        ctx.font = 'bold 12px monospace';
+                        let modeText = window.presetMorphMode === 'stretch' ? "Estirar" : "Repetir";
+                        ctx.fillText(`Modo: ${modeText} + ANCLAR PICO`, cursorX + 15, cursorY + 30);
+                        ctx.fillStyle = '#fda4af'; // Rojo claro
+                        ctx.font = 'bold 10px monospace';
+                        ctx.fillText("(Arrastre Especial Activado)", cursorX + 15, cursorY + 45);
+                    } else {
+                        ctx.fillStyle = '#10b981'; // Verde
+                        ctx.font = 'bold 12px monospace';
+                        let modeText = window.presetMorphMode === 'stretch' ? "Estirar (Lineal)" : "Repetir (Ciclos)";
+                        ctx.fillText(`Modo Adaptativo: ${modeText}`, cursorX + 15, cursorY + 30);
+                        ctx.fillStyle = '#f59e0b'; // Naranja
+                        ctx.font = 'bold 10px monospace';
+                        ctx.fillText("(Presiona ESPACIO para alternar)", cursorX + 15, cursorY + 45);
+                    }
                 }
             } else {
                 const deltaY = window.timelineGhostDeltaPos || 0;
