@@ -39,7 +39,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .workspace-panel { position: absolute; background: #0f131a; border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #1e293b; overflow: hidden; }
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
 
-/* 🎯 CORRECCIÓN: Fondo dinámico del reproductor (Oscuro por defecto) */
 #panel-video-content, #video-container-wrapper { background: #000000; }
 
 .video-bottom-unified-bar { background: #0b0f17; display: flex; flex-direction: column; border: none; overflow: visible; }
@@ -54,7 +53,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .custom-progress::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #38bdf8; cursor: pointer; transition: transform 0.1s, background 0.1s; }
 .custom-progress::-webkit-slider-thumb:hover { transform: scale(1.3); background: #f97316; }
 
-/* 👻 NUEVO: DISEÑO DEL FANTASMA DEL TIEMPO */
 .ghost-thumb {
     position: absolute;
     top: 3px; 
@@ -62,9 +60,9 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: rgba(249, 115, 22, 0.5); /* Naranja translúcido */
+    background: rgba(249, 115, 22, 0.5);
     border: 2px solid rgba(255, 255, 255, 0.4);
-    pointer-events: none; /* Intocable */
+    pointer-events: none; 
     z-index: 3;
     display: none;
     box-shadow: 0 0 5px rgba(249, 115, 22, 0.8);
@@ -134,24 +132,24 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 #timeline-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; position: relative; z-index: 2; }
 
-/* 🎯 CORRECCIÓN: Botón de Pantalla Completa Flotante y visible siempre */
+/* 🎯 FIX: Botón de Pantalla Completa un 25% más pequeño en caja y con cristal translúcido */
 .fs-mini-icon { 
     position: absolute; 
     bottom: 15px; 
     right: 15px; 
-    font-size: 1rem; 
+    font-size: 1.1rem; /* El icono de las flechas conserva su tamaño relativo */
     color: #ffffff; 
     cursor: pointer; 
     user-select: none; 
     transition: all 0.2s; 
     z-index: 10; 
     font-weight: bold; 
-    background: rgba(15, 23, 42, 0.6); /* Cristal oscuro */
-    padding: 6px 12px;
-    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.35); /* Translúcido en oscuro */
+    padding: 4px 9px; /* Caja un 25% más compacta (antes era 6px 12px) */
+    border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.fs-mini-icon:hover { transform: scale(1.1); color: #38bdf8; background: rgba(15, 23, 42, 0.9); }
+.fs-mini-icon:hover { transform: scale(1.1); color: #38bdf8; background: rgba(15, 23, 42, 0.65); }
 :fullscreen .fs-mini-icon { display: none; }
 :-webkit-full-screen .fs-mini-icon { display: none; }
 
@@ -171,17 +169,14 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .top-bar-menu { background: #e2e8f0; border-bottom: 1px solid #cbd5e1; }
 .light-theme .workspace-panel { background: #ffffff; border: 1px solid #cbd5e1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
 .light-theme .panel-header { background: #f8fafc; color: #334155; border-bottom: 1px solid #cbd5e1; }
-
-/* 🎯 CORRECCIÓN: Fondo dinámico del reproductor en Claro */
 .light-theme #panel-video-content, .light-theme #video-container-wrapper { background: #e2e8f0; }
 
 .light-theme .video-bottom-unified-bar, .light-theme .progress-bar-container, .light-theme .video-info-bar { background: #f8fafc; }
 .light-theme .panel-content { background: #ffffff; }
 .light-theme .custom-progress { background: #e2e8f0; }
 
-/* 👻 NUEVO: Fantasma claro */
 .light-theme .ghost-thumb {
-    background: rgba(2, 132, 199, 0.5); /* Azul claro */
+    background: rgba(2, 132, 199, 0.5); 
     border: 2px solid rgba(15, 23, 42, 0.3);
     box-shadow: 0 0 5px rgba(2, 132, 199, 0.8);
 }
@@ -207,15 +202,15 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 
 .light-theme #theme-toggle-btn { background: #1e293b !important; color: #ffffff !important; border-color: #0f172a !important; font-weight: bold; }
 
-/* 🎯 CORRECCIÓN: Botón de Pantalla Completa Flotante en Modo Claro */
+/* 🎯 FIX: Botón de Pantalla Completa en Modo Claro (Translúcido y compacto) */
 .light-theme .fs-mini-icon { 
     color: #0f172a !important; 
-    background: rgba(255, 255, 255, 0.85); 
-    border: 1px solid rgba(15, 23, 42, 0.2);
+    background: rgba(255, 255, 255, 0.45); /* Mucho más translúcido */
+    border: 1px solid rgba(15, 23, 42, 0.15);
 }
 .light-theme .fs-mini-icon:hover { 
     color: #0284c7 !important; 
-    background: rgba(255, 255, 255, 1); 
+    background: rgba(255, 255, 255, 0.75); 
 }
 
 .light-theme .adaptive-btn.off { background: rgba(239, 68, 68, 0.05); border-color: #ef4444; color: #ef4444; }
