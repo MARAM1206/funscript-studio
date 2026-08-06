@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V55.0: ANCLAJE EXACTO SIN DESFASE DE PICOS
+// TIMELINE V56.0: RECONOCIMIENTO DE CICLOS POR MEMORIA VISUAL (AMPLITUD)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -92,45 +92,68 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
+// 🎯 FIX: MOTOR DE CICLOS POR "MEMORIA VISUAL" (Nunca más se comerá una M)
 window.getMorphedPreset = function(preset, selectedActions) {
     if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
     
     if (window.presetMorphMode === 'repeat' && selectedActions.length >= 3) {
         let results = [];
-        let p0 = selectedActions[0].pos;
         let anchors = [0];
         
         const y_min = Math.min(...selectedActions.map(a => a.pos));
         const y_max = Math.max(...selectedActions.map(a => a.pos));
         const amplitude = y_max - y_min;
-        const cycleThreshold = Math.max(10, amplitude * 0.4); 
-        const returnTolerance = Math.max(5, amplitude * 0.15);
+        
+        if (amplitude > 5) {
+            // Detecta si la selección empieza pegada al piso o al techo
+            const startsAtBottom = Math.abs(selectedActions[0].pos - y_min) <= Math.abs(selectedActions[0].pos - y_max);
+            let maxDeviation = 0; // Memoria de cuánto ha viajado la línea
 
-        for (let i = 1; i < selectedActions.length; i++) {
-            if (Math.abs(selectedActions[i].pos - p0) <= returnTolerance) {
-                let maxDist = 0;
-                for (let j = anchors[anchors.length-1]; j <= i; j++) {
-                    if (Math.abs(selectedActions[j].pos - p0) > maxDist) maxDist = Math.abs(selectedActions[j].pos - p0);
-                }
-                if (maxDist >= cycleThreshold) { 
-                    anchors.push(i);
+            for (let i = 1; i < selectedActions.length - 1; i++) {
+                let curr = selectedActions[i].pos;
+                
+                if (startsAtBottom) {
+                    let deviation = curr - y_min;
+                    if (deviation > maxDeviation) maxDeviation = deviation; // Registra el pico más alto
+                    
+                    // Si la línea regresó al valle inferior (margen 35%) y previamente viajó más de la mitad (50%)...
+                    let isValley = curr <= (y_min + amplitude * 0.35);
+                    if (isValley && maxDeviation >= amplitude * 0.50) {
+                        anchors.push(i); // ¡Ciclo completado! Cortamos aquí.
+                        maxDeviation = 0; // Reseteamos memoria para el siguiente patrón
+                    }
+                } else {
+                    let deviation = y_max - curr;
+                    if (deviation > maxDeviation) maxDeviation = deviation;
+                    
+                    // Lógica invertida (para W o V normales que inician en 100%)
+                    let isPeak = curr >= (y_max - amplitude * 0.35);
+                    if (isPeak && maxDeviation >= amplitude * 0.50) {
+                        anchors.push(i);
+                        maxDeviation = 0; 
+                    }
                 }
             }
         }
-        
-        if (anchors.length < 2) {
-            return window.getMorphedPresetChunk(preset, selectedActions);
-        }
-        
+
+        // Asegurarnos de que el último punto siempre cierre el último trozo
         if (anchors[anchors.length - 1] !== selectedActions.length - 1) {
             anchors.push(selectedActions.length - 1);
         }
 
+        // Si por alguna razón el usuario seleccionó un trozo minúsculo, estira por seguridad
+        if (anchors.length < 2) {
+            return window.getMorphedPresetChunk(preset, selectedActions);
+        }
+
+        // Recorre los trozos (ciclos) cortados y pégales la figura pura a cada uno
         for (let k = 0; k < anchors.length - 1; k++) {
             const chunk = selectedActions.slice(anchors[k], anchors[k+1] + 1);
+            if (chunk.length < 2) continue; // Protección anti-bugs de puntos empalmados
+            
             const subPreset = window.getMorphedPresetChunk(preset, chunk);
-            if (k > 0) subPreset.shift();
+            if (k > 0) subPreset.shift(); // Evitamos duplicar el punto de unión entre ciclos
             results.push(...subPreset);
         }
         return results;
@@ -139,17 +162,14 @@ window.getMorphedPreset = function(preset, selectedActions) {
     }
 };
 
-// 🎯 FIX: ESCALADO PURO Y ANCLAJE DE EXTREMOS (Sin Cizalladura que mueva los picos)
 window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
     
-    // Anclas inamovibles originales (Para los extremos)
     const origStartPos = selectedActions[0].pos;
     const origEndPos = selectedActions[selectedActions.length - 1].pos;
     
-    // Alturas máximas y mínimas de la selección (Para los picos intermedios)
     const y_min = Math.min(...selectedActions.map(a => a.pos));
     const y_max = Math.max(...selectedActions.map(a => a.pos));
     
@@ -163,15 +183,12 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
         
         let newPos;
         
-        // 1. Obligamos al primer punto a conectar a la perfección
         if (index === 0) {
             newPos = origStartPos;
         } 
-        // 2. Obligamos al último punto a conectar a la perfección
         else if (index === preset.length - 1) {
             newPos = origEndPos;
         } 
-        // 3. Escalado puro en Y para los picos/valles intermedios
         else {
             if (preset_y_max !== preset_y_min) {
                 let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
@@ -181,7 +198,6 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
             }
         }
         
-        // 4. Redondeo seguro: Si el pico cayó matemáticamente en 85.0, seguirá siendo 85 intacto.
         let snappedPos = Math.round(newPos / 5) * 5;
         
         return { 
