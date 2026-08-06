@@ -1,10 +1,10 @@
 // ==========================================================================
-// TIMELINE V60.0: TELETRANSPORTE CON PANEO CENTRADO ABSOLUTO
+// TIMELINE V61.0: WARP DE TIEMPO (ANCLAJE DE PICOS EXACTO) Y 3 MODOS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 
-window.presetMorphMode = 'stretch'; // Puede ser 'stretch' o 'repeat'
+window.presetMorphMode = 'stretch'; // Puede ser 'stretch', 'anchor' o 'repeat'
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -41,10 +41,14 @@ window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
+// 🎯 FIX: Tecla de Espacio ahora rota entre 3 modos profesionales
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
         e.preventDefault();
-        window.presetMorphMode = window.presetMorphMode === 'stretch' ? 'repeat' : 'stretch';
+        if (window.presetMorphMode === 'stretch') window.presetMorphMode = 'anchor';
+        else if (window.presetMorphMode === 'anchor') window.presetMorphMode = 'repeat';
+        else window.presetMorphMode = 'stretch';
+        
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 });
@@ -153,6 +157,7 @@ window.getMorphedPreset = function(preset, selectedActions) {
         }
         return results;
     } else {
+        // Ejecuta Estirar Lineal o Anclaje de Picos Exacto
         return window.getMorphedPresetChunk(preset, selectedActions);
     }
 };
@@ -171,10 +176,45 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
     const preset_t_max = preset[preset.length - 1].at;
     const preset_y_min = Math.min(...preset.map(a => a.pos));
     const preset_y_max = Math.max(...preset.map(a => a.pos));
+
+    // 🎯 NUEVO: Escáner de Picos para el modo "Anclar Pico Exacto"
+    let origPeakT = t_min + targetDuration / 2;
+    let presetPeakT = preset_t_max / 2;
+
+    if (window.presetMorphMode === 'anchor') {
+        // Encontrar el pico/valle más dramático en la selección original
+        let maxDevOrig = -1;
+        for (let i = 0; i < selectedActions.length; i++) {
+            let dev = Math.max(Math.abs(selectedActions[i].pos - origStartPos), Math.abs(selectedActions[i].pos - origEndPos));
+            if (dev > maxDevOrig) { maxDevOrig = dev; origPeakT = selectedActions[i].at; }
+        }
+        // Encontrar el pico/valle correspondiente en el preset
+        let maxDevPreset = -1;
+        for (let i = 0; i < preset.length; i++) {
+            let dev = Math.max(Math.abs(preset[i].pos - preset[0].pos), Math.abs(preset[i].pos - preset[preset.length-1].pos));
+            if (dev > maxDevPreset) { maxDevPreset = dev; presetPeakT = preset[i].at; }
+        }
+    }
     
     return preset.map((act, index) => {
-        let progress = preset_t_max === 0 ? 0 : (act.at / preset_t_max);
-        let newT = t_min + progress * targetDuration;
+        let newT;
+
+        // 🎯 Lógica de Deformación de Tiempo (Time Warping)
+        if (window.presetMorphMode === 'anchor' && presetPeakT > 0 && presetPeakT < preset_t_max && origPeakT > t_min && origPeakT < t_max) {
+            if (act.at <= presetPeakT) {
+                // Comprime o estira la primera mitad para que el pico clave encaje perfecto
+                let progress = presetPeakT === 0 ? 0 : act.at / presetPeakT;
+                newT = t_min + progress * (origPeakT - t_min);
+            } else {
+                // Comprime o estira la segunda mitad desde el pico hasta el final
+                let progress = (act.at - presetPeakT) / (preset_t_max - presetPeakT);
+                newT = origPeakT + progress * (t_max - origPeakT);
+            }
+        } else {
+            // Estiramiento Lineal Clásico
+            let progress = preset_t_max === 0 ? 0 : (act.at / preset_t_max);
+            newT = t_min + progress * targetDuration;
+        }
         
         let newPos;
         
@@ -822,9 +862,13 @@ window.drawTimeline = function() {
                     const cursorX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(morphed[0].at);
                     const cursorY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(morphed[0].pos);
                     
+                    // 🎯 FIX: Mostrar el modo seleccionado
                     ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    const modeText = window.presetMorphMode === 'stretch' ? "Estirar" : "Repetir";
-                    ctx.fillText(`Modo Adaptativo: ${modeText}`, cursorX + 15, cursorY + 30);
+                    let modeText = "Estirar (Lineal)";
+                    if (window.presetMorphMode === 'repeat') modeText = "Repetir (Ciclos)";
+                    else if (window.presetMorphMode === 'anchor') modeText = "Anclar (Pico Exacto)";
+                    
+                    ctx.fillText(`Modo: ${modeText}`, cursorX + 15, cursorY + 30);
                     ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
                     ctx.fillText("(Presiona ESPACIO para alternar)", cursorX + 15, cursorY + 45);
                 }
@@ -943,7 +987,6 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        // 🎯 FIX: WARP GLOW SUAVIZADO EN MODO CLARO (Opacidad reducida al 50%)
         if (window.scrollMomentum) {
             if (Math.abs(window.scrollMomentum) > 0.1) {
                 window.scrollMomentum *= 0.92;
@@ -964,7 +1007,6 @@ window.drawTimeline = function() {
                 if (isForward) {
                     let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
                     grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
-                    // En Modo Claro, la intensidad del fondo baja a 0.35 para ser más tenue
                     grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
                     ctx.fillStyle = grad;
                     ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
@@ -988,7 +1030,6 @@ window.drawTimeline = function() {
 
                 } else {
                     let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
-                    // Tratamiento suave para el naranja en Modo Claro (Alpha 0.35)
                     grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
                     grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
                     ctx.fillStyle = grad;
@@ -1125,7 +1166,6 @@ canvas?.addEventListener('mousedown', (e) => {
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
-        // 🎯 FIX: TELETRANSPORTE CENTRADO (Doble Clic Derecho jala el video y lo centra en la pantalla)
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
@@ -1133,7 +1173,6 @@ canvas?.addEventListener('mousedown', (e) => {
                 let clickedTimeMs = xToTime(clickX);
                 videoNode.currentTime = Math.max(0, clickedTimeMs / 1000);
                 
-                // 🎯 FIX: Obligamos a la gráfica a hacer un paneo (centrado) inmediato a este nuevo tiempo
                 window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: clickedTimeMs } }));
             }
             lastRightClickTime = 0;
