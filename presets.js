@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * PRESETS.JS - VERSIÓN 52.0
- * Módulo: CUADRÍCULA CUÁNTICA (0.01s) Y ETIQUETAS INTELIGENTES ESCUDADAS
+ * PRESETS.JS - VERSIÓN 54.0
+ * Módulo: PROTECCIÓN ANTI-CRASH PARA IDs (Soporta múltiples presets)
  * ============================================================================
  */
 
@@ -35,6 +35,11 @@ const nameInput = document.getElementById('preset-editor-name');
 const modalCanvas = document.getElementById('preset-editor-canvas');
 const modalCtx = modalCanvas ? modalCanvas.getContext('2d') : null;
 
+// 🎯 FIX VITAL: Función para crear un ID 100% seguro para HTML (evita crasheos de selectores)
+function getSafeId(str) {
+    return Array.from(str).map(c => c.charCodeAt(0).toString(16)).join('');
+}
+
 function loadPresets() {
     try { window.savedPresets = JSON.parse(localStorage.getItem('funscript_saved_presets')) || {}; } 
     catch (e) { window.savedPresets = {}; }
@@ -46,7 +51,6 @@ function savePresetsToStorage() {
     renderPresetsList();
 }
 
-// 🎯 FIX: Formateo condicional para que muestre 0.41s, 0.42s cuando hay mucho zoom
 function formatModalTime(timeMs) {
     const isNeg = timeMs < 0;
     const totalSecs = Math.abs(timeMs) / 1000;
@@ -60,13 +64,12 @@ function formatModalTime(timeMs) {
     return `${sign}${m}:${s.replace('.0', '')}`;
 }
 
-// 🎯 FIX: Precisión Dinámica que baja hasta 10ms (0.01s) al acercarte
 function getModalTimeSnap() {
-    if (mZoom >= 6.0) return 10;   // Zoom extremo: Precisión de 0.01s
-    if (mZoom >= 3.0) return 50;   // Zoom alto: Precisión de 0.05s
-    if (mZoom >= 1.0) return 100;  // Zoom normal: Precisión de 0.10s
-    if (mZoom >= 0.5) return 500;  // Lejos: Precisión de 0.50s
-    return 1000;                   // Muy Lejos: Precisión de 1.00s
+    if (mZoom >= 6.0) return 10;   
+    if (mZoom >= 3.0) return 50;   
+    if (mZoom >= 1.0) return 100;  
+    if (mZoom >= 0.5) return 500;  
+    return 1000;                   
 }
 
 function renderPresetsList() {
@@ -85,7 +88,7 @@ function renderPresetsList() {
                         <button class="preset-action-btn preset-delete-btn" data-name="${k}" title="Eliminar Preset">🗑️</button>
                     </div>
                 </div>
-                <canvas id="mini-canvas-${k.replace(/\s+/g, '-')}" class="preset-mini-canvas"></canvas>
+                <canvas id="mini-canvas-${getSafeId(k)}" class="preset-mini-canvas"></canvas>
             </div>
         `).join('');
 
@@ -253,8 +256,9 @@ function startCustomDrag(e, name, actions) {
 }
 
 function drawMiniCanvas(name, actions) {
-    const safeName = name.replace(/\s+/g, '-');
-    document.querySelectorAll(`#mini-canvas-${safeName}`).forEach(canvas => {
+    const safeId = getSafeId(name);
+    // 🎯 FIX: Uso de atributos seguros para inyectar la minigráfica sin crashear el selector CSS
+    document.querySelectorAll(`[id="mini-canvas-${safeId}"]`).forEach(canvas => {
         const mctx = canvas.getContext('2d');
         if(!mctx) return;
         const rect = canvas.getBoundingClientRect();
@@ -381,6 +385,7 @@ document.getElementById('preset-editor-cancel')?.addEventListener('click', close
 function openModal() {
     if(modalEl) modalEl.style.display = 'flex';
     mZoom = 1.0; mScrollMs = -100; mUndoStack = []; mRedoStack = [];
+    if(modalAnimationFrame) cancelAnimationFrame(modalAnimationFrame); // Evita loop doble
     renderModalCanvas();
 }
 
@@ -421,7 +426,6 @@ function renderModalCanvas() {
             modalCtx.fillText(p+'%', 5, y+4);
         }
 
-        // 🎯 FIX: La cuadrícula también respeta la nueva precisión del Zoom
         let stepMs = 100;
         if(mZoom >= 6.0) stepMs = 10;
         else if(mZoom >= 3.0) stepMs = 50;
@@ -469,8 +473,6 @@ function renderModalCanvas() {
                     modalCtx.beginPath(); modalCtx.arc(px, py, act.selected ? 7 : 5, 0, Math.PI*2); modalCtx.fill();
                     modalCtx.strokeStyle = isLight ? '#0f172a' : '#fff'; modalCtx.lineWidth = 1.5; modalCtx.stroke();
                     
-                    // 🎯 FIX: ETIQUETAS INTELIGENTES CON CRISTAL ESMERILADO (Fondo tenue)
-                    // Calcula si va arriba o abajo dependiendo de la altura para no estorbar
                     let txtY = act.pos >= 50 ? py + 16 : py - 10;
                     let txtX = px + 6;
                     let text = `${act.pos}%`;
@@ -478,11 +480,9 @@ function renderModalCanvas() {
                     modalCtx.font = 'bold 10px monospace';
                     let tWidth = modalCtx.measureText(text).width;
                     
-                    // Fondo tipo "cristal" para que las líneas no tachen el número
                     modalCtx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.75)' : 'rgba(6, 9, 14, 0.75)';
                     modalCtx.fillRect(txtX - 2, txtY - 9, tWidth + 4, 12);
                     
-                    // Texto nítido
                     modalCtx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.8)';
                     modalCtx.fillText(text, txtX, txtY);
                 }
@@ -620,7 +620,7 @@ modalCanvas?.addEventListener('mousedown', (e) => {
 modalCanvas?.addEventListener('mousemove', (e) => {
     const pos = getModalMousePos(e);
     if (mIsDragging) {
-        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión dinámica según el zoom
+        const snapMs = getModalTimeSnap(); 
         window.currentEditingPreset.forEach(act => {
             if (act.selected) {
                 act.at = Math.max(0, Math.round(mXToTime(pos.x) / snapMs) * snapMs);
@@ -642,7 +642,7 @@ modalCanvas?.addEventListener('mousemove', (e) => {
 modalCanvas?.addEventListener('mouseup', () => {
     if (mIsSelecting && !mHasDragged) {
         saveModalHistoryState(); 
-        const snapMs = getModalTimeSnap(); // <-- Obtiene la precisión dinámica según el zoom
+        const snapMs = getModalTimeSnap(); 
         const clickTime = Math.max(0, Math.round(mXToTime(mStartX) / snapMs) * snapMs);
         const clickPos = Math.max(0, Math.min(100, Math.round(mYToPos(mStartY) / 5) * 5));
         
