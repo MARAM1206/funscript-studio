@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V58.0: WARP GLOW CLARO, DOBLE CLIC DERECHO Y GHOST THUMB
+// TIMELINE V59.0: TELETRANSPORTE DE PLAYHEAD Y WARP GLOW SUAVIZADO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -39,7 +39,7 @@ let dragStartYPos = 0;
 window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
-let lastRightClickTime = 0; // 🎯 NUEVO: Tracker para el Doble Clic Derecho
+let lastRightClickTime = 0; 
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
@@ -633,7 +633,6 @@ function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom);
 function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
 function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
 
-// 👻 NUEVO: FUNCIÓN PARA ACTUALIZAR AL FANTASMA DEL TIEMPO
 window.updateGhostThumb = function() {
     const ghostThumb = document.getElementById('ghost-thumb');
     if (!ghostThumb || !videoNode || !videoNode.duration) return;
@@ -642,7 +641,6 @@ window.updateGhostThumb = function() {
     const centerTimeMs = scrollLeftMs + (visibleMs / 2);
     const actualTimeMs = videoNode.currentTime * 1000;
 
-    // Solo aparece si te alejas de tu Playhead (Línea naranja) por más del 5% del zoom actual
     if (Math.abs(centerTimeMs - actualTimeMs) > visibleMs * 0.05) {
         ghostThumb.style.display = 'block';
         const percentage = (centerTimeMs / (videoNode.duration * 1000)) * 100;
@@ -945,7 +943,7 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        // 🎯 FIX: WARP GLOW MEJORADO EN MODO CLARO
+        // 🎯 FIX: WARP GLOW SUAVIZADO EN MODO CLARO (Opacidad reducida)
         if (window.scrollMomentum) {
             if (Math.abs(window.scrollMomentum) > 0.1) {
                 window.scrollMomentum *= 0.92;
@@ -958,7 +956,7 @@ window.drawTimeline = function() {
                 const isForward = window.scrollMomentum > 0;
                 
                 ctx.save();
-                ctx.globalAlpha = intensity * (isLight ? 1.0 : 0.6); // Más denso en modo claro
+                ctx.globalAlpha = intensity * 0.6; // Mantenemos el Alpha sutil y equilibrado
 
                 const gradWidth = 200;
                 const centerY = canvas.height / 2;
@@ -966,7 +964,8 @@ window.drawTimeline = function() {
                 if (isForward) {
                     let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
                     grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
-                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.8)' : 'rgba(14, 165, 233, 0.6)');
+                    // En Modo Claro, usamos un azul denso pero bajamos el Alpha a 0.5 (más translúcido)
+                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.5)' : 'rgba(14, 165, 233, 0.6)');
                     ctx.fillStyle = grad;
                     ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
 
@@ -989,7 +988,8 @@ window.drawTimeline = function() {
 
                 } else {
                     let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
-                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.8)' : 'rgba(249, 115, 22, 0.6)'); 
+                    // Mismo tratamiento suave para el naranja en Modo Claro (Alpha 0.5)
+                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.5)' : 'rgba(249, 115, 22, 0.6)'); 
                     grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
                     ctx.fillStyle = grad;
                     ctx.fillRect(30, 0, gradWidth, canvas.height);
@@ -1015,7 +1015,6 @@ window.drawTimeline = function() {
             }
         }
         
-        // Invocamos al fantasma al final del renderizado
         window.updateGhostThumb();
 
     } catch (err) {}
@@ -1126,15 +1125,14 @@ canvas?.addEventListener('mousedown', (e) => {
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
-        // 🎯 FIX: DETECCIÓN DE DOBLE CLIC DERECHO
+        // 🎯 FIX: TELETRANSPORTE (Doble Clic Derecho mueve el video a donde estás viendo)
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
-            // ¡Doble clic detectado! Centramos el Playhead en la pantalla
-            let actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
-            const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
-            scrollLeftMs = actualTime - (visibleMs / 2);
-            if (scrollLeftMs < 0) scrollLeftMs = 0;
+            if (videoNode) {
+                let clickedTimeMs = xToTime(clickX);
+                videoNode.currentTime = Math.max(0, clickedTimeMs / 1000);
+            }
             lastRightClickTime = 0;
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
