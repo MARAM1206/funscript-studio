@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V54.0: CIZALLADURA CON REDONDEO ESTRICTO AL 5%
+// TIMELINE V55.0: ANCLAJE EXACTO SIN DESFASE DE PICOS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -139,14 +139,17 @@ window.getMorphedPreset = function(preset, selectedActions) {
     }
 };
 
+// 🎯 FIX: ESCALADO PURO Y ANCLAJE DE EXTREMOS (Sin Cizalladura que mueva los picos)
 window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
     
+    // Anclas inamovibles originales (Para los extremos)
     const origStartPos = selectedActions[0].pos;
     const origEndPos = selectedActions[selectedActions.length - 1].pos;
     
+    // Alturas máximas y mínimas de la selección (Para los picos intermedios)
     const y_min = Math.min(...selectedActions.map(a => a.pos));
     const y_max = Math.max(...selectedActions.map(a => a.pos));
     
@@ -154,31 +157,35 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
     const preset_y_min = Math.min(...preset.map(a => a.pos));
     const preset_y_max = Math.max(...preset.map(a => a.pos));
     
-    return preset.map((act) => {
+    return preset.map((act, index) => {
         let progress = preset_t_max === 0 ? 0 : (act.at / preset_t_max);
         let newT = t_min + progress * targetDuration;
         
-        let baseMappedPos = act.pos;
-        if (preset_y_max !== preset_y_min) {
-            let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
-            baseMappedPos = y_min + (normalizedY * (y_max - y_min));
-        } else {
-            baseMappedPos = y_min + (y_max - y_min) / 2;
+        let newPos;
+        
+        // 1. Obligamos al primer punto a conectar a la perfección
+        if (index === 0) {
+            newPos = origStartPos;
+        } 
+        // 2. Obligamos al último punto a conectar a la perfección
+        else if (index === preset.length - 1) {
+            newPos = origEndPos;
+        } 
+        // 3. Escalado puro en Y para los picos/valles intermedios
+        else {
+            if (preset_y_max !== preset_y_min) {
+                let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
+                newPos = y_min + (normalizedY * (y_max - y_min));
+            } else {
+                newPos = y_min + (y_max - y_min) / 2;
+            }
         }
         
-        return { at: newT, pos: baseMappedPos, progress: progress };
-    }).map((mappedAct, i, arr) => {
-        let E_start = origStartPos - arr[0].pos;
-        let E_end = origEndPos - arr[arr.length - 1].pos;
-        
-        let correction = (E_start * (1 - mappedAct.progress)) + (E_end * mappedAct.progress);
-        let finalPos = mappedAct.pos + correction;
-        
-        // 🎯 FIX: Obligamos a que cualquier deformación termine matemáticamente en un múltiplo del 5%
-        let snappedPos = Math.round(finalPos / 5) * 5;
+        // 4. Redondeo seguro: Si el pico cayó matemáticamente en 85.0, seguirá siendo 85 intacto.
+        let snappedPos = Math.round(newPos / 5) * 5;
         
         return { 
-            at: Math.round(mappedAct.at), 
+            at: Math.round(newT), 
             pos: Math.max(0, Math.min(100, snappedPos)) 
         };
     });
