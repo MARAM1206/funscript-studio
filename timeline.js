@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V53.0: CIZALLADURA MATEMÁTICA Y SELECCIÓN ANCLADA AL TIEMPO
+// TIMELINE V54.0: CIZALLADURA CON REDONDEO ESTRICTO AL 5%
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -25,7 +25,6 @@ let zoom = 1.0;
 let basePixelsPerMs = 0.1; 
 let scrollLeftMs = 0; 
 
-// 🎯 FIX: Variables de selección ahora ancladas al Tiempo, no a la pantalla
 let isSelecting = false;
 let hasDraggedSelection = false; 
 let selStartT = 0, selStartY = 0;
@@ -140,13 +139,11 @@ window.getMorphedPreset = function(preset, selectedActions) {
     }
 };
 
-// 🎯 FIX: CIZALLADURA MATEMÁTICA (Fuerza inicios y finales exactos)
 window.getMorphedPresetChunk = function(preset, selectedActions) {
     const t_min = selectedActions[0].at;
     const t_max = selectedActions[selectedActions.length - 1].at;
     const targetDuration = t_max - t_min;
     
-    // Obtenemos los puntos exactos donde DEBE iniciar y terminar el preset
     const origStartPos = selectedActions[0].pos;
     const origEndPos = selectedActions[selectedActions.length - 1].pos;
     
@@ -161,7 +158,6 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
         let progress = preset_t_max === 0 ? 0 : (act.at / preset_t_max);
         let newT = t_min + progress * targetDuration;
         
-        // 1. Mapeo Base (Bounding Box Clásico)
         let baseMappedPos = act.pos;
         if (preset_y_max !== preset_y_min) {
             let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
@@ -172,18 +168,18 @@ window.getMorphedPresetChunk = function(preset, selectedActions) {
         
         return { at: newT, pos: baseMappedPos, progress: progress };
     }).map((mappedAct, i, arr) => {
-        // 2. Corrección de Cizalladura (Shear)
-        // Calculamos el error que tiene el Mapeo Base vs lo que TÚ querías
         let E_start = origStartPos - arr[0].pos;
         let E_end = origEndPos - arr[arr.length - 1].pos;
         
-        // Aplicamos el error gradualmente a lo largo de la figura para no deformarla
         let correction = (E_start * (1 - mappedAct.progress)) + (E_end * mappedAct.progress);
         let finalPos = mappedAct.pos + correction;
         
+        // 🎯 FIX: Obligamos a que cualquier deformación termine matemáticamente en un múltiplo del 5%
+        let snappedPos = Math.round(finalPos / 5) * 5;
+        
         return { 
             at: Math.round(mappedAct.at), 
-            pos: Math.max(0, Math.min(100, Math.round(finalPos))) 
+            pos: Math.max(0, Math.min(100, snappedPos)) 
         };
     });
 };
@@ -310,7 +306,6 @@ canvas?.addEventListener('wheel', (e) => {
         }
     }
     
-    // 🎯 FIX: Al usar la Ruedita, actualizamos en vivo el tamaño del cuadro de selección
     if (isSelecting) {
         selCurrT = xToTime(mouseX);
         selCurrY = mouseY;
@@ -816,7 +811,6 @@ window.drawTimeline = function() {
             }
         }
 
-        // 🎯 FIX: Dibujo de Selección con Coordenadas de Tiempo Exactas
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
             ctx.setLineDash([2, 2]); ctx.beginPath(); 
@@ -1006,7 +1000,6 @@ canvas?.addEventListener('mousedown', (e) => {
             if (!e.ctrlKey) actions.forEach(a => a.selected = false);
             isSelecting = true; hasDraggedSelection = false; 
             
-            // 🎯 FIX: El origen de la selección ahora se ancla al TIEMPO real
             selStartT = xToTime(clickX);
             selStartY = clickY;
             selCurrT = selStartT;
@@ -1113,7 +1106,6 @@ canvas?.addEventListener('mousemove', (e) => {
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     } else if (isSelecting) {
-        // 🎯 FIX: Actualización de caja usando cálculos de tiempo
         selCurrT = xToTime(mouseX);
         selCurrY = mouseY;
         
