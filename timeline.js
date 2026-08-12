@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V69.0: HARDWARE DB SYNCHRONIZATION AND MAGENTA TAGS
+// TIMELINE V70.0: HARDWARE DB RESET
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -7,7 +7,6 @@ window.timelineMarkers = window.timelineMarkers || [];
 
 window.presetMorphMode = 'stretch'; 
 
-// 🎯 FIX: Hardware DB perfectamente alineada a los IDs del HTML
 window.hardwareDB = {
     "handy_std": {
         name: "Handy V1 / 2 Standar",
@@ -24,7 +23,10 @@ window.hardwareDB = {
     "keon_sm": { name: "Kiiroo Sex Machine", stroke: 100, factor: 1.00, supports_overclock: false, standard: { max: 450, min: 20 } },
     "erojoy_x3": { name: "Erojoy X3", stroke: 115, factor: 1.15, supports_overclock: false, standard: { max: 320, min: 22 } }
 };
-window.activeDevice = localStorage.getItem('funscript_device') || 'handy_std';
+
+// 🎯 FIX: Forzamos null al iniciar para exigirle al usuario que seleccione su equipo
+window.activeDevice = null;
+window.isOverclockEnabled = false;
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -305,7 +307,6 @@ window.updateHeatmapAndStats = function() {
         } else if (actions.length === 1) {
             speedText = "Slow (0)"; colorHtml = "#10b981";
         }
-        // 🎯 FIX: white-space: nowrap para evitar el salto de renglón
         statsSpan.innerHTML = `Puntos: <strong style="color:#e2e8f0;">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88; white-space: nowrap;">${speedText}</strong>`;
     }
 
@@ -515,7 +516,7 @@ window.addEventListener('presetCustomDrop', (e) => {
                     window.funscriptActions.forEach(a => a.selected = false);
                     window.funscriptActions.push(...morphed);
                 } else {
-                    window.funscriptActions = actions.filter(a => !a.selected); 
+                    window.funscriptActions = actions.filter(a => !newTimes.has(a.at)); 
                     morphed.forEach(m => m.selected = true);
                     window.funscriptActions.push(...morphed);
                 }
@@ -875,6 +876,7 @@ window.drawTimeline = function() {
                 const tPulse = performance.now() / 150;
                 const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
                 
+                // 🎯 FIX: El parpadeo de las velocidades peligrosas funciona perfecto en ambos temas
                 if (speed_mms > hwMax) lineColor = `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
                 else if (speed_mms < hwMin && dp > 0) lineColor = `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
 
@@ -1007,21 +1009,23 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: TAGS MAGENTA CON MAGNETISMO EN X/Y Y DISEÑO MODERNO
+        // 🎯 FIX: MARCADORES MAGENTA (Ya no son amarillos para no confundir con el Playhead)
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, index) => {
                 const mx = timeToX(m.at);
                 const my = posToY(m.pos);
                 if (mx >= 30) {
+                    // Línea Punteada Magenta Neón
                     ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
                     ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
                     ctx.setLineDash([]);
                     
+                    // Bolita magnética
                     ctx.fillStyle = '#ffffff';
                     ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
                     ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
 
-                    // Modern Tag Banner
+                    // Banner superior moderno
                     ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#d946ef';
                     ctx.beginPath();
                     ctx.moveTo(mx - 15, 0);
