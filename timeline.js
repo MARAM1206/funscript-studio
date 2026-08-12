@@ -1,11 +1,22 @@
 // ==========================================================================
-// TIMELINE V65.0: MARCADORES MAGENTA LIBRES, FPS BOTONES Y UI
+// TIMELINE V67.0: HARDWARE PROFILES, MARCADORES MAGENTA LIBRES
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
 
 window.presetMorphMode = 'stretch'; 
+
+// 🎯 FIX: BASE DE DATOS DE HARDWARE PARA PREDECIR ERRORES FÍSICOS
+window.hardwareDB = {
+    "handy_v1": { name: "The Handy (V1)", stroke: 110, factor: 1.10, max: 400, min: 32 },
+    "handy_v2": { name: "The Handy (V2 / Pro)", stroke: 125, factor: 1.25, max: 450, min: 32 },
+    "keon_1": { name: "Kiiroo Keon 1", stroke: 75, factor: 0.75, max: 280, min: 20 },
+    "keon_2": { name: "Kiiroo Keon 2", stroke: 80, factor: 0.80, max: 350, min: 18 },
+    "keon_sm": { name: "Kiiroo Sex Machine", stroke: 100, factor: 1.00, max: 450, min: 20 },
+    "erojoy_x3": { name: "Erojoy X3", stroke: 115, factor: 1.15, max: 320, min: 22 }
+};
+window.activeDevice = localStorage.getItem('funscript_device') || 'handy_v2';
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -53,7 +64,7 @@ const fpsDown = document.getElementById('fps-btn-down');
 function updateFpsInput(change) {
     if (!fpsInput) return;
     let val = parseInt(fpsInput.value, 10);
-    if (isNaN(val)) val = 1;
+    if (isNaN(val) || val < 1) val = 1;
     val += change;
     if (val < 1) val = 1;
     if (window.videoFPS && val > window.videoFPS) val = window.videoFPS;
@@ -65,7 +76,6 @@ if (fpsInput) {
 }
 if (fpsUp) fpsUp.addEventListener('click', () => updateFpsInput(1));
 if (fpsDown) fpsDown.addEventListener('click', () => updateFpsInput(-1));
-
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
@@ -745,6 +755,7 @@ window.drawTimeline = function() {
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // 🎯 FIX: AUDIO AUTO-GAIN VISUAL
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
@@ -832,10 +843,25 @@ window.drawTimeline = function() {
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
 
+            // El Dispositivo Seleccionado para la predicción
+            const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_v2'];
+
             for (let i = 0; i < actions.length - 1; i++) {
                 const act1 = actions[i]; const act2 = actions[i+1];
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
                 const x2 = timeToX(act2.at); const y2 = posToY(act2.pos);
+
+                // 🎯 FIX: HARDWARE PREDICTION (Color de línea según la velocidad física)
+                let dt_ms = act2.at - act1.at;
+                let dp = Math.abs(act2.pos - act1.pos);
+                let speed_mms = 0;
+                if (dt_ms > 0) {
+                    speed_mms = (dp * device.factor) / (dt_ms / 1000);
+                }
+
+                let lineColor = '#38bdf8'; // Azul Normal
+                if (speed_mms > device.max) lineColor = '#ef4444'; // Rojo (Tirones)
+                else if (speed_mms < device.min && dp > 0) lineColor = '#facc15'; // Amarillo (Termina antes)
 
                 let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
                 
@@ -846,16 +872,29 @@ window.drawTimeline = function() {
                     ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
                     ctx.lineWidth = 4;
                 } else {
-                    ctx.strokeStyle = '#38bdf8';
+                    ctx.strokeStyle = lineColor;
                     ctx.lineWidth = 3;
                 }
                 ctx.stroke();
             }
 
-            actions.forEach(act => {
+            actions.forEach((act, i) => {
                 const x = timeToX(act.at);
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
+
+                    // Buscamos la velocidad de este punto (hacia atrás) para heredar el color del trazo
+                    let dotColor = '#38bdf8';
+                    if (i > 0) {
+                        let prevAct = actions[i-1];
+                        let dt_ms = act.at - prevAct.at;
+                        let dp = Math.abs(act.pos - prevAct.pos);
+                        let speed_mms = dt_ms > 0 ? (dp * device.factor) / (dt_ms / 1000) : 0;
+                        if (speed_mms > device.max) dotColor = '#ef4444'; 
+                        else if (speed_mms < device.min && dp > 0) dotColor = '#facc15'; 
+                    }
+                    if (act.selected) dotColor = '#f59e0b'; // Naranja si está seleccionado
+
                     let isTargetForMorph = act.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
                     
                     if (isTargetForMorph) {
@@ -864,7 +903,7 @@ window.drawTimeline = function() {
                         ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                     } else {
-                        ctx.fillStyle = act.selected ? '#f59e0b' : '#38bdf8';
+                        ctx.fillStyle = dotColor;
                         ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                     }
@@ -952,7 +991,7 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: MARCADORES (T) REDISEÑADOS Y DRAGEABLES VERTICALMENTE
+        // 🎯 FIX: MARCADORES (T) REDISEÑADOS Y DRAGEABLES
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, index) => {
                 const mx = timeToX(m.at);
@@ -963,23 +1002,22 @@ window.drawTimeline = function() {
                     ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
                     ctx.setLineDash([]);
                     
-                    // Bolita magnética de altura en la gráfica
+                    // Bolita magnética
                     ctx.fillStyle = '#ffffff';
                     ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
                     ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
 
-                    // Bandera / Banner superior elegante
+                    // Bandera / Banner superior
                     ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#d946ef';
                     ctx.beginPath();
-                    ctx.moveTo(mx - 8, 0);
-                    ctx.lineTo(mx + 8, 0);
-                    ctx.lineTo(mx + 8, 16);
+                    ctx.moveTo(mx - 10, 0);
+                    ctx.lineTo(mx + 10, 0);
+                    ctx.lineTo(mx + 10, 16);
                     ctx.lineTo(mx, 22);
-                    ctx.lineTo(mx - 8, 16);
+                    ctx.lineTo(mx - 10, 16);
                     ctx.closePath();
                     ctx.fill();
                     
-                    // Pequeño círculo central para decorado
                     ctx.fillStyle = '#0f172a';
                     ctx.beginPath(); ctx.arc(mx, 8, 3, 0, Math.PI*2); ctx.fill();
                 }
@@ -1212,13 +1250,13 @@ canvas?.addEventListener('mousedown', (e) => {
     const clickX = pos.x; const clickY = pos.y;
 
     if (e.button === 0) { 
-        // 🎯 FIX: Los marcadores tienen una HitBox horizontal súper amplia para agarrarlos fácil
+        // 🎯 FIX: Ampliación extrema del hit-box del Marcador. 
+        // Ya no te exige dar clic en la base. ¡Agarra toda la línea!
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                // Si haces clic en cualquier punto de la línea vertical Magenta
-                if (Math.abs(clickX - mx) <= 12) { 
+                if (Math.abs(clickX - mx) <= 15) { 
                     isDraggingMarker = true;
                     draggedMarkerIndex = i;
                     saveHistoryState();
@@ -1284,7 +1322,6 @@ canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     const mouseX = pos.x; const mouseY = pos.y;
     
-    // 🎯 FIX: Arrastre fluido y vertical del Marcador
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         const m = window.timelineMarkers[draggedMarkerIndex];
         m.at = Math.max(0, Math.round(xToTime(mouseX) / 50) * 50); 
