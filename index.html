@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=58">
+    <link rel="stylesheet" href="styles.css?v=63">
 </head>
 <body>
 
@@ -22,8 +22,13 @@
 
             <div class="handy-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid;">
                 <span id="handy-status" style="font-size:0.75rem; color:#64748b; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
-                <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 140px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
-                <button id="handy-connect-btn" class="menu-btn" style="background:#ea580c; padding: 4px 10px; font-size: 0.75rem; color: #ffffff;">🛜 Conectar Handy</button>
+                <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
+                <!-- NUEVO: Sync Offset Slider -->
+                <div style="display: flex; align-items: center; gap: 4px; border-left: 1px solid #334155; padding-left: 8px;">
+                    <span style="font-size: 0.7rem; color: #94a3b8;" title="Retraso/Adelanto de Sincronización en ms">±ms:</span>
+                    <input type="number" id="handy-offset" value="0" step="50" class="handy-input" style="width: 50px; padding: 2px 4px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.7rem; text-align: center; outline: none;">
+                </div>
+                <button id="handy-connect-btn" class="menu-btn" style="background:#ea580c; padding: 4px 10px; font-size: 0.75rem; color: #ffffff;">🛜 Conectar</button>
             </div>
 
             <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
@@ -148,7 +153,17 @@
             </div>
         </div>
 
-        <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
+        <!-- 🎯 NUEVO: Header rediseñado para contener la telemetría central -->
+        <div id="panel-timeline" class="workspace-panel">
+            <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center;">
+                <span style="font-weight: bold; width: 150px; cursor: move;">📈 Línea de Tiempo</span>
+                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 20px; font-size: 0.8rem; font-family: monospace;">
+                     <span>Saltos(Q/W): <input type="number" id="fps-jump-input" value="3" min="1" max="60" class="modal-input" style="width: 40px; text-align: center; padding: 2px; border-radius: 4px;"> fps</span>
+                     <span id="timeline-stats">Puntos: 0 | Velocidad: --</span>
+                     <span style="color: #facc15;" title="Presiona la tecla T para insertar Marcador">T = Marcador</span>
+                </div>
+                <div style="width: 150px;"></div>
+            </div>
             <div class="panel-content" style="position: relative; padding: 0;">
                 <canvas id="timeline-canvas"></canvas>
             </div>
@@ -156,12 +171,12 @@
 
     </div>
 
-    <script src="workspace.js?v=58"></script>
-    <script src="handy.js?v=58"></script> 
-    <script src="funscript.js?v=58"></script>
-    <script src="player.js?v=58"></script>
-    <script src="tracking.js?v=58"></script>
-    <script src="presets.js?v=58"></script>
-    <script src="timeline.js?v=58"></script>
+    <script src="workspace.js?v=63"></script>
+    <script src="handy.js?v=63"></script> 
+    <script src="funscript.js?v=63"></script>
+    <script src="player.js?v=63"></script>
+    <script src="tracking.js?v=63"></script>
+    <script src="presets.js?v=63"></script>
+    <script src="timeline.js?v=63"></script>
 </body>
 </html>
