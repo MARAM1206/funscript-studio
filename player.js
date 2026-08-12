@@ -1,10 +1,10 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V44 (MARCADORES Y SALTO CONFIGURABLE)
+// REPRODUCTOR Y MOTOR DE ATAJOS V64.0 (NUEVA UI Y CONTROL DE FPS)
 // ==========================================================================
 
-const videoInput = document.getElementById('video-input');
 const videoPlayer = document.getElementById('video-player');
 const videoProgress = document.getElementById('video-progress');
+const universalInput = document.getElementById('universal-file-input');
 
 window.videoPlayer = videoPlayer;
 window.currentVideoName = null; 
@@ -33,9 +33,35 @@ function formatTime(seconds) {
     return `${m}:${s}`;
 }
 
-videoInput?.addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (file) loadVideoFile(file, false);
+// 🎯 REVISIÓN DEL ESTADO VACÍO (Muestra u oculta el letrero)
+window.checkEmptyState = function() {
+    const emptyState = document.getElementById('video-empty-state');
+    if (emptyState) {
+        if (window.currentVideoName || (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0)) {
+            emptyState.style.display = 'none';
+        } else {
+            emptyState.style.display = 'block';
+        }
+    }
+};
+
+// 🎯 BOTÓN MAESTRO DE IMPORTAR (El ➕ del Gestor de Archivos)
+document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'add-file-btn') {
+        universalInput?.click();
+    }
+});
+
+universalInput?.addEventListener('change', function(event) {
+    const files = Array.from(event.target.files);
+    const videoFiles = files.filter(f => f.type.startsWith('video/'));
+    const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
+
+    const hasFunscripts = funscriptFiles.length > 0;
+    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
+    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
+    event.target.value = '';
+    window.checkEmptyState();
 });
 
 async function loadVideoFile(file, hasFunscripts = false) {
@@ -53,8 +79,14 @@ async function loadVideoFile(file, hasFunscripts = false) {
     }
     
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
+    window.checkEmptyState();
 
-    if (vMute) { vMute.innerText = "⏳ Audio..."; vMute.style.color = "#f59e0b"; }
+    if (vMute) { 
+        vMute.innerText = "⏳ Audio..."; 
+        vMute.style.color = "#f59e0b"; 
+        vMute.classList.remove('mute-flash');
+    }
+    
     try {
         const arrayBuffer = await file.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); 
@@ -65,7 +97,6 @@ async function loadVideoFile(file, hasFunscripts = false) {
         const step = Math.floor(audioData.sampleRate / samplesPerSec);
         const peaks = new Float32Array(Math.floor(channelData.length / step));
         
-        // 🎯 NUEVO: Auto-Gain (Encontrar pico máximo real del audio para normalizarlo visualmente)
         let absoluteMaxPeak = 0;
 
         for(let i = 0; i < peaks.length; i++) {
@@ -80,13 +111,22 @@ async function loadVideoFile(file, hasFunscripts = false) {
         
         window.audioPeaks = peaks;
         window.audioPeaksSampleRate = samplesPerSec;
-        window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; // Evita dividir entre cero
+        window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; 
         
-        if (vMute) { vMute.innerText = videoPlayer.muted ? "🔇 Sonido Off" : "🔊 Sonido On"; vMute.style.color = videoPlayer.muted ? "#ef4444" : "#38bdf8"; }
+        if (vMute) { 
+            vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On"; 
+            if (videoPlayer.muted || videoPlayer.volume === 0) {
+                vMute.style.color = "#ef4444";
+                vMute.classList.add('mute-flash');
+            } else {
+                vMute.style.color = "#38bdf8";
+                vMute.classList.remove('mute-flash');
+            }
+        }
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
 
     } catch (err) {
-        if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.style.color = "#94a3b8"; }
+        if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.style.color = "#94a3b8"; vMute.classList.remove('mute-flash'); }
     }
 }
 
@@ -138,29 +178,30 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
+    
+    // Validar el input de FPS para que el máximo sea el del video
+    const fpsInput = document.getElementById('fps-jump-input');
+    if (fpsInput) {
+        let val = parseInt(fpsInput.value, 10);
+        if (val > window.videoFPS) fpsInput.value = window.videoFPS;
+    }
 });
 
 videoPlayer?.addEventListener('volumechange', () => {
     if (vMute && window.audioPeaks) {
         vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On";
-        vMute.style.color = videoPlayer.muted || videoPlayer.volume === 0 ? "#ef4444" : "#38bdf8";
+        if (videoPlayer.muted || videoPlayer.volume === 0) {
+            vMute.style.color = "#ef4444";
+            vMute.classList.add('mute-flash');
+        } else {
+            vMute.style.color = "#38bdf8";
+            vMute.classList.remove('mute-flash');
+        }
     }
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
-const dragOverlay = document.getElementById('drag-drop-overlay');
-let dragCounter = 0;
-
-window.addEventListener('dragenter', (e) => { 
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); dragCounter++; dragOverlay?.classList.add('active'); 
-});
-window.addEventListener('dragleave', (e) => { 
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); dragCounter--; if (dragCounter === 0) dragOverlay?.classList.remove('active'); 
-});
+// 🎯 Drag and drop directamente en la ventana (sin recuadro azul)
 window.addEventListener('dragover', (e) => { 
     if (window.isDraggingPreset) return; 
     if (!e.dataTransfer.types.includes('Files')) return; 
@@ -170,7 +211,7 @@ window.addEventListener('dragover', (e) => {
 window.addEventListener('drop', (e) => {
     if (window.isDraggingPreset) return; 
     if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); dragCounter = 0; dragOverlay?.classList.remove('active'); 
+    e.preventDefault(); 
     
     const files = Array.from(e.dataTransfer.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
@@ -183,7 +224,7 @@ window.addEventListener('drop', (e) => {
 
 // 🛡️ TECLADO COMPLETO
 window.addEventListener('keydown', (event) => {
-    if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA') return;
+    if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
     if (event.key === 'Escape' || event.key === 'Esc') {
         if (window.isPastingMode || window.isDraggingPreset) {
@@ -213,13 +254,14 @@ window.addEventListener('keydown', (event) => {
         window.timelineMarkers = window.timelineMarkers || [];
         const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
         
-        // Busca si ya hay un marcador cerca (margen de 50ms) para borrarlo
         let foundIdx = -1;
         for (let i=0; i<window.timelineMarkers.length; i++) {
-            if (Math.abs(window.timelineMarkers[i] - timeMs) <= 50) { foundIdx = i; break; }
+            if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
         }
+        
+        // Si hay uno, lo borra. Si no, lo crea al 50% de altura.
         if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
-        else window.timelineMarkers.push(timeMs);
+        else window.timelineMarkers.push({at: timeMs, pos: 50});
         
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         return;
@@ -281,7 +323,20 @@ window.addEventListener('keydown', (event) => {
 
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
     
-    if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
+    if (key === 'm' && !event.ctrlKey) { 
+        event.preventDefault(); 
+        videoPlayer.muted = !videoPlayer.muted; 
+        if (vMute) { 
+            vMute.innerText = videoPlayer.muted ? "🔇 Sonido Off" : "🔊 Sonido On"; 
+            if (videoPlayer.muted) {
+                vMute.style.color = "#ef4444";
+                vMute.classList.add('mute-flash');
+            } else {
+                vMute.style.color = "#38bdf8";
+                vMute.classList.remove('mute-flash');
+            }
+        }
+    }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     
@@ -290,9 +345,9 @@ window.addEventListener('keydown', (event) => {
         else window.dispatchEvent(new Event('forceTimelinePan'));
     };
 
-    // 🎯 NUEVO: Salto de cuadros dinámico desde la UI
+    // 🎯 LECTURA INTELIGENTE DE FPS
     const fpsInput = document.getElementById('fps-jump-input');
-    const framesToJump = fpsInput ? parseInt(fpsInput.value, 10) || 3 : 3;
+    const framesToJump = fpsInput ? (parseInt(fpsInput.value, 10) || 1) : 1;
     const msPerFrame = 1000 / window.videoFPS;
     const stepTimePrecision = (framesToJump * msPerFrame) / 1000; 
 
