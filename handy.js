@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V4: SYNC OFFSET DE USUARIO INTEGRADO
+// THE HANDY API V66.0: OFFSET REAL TIME UI
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -13,7 +13,16 @@ let autoUpdateTimeout = null;
 const handyKeyInput = document.getElementById('handy-key');
 const handyConnectBtn = document.getElementById('handy-connect-btn');
 const handyStatus = document.getElementById('handy-status');
-const handyOffsetInput = document.getElementById('handy-offset'); // 🎯 NUEVO
+
+// 🎯 FIX: Vinculación visual del Slider Offset en tiempo real
+const handyOffsetInput = document.getElementById('handy-offset'); 
+const handyOffsetDisplay = document.getElementById('handy-offset-display');
+
+if (handyOffsetInput && handyOffsetDisplay) {
+    handyOffsetInput.addEventListener('input', (e) => {
+        handyOffsetDisplay.innerText = e.target.value;
+    });
+}
 
 if (handyKeyInput) handyKeyInput.value = handyKey;
 
@@ -93,7 +102,6 @@ window.playHandy = async function(videoCurrentTimeMs) {
     if (!isHandyConnected) return;
     try {
         const serverTime = Date.now() + serverTimeOffset;
-        // 🎯 APLICAMOS EL OFFSET DE USUARIO AQUÍ
         const userOffset = handyOffsetInput ? (parseInt(handyOffsetInput.value, 10) || 0) : 0;
         const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs) + userOffset);
 
