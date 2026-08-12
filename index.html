@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=69">
+    <link rel="stylesheet" href="styles.css?v=71">
 </head>
 <body>
 
@@ -21,18 +21,16 @@
             
             <div class="dropdown">
                 <button class="menu-btn dark-btn device-alert-pulse" id="device-menu-btn">📱 Dispositivos</button>
-                <!-- 🎯 FIX: Se agregó la clase 'wide-dropdown' para evitar doble renglón -->
                 <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
                     
-                    <!-- 🎯 FIX: Handy Standar SIN modo Overclock -->
                     <a href="#" data-device="handy_std">Handy V1 / 2 Standar</a>
                     
-                    <!-- 🎯 FIX: Handy 2 PRO CON submenú de Overclock -->
                     <div class="sub-dropdown">
                         <a href="#" data-device="handy_pro">Handy 2 PRO</a>
                         <span class="sub-arrow">▶</span>
                         <div class="sub-dropdown-content">
-                            <label class="oc-label"><input type="checkbox" class="oc-toggle"> ⚡ Modo Overclock</label>
+                            <!-- 🎯 FIX: Etiquetas de texto listas para inyección dinámica de JS -->
+                            <label class="oc-label"><input type="checkbox" class="oc-toggle"> <span class="oc-text" style="color: #ef4444;">⚡ Overclock Off</span></label>
                         </div>
                     </div>
 
@@ -43,7 +41,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V69.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V71.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -206,12 +204,12 @@
 
     </div>
 
-    <script src="workspace.js?v=69"></script>
-    <script src="handy.js?v=69"></script> 
-    <script src="funscript.js?v=69"></script>
-    <script src="player.js?v=69"></script>
-    <script src="tracking.js?v=69"></script>
-    <script src="presets.js?v=69"></script>
-    <script src="timeline.js?v=69"></script>
+    <script src="workspace.js?v=71"></script>
+    <script src="handy.js?v=71"></script> 
+    <script src="funscript.js?v=71"></script>
+    <script src="player.js?v=71"></script>
+    <script src="tracking.js?v=71"></script>
+    <script src="presets.js?v=71"></script>
+    <script src="timeline.js?v=71"></script>
 </body>
 </html>
