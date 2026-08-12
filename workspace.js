@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V65.0: ANIMACIÓN DE TEMA Y SINCRONIZACIÓN DE MENÚS
+// WORKSPACE V66.0: RIPPLE THEME ANIMATION
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -7,31 +7,44 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleContainer = document.getElementById("top-center-toggles");
     if (!container || !toggleContainer) return;
 
-    // 🎯 FIX: Botón de Tema con Animación y Texto Dinámico
     const themeMenuBtn = document.getElementById('menu-theme-btn');
     const currentTheme = localStorage.getItem('funscript_theme') || 'dark';
     if (currentTheme === 'light') {
         document.body.classList.add('light-theme');
-        if (themeMenuBtn) themeMenuBtn.innerHTML = '🌙 Cambiar a Modo Oscuro';
+        if (themeMenuBtn) themeMenuBtn.innerHTML = '🌙 Modo oscuro';
     }
     
     if (themeMenuBtn) {
         themeMenuBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            // Animación suave
-            document.body.style.opacity = '0.8';
+            
+            // 🎯 NUEVO: Animación de "Gota" (Ripple) fluida
+            const x = e.clientX;
+            const y = e.clientY;
+            const ripple = document.createElement('div');
+            ripple.className = 'theme-ripple';
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            
+            const isCurrentlyLight = document.body.classList.contains('light-theme');
+            // El color que viene a cubrir la pantalla
+            ripple.style.background = isCurrentlyLight ? '#06090e' : '#f1f5f9';
+            document.body.appendChild(ripple);
+            
+            // A mitad de la animación cambiamos las variables reales
             setTimeout(() => {
                 document.body.classList.toggle('light-theme');
-                const isLight = document.body.classList.contains('light-theme');
-                localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-                themeMenuBtn.innerHTML = isLight ? '🌙 Cambiar a Modo Oscuro' : '☀️ Cambiar a Modo Claro';
+                const newIsLight = document.body.classList.contains('light-theme');
+                localStorage.setItem('funscript_theme', newIsLight ? 'light' : 'dark');
+                themeMenuBtn.innerHTML = newIsLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
                 
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
                 if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
                 if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
-                
-                document.body.style.opacity = '1';
-            }, 150);
+            }, 350); 
+            
+            // Destruimos el dom del ripple
+            setTimeout(() => { ripple.remove(); }, 800);
         });
     }
 
