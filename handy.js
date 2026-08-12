@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V66.0: OFFSET REAL TIME UI
+// THE HANDY API V67.0: OFFSET REAL TIME CON IMÁN MAGNÉTICO
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -14,13 +14,25 @@ const handyKeyInput = document.getElementById('handy-key');
 const handyConnectBtn = document.getElementById('handy-connect-btn');
 const handyStatus = document.getElementById('handy-status');
 
-// 🎯 FIX: Vinculación visual del Slider Offset en tiempo real
 const handyOffsetInput = document.getElementById('handy-offset'); 
 const handyOffsetDisplay = document.getElementById('handy-offset-display');
 
 if (handyOffsetInput && handyOffsetDisplay) {
     handyOffsetInput.addEventListener('input', (e) => {
-        handyOffsetDisplay.innerText = e.target.value;
+        let val = parseInt(e.target.value, 10);
+        
+        // 🎯 FIX: Imán Fuerte en 0, Imán Suave en 50, 100, etc.
+        if (Math.abs(val) <= 15) {
+            val = 0; 
+        } else {
+            let remainder = val % 50;
+            if (remainder >= -5 && remainder <= 5) {
+                val = Math.round(val / 50) * 50;
+            }
+        }
+        
+        e.target.value = val;
+        handyOffsetDisplay.innerText = val;
     });
 }
 
