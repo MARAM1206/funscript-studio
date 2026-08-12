@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V64.0 (NUEVA UI Y CONTROL DE FPS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V65.0 (PLAY AL CLIC Y CTRL+S)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -33,7 +33,6 @@ function formatTime(seconds) {
     return `${m}:${s}`;
 }
 
-// 🎯 REVISIÓN DEL ESTADO VACÍO (Muestra u oculta el letrero)
 window.checkEmptyState = function() {
     const emptyState = document.getElementById('video-empty-state');
     if (emptyState) {
@@ -45,11 +44,16 @@ window.checkEmptyState = function() {
     }
 };
 
-// 🎯 BOTÓN MAESTRO DE IMPORTAR (El ➕ del Gestor de Archivos)
 document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'add-file-btn') {
         universalInput?.click();
     }
+});
+
+// 🎯 FIX: PLAY/PAUSE AL HACER CLIC EN EL VIDEO
+videoPlayer?.addEventListener('click', () => {
+    if (videoPlayer.paused) videoPlayer.play();
+    else videoPlayer.pause();
 });
 
 universalInput?.addEventListener('change', function(event) {
@@ -179,7 +183,6 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
     
-    // Validar el input de FPS para que el máximo sea el del video
     const fpsInput = document.getElementById('fps-jump-input');
     if (fpsInput) {
         let val = parseInt(fpsInput.value, 10);
@@ -201,7 +204,6 @@ videoPlayer?.addEventListener('volumechange', () => {
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
-// 🎯 Drag and drop directamente en la ventana (sin recuadro azul)
 window.addEventListener('dragover', (e) => { 
     if (window.isDraggingPreset) return; 
     if (!e.dataTransfer.types.includes('Files')) return; 
@@ -248,7 +250,14 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 NUEVO: MARCADORES (Tecla T)
+    // 🎯 FIX: CTRL + S PARA GUARDAR
+    if (key === 's' && event.ctrlKey) {
+        event.preventDefault();
+        const exportBtn = document.getElementById('export-btn');
+        if (exportBtn) exportBtn.click();
+        return;
+    }
+
     if (key === 't' && !event.ctrlKey) {
         event.preventDefault();
         window.timelineMarkers = window.timelineMarkers || [];
@@ -259,7 +268,6 @@ window.addEventListener('keydown', (event) => {
             if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
         }
         
-        // Si hay uno, lo borra. Si no, lo crea al 50% de altura.
         if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
         else window.timelineMarkers.push({at: timeMs, pos: 50});
         
@@ -327,8 +335,8 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); 
         videoPlayer.muted = !videoPlayer.muted; 
         if (vMute) { 
-            vMute.innerText = videoPlayer.muted ? "🔇 Sonido Off" : "🔊 Sonido On"; 
-            if (videoPlayer.muted) {
+            vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On"; 
+            if (videoPlayer.muted || videoPlayer.volume === 0) {
                 vMute.style.color = "#ef4444";
                 vMute.classList.add('mute-flash');
             } else {
@@ -345,7 +353,6 @@ window.addEventListener('keydown', (event) => {
         else window.dispatchEvent(new Event('forceTimelinePan'));
     };
 
-    // 🎯 LECTURA INTELIGENTE DE FPS
     const fpsInput = document.getElementById('fps-jump-input');
     const framesToJump = fpsInput ? (parseInt(fpsInput.value, 10) || 1) : 1;
     const msPerFrame = 1000 / window.videoFPS;
