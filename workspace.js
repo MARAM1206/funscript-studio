@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V67.0: VIEW TRANSITIONS RIPPLE Y GESTOR DE DISPOSITIVOS
+// WORKSPACE V68.0: RIPPLE THEME ANIMATION, HARDWARE MENUS & OVERCLOCK
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -7,7 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleContainer = document.getElementById("top-center-toggles");
     if (!container || !toggleContainer) return;
 
-    // 🎯 FIX: Animación Nativa de View Transitions
     const themeMenuBtn = document.getElementById('menu-theme-btn');
     const currentTheme = localStorage.getItem('funscript_theme') || 'dark';
     if (currentTheme === 'light') {
@@ -20,7 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             const isLight = !document.body.classList.contains('light-theme');
             
-            // Si el navegador soporta View Transitions (Gota perfecta)
             if (document.startViewTransition) {
                 const x = e.clientX; const y = e.clientY;
                 document.documentElement.style.setProperty('--ripple-x', `${x}px`);
@@ -46,18 +44,37 @@ document.addEventListener("DOMContentLoaded", () => {
         if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
     }
 
-    // 🎯 NUEVO: Clic en el menú Dispositivos para actualizar el motor
-    const deviceLinks = document.querySelectorAll('#device-dropdown-list a');
+    // 🎯 FIX: Lógica Multidispositivo con Overclock
+    const deviceLinks = document.querySelectorAll('#device-dropdown-list > a, #device-dropdown-list .sub-dropdown > a');
     const deviceBtn = document.getElementById('device-menu-btn');
     window.activeDevice = localStorage.getItem('funscript_device') || 'handy_v2';
+    
+    // Checkboxes de Overclock
+    const ocToggles = document.querySelectorAll('.oc-toggle');
+    window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
+    
+    ocToggles.forEach(toggle => {
+        toggle.checked = window.isOverclockEnabled;
+        toggle.addEventListener('change', (e) => {
+            window.isOverclockEnabled = e.target.checked;
+            localStorage.setItem('funscript_overclock', window.isOverclockEnabled);
+            // Sincronizar todos los toggles por si hay varios en el DOM
+            ocToggles.forEach(t => t.checked = window.isOverclockEnabled);
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
+        });
+    });
     
     function updateDeviceMenu() {
         deviceLinks.forEach(link => {
             if (link.getAttribute('data-device') === window.activeDevice) {
-                link.style.color = '#38bdf8'; link.style.fontWeight = 'bold';
-                if(deviceBtn) deviceBtn.innerText = `📱 ${link.innerText}`;
+                link.classList.add('selected-device');
+                if(deviceBtn) {
+                    deviceBtn.innerText = `📱 ${link.innerText.replace(' ▶', '')}`;
+                    deviceBtn.classList.remove('device-alert-pulse');
+                }
             } else {
-                link.style.color = '#e2e8f0'; link.style.fontWeight = 'normal';
+                link.classList.remove('selected-device');
             }
         });
     }
@@ -70,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem('funscript_device', window.activeDevice);
             updateDeviceMenu();
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
         });
     });
 
