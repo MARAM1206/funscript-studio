@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V46.0 (SIN AUTO-CREACIÓN DE PISTA)
+// REPRODUCTOR Y MOTOR DE ATAJOS V63.0 (MARCADORES Y SALTO CONFIGURABLE)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
@@ -44,11 +44,15 @@ async function loadVideoFile(file, hasFunscripts = false) {
     videoPlayer.load();
     videoPlayer.playbackRate = currentSpeed;
     window.currentVideoName = file.name;
-    if (vName) vName.innerText = `📄 ${file.name}`;
+    
+    if (vName) {
+        let displayName = file.name;
+        if (displayName.length > 35) displayName = displayName.substring(0, 32) + "...";
+        vName.innerText = `📄 ${displayName}`;
+        vName.title = file.name; 
+    }
+    
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
-
-    // 🎯 FIX: Eliminamos la creación automática de "Nuevo_Script".
-    // Ahora solo se creará cuando el usuario dé el primer clic en la gráfica.
 
     if (vMute) { vMute.innerText = "⏳ Audio..."; vMute.style.color = "#f59e0b"; }
     try {
@@ -61,6 +65,9 @@ async function loadVideoFile(file, hasFunscripts = false) {
         const step = Math.floor(audioData.sampleRate / samplesPerSec);
         const peaks = new Float32Array(Math.floor(channelData.length / step));
         
+        // 🎯 NUEVO: Auto-Gain (Encontrar pico máximo real del audio para normalizarlo visualmente)
+        let absoluteMaxPeak = 0;
+
         for(let i = 0; i < peaks.length; i++) {
             let max = 0;
             for(let j = 0; j < step; j++) {
@@ -68,9 +75,12 @@ async function loadVideoFile(file, hasFunscripts = false) {
                 if(val > max) max = val;
             }
             peaks[i] = max;
+            if (max > absoluteMaxPeak) absoluteMaxPeak = max;
         }
+        
         window.audioPeaks = peaks;
         window.audioPeaksSampleRate = samplesPerSec;
+        window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; // Evita dividir entre cero
         
         if (vMute) { vMute.innerText = videoPlayer.muted ? "🔇 Sonido Off" : "🔊 Sonido On"; vMute.style.color = videoPlayer.muted ? "#ef4444" : "#38bdf8"; }
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -184,6 +194,7 @@ window.addEventListener('keydown', (event) => {
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
+        if (document.fullscreenElement) document.exitFullscreen();
     }
 
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
@@ -195,6 +206,24 @@ window.addEventListener('keydown', (event) => {
     const key = event.key.toLowerCase();
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
+
+    // 🎯 NUEVO: MARCADORES (Tecla T)
+    if (key === 't' && !event.ctrlKey) {
+        event.preventDefault();
+        window.timelineMarkers = window.timelineMarkers || [];
+        const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
+        
+        // Busca si ya hay un marcador cerca (margen de 50ms) para borrarlo
+        let foundIdx = -1;
+        for (let i=0; i<window.timelineMarkers.length; i++) {
+            if (Math.abs(window.timelineMarkers[i] - timeMs) <= 50) { foundIdx = i; break; }
+        }
+        if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
+        else window.timelineMarkers.push(timeMs);
+        
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
+    }
 
     if (key === 'f' && !event.ctrlKey) {
         event.preventDefault();
@@ -252,11 +281,6 @@ window.addEventListener('keydown', (event) => {
 
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
     
-    if (event.code === 'Space' && !window.isDraggingPreset && !window.isPastingMode) { 
-        event.preventDefault(); 
-        if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause(); 
-    }
-    
     if (key === 'm' && !event.ctrlKey) { event.preventDefault(); videoPlayer.muted = !videoPlayer.muted; }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
@@ -266,7 +290,9 @@ window.addEventListener('keydown', (event) => {
         else window.dispatchEvent(new Event('forceTimelinePan'));
     };
 
-    const framesToJump = 3;
+    // 🎯 NUEVO: Salto de cuadros dinámico desde la UI
+    const fpsInput = document.getElementById('fps-jump-input');
+    const framesToJump = fpsInput ? parseInt(fpsInput.value, 10) || 3 : 3;
     const msPerFrame = 1000 / window.videoFPS;
     const stepTimePrecision = (framesToJump * msPerFrame) / 1000; 
 
