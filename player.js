@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V66.0 (PLAY AL CLIC Y CTRL+S)
+// REPRODUCTOR Y MOTOR DE ATAJOS V68.0 (CTRL+S Y PLAY/PAUSE FORCE)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -245,14 +245,12 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 FIX: Restaurar la Barra Espaciadora para Play/Pause
+    // 🎯 FIX: Espacio maestro que quita el enfoque a cualquier botón y fuerza el play/pause
     if (event.code === 'Space') {
-        // Robamos el foco de los botones para que el navegador no los presione por error
         if (document.activeElement && (document.activeElement.tagName === 'BUTTON' || document.activeElement.type === 'range')) {
             document.activeElement.blur(); 
         }
         
-        // Si NO estamos arrastrando presets, el espacio debe pausar/reproducir
         if (!window.isDraggingPreset && !window.isPastingMode) {
             event.preventDefault();
             if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
@@ -264,7 +262,7 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
-    // 🎯 FIX: CTRL + S PARA GUARDAR
+    // 🎯 CTRL + S PARA GUARDAR
     if (key === 's' && event.ctrlKey) {
         event.preventDefault();
         const exportBtn = document.getElementById('export-btn');
@@ -272,7 +270,7 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 MARCADORES (Tecla T) Modificados para llevar porcentaje
+    // 🎯 MARCADORES (Tecla T)
     if (key === 't' && !event.ctrlKey) {
         event.preventDefault();
         window.timelineMarkers = window.timelineMarkers || [];
@@ -283,9 +281,8 @@ window.addEventListener('keydown', (event) => {
             if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
         }
         
-        // Si hay uno, lo borra. Si no, lo crea al 80% de altura (para que no estorbe abajo).
         if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
-        else window.timelineMarkers.push({at: timeMs, pos: 80});
+        else window.timelineMarkers.push({at: timeMs, pos: 80}); // 80% default height
         
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         return;
@@ -352,10 +349,12 @@ window.addEventListener('keydown', (event) => {
         videoPlayer.muted = !videoPlayer.muted; 
         const vMuteContainer = document.getElementById('v-mute-container');
         if (vMute) { 
-            vMute.innerText = videoPlayer.muted ? "🔇 Sonido Off" : "🔊 Sonido On"; 
-            if (videoPlayer.muted) {
+            vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On"; 
+            if (videoPlayer.muted || videoPlayer.volume === 0) {
+                vMute.style.color = "#ef4444";
                 if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
             } else {
+                vMute.style.color = "#38bdf8";
                 if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
             }
         }
