@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V64.0: DROPDOWNS DE CONFIGURACIÓN Y TÍTULOS LIMPIOS
+// WORKSPACE V65.0: ANIMACIÓN DE TEMA Y SINCRONIZACIÓN DE MENÚS
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -7,27 +7,34 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleContainer = document.getElementById("top-center-toggles");
     if (!container || !toggleContainer) return;
 
-    // Lógica para el botón del Tema dentro del Dropdown
+    // 🎯 FIX: Botón de Tema con Animación y Texto Dinámico
     const themeMenuBtn = document.getElementById('menu-theme-btn');
     const currentTheme = localStorage.getItem('funscript_theme') || 'dark';
     if (currentTheme === 'light') {
         document.body.classList.add('light-theme');
+        if (themeMenuBtn) themeMenuBtn.innerHTML = '🌙 Cambiar a Modo Oscuro';
     }
     
     if (themeMenuBtn) {
         themeMenuBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            document.body.classList.toggle('light-theme');
-            const isLight = document.body.classList.contains('light-theme');
-            localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-            
-            if (typeof window.drawTimeline === 'function') window.drawTimeline();
-            if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
-            if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
+            // Animación suave
+            document.body.style.opacity = '0.8';
+            setTimeout(() => {
+                document.body.classList.toggle('light-theme');
+                const isLight = document.body.classList.contains('light-theme');
+                localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+                themeMenuBtn.innerHTML = isLight ? '🌙 Cambiar a Modo Oscuro' : '☀️ Cambiar a Modo Claro';
+                
+                if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+                if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
+                
+                document.body.style.opacity = '1';
+            }, 150);
         });
     }
 
-    // Lógica para Borrar Caché
     const cacheMenuBtn = document.getElementById('menu-cache-btn');
     if (cacheMenuBtn) {
         cacheMenuBtn.addEventListener('click', (e) => {
@@ -38,7 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 🎯 SINCRONIZACIÓN DE BOTONES VERDES (MODO ADAPTATIVO)
     window.syncAdaptiveButtons = function(isActive) {
         document.querySelectorAll('.adaptive-btn').forEach(btn => {
             if (isActive) {
@@ -68,7 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let panelVisibility = JSON.parse(localStorage.getItem("funscript_panel_visibility")) || {};
 
     panels.forEach(panel => {
-        // Asegurarse de tomar el data-title correcto para la botonera
         const title = panel.getAttribute("data-title") || panel.id;
         if (panelVisibility[panel.id] === undefined) panelVisibility[panel.id] = true;
 
@@ -124,7 +129,6 @@ document.addEventListener("DOMContentLoaded", () => {
             topZIndex++; panel.style.zIndex = topZIndex;
         });
 
-        // 🎯 Si no tiene header forzado por HTML, lo creamos
         if (!panel.querySelector(".panel-header")) {
             const title = panel.getAttribute("data-title") || "Panel";
             const header = document.createElement("div");
@@ -174,13 +178,12 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             panel.insertBefore(header, panel.firstChild);
         } else {
-            // Si ya tiene header por HTML (como Tracks o Timeline), le metemos la lógica de arrastre
             const header = panel.querySelector(".panel-header");
             let isDragging = false;
             let startX, startY, startLeft, startTop;
 
             header.addEventListener("mousedown", (e) => {
-                if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+                if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('.fps-control')) return;
                 isDragging = true; topZIndex++; panel.style.zIndex = topZIndex;
                 startX = e.clientX; startY = e.clientY;
                 startLeft = panel.offsetLeft; startTop = panel.offsetTop;
