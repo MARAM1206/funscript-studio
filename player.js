@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V63.0 (MARCADORES Y SALTO CONFIGURABLE)
+// REPRODUCTOR Y MOTOR DE ATAJOS V44 (MARCADORES Y SALTO CONFIGURABLE)
 // ==========================================================================
 
 const videoInput = document.getElementById('video-input');
