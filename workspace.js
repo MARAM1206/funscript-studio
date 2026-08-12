@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V10.0: BOTONES ADAPTATIVOS CLICKEABLES Y TEMA CLARO
+// WORKSPACE V64.0: DROPDOWNS DE CONFIGURACIÓN Y TÍTULOS LIMPIOS
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -7,22 +7,36 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleContainer = document.getElementById("top-center-toggles");
     if (!container || !toggleContainer) return;
 
-    const themeBtn = document.getElementById('theme-toggle-btn');
+    // Lógica para el botón del Tema dentro del Dropdown
+    const themeMenuBtn = document.getElementById('menu-theme-btn');
     const currentTheme = localStorage.getItem('funscript_theme') || 'dark';
     if (currentTheme === 'light') {
         document.body.classList.add('light-theme');
-        if (themeBtn) themeBtn.innerText = '🌙 Oscuro';
     }
-    themeBtn?.addEventListener('click', () => {
-        document.body.classList.toggle('light-theme');
-        const isLight = document.body.classList.contains('light-theme');
-        localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-        themeBtn.innerText = isLight ? '🌙 Oscuro' : '☀️ Claro';
-        
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
-        if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
-    });
+    
+    if (themeMenuBtn) {
+        themeMenuBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.body.classList.toggle('light-theme');
+            const isLight = document.body.classList.contains('light-theme');
+            localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+            
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
+            if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
+        });
+    }
+
+    // Lógica para Borrar Caché
+    const cacheMenuBtn = document.getElementById('menu-cache-btn');
+    if (cacheMenuBtn) {
+        cacheMenuBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if(confirm("¿Estás seguro de querer borrar caché y recargar? Los cambios no guardados se perderán.")) {
+                location.reload(true);
+            }
+        });
+    }
 
     // 🎯 SINCRONIZACIÓN DE BOTONES VERDES (MODO ADAPTATIVO)
     window.syncAdaptiveButtons = function(isActive) {
@@ -37,7 +51,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    // 🎯 HACER QUE EL BOTÓN RESPONDA AL CLIC
     document.addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('adaptive-btn')) {
             window.isAdaptiveModeActive = !window.isAdaptiveModeActive;
@@ -55,6 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let panelVisibility = JSON.parse(localStorage.getItem("funscript_panel_visibility")) || {};
 
     panels.forEach(panel => {
+        // Asegurarse de tomar el data-title correcto para la botonera
         const title = panel.getAttribute("data-title") || panel.id;
         if (panelVisibility[panel.id] === undefined) panelVisibility[panel.id] = true;
 
@@ -110,25 +124,18 @@ document.addEventListener("DOMContentLoaded", () => {
             topZIndex++; panel.style.zIndex = topZIndex;
         });
 
+        // 🎯 Si no tiene header forzado por HTML, lo creamos
         if (!panel.querySelector(".panel-header")) {
             const title = panel.getAttribute("data-title") || "Panel";
             const header = document.createElement("div");
             header.className = "panel-header";
-            
-            let extraInfo = "";
-            if (panel.id === "panel-timeline") {
-                extraInfo = `<span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; margin-left: auto;">Puntos: 0 | Velocidad: --</span>`;
-            } else if (panel.id === "panel-presets") {
-                // 🎯 BOTÓN INYECTADO DIRECTAMENTE AL TÍTULO
-                extraInfo = `<button id="adaptive-btn-main" class="adaptive-btn off">Modo Adaptativo Off</button>`;
-            }
-
-            header.innerHTML = `<span style="font-weight: bold;">${title}</span>${extraInfo}`;
+            header.innerHTML = `<span style="font-weight: bold;">${title}</span>`;
 
             let isDragging = false;
             let startX, startY, startLeft, startTop;
 
             header.addEventListener("mousedown", (e) => {
+                if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
                 isDragging = true; topZIndex++; panel.style.zIndex = topZIndex;
                 startX = e.clientX; startY = e.clientY;
                 startLeft = panel.offsetLeft; startTop = panel.offsetTop;
@@ -166,6 +173,39 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.addEventListener("mousemove", onMouseMove); document.addEventListener("mouseup", onMouseUp);
             });
             panel.insertBefore(header, panel.firstChild);
+        } else {
+            // Si ya tiene header por HTML (como Tracks o Timeline), le metemos la lógica de arrastre
+            const header = panel.querySelector(".panel-header");
+            let isDragging = false;
+            let startX, startY, startLeft, startTop;
+
+            header.addEventListener("mousedown", (e) => {
+                if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+                isDragging = true; topZIndex++; panel.style.zIndex = topZIndex;
+                startX = e.clientX; startY = e.clientY;
+                startLeft = panel.offsetLeft; startTop = panel.offsetTop;
+
+                const onMouseMove = (moveEvent) => {
+                    if (!isDragging) return;
+                    let newLeft = startLeft + (moveEvent.clientX - startX);
+                    let newTop = startTop + (moveEvent.clientY - startY);
+
+                    newLeft = Math.max(GAP, Math.min(container.clientWidth - panel.offsetWidth - GAP, newLeft));
+                    newTop = Math.max(GAP, Math.min(container.clientHeight - panel.offsetHeight - GAP, newTop));
+
+                    panel.style.left = `${newLeft}px`; panel.style.top = `${newTop}px`;
+                };
+
+                const onMouseUp = () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        document.removeEventListener("mousemove", onMouseMove);
+                        document.removeEventListener("mouseup", onMouseUp);
+                        saveCurrentLayout(); window.dispatchEvent(new Event('resize'));
+                    }
+                };
+                document.addEventListener("mousemove", onMouseMove); document.addEventListener("mouseup", onMouseUp);
+            });
         }
 
         const directions = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
