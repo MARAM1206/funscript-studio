@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V68.0: TELEMETRÍA MULTIDISPOSITIVO Y MARCADORES MAGENTA
+// TIMELINE V69.0: HARDWARE DB SYNCHRONIZATION AND MAGENTA TAGS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -7,26 +7,24 @@ window.timelineMarkers = window.timelineMarkers || [];
 
 window.presetMorphMode = 'stretch'; 
 
-// 🎯 FIX: BASE DE DATOS DE HARDWARE COMPLETA (CON SOPORTE OVERCLOCK)
+// 🎯 FIX: Hardware DB perfectamente alineada a los IDs del HTML
 window.hardwareDB = {
-    "handy_v1_v2": {
-        name: "The Handy (V1 / V2 Standard)",
-        stroke: 110, pos_factor: 1.10, supports_overclock: true,
-        standard: { max: 400, min: 32 }, overclock: { max: 550, min: 25 }
+    "handy_std": {
+        name: "Handy V1 / 2 Standar",
+        stroke: 110, factor: 1.10, supports_overclock: false,
+        standard: { max: 400, min: 32 }
     },
     "handy_pro": {
-        name: "The Handy Pro / Handy 2",
-        stroke: 125, pos_factor: 1.25, supports_overclock: true,
+        name: "Handy 2 PRO",
+        stroke: 125, factor: 1.25, supports_overclock: true,
         standard: { max: 500, min: 20 }, overclock: { max: 650, min: 15 }
     },
-    "keon_1": { name: "Kiiroo Keon 1", stroke: 75, pos_factor: 0.75, supports_overclock: false, standard: { max: 280, min: 20 } },
-    "keon_2": { name: "Kiiroo Keon 2", stroke: 80, pos_factor: 0.80, supports_overclock: false, standard: { max: 350, min: 18 } },
-    "keon_sm": { name: "Kiiroo Sex Machine", stroke: 100, pos_factor: 1.00, supports_overclock: false, standard: { max: 450, min: 20 } },
-    "erojoy_x3": { name: "Erojoy X3", stroke: 115, pos_factor: 1.15, supports_overclock: false, standard: { max: 320, min: 22 } }
+    "keon_1": { name: "Kiiroo Keon 1", stroke: 75, factor: 0.75, supports_overclock: false, standard: { max: 280, min: 20 } },
+    "keon_2": { name: "Kiiroo Keon 2", stroke: 80, factor: 0.80, supports_overclock: false, standard: { max: 350, min: 18 } },
+    "keon_sm": { name: "Kiiroo Sex Machine", stroke: 100, factor: 1.00, supports_overclock: false, standard: { max: 450, min: 20 } },
+    "erojoy_x3": { name: "Erojoy X3", stroke: 115, factor: 1.15, supports_overclock: false, standard: { max: 320, min: 22 } }
 };
-
-window.activeDevice = localStorage.getItem('funscript_device') || 'handy_v1_v2';
-window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
+window.activeDevice = localStorage.getItem('funscript_device') || 'handy_std';
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -307,7 +305,8 @@ window.updateHeatmapAndStats = function() {
         } else if (actions.length === 1) {
             speedText = "Slow (0)"; colorHtml = "#10b981";
         }
-        statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> | Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88;">${speedText}</strong>`;
+        // 🎯 FIX: white-space: nowrap para evitar el salto de renglón
+        statsSpan.innerHTML = `Puntos: <strong style="color:#e2e8f0;">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88; white-space: nowrap;">${speedText}</strong>`;
     }
 
     const hCanvas = document.getElementById('heatmap-canvas');
@@ -516,7 +515,7 @@ window.addEventListener('presetCustomDrop', (e) => {
                     window.funscriptActions.forEach(a => a.selected = false);
                     window.funscriptActions.push(...morphed);
                 } else {
-                    window.funscriptActions = actions.filter(a => !newTimes.has(a.at)); 
+                    window.funscriptActions = actions.filter(a => !a.selected); 
                     morphed.forEach(m => m.selected = true);
                     window.funscriptActions.push(...morphed);
                 }
@@ -852,7 +851,7 @@ window.drawTimeline = function() {
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
 
-            const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_pro'];
+            const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
             let hwMax = device.standard.max;
             let hwMin = device.standard.min;
             if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
@@ -873,7 +872,6 @@ window.drawTimeline = function() {
                 }
 
                 let lineColor = '#38bdf8'; 
-                // 🎯 FIX: Parpadeo sutil para líneas rojas y amarillas
                 const tPulse = performance.now() / 150;
                 const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
                 
@@ -1009,7 +1007,7 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: MARCADORES MAGENTA NEÓN
+        // 🎯 FIX: TAGS MAGENTA CON MAGNETISMO EN X/Y Y DISEÑO MODERNO
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, index) => {
                 const mx = timeToX(m.at);
@@ -1023,14 +1021,14 @@ window.drawTimeline = function() {
                     ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
                     ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
 
-                    // Banner superior moderno
+                    // Modern Tag Banner
                     ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#d946ef';
                     ctx.beginPath();
-                    ctx.moveTo(mx - 12, 0);
-                    ctx.lineTo(mx + 12, 0);
-                    ctx.lineTo(mx + 12, 16);
+                    ctx.moveTo(mx - 15, 0);
+                    ctx.lineTo(mx + 15, 0);
+                    ctx.lineTo(mx + 15, 14);
                     ctx.lineTo(mx, 22);
-                    ctx.lineTo(mx - 12, 16);
+                    ctx.lineTo(mx - 15, 14);
                     ctx.closePath();
                     ctx.fill();
                     
