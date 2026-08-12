@@ -4,23 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=65">
+    <link rel="stylesheet" href="styles.css?v=66">
 </head>
 <body>
 
     <div class="top-bar-menu">
         <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
-            <!-- Menú Engrane (Configuración) -->
             <div class="dropdown">
                 <button class="menu-btn" style="background: #334155; color: #ffffff;">⚙️ Configuración</button>
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
-                    <a href="#" id="menu-theme-btn">☀️ Cambiar a Modo Claro</a>
+                    <a href="#" id="menu-theme-btn">☀️ Modo claro</a>
                     <a href="#" id="menu-cache-btn">🗑️ Borrar Caché</a>
                 </div>
             </div>
             
-            <!-- Menú Dispositivos -->
             <div class="dropdown">
                 <button class="menu-btn" style="background: #334155; color: #ffffff;">📱 Dispositivo</button>
                 <div class="dropdown-content">
@@ -30,26 +28,23 @@
                 </div>
             </div>
 
-            <!-- 🎯 NUEVO: Leyenda reubicada y MARAM en negritas -->
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V65.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V66.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
-        <!-- Pestañas Centrales -->
         <div id="top-center-toggles" class="top-center-toggles"></div>
         
-        <!-- Lado Derecho -->
         <div class="top-right-actions" style="display: flex; align-items: center; gap: 15px;">
             
             <div class="handy-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid;">
                 <span id="handy-status" style="font-size:0.75rem; color:#64748b; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
                 <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
                 
-                <!-- Menú Desplegable de Offset -->
                 <div class="dropdown" style="display: flex; align-items: center;">
                     <button class="menu-btn" style="background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
-                    <div class="dropdown-content" style="padding: 10px; width: 180px; left: -50px; text-align: center;">
+                    <!-- 🎯 FIX: Deslizador del Offset ajustado -->
+                    <div class="dropdown-content" style="padding: 10px; width: 200px; left: -60px; text-align: center;">
                         <label style="font-size:0.75rem; color: var(--text-main, #e2e8f0); display: block; margin-bottom: 5px;">Sync Offset: <span id="handy-offset-display">0</span> ms</label>
-                        <input type="range" id="handy-offset" min="-500" max="500" step="10" value="0" style="width: 100%;">
+                        <input type="range" id="handy-offset" min="-250" max="250" step="10" value="0" style="width: 100%;">
                     </div>
                 </div>
 
@@ -60,31 +55,24 @@
         </div>
     </div>
 
-    <!-- Input Oculto Maestro -->
     <input type="file" id="universal-file-input" accept="video/*,.funscript,.json" multiple style="display: none;">
 
     <div id="preset-editor-modal" class="modal-overlay">
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 500px;">
-            
             <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
-                
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="margin: 0; color: var(--text-main, #e2e8f0); font-size: 1.1rem;">✏️ Editor de Presets</h3>
                     <button id="adaptive-btn-modal" class="adaptive-btn off">Modo Adaptativo Off</button>
                 </div>
-                
                 <label style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
                 <input type="text" id="preset-editor-name" class="modal-input" style="width: 100%; padding: 10px; border-radius: 6px; border-width: 1px; border-style: solid; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
-                
                 <div style="display: flex; justify-content: space-between; align-items:flex-end;">
                     <label style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
                     <span style="font-size: 0.7rem; color: var(--text-dim, #64748b); margin-bottom: 4px;">Atajos (Ctrl+C, V, Z, Y, A, Flechas) | Zoom: Shift+Ruedita</span>
                 </div>
-                
                 <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
                     <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
                 </div>
-                
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                     <p style="font-size: 0.75rem; color: var(--text-dim, #64748b); margin: 0;">Click Izq: Crear/Mover/Pegar | Click Der: Eliminar/Cancelar</p>
                     <div style="display: flex; gap: 10px;">
@@ -94,14 +82,11 @@
                     </div>
                 </div>
             </div>
-
             <div class="modal-content" style="width: 250px; display: flex; flex-direction: column; padding: 15px;">
                 <h4 class="modal-h4" style="font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom-width: 1px; border-bottom-style: solid; padding-bottom: 10px;">Tus Presets</h4>
                 <p style="font-size: 0.7rem; color: var(--text-dim, #64748b); text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
-                <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
-                </div>
+                <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
-
         </div>
     </div>
 
@@ -109,15 +94,10 @@
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column;">
                 <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
-                    <!-- Letrero de Vacío (Se apaga por JS si hay contenido) -->
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
-                    
-                    <!-- 🎯 FIX: style="cursor: pointer;" para invitar al clic de Play/Pause -->
                     <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-                    
                     <div id="fs-mini-btn" class="fs-mini-icon" title="Pantalla Completa (F)">⤢</div>
-
                     <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
                 </div>
                 <div class="video-bottom-unified-bar">
@@ -138,7 +118,8 @@
                             <span id="v-res" class="fixed-info">--x--</span> <span class="divider">|</span> 
                             <span id="v-fps" class="fixed-info">-- fps</span> <span class="divider">|</span> 
                             <span id="v-speed" class="fixed-info">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
-                            <span id="v-mute" class="fixed-info">🔊 Sonido On</span>
+                            <!-- 🎯 FIX: Contenedor para el parpadeo integrado -->
+                            <span id="v-mute-container" class="fixed-info"><span id="v-mute">🔊 Sonido On</span></span>
                         </div>
                     </div>
                 </div>
@@ -192,8 +173,6 @@
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
             <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
                 <span style="font-weight: bold; width: 150px;">📈 Línea de Tiempo</span>
-                
-                <!-- 🎯 NUEVO: Diseño de Caja de FPS custom -->
                 <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.8rem; font-family: monospace; color: var(--text-dim, #94a3b8);">
                      <span>Saltos:</span>
                      <div class="fps-control">
@@ -203,7 +182,6 @@
                      </div>
                      <span>fps</span>
                 </div>
-
                 <div style="width: 250px; text-align: right;">
                     <span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Velocidad: --</span>
                 </div>
@@ -215,12 +193,12 @@
 
     </div>
 
-    <script src="workspace.js?v=65"></script>
-    <script src="handy.js?v=65"></script> 
-    <script src="funscript.js?v=65"></script>
-    <script src="player.js?v=65"></script>
-    <script src="tracking.js?v=65"></script>
-    <script src="presets.js?v=65"></script>
-    <script src="timeline.js?v=65"></script>
+    <script src="workspace.js?v=66"></script>
+    <script src="handy.js?v=66"></script> 
+    <script src="funscript.js?v=66"></script>
+    <script src="player.js?v=66"></script>
+    <script src="tracking.js?v=66"></script>
+    <script src="presets.js?v=66"></script>
+    <script src="timeline.js?v=66"></script>
 </body>
 </html>
