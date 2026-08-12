@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V3: INTEGRACIÓN COMPACTA EN BARRA SUPERIOR
+// THE HANDY API V4: SYNC OFFSET DE USUARIO INTEGRADO
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -10,10 +10,10 @@ let isHandyConnected = false;
 let serverTimeOffset = 0;
 let autoUpdateTimeout = null;
 
-// Referencias UI
 const handyKeyInput = document.getElementById('handy-key');
 const handyConnectBtn = document.getElementById('handy-connect-btn');
 const handyStatus = document.getElementById('handy-status');
+const handyOffsetInput = document.getElementById('handy-offset'); // 🎯 NUEVO
 
 if (handyKeyInput) handyKeyInput.value = handyKey;
 
@@ -93,10 +93,14 @@ window.playHandy = async function(videoCurrentTimeMs) {
     if (!isHandyConnected) return;
     try {
         const serverTime = Date.now() + serverTimeOffset;
+        // 🎯 APLICAMOS EL OFFSET DE USUARIO AQUÍ
+        const userOffset = handyOffsetInput ? (parseInt(handyOffsetInput.value, 10) || 0) : 0;
+        const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs) + userOffset);
+
         await fetch(`${HANDY_API_BASE}/hssp/play`, {
             method: 'PUT',
             headers: { 'X-Connection-Key': handyKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estimatedServerTime: serverTime, startTime: Math.round(videoCurrentTimeMs) })
+            body: JSON.stringify({ estimatedServerTime: serverTime, startTime: adjustedVideoTime })
         });
     } catch (err) {}
 };
