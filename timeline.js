@@ -1,11 +1,10 @@
 // ==========================================================================
-// TIMELINE V63.0: 4 MODOS ESPACIO, MARCADORES T, AUTO-GAIN AUDIO, TELEMETRIA
+// TIMELINE V64.0: MARCADORES T, ARRASTRE LIBRE Y RENDIMIENTO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
-window.timelineMarkers = window.timelineMarkers || []; // 🎯 NUEVO: Arreglo de Marcadores
+window.timelineMarkers = window.timelineMarkers || []; // 🎯 Memoria de Marcadores T
 
-// 🎯 FIX: Ahora con 4 modos: stretch, anchor, repeat, raw
 window.presetMorphMode = 'stretch'; 
 
 function getSafeActions() {
@@ -38,10 +37,26 @@ let draggedNodeIndex = -1;
 let dragSelectionInitialStates = [];
 let dragStartXTime = 0;
 let dragStartYPos = 0;
+
+// 🎯 NUEVO: Variables para arrastrar los Marcadores T
+let isDraggingMarker = false;
+let draggedMarkerIndex = -1;
+
 window.magneticSnapPoint = null;
 window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
+
+// Auto-corrector de la caja de FPS (No admite ceros ni exceder límite)
+const fpsInput = document.getElementById('fps-jump-input');
+if (fpsInput) {
+    fpsInput.addEventListener('change', function() {
+        let val = parseInt(this.value, 10);
+        if (isNaN(val) || val < 1) val = 1;
+        if (window.videoFPS && val > window.videoFPS) val = window.videoFPS;
+        this.value = val;
+    });
+}
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
@@ -105,16 +120,15 @@ window.getMorphedPreset = function(preset, selectedActions) {
     
     let useAnchorModifier = window.isRightClickDrag === true;
     
-    // 🎯 NUEVO: Modo Escala Original (Puro/Clon)
     if (window.presetMorphMode === 'raw') {
         const t_min = selectedActions[0].at;
         return preset.map(act => ({
-            at: Math.round(t_min + act.at), // Mantiene la rítmica exacta
-            pos: act.pos // Mantiene la altura exacta sin importar donde lo sueltes
+            at: Math.round(t_min + act.at),
+            pos: act.pos
         }));
     }
     
-    if (selectedActions.length < 2) return null; // Para stretch/anchor/repeat necesitas al menos 2 puntos
+    if (selectedActions.length < 2) return null; 
     
     if (window.presetMorphMode === 'repeat' && selectedActions.length >= 3) {
         let results = [];
@@ -239,7 +253,7 @@ window.updateHeatmapAndStats = function() {
     const statsSpan = document.getElementById('timeline-stats');
     if (statsSpan) {
         let speedText = "--";
-        let colorHtml = "#94a3b8"; // Default color
+        let colorHtml = "#94a3b8"; 
 
         if (actions.length > 1) {
             let totalSegmentSpeed = 0;
@@ -256,11 +270,11 @@ window.updateHeatmapAndStats = function() {
 
             if (validSegments > 0) {
                 const fapTapSpeed = Math.round(totalSegmentSpeed / validSegments);
-                // 🎯 NUEVO: Colores aplicados al HTML de la velocidad
-                if (fapTapSpeed >= 250) { speedText = `Very Fast (${fapTapSpeed})`; colorHtml = "#ef4444"; }
-                else if (fapTapSpeed >= 150) { speedText = `Fast (${fapTapSpeed})`; colorHtml = "#f97316"; }
-                else if (fapTapSpeed >= 80) { speedText = `Medium (${fapTapSpeed})`; colorHtml = "#facc15"; }
-                else { speedText = `Slow (${fapTapSpeed})`; colorHtml = "#10b981"; }
+                // 🎯 FIX: Coloreado Neón según la intensidad
+                if (fapTapSpeed >= 250) { speedText = `Very Fast (${fapTapSpeed})`; colorHtml = "#ef4444"; } // Rojo
+                else if (fapTapSpeed >= 150) { speedText = `Fast (${fapTapSpeed})`; colorHtml = "#f97316"; } // Naranja
+                else if (fapTapSpeed >= 80) { speedText = `Medium (${fapTapSpeed})`; colorHtml = "#facc15"; } // Amarillo
+                else { speedText = `Slow (${fapTapSpeed})`; colorHtml = "#10b981"; } // Verde
             }
         } else if (actions.length === 1) {
             speedText = "Slow (0)"; colorHtml = "#10b981";
@@ -463,14 +477,12 @@ window.addEventListener('presetCustomDrop', (e) => {
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
-        // Raw Mode (Clon) bypasses selection rules
         if (window.presetMorphMode === 'raw' || (window.isAdaptiveModeActive && selected.length >= 2)) {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.presetMorphMode === 'raw' ? [{at: window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x))}] : selected);
             if (morphed) {
                 saveHistoryState();
                 
                 if (window.presetMorphMode === 'raw') {
-                    // Sobre-escribe cualquier punto en ese rango
                     const newTimes = new Set(morphed.map(a => a.at));
                     window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
                     window.funscriptActions.forEach(a => a.selected = false);
@@ -482,7 +494,6 @@ window.addEventListener('presetCustomDrop', (e) => {
                 }
                 
                 cleanDuplicates();
-                
                 window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
                 notifyCloud(); window.updateHeatmapAndStats();
@@ -639,6 +650,14 @@ window.addEventListener('deletePoints', () => {
         window.funscriptActions = actions.filter(a => !a.selected);
         notifyCloud(); window.updateHeatmapAndStats();
     }
+    
+    // También elimina marcadores seleccionados (arrastrando)
+    if (isDraggingMarker && draggedMarkerIndex !== -1) {
+        window.timelineMarkers.splice(draggedMarkerIndex, 1);
+        isDraggingMarker = false;
+        draggedMarkerIndex = -1;
+        window.drawTimeline();
+    }
 });
 
 window.addEventListener('undoAction', () => { undo(); });
@@ -719,7 +738,7 @@ window.drawTimeline = function() {
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 🎯 FIX: AUDIO AUTO-GAIN VISUAL (Se amplía al 30% del canvas)
+        // 🎯 FIX: AUDIO AUTO-GAIN VISUAL
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
@@ -737,7 +756,6 @@ window.drawTimeline = function() {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
                 if (x >= 30) {
-                    // Normalización Auto-Gain usando el máximo absoluto detectado
                     const amplitude = (window.audioPeaks[i] / window.audioMaxPeak) * boostHeight; 
                     ctx.moveTo(x, yCenter - amplitude);
                     ctx.lineTo(x, yCenter + amplitude);
@@ -928,32 +946,33 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: Dibujar Marcadores de Etiqueta (Tecla T)
+        // 🎯 FIX: Dibujar Marcadores de Etiqueta (Tecla T) con Puntero de Selección
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
-            window.timelineMarkers.forEach(mTime => {
-                const mx = timeToX(mTime);
+            window.timelineMarkers.forEach((m, index) => {
+                const mx = timeToX(m.at);
+                const my = posToY(m.pos);
                 if (mx >= 30) {
                     ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
                     
-                    ctx.fillStyle = '#facc15';
+                    ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#facc15';
                     ctx.beginPath();
-                    ctx.moveTo(mx - 6, 0);
-                    ctx.lineTo(mx + 6, 0);
-                    ctx.lineTo(mx + 6, 12);
-                    ctx.lineTo(mx, 18);
-                    ctx.lineTo(mx - 6, 12);
+                    ctx.moveTo(mx, my);
+                    ctx.lineTo(mx - 8, my - 12);
+                    ctx.lineTo(mx + 8, my - 12);
+                    ctx.lineTo(mx + 8, my - 24);
+                    ctx.lineTo(mx - 8, my - 24);
                     ctx.closePath();
                     ctx.fill();
                     
                     ctx.fillStyle = '#020617'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText("M", mx, 10);
-                    ctx.textAlign = 'left'; // Reset
+                    ctx.fillText("T", mx, my - 14);
+                    ctx.textAlign = 'left';
                 }
             });
         }
 
-        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
+        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode && !isDraggingMarker) {
             const px = timeToX(window.magneticSnapPoint.at);
             const py = posToY(window.magneticSnapPoint.pos);
             ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; 
@@ -1179,6 +1198,21 @@ canvas?.addEventListener('mousedown', (e) => {
     const clickX = pos.x; const clickY = pos.y;
 
     if (e.button === 0) { 
+        // 🎯 FIX: Prioridad a los Marcadores (Tags)
+        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+            for (let i = 0; i < window.timelineMarkers.length; i++) {
+                const m = window.timelineMarkers[i];
+                const mx = timeToX(m.at);
+                const my = posToY(m.pos);
+                if (Math.hypot(clickX - mx, clickY - my) <= 15) { 
+                    isDraggingMarker = true;
+                    draggedMarkerIndex = i;
+                    saveHistoryState();
+                    return; 
+                }
+            }
+        }
+
         let clickedNode = null;
         let cIndex = -1;
         for (let i = 0; i < actions.length; i++) {
@@ -1234,13 +1268,23 @@ canvas?.addEventListener('mousedown', (e) => {
 
 canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
+    const mouseX = pos.x; const mouseY = pos.y;
     
+    // 🎯 FIX: Arrastrar Marcadores
+    if (isDraggingMarker && draggedMarkerIndex !== -1) {
+        const m = window.timelineMarkers[draggedMarkerIndex];
+        m.at = Math.max(0, Math.round(xToTime(mouseX) / 50) * 50); 
+        m.pos = Math.max(0, Math.min(100, Math.round(yToPos(mouseY) / 5) * 5)); 
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
+    }
+
     if (window.isPastingMode && window.timelineGhostPreset) {
-        let hoverTimeMs = xToTime(pos.x);
-        let hoverPosRaw = yToPos(pos.y);
+        let hoverTimeMs = xToTime(mouseX);
+        let hoverPosRaw = yToPos(mouseY);
         
-        window.timelineGhostMouseX = pos.x;
-        window.timelineGhostMouseY = pos.y;
+        window.timelineGhostMouseX = mouseX;
+        window.timelineGhostMouseY = mouseY;
         
         const snapDistMs = 350; 
         const actions = getSafeActions();
@@ -1272,7 +1316,6 @@ canvas?.addEventListener('mousemove', (e) => {
     }
 
     const actions = getSafeActions();
-    const mouseX = pos.x; const mouseY = pos.y;
 
     window.magneticSnapPoint = null;
     if (!isSelecting) {
@@ -1343,6 +1386,13 @@ canvas?.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', (e) => {
     if (window.isPastingMode) return; 
+
+    // 🎯 FIX: Suelta el Marcador
+    if (isDraggingMarker) {
+        isDraggingMarker = false;
+        draggedMarkerIndex = -1;
+        return;
+    }
 
     let actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
