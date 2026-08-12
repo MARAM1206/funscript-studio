@@ -4,40 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=63">
+    <link rel="stylesheet" href="styles.css?v=64">
 </head>
 <body>
 
     <div class="top-bar-menu">
         <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
-            <label for="video-input" class="menu-btn select-btn" style="cursor: pointer; background: #2563eb; color: #ffffff;">📁 Importar Video</label>
-            <input type="file" id="video-input" accept="video/*" style="display: none;">
-            <label for="funscript-input" class="menu-btn" style="background: #2563eb; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; display: inline-flex; align-items: center; color: #ffffff; border: none;">📂 Importar FunScript</label>
-            <input type="file" id="funscript-input" accept=".funscript, .json" multiple style="display: none;">
+            <!-- Menú Engrane (Configuración) -->
+            <div class="dropdown">
+                <button class="menu-btn" style="background: #334155; color: #ffffff;">⚙️ Configuración</button>
+                <div class="dropdown-content">
+                    <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
+                    <a href="#" id="menu-theme-btn">🌙 Oscuro / ☀️ Claro</a>
+                    <a href="#" id="menu-cache-btn">🗑️ Borrar Caché</a>
+                </div>
+            </div>
+            
+            <!-- Menú Dispositivos -->
+            <div class="dropdown">
+                <button class="menu-btn" style="background: #334155; color: #ffffff;">📱 Dispositivo</button>
+                <div class="dropdown-content">
+                    <a href="#" style="color: #38bdf8; font-weight: bold;">Handy (Activo)</a>
+                    <a href="#" style="pointer-events: none; color: #64748b;">Kiiroo (Próximamente)</a>
+                    <a href="#" style="pointer-events: none; color: #64748b;">Erojoy (Próximamente)</a>
+                </div>
+            </div>
         </div>
+        
+        <!-- Pestañas Centrales -->
         <div id="top-center-toggles" class="top-center-toggles"></div>
+        
+        <!-- Lado Derecho -->
         <div class="top-right-actions" style="display: flex; align-items: center; gap: 15px;">
             
-            <button id="theme-toggle-btn" class="menu-btn" style="padding: 4px 10px; font-size: 0.75rem; width: 85px; text-align: center;">☀️ Claro</button>
-
             <div class="handy-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid;">
                 <span id="handy-status" style="font-size:0.75rem; color:#64748b; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
                 <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
-                <!-- NUEVO: Sync Offset Slider -->
-                <div style="display: flex; align-items: center; gap: 4px; border-left: 1px solid #334155; padding-left: 8px;">
-                    <span style="font-size: 0.7rem; color: #94a3b8;" title="Retraso/Adelanto de Sincronización en ms">±ms:</span>
-                    <input type="number" id="handy-offset" value="0" step="50" class="handy-input" style="width: 50px; padding: 2px 4px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.7rem; text-align: center; outline: none;">
+                
+                <!-- Menú Desplegable de Offset -->
+                <div class="dropdown" style="display: flex; align-items: center;">
+                    <button class="menu-btn" style="background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
+                    <div class="dropdown-content" style="padding: 10px; width: 180px; left: -50px; text-align: center;">
+                        <label style="font-size:0.75rem; color: var(--text-main, #e2e8f0); display: block; margin-bottom: 5px;">Sync Offset: <span id="handy-offset-display">0</span> ms</label>
+                        <input type="range" id="handy-offset" min="-500" max="500" step="10" value="0" style="width: 100%;">
+                    </div>
                 </div>
-                <button id="handy-connect-btn" class="menu-btn" style="background:#ea580c; padding: 4px 10px; font-size: 0.75rem; color: #ffffff;">🛜 Conectar</button>
+
+                <button id="handy-connect-btn" class="menu-btn" style="background:#8b5cf6; padding: 4px 10px; font-size: 0.75rem; color: #ffffff;">🛜 Conectar</button>
             </div>
 
             <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
+            
+            <!-- Versión Text -->
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap;">V64.0 | Made with ❤️ by MARAM</span>
         </div>
     </div>
 
-    <div id="drag-drop-overlay" class="drag-drop-overlay">
-        <div class="drag-drop-message">📂 Suelta tus archivos aquí</div>
-    </div>
+    <!-- Input Oculto Maestro -->
+    <input type="file" id="universal-file-input" accept="video/*,.funscript,.json" multiple style="display: none;">
 
     <div id="preset-editor-modal" class="modal-overlay">
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 500px;">
@@ -85,6 +109,9 @@
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column;">
                 <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+                    <!-- Letrero de Vacío (Se apaga por JS si hay contenido) -->
+                    <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
+                    
                     <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
                     
@@ -118,6 +145,10 @@
         </div>
 
         <div id="panel-tracks" class="workspace-panel" data-title="📂 Gestor de Archivos">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold;">📂 Gestor de Archivos</span>
+                <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1.1rem; padding:0 5px;" title="Añadir Archivos (Video o FunScript)">➕</button>
+            </div>
             <div class="panel-content">
                 <div id="tracks-list" class="tracks-list-container"><span class="empty-tracks-msg">No hay archivos cargados.</span></div>
             </div>
@@ -147,22 +178,26 @@
         </div>
 
         <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold;">⭐ Presets</span>
+                <button id="adaptive-btn-main" class="adaptive-btn off">Modo Adaptativo Off</button>
+            </div>
             <div class="panel-content">
                 <button id="save-preset-btn" class="menu-btn" style="background: #8b5cf6; width: 100%; margin-bottom: 8px; cursor: pointer; color: #ffffff;">Guardar Selección</button>
                 <div id="presets-list" class="presets-list-container"><span class="empty-log">No hay presets aún.</span></div>
             </div>
         </div>
 
-        <!-- 🎯 NUEVO: Header rediseñado para contener la telemetría central -->
-        <div id="panel-timeline" class="workspace-panel">
-            <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center;">
-                <span style="font-weight: bold; width: 150px; cursor: move;">📈 Línea de Tiempo</span>
+        <!-- 🎯 Header rediseñado para contener la telemetría central sin "T = Marcador" y validado -->
+        <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
+            <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold; width: 150px;">📈 Línea de Tiempo</span>
                 <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 20px; font-size: 0.8rem; font-family: monospace;">
-                     <span>Saltos(Q/W): <input type="number" id="fps-jump-input" value="3" min="1" max="60" class="modal-input" style="width: 40px; text-align: center; padding: 2px; border-radius: 4px;"> fps</span>
-                     <span id="timeline-stats">Puntos: 0 | Velocidad: --</span>
-                     <span style="color: #facc15;" title="Presiona la tecla T para insertar Marcador">T = Marcador</span>
+                     <span>Saltos: <input type="number" id="fps-jump-input" value="3" min="1" class="modal-input" style="width: 40px; text-align: center; padding: 2px; border-radius: 4px;"> fps</span>
                 </div>
-                <div style="width: 150px;"></div>
+                <div style="width: 150px; text-align: right;">
+                    <span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">Puntos: 0 | Velocidad: --</span>
+                </div>
             </div>
             <div class="panel-content" style="position: relative; padding: 0;">
                 <canvas id="timeline-canvas"></canvas>
@@ -171,12 +206,12 @@
 
     </div>
 
-    <script src="workspace.js?v=63"></script>
-    <script src="handy.js?v=63"></script> 
-    <script src="funscript.js?v=63"></script>
-    <script src="player.js?v=63"></script>
-    <script src="tracking.js?v=63"></script>
-    <script src="presets.js?v=63"></script>
-    <script src="timeline.js?v=63"></script>
+    <script src="workspace.js?v=64"></script>
+    <script src="handy.js?v=64"></script> 
+    <script src="funscript.js?v=64"></script>
+    <script src="player.js?v=64"></script>
+    <script src="tracking.js?v=64"></script>
+    <script src="presets.js?v=64"></script>
+    <script src="timeline.js?v=64"></script>
 </body>
 </html>
