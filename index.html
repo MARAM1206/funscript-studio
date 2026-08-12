@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=67">
+    <link rel="stylesheet" href="styles.css?v=68">
 </head>
 <body>
 
     <div class="top-bar-menu">
         <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
             <div class="dropdown">
-                <button class="menu-btn" style="background: #334155; color: #ffffff;">⚙️ Configuración</button>
+                <!-- 🎯 FIX: Uso de clases dark-btn en lugar de estilos quemados -->
+                <button class="menu-btn dark-btn">⚙️ Configuración</button>
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
                     <a href="#" id="menu-theme-btn">☀️ Modo claro</a>
@@ -19,12 +20,29 @@
                 </div>
             </div>
             
-            <!-- 🎯 FIX: Menú Dispositivos actualizado con la BD real -->
             <div class="dropdown">
-                <button class="menu-btn" id="device-menu-btn" style="background: #334155; color: #ffffff;">📱 Dispositivos</button>
+                <!-- 🎯 FIX: Clase device-alert-pulse para llamar la atención por defecto -->
+                <button class="menu-btn dark-btn device-alert-pulse" id="device-menu-btn">📱 Dispositivos</button>
                 <div class="dropdown-content" id="device-dropdown-list">
-                    <a href="#" data-device="handy_v1">Handy (V1)</a>
-                    <a href="#" data-device="handy_v2">Handy (V2 / Pro)</a>
+                    
+                    <!-- 🎯 Submenú para Handy 1/2 con Overclock -->
+                    <div class="sub-dropdown">
+                        <a href="#" data-device="handy_v1_v2">Handy (V1 / V2 Std)</a>
+                        <span class="sub-arrow">▶</span>
+                        <div class="sub-dropdown-content">
+                            <label class="oc-label"><input type="checkbox" class="oc-toggle"> ⚡ Modo Overclock</label>
+                        </div>
+                    </div>
+                    
+                    <!-- 🎯 Submenú para Handy Pro con Overclock -->
+                    <div class="sub-dropdown">
+                        <a href="#" data-device="handy_pro">Handy Pro / Handy 2</a>
+                        <span class="sub-arrow">▶</span>
+                        <div class="sub-dropdown-content">
+                            <label class="oc-label"><input type="checkbox" class="oc-toggle"> ⚡ Modo Overclock</label>
+                        </div>
+                    </div>
+
                     <a href="#" data-device="keon_1">Keon 1</a>
                     <a href="#" data-device="keon_2">Keon 2</a>
                     <a href="#" data-device="keon_sm">Keon Sex Machine</a>
@@ -32,7 +50,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V67.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V68.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -43,7 +61,6 @@
                 <span id="handy-status" style="font-size:0.75rem; color:#64748b; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
                 <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
                 
-                <!-- 🎯 FIX: Offset Slider Suavizado (Step 1) -->
                 <div class="dropdown" style="display: flex; align-items: center;">
                     <button class="menu-btn" style="background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
                     <div class="dropdown-content" style="padding: 10px; width: 220px; left: -70px; text-align: center;">
@@ -52,7 +69,7 @@
                     </div>
                 </div>
 
-                <button id="handy-connect-btn" class="menu-btn" style="background:#ea580c; padding: 4px 10px; font-size: 0.75rem; color: #ffffff;">🛜 Conectar</button>
+                <button id="handy-connect-btn" class="menu-btn orange-btn">🛜 Conectar</button>
             </div>
 
             <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
@@ -80,8 +97,8 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                     <p style="font-size: 0.75rem; color: var(--text-dim, #64748b); margin: 0;">Click Izq: Crear/Mover/Pegar | Click Der: Eliminar/Cancelar</p>
                     <div style="display: flex; gap: 10px;">
-                        <button id="preset-editor-cancel" class="menu-btn" style="background: #334155; color: #ffffff;">Cancelar</button>
-                        <button id="preset-editor-save-new" class="menu-btn" style="background: #0891b2; color: #ffffff;">Crear como Nuevo</button>
+                        <button id="preset-editor-cancel" class="menu-btn dark-btn">Cancelar</button>
+                        <button id="preset-editor-save-new" class="menu-btn blue-btn">Crear como Nuevo</button>
                         <button id="preset-editor-save" class="menu-btn success-btn">Guardar</button>
                     </div>
                 </div>
@@ -168,7 +185,7 @@
                 <button id="adaptive-btn-main" class="adaptive-btn off">Modo Adaptativo Off</button>
             </div>
             <div class="panel-content">
-                <button id="save-preset-btn" class="menu-btn" style="background: #8b5cf6; width: 100%; margin-bottom: 8px; cursor: pointer; color: #ffffff;">Guardar Selección</button>
+                <button id="save-preset-btn" class="menu-btn purple-btn" style="width: 100%; margin-bottom: 8px;">Guardar Selección</button>
                 <div id="presets-list" class="presets-list-container"><span class="empty-log">No hay presets aún.</span></div>
             </div>
         </div>
@@ -196,12 +213,12 @@
 
     </div>
 
-    <script src="workspace.js?v=67"></script>
-    <script src="handy.js?v=67"></script> 
-    <script src="funscript.js?v=67"></script>
-    <script src="player.js?v=67"></script>
-    <script src="tracking.js?v=67"></script>
-    <script src="presets.js?v=67"></script>
-    <script src="timeline.js?v=67"></script>
+    <script src="workspace.js?v=68"></script>
+    <script src="handy.js?v=68"></script> 
+    <script src="funscript.js?v=68"></script>
+    <script src="player.js?v=68"></script>
+    <script src="tracking.js?v=68"></script>
+    <script src="presets.js?v=68"></script>
+    <script src="timeline.js?v=68"></script>
 </body>
 </html>
