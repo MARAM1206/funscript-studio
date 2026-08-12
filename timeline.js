@@ -1,10 +1,11 @@
 // ==========================================================================
-// TIMELINE V62.0: MODIFICADOR DE ANCLAJE CON CLIC DERECHO Y TEXTOS UI
+// TIMELINE V63.0: 4 MODOS ESPACIO, MARCADORES T, AUTO-GAIN AUDIO, TELEMETRIA
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
+window.timelineMarkers = window.timelineMarkers || []; // 🎯 NUEVO: Arreglo de Marcadores
 
-// 🎯 FIX: El modo base ahora solo será stretch o repeat (El espacio solo alterna entre estos 2)
+// 🎯 FIX: Ahora con 4 modos: stretch, anchor, repeat, raw
 window.presetMorphMode = 'stretch'; 
 
 function getSafeActions() {
@@ -42,12 +43,13 @@ window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
-// 🎯 FIX: Tecla de Espacio purificada
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
         e.preventDefault();
-        // Solo alterna entre Estirar y Repetir. El "Anclaje" es un modificador del ratón.
-        window.presetMorphMode = window.presetMorphMode === 'stretch' ? 'repeat' : 'stretch';
+        if (window.presetMorphMode === 'stretch') window.presetMorphMode = 'anchor';
+        else if (window.presetMorphMode === 'anchor') window.presetMorphMode = 'repeat';
+        else if (window.presetMorphMode === 'repeat') window.presetMorphMode = 'raw';
+        else window.presetMorphMode = 'stretch';
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 });
@@ -98,11 +100,21 @@ function getPointUnderPlayhead(actions) {
 }
 
 window.getMorphedPreset = function(preset, selectedActions) {
-    if (!selectedActions || selectedActions.length < 2 || !preset || preset.length === 0) return null;
+    if (!selectedActions || selectedActions.length === 0 || !preset || preset.length === 0) return null;
     selectedActions.sort((a, b) => a.at - b.at);
     
-    // 🎯 FIX: Detectamos si el usuario está usando el Clic Derecho para arrastrar (Modo Anclar Pico)
     let useAnchorModifier = window.isRightClickDrag === true;
+    
+    // 🎯 NUEVO: Modo Escala Original (Puro/Clon)
+    if (window.presetMorphMode === 'raw') {
+        const t_min = selectedActions[0].at;
+        return preset.map(act => ({
+            at: Math.round(t_min + act.at), // Mantiene la rítmica exacta
+            pos: act.pos // Mantiene la altura exacta sin importar donde lo sueltes
+        }));
+    }
+    
+    if (selectedActions.length < 2) return null; // Para stretch/anchor/repeat necesitas al menos 2 puntos
     
     if (window.presetMorphMode === 'repeat' && selectedActions.length >= 3) {
         let results = [];
@@ -118,42 +130,26 @@ window.getMorphedPreset = function(preset, selectedActions) {
 
             for (let i = 1; i < selectedActions.length - 1; i++) {
                 let curr = selectedActions[i].pos;
-                
                 if (startsAtBottom) {
                     let deviation = curr - y_min;
                     if (deviation > maxDeviation) maxDeviation = deviation;
-                    
                     let isValley = curr <= (y_min + amplitude * 0.35);
-                    if (isValley && maxDeviation >= amplitude * 0.50) {
-                        anchors.push(i);
-                        maxDeviation = 0; 
-                    }
+                    if (isValley && maxDeviation >= amplitude * 0.50) { anchors.push(i); maxDeviation = 0; }
                 } else {
                     let deviation = y_max - curr;
                     if (deviation > maxDeviation) maxDeviation = deviation;
-                    
                     let isPeak = curr >= (y_max - amplitude * 0.35);
-                    if (isPeak && maxDeviation >= amplitude * 0.50) {
-                        anchors.push(i);
-                        maxDeviation = 0; 
-                    }
+                    if (isPeak && maxDeviation >= amplitude * 0.50) { anchors.push(i); maxDeviation = 0; }
                 }
             }
         }
 
-        if (anchors[anchors.length - 1] !== selectedActions.length - 1) {
-            anchors.push(selectedActions.length - 1);
-        }
-
-        if (anchors.length < 2) {
-            return window.getMorphedPresetChunk(preset, selectedActions, useAnchorModifier);
-        }
+        if (anchors[anchors.length - 1] !== selectedActions.length - 1) anchors.push(selectedActions.length - 1);
+        if (anchors.length < 2) return window.getMorphedPresetChunk(preset, selectedActions, useAnchorModifier);
 
         for (let k = 0; k < anchors.length - 1; k++) {
             const chunk = selectedActions.slice(anchors[k], anchors[k+1] + 1);
             if (chunk.length < 2) continue; 
-            
-            // Le pasamos el modificador a cada sub-ciclo para que cada M/V se ancle individualmente
             const subPreset = window.getMorphedPresetChunk(preset, chunk, useAnchorModifier);
             if (k > 0) subPreset.shift(); 
             results.push(...subPreset);
@@ -182,7 +178,6 @@ window.getMorphedPresetChunk = function(preset, selectedActions, useAnchor) {
     let origPeakT = t_min + targetDuration / 2;
     let presetPeakT = preset_t_max / 2;
 
-    // 🎯 LÓGICA DE ANCLAJE ACTIVA SÓLO SI EL USUARIO USÓ CLIC DERECHO
     if (useAnchor) {
         let maxDevOrig = -1;
         for (let i = 0; i < selectedActions.length; i++) {
@@ -244,6 +239,8 @@ window.updateHeatmapAndStats = function() {
     const statsSpan = document.getElementById('timeline-stats');
     if (statsSpan) {
         let speedText = "--";
+        let colorHtml = "#94a3b8"; // Default color
+
         if (actions.length > 1) {
             let totalSegmentSpeed = 0;
             let validSegments = 0;
@@ -259,15 +256,16 @@ window.updateHeatmapAndStats = function() {
 
             if (validSegments > 0) {
                 const fapTapSpeed = Math.round(totalSegmentSpeed / validSegments);
-                if (fapTapSpeed >= 250) speedText = `Very Fast 🔴 (${fapTapSpeed})`;
-                else if (fapTapSpeed >= 150) speedText = `Fast 🟠 (${fapTapSpeed})`;
-                else if (fapTapSpeed >= 80) speedText = `Medium 🟡 (${fapTapSpeed})`; 
-                else speedText = `Slow 🟢 (${fapTapSpeed})`;
+                // 🎯 NUEVO: Colores aplicados al HTML de la velocidad
+                if (fapTapSpeed >= 250) { speedText = `Very Fast (${fapTapSpeed})`; colorHtml = "#ef4444"; }
+                else if (fapTapSpeed >= 150) { speedText = `Fast (${fapTapSpeed})`; colorHtml = "#f97316"; }
+                else if (fapTapSpeed >= 80) { speedText = `Medium (${fapTapSpeed})`; colorHtml = "#facc15"; }
+                else { speedText = `Slow (${fapTapSpeed})`; colorHtml = "#10b981"; }
             }
         } else if (actions.length === 1) {
-            speedText = "Slow 🟢 (0)";
+            speedText = "Slow (0)"; colorHtml = "#10b981";
         }
-        statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong>${speedText}</strong>`;
+        statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> | Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88;">${speedText}</strong>`;
     }
 
     const hCanvas = document.getElementById('heatmap-canvas');
@@ -465,13 +463,24 @@ window.addEventListener('presetCustomDrop', (e) => {
         let actions = getSafeActions();
         const selected = actions.filter(a => a.selected);
 
-        if (window.isAdaptiveModeActive && selected.length >= 2) {
-            const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+        // Raw Mode (Clon) bypasses selection rules
+        if (window.presetMorphMode === 'raw' || (window.isAdaptiveModeActive && selected.length >= 2)) {
+            const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.presetMorphMode === 'raw' ? [{at: window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x))}] : selected);
             if (morphed) {
                 saveHistoryState();
-                window.funscriptActions = actions.filter(a => !a.selected); 
-                morphed.forEach(m => m.selected = true);
-                window.funscriptActions.push(...morphed);
+                
+                if (window.presetMorphMode === 'raw') {
+                    // Sobre-escribe cualquier punto en ese rango
+                    const newTimes = new Set(morphed.map(a => a.at));
+                    window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
+                    window.funscriptActions.forEach(a => a.selected = false);
+                    window.funscriptActions.push(...morphed);
+                } else {
+                    window.funscriptActions = actions.filter(a => !a.selected); 
+                    morphed.forEach(m => m.selected = true);
+                    window.funscriptActions.push(...morphed);
+                }
+                
                 cleanDuplicates();
                 
                 window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
@@ -710,7 +719,8 @@ window.drawTimeline = function() {
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        if (window.audioPeaks && window.audioPeaksSampleRate) {
+        // 🎯 FIX: AUDIO AUTO-GAIN VISUAL (Se amplía al 30% del canvas)
+        if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
             
@@ -721,13 +731,14 @@ window.drawTimeline = function() {
             const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
 
             const yCenter = canvas.height / 2;
-            const maxAmplitude = canvas.height * 0.05; 
+            const boostHeight = canvas.height * 0.30; 
 
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
                 if (x >= 30) {
-                    const amplitude = window.audioPeaks[i] * maxAmplitude; 
+                    // Normalización Auto-Gain usando el máximo absoluto detectado
+                    const amplitude = (window.audioPeaks[i] / window.audioMaxPeak) * boostHeight; 
                     ctx.moveTo(x, yCenter - amplitude);
                     ctx.lineTo(x, yCenter + amplitude);
                 }
@@ -802,7 +813,7 @@ window.drawTimeline = function() {
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
                 const x2 = timeToX(act2.at); const y2 = posToY(act2.pos);
 
-                let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset;
+                let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
                 
                 ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
                 
@@ -821,7 +832,7 @@ window.drawTimeline = function() {
                 const x = timeToX(act.at);
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
-                    let isTargetForMorph = act.selected && window.isAdaptiveModeActive && window.isDraggingPreset;
+                    let isTargetForMorph = act.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
                     
                     if (isTargetForMorph) {
                         const pulse = 0.3 + 0.7 * (Math.sin(performance.now() / 250) * 0.5 + 0.5);
@@ -839,7 +850,7 @@ window.drawTimeline = function() {
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             const selected = actions.filter(a => a.selected);
-            if (window.isDraggingPreset && window.isAdaptiveModeActive && selected.length >= 2) {
+            if (window.isDraggingPreset && window.isAdaptiveModeActive && selected.length >= 2 && window.presetMorphMode !== 'raw') {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
                 if (morphed) {
                     const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
@@ -858,21 +869,20 @@ window.drawTimeline = function() {
                     const cursorX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(morphed[0].at);
                     const cursorY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(morphed[0].pos);
                     
-                    // 🎯 FIX: TEXTOS UI INTELIGENTES QUE DETECTAN EL CLIC DERECHO
                     if (window.isRightClickDrag) {
-                        ctx.fillStyle = '#f43f5e'; // Rojo Fuerte
+                        ctx.fillStyle = '#f43f5e'; 
                         ctx.font = 'bold 12px monospace';
                         let modeText = window.presetMorphMode === 'stretch' ? "Estirar" : "Repetir";
                         ctx.fillText(`Modo: ${modeText} + ANCLAR PICO`, cursorX + 15, cursorY + 30);
-                        ctx.fillStyle = '#fda4af'; // Rojo claro
+                        ctx.fillStyle = '#fda4af'; 
                         ctx.font = 'bold 10px monospace';
                         ctx.fillText("(Arrastre Especial Activado)", cursorX + 15, cursorY + 45);
                     } else {
-                        ctx.fillStyle = '#10b981'; // Verde
+                        ctx.fillStyle = '#10b981'; 
                         ctx.font = 'bold 12px monospace';
                         let modeText = window.presetMorphMode === 'stretch' ? "Estirar (Lineal)" : "Repetir (Ciclos)";
                         ctx.fillText(`Modo Adaptativo: ${modeText}`, cursorX + 15, cursorY + 30);
-                        ctx.fillStyle = '#f59e0b'; // Naranja
+                        ctx.fillStyle = '#f59e0b'; 
                         ctx.font = 'bold 10px monospace';
                         ctx.fillText("(Presiona ESPACIO para alternar)", cursorX + 15, cursorY + 45);
                     }
@@ -893,11 +903,16 @@ window.drawTimeline = function() {
                     ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
                 });
                 
-                if (window.isPastingMode) {
-                    const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
-                    const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(window.timelineGhostPreset[0].pos + deltaY);
-                    
-                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
+                const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(window.timelineGhostPreset[0].pos + deltaY);
+                
+                ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                
+                if (window.presetMorphMode === 'raw' && window.isDraggingPreset) {
+                    ctx.fillText("Modo Adaptativo: ESCALA PURA (Clon)", pasteX + 15, pasteY + 30);
+                    ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
+                    ctx.fillText("(Presiona ESPACIO para alternar)", pasteX + 15, pasteY + 45);
+                } else if (window.isPastingMode) {
                     ctx.fillText("📋 PEGAR (Click para soltar o ESC para cancelar)", pasteX + 15, pasteY + 30);
                 }
             }
@@ -911,6 +926,31 @@ window.drawTimeline = function() {
             ctx.fillRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
             ctx.strokeRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
             ctx.setLineDash([]);
+        }
+
+        // 🎯 FIX: Dibujar Marcadores de Etiqueta (Tecla T)
+        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+            window.timelineMarkers.forEach(mTime => {
+                const mx = timeToX(mTime);
+                if (mx >= 30) {
+                    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
+                    
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath();
+                    ctx.moveTo(mx - 6, 0);
+                    ctx.lineTo(mx + 6, 0);
+                    ctx.lineTo(mx + 6, 12);
+                    ctx.lineTo(mx, 18);
+                    ctx.lineTo(mx - 6, 12);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#020617'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText("M", mx, 10);
+                    ctx.textAlign = 'left'; // Reset
+                }
+            });
         }
 
         if (window.magneticSnapPoint && !isSelecting && !isDraggingNode) {
