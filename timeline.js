@@ -1,9 +1,9 @@
 // ==========================================================================
-// TIMELINE V64.0: MARCADORES T, ARRASTRE LIBRE Y RENDIMIENTO
+// TIMELINE V65.0: MARCADORES MAGENTA LIBRES, FPS BOTONES Y UI
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
-window.timelineMarkers = window.timelineMarkers || []; // 🎯 Memoria de Marcadores T
+window.timelineMarkers = window.timelineMarkers || []; 
 
 window.presetMorphMode = 'stretch'; 
 
@@ -38,7 +38,6 @@ let dragSelectionInitialStates = [];
 let dragStartXTime = 0;
 let dragStartYPos = 0;
 
-// 🎯 NUEVO: Variables para arrastrar los Marcadores T
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
 
@@ -47,16 +46,26 @@ window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
-// Auto-corrector de la caja de FPS (No admite ceros ni exceder límite)
 const fpsInput = document.getElementById('fps-jump-input');
-if (fpsInput) {
-    fpsInput.addEventListener('change', function() {
-        let val = parseInt(this.value, 10);
-        if (isNaN(val) || val < 1) val = 1;
-        if (window.videoFPS && val > window.videoFPS) val = window.videoFPS;
-        this.value = val;
-    });
+const fpsUp = document.getElementById('fps-btn-up');
+const fpsDown = document.getElementById('fps-btn-down');
+
+function updateFpsInput(change) {
+    if (!fpsInput) return;
+    let val = parseInt(fpsInput.value, 10);
+    if (isNaN(val)) val = 1;
+    val += change;
+    if (val < 1) val = 1;
+    if (window.videoFPS && val > window.videoFPS) val = window.videoFPS;
+    fpsInput.value = val;
 }
+
+if (fpsInput) {
+    fpsInput.addEventListener('change', function() { updateFpsInput(0); });
+}
+if (fpsUp) fpsUp.addEventListener('click', () => updateFpsInput(1));
+if (fpsDown) fpsDown.addEventListener('click', () => updateFpsInput(-1));
+
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
@@ -270,16 +279,15 @@ window.updateHeatmapAndStats = function() {
 
             if (validSegments > 0) {
                 const fapTapSpeed = Math.round(totalSegmentSpeed / validSegments);
-                // 🎯 FIX: Coloreado Neón según la intensidad
-                if (fapTapSpeed >= 250) { speedText = `Very Fast (${fapTapSpeed})`; colorHtml = "#ef4444"; } // Rojo
-                else if (fapTapSpeed >= 150) { speedText = `Fast (${fapTapSpeed})`; colorHtml = "#f97316"; } // Naranja
-                else if (fapTapSpeed >= 80) { speedText = `Medium (${fapTapSpeed})`; colorHtml = "#facc15"; } // Amarillo
-                else { speedText = `Slow (${fapTapSpeed})`; colorHtml = "#10b981"; } // Verde
+                if (fapTapSpeed >= 250) { speedText = `Very Fast (${fapTapSpeed})`; colorHtml = "#ef4444"; } 
+                else if (fapTapSpeed >= 150) { speedText = `Fast (${fapTapSpeed})`; colorHtml = "#f97316"; } 
+                else if (fapTapSpeed >= 80) { speedText = `Medium (${fapTapSpeed})`; colorHtml = "#facc15"; } 
+                else { speedText = `Slow (${fapTapSpeed})`; colorHtml = "#10b981"; } 
             }
         } else if (actions.length === 1) {
             speedText = "Slow (0)"; colorHtml = "#10b981";
         }
-        statsSpan.innerHTML = `Puntos: <strong>${actions.length}</strong> | Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88;">${speedText}</strong>`;
+        statsSpan.innerHTML = `Puntos: <strong style="color:#e2e8f0;">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88;">${speedText}</strong>`;
     }
 
     const hCanvas = document.getElementById('heatmap-canvas');
@@ -651,7 +659,6 @@ window.addEventListener('deletePoints', () => {
         notifyCloud(); window.updateHeatmapAndStats();
     }
     
-    // También elimina marcadores seleccionados (arrastrando)
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         window.timelineMarkers.splice(draggedMarkerIndex, 1);
         isDraggingMarker = false;
@@ -738,7 +745,6 @@ window.drawTimeline = function() {
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 🎯 FIX: AUDIO AUTO-GAIN VISUAL
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
@@ -946,28 +952,36 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: Dibujar Marcadores de Etiqueta (Tecla T) con Puntero de Selección
+        // 🎯 FIX: MARCADORES (T) REDISEÑADOS Y DRAGEABLES VERTICALMENTE
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, index) => {
                 const mx = timeToX(m.at);
                 const my = posToY(m.pos);
                 if (mx >= 30) {
-                    ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1;
+                    // Línea Punteada Magenta Neón
+                    ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
                     ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
+                    ctx.setLineDash([]);
                     
-                    ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#facc15';
+                    // Bolita magnética de altura en la gráfica
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
+
+                    // Bandera / Banner superior elegante
+                    ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#d946ef';
                     ctx.beginPath();
-                    ctx.moveTo(mx, my);
-                    ctx.lineTo(mx - 8, my - 12);
-                    ctx.lineTo(mx + 8, my - 12);
-                    ctx.lineTo(mx + 8, my - 24);
-                    ctx.lineTo(mx - 8, my - 24);
+                    ctx.moveTo(mx - 8, 0);
+                    ctx.lineTo(mx + 8, 0);
+                    ctx.lineTo(mx + 8, 16);
+                    ctx.lineTo(mx, 22);
+                    ctx.lineTo(mx - 8, 16);
                     ctx.closePath();
                     ctx.fill();
                     
-                    ctx.fillStyle = '#020617'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText("T", mx, my - 14);
-                    ctx.textAlign = 'left';
+                    // Pequeño círculo central para decorado
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath(); ctx.arc(mx, 8, 3, 0, Math.PI*2); ctx.fill();
                 }
             });
         }
@@ -1198,13 +1212,13 @@ canvas?.addEventListener('mousedown', (e) => {
     const clickX = pos.x; const clickY = pos.y;
 
     if (e.button === 0) { 
-        // 🎯 FIX: Prioridad a los Marcadores (Tags)
+        // 🎯 FIX: Los marcadores tienen una HitBox horizontal súper amplia para agarrarlos fácil
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                const my = posToY(m.pos);
-                if (Math.hypot(clickX - mx, clickY - my) <= 15) { 
+                // Si haces clic en cualquier punto de la línea vertical Magenta
+                if (Math.abs(clickX - mx) <= 12) { 
                     isDraggingMarker = true;
                     draggedMarkerIndex = i;
                     saveHistoryState();
@@ -1270,7 +1284,7 @@ canvas?.addEventListener('mousemove', (e) => {
     const pos = getMousePos(e);
     const mouseX = pos.x; const mouseY = pos.y;
     
-    // 🎯 FIX: Arrastrar Marcadores
+    // 🎯 FIX: Arrastre fluido y vertical del Marcador
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         const m = window.timelineMarkers[draggedMarkerIndex];
         m.at = Math.max(0, Math.round(xToTime(mouseX) / 50) * 50); 
@@ -1387,7 +1401,6 @@ canvas?.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseup', (e) => {
     if (window.isPastingMode) return; 
 
-    // 🎯 FIX: Suelta el Marcador
     if (isDraggingMarker) {
         isDraggingMarker = false;
         draggedMarkerIndex = -1;
