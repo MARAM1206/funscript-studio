@@ -132,7 +132,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 
 #timeline-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; position: relative; z-index: 2; }
 
-/* 🎯 FIX: Botón de Pantalla Completa Reducido y siempre con Cristal Translúcido */
 .fs-mini-icon { 
     position: absolute; 
     bottom: 15px; 
@@ -144,7 +143,7 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
     transition: all 0.2s; 
     z-index: 10; 
     font-weight: bold; 
-    background: rgba(15, 23, 42, 0.45); /* Siempre transparente (cristal oscuro) */
+    background: rgba(15, 23, 42, 0.45); 
     padding: 4px 9px; 
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -202,7 +201,6 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 
 .light-theme #theme-toggle-btn { background: #1e293b !important; color: #ffffff !important; border-color: #0f172a !important; font-weight: bold; }
 
-/* 🎯 FIX: Botón Translúcido también en Modo Claro */
 .light-theme .fs-mini-icon { 
     color: #0f172a !important; 
     background: rgba(255, 255, 255, 0.45); 
