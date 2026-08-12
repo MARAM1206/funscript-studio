@@ -4,14 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=68">
+    <link rel="stylesheet" href="styles.css?v=69">
 </head>
 <body>
 
     <div class="top-bar-menu">
         <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
             <div class="dropdown">
-                <!-- 🎯 FIX: Uso de clases dark-btn en lugar de estilos quemados -->
                 <button class="menu-btn dark-btn">⚙️ Configuración</button>
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
@@ -21,22 +20,16 @@
             </div>
             
             <div class="dropdown">
-                <!-- 🎯 FIX: Clase device-alert-pulse para llamar la atención por defecto -->
                 <button class="menu-btn dark-btn device-alert-pulse" id="device-menu-btn">📱 Dispositivos</button>
-                <div class="dropdown-content" id="device-dropdown-list">
+                <!-- 🎯 FIX: Se agregó la clase 'wide-dropdown' para evitar doble renglón -->
+                <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
                     
-                    <!-- 🎯 Submenú para Handy 1/2 con Overclock -->
-                    <div class="sub-dropdown">
-                        <a href="#" data-device="handy_v1_v2">Handy (V1 / V2 Std)</a>
-                        <span class="sub-arrow">▶</span>
-                        <div class="sub-dropdown-content">
-                            <label class="oc-label"><input type="checkbox" class="oc-toggle"> ⚡ Modo Overclock</label>
-                        </div>
-                    </div>
+                    <!-- 🎯 FIX: Handy Standar SIN modo Overclock -->
+                    <a href="#" data-device="handy_std">Handy V1 / 2 Standar</a>
                     
-                    <!-- 🎯 Submenú para Handy Pro con Overclock -->
+                    <!-- 🎯 FIX: Handy 2 PRO CON submenú de Overclock -->
                     <div class="sub-dropdown">
-                        <a href="#" data-device="handy_pro">Handy Pro / Handy 2</a>
+                        <a href="#" data-device="handy_pro">Handy 2 PRO</a>
                         <span class="sub-arrow">▶</span>
                         <div class="sub-dropdown-content">
                             <label class="oc-label"><input type="checkbox" class="oc-toggle"> ⚡ Modo Overclock</label>
@@ -50,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V68.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V69.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -213,12 +206,12 @@
 
     </div>
 
-    <script src="workspace.js?v=68"></script>
-    <script src="handy.js?v=68"></script> 
-    <script src="funscript.js?v=68"></script>
-    <script src="player.js?v=68"></script>
-    <script src="tracking.js?v=68"></script>
-    <script src="presets.js?v=68"></script>
-    <script src="timeline.js?v=68"></script>
+    <script src="workspace.js?v=69"></script>
+    <script src="handy.js?v=69"></script> 
+    <script src="funscript.js?v=69"></script>
+    <script src="player.js?v=69"></script>
+    <script src="tracking.js?v=69"></script>
+    <script src="presets.js?v=69"></script>
+    <script src="timeline.js?v=69"></script>
 </body>
 </html>
