@@ -25,23 +25,26 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .purple-btn { background: #8b5cf6; color: #ffffff; }
 .orange-btn { background: #ea580c; color: #ffffff; }
 
+/* 🎯 FIX: Eliminación de overflow: hidden para liberar el sub-menú */
 .dropdown { position: relative; display: inline-block; padding-bottom: 5px; margin-bottom: -5px; }
-.dropdown-content { display: none; position: absolute; background-color: #0f172a; min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 100000; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden; top: 100%; margin-top: 0; }
+.dropdown-content { display: none; position: absolute; background-color: #0f172a; min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 100000; border: 1px solid #1e293b; border-radius: 8px; top: 100%; margin-top: 0; }
 .dropdown::after { content: ''; position: absolute; width: 100%; height: 10px; bottom: -10px; left: 0; }
-/* 🎯 FIX: Obligar al texto a quedarse en un renglón */
-.dropdown-content a { color: #e2e8f0; padding: 10px 14px; text-decoration: none; display: block; font-size: 0.8rem; border-bottom: 1px solid #1e293b; transition: all 0.1s; white-space: nowrap; }
-.dropdown-content a:hover { background-color: #1e293b; }
+
+.dropdown-content > a, .sub-dropdown { color: #e2e8f0; padding: 10px 14px; text-decoration: none; display: block; font-size: 0.8rem; border-bottom: 1px solid #1e293b; transition: background-color 0.1s; white-space: nowrap; }
+.dropdown-content > a:hover, .sub-dropdown:hover { background-color: #1e293b; }
+.dropdown-content > a:first-child { border-top-left-radius: 8px; border-top-right-radius: 8px; }
+.dropdown-content > a:last-child, .sub-dropdown:last-child { border-bottom: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+
 .dropdown:hover .dropdown-content { display: block; }
 .dropdown-content a.selected-device { color: #38bdf8 !important; font-weight: bold; }
 .wide-dropdown { min-width: 200px; }
 
-/* 🎯 FIX: Sub-menú a prueba de fallos (sin huecos) */
-.sub-dropdown { display: flex; position: relative; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-right: 14px; cursor: pointer; }
-.sub-dropdown > a { border-bottom: none !important; flex-grow: 1; padding-right: 5px !important; }
-.sub-arrow { color: #64748b; font-size: 0.6rem; pointer-events: none; position: absolute; right: 14px; }
+.sub-dropdown { display: flex; position: relative; align-items: center; justify-content: space-between; cursor: pointer; }
+.sub-dropdown > a { border-bottom: none !important; flex-grow: 1; padding: 0 !important; color: inherit; text-decoration: none; }
+.sub-arrow { color: #64748b; font-size: 0.6rem; pointer-events: none; margin-left: 10px; }
 .sub-dropdown-content { display: none; position: absolute; left: 100%; top: -1px; background-color: #0f172a; min-width: 150px; border: 1px solid #1e293b; border-radius: 8px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); padding: 10px; z-index: 100001; }
 .sub-dropdown:hover .sub-dropdown-content { display: block; }
-.oc-label { color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; padding: 5px; white-space: nowrap; }
+.oc-label { color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; padding: 5px; white-space: nowrap; transition: background 0.2s;}
 .oc-label:hover { background: rgba(255,255,255,0.05); border-radius: 4px; }
 
 @keyframes devicePulse {
@@ -188,10 +191,9 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .dark-btn:hover { background: #f1f5f9; }
 
 .light-theme .dropdown-content { background-color: #ffffff; border-color: #cbd5e1; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1); }
-.light-theme .dropdown-content a { color: #0f172a; border-bottom-color: #cbd5e1; }
-.light-theme .dropdown-content a:hover { background-color: #f1f5f9; }
+.light-theme .dropdown-content > a, .light-theme .sub-dropdown { color: #0f172a; border-bottom-color: #cbd5e1; }
+.light-theme .dropdown-content > a:hover, .light-theme .sub-dropdown:hover { background-color: #f1f5f9; }
 .light-theme .dropdown-content a.selected-device { color: #0ea5e9 !important; }
-.light-theme .sub-dropdown { border-bottom-color: #cbd5e1; }
 .light-theme .sub-dropdown-content { background-color: #ffffff; border-color: #cbd5e1; }
 .light-theme .oc-label { color: #0f172a; }
 .light-theme .oc-label:hover { background: #f1f5f9; }
