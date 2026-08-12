@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=64">
+    <link rel="stylesheet" href="styles.css?v=65">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
                 <button class="menu-btn" style="background: #334155; color: #ffffff;">⚙️ Configuración</button>
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
-                    <a href="#" id="menu-theme-btn">🌙 Oscuro / ☀️ Claro</a>
+                    <a href="#" id="menu-theme-btn">☀️ Cambiar a Modo Claro</a>
                     <a href="#" id="menu-cache-btn">🗑️ Borrar Caché</a>
                 </div>
             </div>
@@ -29,6 +29,9 @@
                     <a href="#" style="pointer-events: none; color: #64748b;">Erojoy (Próximamente)</a>
                 </div>
             </div>
+
+            <!-- 🎯 NUEVO: Leyenda reubicada y MARAM en negritas -->
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V65.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <!-- Pestañas Centrales -->
@@ -50,13 +53,10 @@
                     </div>
                 </div>
 
-                <button id="handy-connect-btn" class="menu-btn" style="background:#8b5cf6; padding: 4px 10px; font-size: 0.75rem; color: #ffffff;">🛜 Conectar</button>
+                <button id="handy-connect-btn" class="menu-btn" style="background:#ea580c; padding: 4px 10px; font-size: 0.75rem; color: #ffffff;">🛜 Conectar</button>
             </div>
 
             <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
-            
-            <!-- Versión Text -->
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap;">V64.0 | Made with ❤️ by MARAM</span>
         </div>
     </div>
 
@@ -112,7 +112,8 @@
                     <!-- Letrero de Vacío (Se apaga por JS si hay contenido) -->
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
                     
-                    <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>
+                    <!-- 🎯 FIX: style="cursor: pointer;" para invitar al clic de Play/Pause -->
+                    <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
                     
                     <div id="fs-mini-btn" class="fs-mini-icon" title="Pantalla Completa (F)">⤢</div>
@@ -188,15 +189,23 @@
             </div>
         </div>
 
-        <!-- 🎯 Header rediseñado para contener la telemetría central sin "T = Marcador" y validado -->
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
             <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
                 <span style="font-weight: bold; width: 150px;">📈 Línea de Tiempo</span>
-                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 20px; font-size: 0.8rem; font-family: monospace;">
-                     <span>Saltos: <input type="number" id="fps-jump-input" value="3" min="1" class="modal-input" style="width: 40px; text-align: center; padding: 2px; border-radius: 4px;"> fps</span>
+                
+                <!-- 🎯 NUEVO: Diseño de Caja de FPS custom -->
+                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.8rem; font-family: monospace; color: var(--text-dim, #94a3b8);">
+                     <span>Saltos:</span>
+                     <div class="fps-control">
+                        <button id="fps-btn-down" class="fps-btn">◀</button>
+                        <input type="number" id="fps-jump-input" class="fps-input" value="3" min="1" max="60">
+                        <button id="fps-btn-up" class="fps-btn">▶</button>
+                     </div>
+                     <span>fps</span>
                 </div>
-                <div style="width: 150px; text-align: right;">
-                    <span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">Puntos: 0 | Velocidad: --</span>
+
+                <div style="width: 250px; text-align: right;">
+                    <span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Velocidad: --</span>
                 </div>
             </div>
             <div class="panel-content" style="position: relative; padding: 0;">
@@ -206,12 +215,12 @@
 
     </div>
 
-    <script src="workspace.js?v=64"></script>
-    <script src="handy.js?v=64"></script> 
-    <script src="funscript.js?v=64"></script>
-    <script src="player.js?v=64"></script>
-    <script src="tracking.js?v=64"></script>
-    <script src="presets.js?v=64"></script>
-    <script src="timeline.js?v=64"></script>
+    <script src="workspace.js?v=65"></script>
+    <script src="handy.js?v=65"></script> 
+    <script src="funscript.js?v=65"></script>
+    <script src="player.js?v=65"></script>
+    <script src="tracking.js?v=65"></script>
+    <script src="presets.js?v=65"></script>
+    <script src="timeline.js?v=65"></script>
 </body>
 </html>
