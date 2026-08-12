@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V69.0: BOTONES CLAROS Y BORRADO DE CACHÉ REAL
+// WORKSPACE V70.0: PROTECCIÓN DE PRESETS Y RESETEO DE DISPOSITIVOS
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -46,16 +46,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const deviceLinks = document.querySelectorAll('#device-dropdown-list > a, #device-dropdown-list .sub-dropdown > a');
     const deviceBtn = document.getElementById('device-menu-btn');
-    window.activeDevice = localStorage.getItem('funscript_device') || 'handy_std';
+    
+    // 🎯 FIX: Ya no leemos de localStorage. Forzamos el estado nulo al iniciar.
+    window.activeDevice = null; 
     
     const ocToggles = document.querySelectorAll('.oc-toggle');
-    window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
+    window.isOverclockEnabled = false; // Resetear overclock al iniciar
     
     ocToggles.forEach(toggle => {
         toggle.checked = window.isOverclockEnabled;
         toggle.addEventListener('change', (e) => {
             window.isOverclockEnabled = e.target.checked;
-            localStorage.setItem('funscript_overclock', window.isOverclockEnabled);
             ocToggles.forEach(t => t.checked = window.isOverclockEnabled);
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
@@ -63,6 +64,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     function updateDeviceMenu() {
+        // 🎯 FIX: Si no hay dispositivo seleccionado, activa el parpadeo de alerta
+        if (!window.activeDevice) {
+            if (deviceBtn) {
+                deviceBtn.innerText = `📱 Dispositivos`;
+                deviceBtn.classList.add('device-alert-pulse');
+            }
+            deviceLinks.forEach(link => link.classList.remove('selected-device'));
+            return;
+        }
+
         deviceLinks.forEach(link => {
             if (link.getAttribute('data-device') === window.activeDevice) {
                 link.classList.add('selected-device');
@@ -75,13 +86,15 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
+    
+    // Ejecutar al cargar la página
     updateDeviceMenu();
 
     deviceLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             window.activeDevice = link.getAttribute('data-device');
-            localStorage.setItem('funscript_device', window.activeDevice);
+            // Ya no guardamos la selección en el caché
             updateDeviceMenu();
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
@@ -92,9 +105,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cacheMenuBtn) {
         cacheMenuBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            if(confirm("¿Estás seguro de querer borrar caché y recargar? Los cambios no guardados se perderán.")) {
-                // 🎯 FIX: Borrado nuclear de la memoria local
-                localStorage.clear();
+            if(confirm("¿Estás seguro de querer recargar el entorno? (Tus Presets y Acomodo están 100% a salvo).")) {
+                // 🎯 FIX: Adiós opción nuclear. Solo recargamos limpiamente.
                 location.reload(true);
             }
         });
