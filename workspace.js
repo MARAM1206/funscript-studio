@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V68.0: RIPPLE THEME ANIMATION, HARDWARE MENUS & OVERCLOCK
+// WORKSPACE V69.0: BOTONES CLAROS Y BORRADO DE CACHÉ REAL
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -44,12 +44,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (typeof window.updatePresetsList === 'function') window.updatePresetsList();
     }
 
-    // 🎯 FIX: Lógica Multidispositivo con Overclock
     const deviceLinks = document.querySelectorAll('#device-dropdown-list > a, #device-dropdown-list .sub-dropdown > a');
     const deviceBtn = document.getElementById('device-menu-btn');
-    window.activeDevice = localStorage.getItem('funscript_device') || 'handy_v2';
+    window.activeDevice = localStorage.getItem('funscript_device') || 'handy_std';
     
-    // Checkboxes de Overclock
     const ocToggles = document.querySelectorAll('.oc-toggle');
     window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
     
@@ -58,7 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
         toggle.addEventListener('change', (e) => {
             window.isOverclockEnabled = e.target.checked;
             localStorage.setItem('funscript_overclock', window.isOverclockEnabled);
-            // Sincronizar todos los toggles por si hay varios en el DOM
             ocToggles.forEach(t => t.checked = window.isOverclockEnabled);
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
@@ -96,6 +93,8 @@ document.addEventListener("DOMContentLoaded", () => {
         cacheMenuBtn.addEventListener('click', (e) => {
             e.preventDefault();
             if(confirm("¿Estás seguro de querer borrar caché y recargar? Los cambios no guardados se perderán.")) {
+                // 🎯 FIX: Borrado nuclear de la memoria local
+                localStorage.clear();
                 location.reload(true);
             }
         });
