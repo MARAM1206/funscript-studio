@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V74.0: AUTO-CORRECTOR VISUAL Y COLORES MODO CLARO
+// TIMELINE V75.0: AUTO-CORRECTOR MASIVO EN BLOQUE (SWARM FIX)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -25,8 +25,8 @@ window.hardwareDB = {
     "erojoy_x3": { name: "Erojoy X3", stroke: 115, factor: 1.15, supports_overclock: false, standard: { max: 320, min: 22 } }
 };
 
-window.activeDevice = null;
-window.isOverclockEnabled = false;
+window.activeDevice = localStorage.getItem('funscript_device') || null;
+window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -923,7 +923,6 @@ window.drawTimeline = function() {
                     speed_mms = (dp * device.factor) / (dt_ms / 1000);
                 }
 
-                // 🎯 FIX: Azul idéntico en claro/oscuro. Naranja radiante para advertencias en modo claro.
                 let colorNormal = '#38bdf8'; 
                 let lineColor = colorNormal; 
                 
@@ -986,7 +985,6 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: Dibujo correcto de la Vista Previa Verde Punteada (Respeta el punto que se corrige)
         if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
             const act1 = actions[window.activeSuggestion.idx1];
             const act2 = actions[window.activeSuggestion.idx2];
@@ -1014,11 +1012,16 @@ window.drawTimeline = function() {
             
             const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
             
+            // 🎯 FIX: TEXTO DINÁMICO PARA AUTO-CORRECCIÓN MÚLTIPLE
+            let hasMultiselect = actions.filter(a => a.selected).length > 1;
+            let tooltipText = hasMultiselect ? "Clic Derecho: Auto-Corregir Selección" : "Clic Derecho para Auto-Corregir";
+            let boxWidth = hasMultiselect ? 275 : 240;
+
             ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
-            ctx.fillRect(mx + 15, my + 15, 240, 25);
+            ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
             ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
             ctx.font = 'bold 11px monospace';
-            ctx.fillText("Clic Derecho para Auto-Corregir", mx + 25, my + 32);
+            ctx.fillText(tooltipText, mx + 25, my + 32);
         }
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
@@ -1402,14 +1405,51 @@ canvas?.addEventListener('mousedown', (e) => {
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
+        
+        // 🎯 FIX: CORRECCIÓN EN MASA O INDIVIDUAL
         if (window.activeSuggestion) {
             e.preventDefault();
             saveHistoryState();
+            
+            let selectedPoints = actions.filter(a => a.selected);
+            
+            // Si el punto que detona la sugerencia se repara:
             if (window.activeSuggestion.modIdx === 1) {
                 actions[window.activeSuggestion.idx1].pos = window.activeSuggestion.newPos;
             } else {
                 actions[window.activeSuggestion.idx2].pos = window.activeSuggestion.newPos;
             }
+
+            // Si hay una selección múltiple, lanzamos el barrido masivo
+            if (selectedPoints.length > 1) {
+                const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
+                let hwMax = device.standard.max;
+                let hwMin = device.standard.min;
+                if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
+                    hwMax = device.overclock.max;
+                    hwMin = device.overclock.min;
+                }
+
+                // 5 pasadas para asegurar que las correcciones no rompan a los vecinos
+                for (let pass = 0; pass < 5; pass++) {
+                    let passFixed = false;
+                    for (let i = 0; i < actions.length - 1; i++) {
+                        let act1 = actions[i];
+                        let act2 = actions[i+1];
+
+                        if (act1.selected || act2.selected) {
+                            let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor);
+                            if (suggestion) {
+                                if (suggestion.modIdx === 1) actions[i].pos = suggestion.newPos;
+                                else actions[i+1].pos = suggestion.newPos;
+                                passFixed = true;
+                            }
+                        }
+                    }
+                    if (!passFixed) break; // Si ya no hay errores, se detiene
+                }
+            }
+
             window.activeSuggestion = null;
             cleanDuplicates();
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
