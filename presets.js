@@ -537,7 +537,7 @@ function redoModal() {
     }
 }
 
-// 🎯 FIX: REESTRUCTURA TOTAL DE ATAJOS PARA EL MODAL (Editor de Presets)
+// 🎯 FIX: REESTRUCTURA DE ATAJOS PARA EL MODAL (Aislado de la línea principal)
 document.addEventListener('keydown', (e) => {
     if (modalEl && modalEl.style.display === 'flex') {
         if ((e.target.tagName === 'INPUT' && e.target.type === 'text') || e.target.tagName === 'TEXTAREA' || e.target.type === 'number') return;
