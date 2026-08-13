@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V74.0 (MUTE FIX)
+// REPRODUCTOR Y MOTOR DE ATAJOS V76.0
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -84,9 +84,12 @@ async function loadVideoFile(file, hasFunscripts = false) {
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
     window.checkEmptyState();
 
+    const vMuteContainer = document.getElementById('v-mute-container');
+
     if (vMute) { 
         vMute.innerText = "⏳ Audio..."; 
-        vMute.classList.remove('mute-flash');
+        vMute.style.color = "#f59e0b"; 
+        if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
     }
     
     try {
@@ -115,19 +118,18 @@ async function loadVideoFile(file, hasFunscripts = false) {
         window.audioPeaksSampleRate = samplesPerSec;
         window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; 
         
-        // 🎯 FIX: Asignación directa de la clase a la etiqueta (span) para evitar bugs de CSS
         if (vMute) { 
             vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On"; 
             if (videoPlayer.muted || videoPlayer.volume === 0) {
-                vMute.classList.add('mute-flash');
+                if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
             } else {
-                vMute.classList.remove('mute-flash');
+                if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
             }
         }
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
 
     } catch (err) {
-        if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.classList.remove('mute-flash'); }
+        if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.style.color = "#94a3b8"; if(vMuteContainer) vMuteContainer.classList.remove('mute-flash'); }
     }
 }
 
@@ -188,12 +190,13 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
 });
 
 videoPlayer?.addEventListener('volumechange', () => {
+    const vMuteContainer = document.getElementById('v-mute-container');
     if (vMute && window.audioPeaks) {
         vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On";
         if (videoPlayer.muted || videoPlayer.volume === 0) {
-            vMute.classList.add('mute-flash');
+            if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
         } else {
-            vMute.classList.remove('mute-flash');
+            if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
         }
     }
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -219,7 +222,6 @@ window.addEventListener('drop', (e) => {
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🛡️ TECLADO COMPLETO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
@@ -260,23 +262,6 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault();
         const exportBtn = document.getElementById('export-btn');
         if (exportBtn) exportBtn.click();
-        return;
-    }
-
-    if (key === 't' && !event.ctrlKey) {
-        event.preventDefault();
-        window.timelineMarkers = window.timelineMarkers || [];
-        const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
-        
-        let foundIdx = -1;
-        for (let i=0; i<window.timelineMarkers.length; i++) {
-            if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
-        }
-        
-        if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
-        else window.timelineMarkers.push({at: timeMs, pos: 80}); 
-        
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
         return;
     }
 
@@ -339,12 +324,13 @@ window.addEventListener('keydown', (event) => {
     if (key === 'm' && !event.ctrlKey) { 
         event.preventDefault(); 
         videoPlayer.muted = !videoPlayer.muted; 
+        const vMuteContainer = document.getElementById('v-mute-container');
         if (vMute) { 
             vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On"; 
             if (videoPlayer.muted || videoPlayer.volume === 0) {
-                vMute.classList.add('mute-flash');
+                if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
             } else {
-                vMute.classList.remove('mute-flash');
+                if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
             }
         }
     }
