@@ -11,17 +11,15 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 @keyframes ripple-in { to { clip-path: circle(150% at var(--ripple-x, 50%) var(--ripple-y, 50%)); } }
 
 .top-bar-menu { height: 44px; background: #0b0f17; border-bottom: 1px solid #141b29; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 9999; position: relative; }
-.top-center-toggles { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+/* 🎯 FIX: El panel central está anclado absoluto. ¡Nada a su izquierda o derecha lo moverá jamás! */
+.top-center-toggles { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: nowrap; }
 
 .toggle-panel-btn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; font-weight: bold; }
 .toggle-panel-btn.active { background: #6366f1; color: white; border-color: #4f46e5; }
 
 .menu-btn { border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: normal; cursor: pointer; transition: transform 0.1s, background-color 0.2s; }
 .menu-btn:active { transform: scale(0.98); }
-
-/* 🎯 FIX: Anclaje de Botón de Dispositivos */
-.device-btn-fixed { width: 175px; text-align: center; }
-
 .dark-btn { background: #334155; color: #ffffff; }
 .success-btn { background: #10b981; color: #ffffff; font-weight: bold; }
 .success-btn:hover { background: #059669; }
@@ -47,7 +45,7 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .sub-arrow { color: #64748b; font-size: 0.6rem; pointer-events: none; margin-left: 10px; }
 .sub-dropdown-content { display: none; position: absolute; left: 100%; top: -1px; background-color: #0f172a; min-width: 150px; border: 1px solid #1e293b; border-radius: 8px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); padding: 10px; z-index: 100001; }
 .sub-dropdown:hover .sub-dropdown-content { display: block; }
-.oc-label { font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; padding: 5px; white-space: nowrap; transition: background 0.2s;}
+.oc-label { color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; padding: 5px; white-space: nowrap; transition: background 0.2s;}
 .oc-label:hover { background: rgba(255,255,255,0.05); border-radius: 4px; }
 
 @keyframes devicePulse {
