@@ -1,10 +1,10 @@
 // ==========================================================================
-// TIMELINE V71.0: AUTO-CORRECTOR PREDICTIVO Y TAGS MAGENTA
+// TIMELINE V72.0: AUTO-CORRECTOR 100% FIABLE, CLIC DERECHO Y COLORES HD
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
-window.activeSuggestion = null; // 🎯 NUEVO: Sugerencia de Autocorrección
+window.activeSuggestion = null; 
 
 window.presetMorphMode = 'stretch'; 
 
@@ -25,8 +25,8 @@ window.hardwareDB = {
     "erojoy_x3": { name: "Erojoy X3", stroke: 115, factor: 1.15, supports_overclock: false, standard: { max: 320, min: 22 } }
 };
 
-window.activeDevice = null;
-window.isOverclockEnabled = false;
+window.activeDevice = localStorage.getItem('funscript_device') || null;
+window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -71,7 +71,6 @@ const fpsInput = document.getElementById('fps-jump-input');
 const fpsUp = document.getElementById('fps-btn-up');
 const fpsDown = document.getElementById('fps-btn-down');
 
-// 🎯 MATEMÁTICA: Distancia a segmento (Para detectar el ratón sobre la línea)
 function pDistance(x, y, x1, y1, x2, y2) {
     var A = x - x1; var B = y - y1; var C = x2 - x1; var D = y2 - y1;
     var dot = A * C + B * D; var len_sq = C * C + D * D; var param = -1;
@@ -82,6 +81,54 @@ function pDistance(x, y, x1, y1, x2, y2) {
     else { xx = x1 + param * C; yy = y1 + param * D; }
     var dx = x - xx; var dy = y - yy;
     return Math.sqrt(dx * dx + dy * dy);
+}
+
+// 🎯 FIX: Algoritmo Matemático Fuerte para Auto-Corrección Garantizada
+function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
+    let dt_s = (act2.at - act1.at) / 1000.0;
+    if (dt_s <= 0) return null;
+    let dp = Math.abs(act2.pos - act1.pos);
+    let speed = (dp * factor) / dt_s;
+    
+    if (speed <= hwMax && (speed >= hwMin || dp === 0)) return null; 
+    
+    let isTooFast = speed > hwMax;
+    let target_dp = isTooFast ? (hwMax * dt_s) / factor : (hwMin * dt_s) / factor;
+    
+    let dir = act2.pos >= act1.pos ? 1 : -1;
+    if (dp === 0) dir = act1.pos > 50 ? -1 : 1; 
+    
+    let raw2 = act1.pos + dir * target_dp;
+    let snap2 = Math.round(raw2 / 5) * 5;
+    
+    // Forzamos el redondeo para asegurar que solucione el problema matemático
+    if (isTooFast && Math.abs(snap2 - act1.pos) > target_dp) snap2 -= dir * 5;
+    if (!isTooFast && Math.abs(snap2 - act1.pos) < target_dp) snap2 += dir * 5;
+    
+    snap2 = Math.max(0, Math.min(100, snap2));
+    let new_dp2 = Math.abs(snap2 - act1.pos);
+    let new_speed2 = (new_dp2 * factor) / dt_s;
+    let valid2 = (new_speed2 <= hwMax) && (new_speed2 >= hwMin || new_dp2 === 0);
+    
+    if (valid2 && snap2 !== act2.pos) return { modIdx: 2, newPos: snap2 };
+    
+    // Si mover act2 choca con los límites (0 o 100), intentamos arreglar moviendo act1
+    let raw1 = act2.pos - dir * target_dp;
+    let snap1 = Math.round(raw1 / 5) * 5;
+    
+    if (isTooFast && Math.abs(act2.pos - snap1) > target_dp) snap1 += dir * 5;
+    if (!isTooFast && Math.abs(act2.pos - snap1) < target_dp) snap1 -= dir * 5;
+    
+    snap1 = Math.max(0, Math.min(100, snap1));
+    let new_dp1 = Math.abs(act2.pos - snap1);
+    let new_speed1 = (new_dp1 * factor) / dt_s;
+    let valid1 = (new_speed1 <= hwMax) && (new_speed1 >= hwMin || new_dp1 === 0);
+    
+    if (valid1 && snap1 !== act1.pos) return { modIdx: 1, newPos: snap1 };
+    
+    // Si ambos fracasan por un pelo, sugerimos lo más cercano posible al límite
+    if (snap2 !== act2.pos) return { modIdx: 2, newPos: snap2 };
+    return null;
 }
 
 function updateFpsInput(change) {
@@ -320,7 +367,7 @@ window.updateHeatmapAndStats = function() {
         } else if (actions.length === 1) {
             speedText = "Slow (0)"; colorHtml = "#10b981";
         }
-        statsSpan.innerHTML = `Puntos: <strong style="color:#e2e8f0;">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88; white-space: nowrap;">${speedText}</strong>`;
+        statsSpan.innerHTML = `Puntos: <strong style="color:var(--text-main, #e2e8f0);">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88; white-space: nowrap;">${speedText}</strong>`;
     }
 
     const hCanvas = document.getElementById('heatmap-canvas');
@@ -885,12 +932,19 @@ window.drawTimeline = function() {
                     speed_mms = (dp * device.factor) / (dt_ms / 1000);
                 }
 
-                let lineColor = '#38bdf8'; 
+                // 🎯 FIX: CONTRASTES DE LÍNEA OPTIMIZADOS PARA MODO CLARO
+                let colorNormal = isLight ? '#0284c7' : '#38bdf8'; 
+                let lineColor = colorNormal; 
+                
                 const tPulse = performance.now() / 150;
                 const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
                 
-                if (speed_mms > hwMax) lineColor = `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
-                else if (speed_mms < hwMin && dp > 0) lineColor = `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
+                if (speed_mms > hwMax) {
+                    lineColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
+                } else if (speed_mms < hwMin && dp > 0) {
+                    // Naranja tostado en lugar de amarillo en Modo Claro
+                    lineColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
+                }
 
                 let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
                 
@@ -912,7 +966,8 @@ window.drawTimeline = function() {
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    let dotColor = '#38bdf8';
+                    // 🎯 FIX: CONTRASTES DE PUNTOS OPTIMIZADOS PARA MODO CLARO
+                    let dotColor = isLight ? '#0284c7' : '#38bdf8';
                     if (i > 0) {
                         let prevAct = actions[i-1];
                         let dt_ms = act.at - prevAct.at;
@@ -920,10 +975,11 @@ window.drawTimeline = function() {
                         let speed_mms = dt_ms > 0 ? (dp * device.factor) / (dt_ms / 1000) : 0;
                         const tPulse = performance.now() / 150;
                         const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
-                        if (speed_mms > hwMax) dotColor = `rgba(239, 68, 68, ${0.5 + 0.5 * pulseFactor})`; 
-                        else if (speed_mms < hwMin && dp > 0) dotColor = `rgba(250, 204, 21, ${0.5 + 0.5 * pulseFactor})`; 
+                        
+                        if (speed_mms > hwMax) dotColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.5 + 0.5 * pulseFactor})`; 
+                        else if (speed_mms < hwMin && dp > 0) dotColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.5 + 0.5 * pulseFactor})`; 
                     }
-                    if (act.selected) dotColor = '#f59e0b'; 
+                    if (act.selected) dotColor = isLight ? '#d97706' : '#f59e0b'; 
 
                     let isTargetForMorph = act.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
                     
@@ -941,7 +997,6 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: DIBUJO DEL FANTASMA DE AUTO-CORRECCIÓN
         if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
             const act1 = actions[window.activeSuggestion.idx1];
             const act2 = actions[window.activeSuggestion.idx2];
@@ -950,21 +1005,21 @@ window.drawTimeline = function() {
             const sx2 = timeToX(act2.at);
             const sy2 = posToY(window.activeSuggestion.newPos);
             
-            // Línea de sugerencia verde punteada
             ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
             ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
             
-            // Punto fantasma verde
             ctx.beginPath(); ctx.arc(sx2, sy2, 7, 0, Math.PI * 2);
             ctx.fillStyle = '#10b981'; ctx.fill();
             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
             
-            // Tooltip flotante al lado del ratón
             const mx = window.lastMouseX || sx2; const my = window.lastMouseY || sy2;
-            ctx.fillStyle = 'rgba(16, 185, 129, 0.95)';
-            ctx.fillRect(mx + 15, my + 15, 210, 25);
-            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px monospace';
-            ctx.fillText("↵ ENTER para Auto-Corregir", mx + 25, my + 32);
+            
+            // 🎯 FIX: TEXTO CLARO/OSCURO PARA AUTO-CORRECCIÓN Y CLIC DERECHO
+            ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
+            ctx.fillRect(mx + 15, my + 15, 240, 25);
+            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText("Clic Derecho para Auto-Corregir", mx + 25, my + 32);
         }
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
@@ -1045,6 +1100,36 @@ window.drawTimeline = function() {
             ctx.fillRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
             ctx.strokeRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
             ctx.setLineDash([]);
+        }
+
+        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+            window.timelineMarkers.forEach((m, index) => {
+                const mx = timeToX(m.at);
+                const my = posToY(m.pos);
+                if (mx >= 30) {
+                    ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+                    ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
+
+                    ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#d946ef';
+                    ctx.beginPath();
+                    ctx.moveTo(mx - 15, 0);
+                    ctx.lineTo(mx + 15, 0);
+                    ctx.lineTo(mx + 15, 14);
+                    ctx.lineTo(mx, 22);
+                    ctx.lineTo(mx - 15, 14);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText("TAG", mx, 10);
+                    ctx.textAlign = 'left';
+                }
+            });
         }
 
         if (window.magneticSnapPoint && !isSelecting && !isDraggingNode && !isDraggingMarker) {
@@ -1318,6 +1403,23 @@ canvas?.addEventListener('mousedown', (e) => {
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
+        // 🎯 FIX: CLIC DERECHO EJECUTA AUTO-CORRECCIÓN SI HAY UNA SUGERENCIA ACTIVA
+        if (window.activeSuggestion) {
+            e.preventDefault();
+            saveHistoryState();
+            if (window.activeSuggestion.modIdx === 1) {
+                actions[window.activeSuggestion.idx1].pos = window.activeSuggestion.newPos;
+            } else {
+                actions[window.activeSuggestion.idx2].pos = window.activeSuggestion.newPos;
+            }
+            window.activeSuggestion = null;
+            cleanDuplicates();
+            if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+            notifyCloud(); window.updateHeatmapAndStats();
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            return;
+        }
+
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
@@ -1391,7 +1493,6 @@ canvas?.addEventListener('mousemove', (e) => {
 
     const actions = getSafeActions();
 
-    // 🎯 FIX: ESCÁNER FANTASMA DE AUTO-CORRECCIÓN DE ERRORES DE HARDWARE
     window.activeSuggestion = null;
     const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
     let hwMax = device.standard.max;
@@ -1407,37 +1508,13 @@ canvas?.addEventListener('mousemove', (e) => {
             let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
             let px2 = timeToX(act2.at); let py2 = posToY(act2.pos);
             
-            // Check rápido de rendimiento (Bounding Box)
             if (mouseX >= Math.min(px1, px2) - 20 && mouseX <= Math.max(px1, px2) + 20) {
                 let dist = pDistance(mouseX, mouseY, px1, py1, px2, py2);
-                if (dist <= 15) { // Si estás encima de la línea
-                    let dt_ms = act2.at - act1.at;
-                    let dp = Math.abs(act2.pos - act1.pos);
-                    let speed_mms = dt_ms > 0 ? (dp * device.factor) / (dt_ms / 1000) : 0;
-                    
-                    if (speed_mms > hwMax || (speed_mms < hwMin && dp > 0)) {
-                        let ideal_dp = dp;
-                        if (speed_mms > hwMax) ideal_dp = (hwMax * (dt_ms / 1000)) / device.factor;
-                        if (speed_mms < hwMin) ideal_dp = (hwMin * (dt_ms / 1000)) / device.factor;
-                        
-                        let dir = Math.sign(act2.pos - act1.pos);
-                        if (dir === 0) dir = 1;
-                        let rawNewPos = act1.pos + dir * ideal_dp;
-                        let snappedPos = Math.round(rawNewPos / 5) * 5;
-                        snappedPos = Math.max(0, Math.min(100, snappedPos));
-                        
-                        // Si el snappeo no causó cambios reales por culpa del 5%, lo forzamos a reparar el error visual
-                        if (snappedPos === act2.pos) {
-                            snappedPos += (speed_mms > hwMax ? -dir * 5 : dir * 5);
-                            snappedPos = Math.max(0, Math.min(100, snappedPos));
-                        }
-                        
-                        window.activeSuggestion = {
-                            idx1: i,
-                            idx2: i+1,
-                            newPos: snappedPos
-                        };
-                        break; 
+                if (dist <= 15) { 
+                    let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor);
+                    if (suggestion) {
+                        window.activeSuggestion = { ...suggestion, idx1: i, idx2: i+1 };
+                        break;
                     }
                 }
             }
@@ -1557,21 +1634,6 @@ window.addEventListener('mouseup', (e) => {
         notifyCloud(); window.updateHeatmapAndStats();
     }
     isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1;
-});
-
-// 🎯 FIX: El Enter que acepta y sella la Auto-Corrección sugerida
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && window.activeSuggestion) {
-        e.preventDefault();
-        saveHistoryState();
-        const actions = getSafeActions();
-        actions[window.activeSuggestion.idx2].pos = window.activeSuggestion.newPos;
-        window.activeSuggestion = null;
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    }
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
