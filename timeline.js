@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V73.0: AUTO-CORRECTOR MATEMÁTICO PURO (PRECISIÓN 1%)
+// TIMELINE V74.0: AUTO-CORRECTOR VISUAL Y COLORES MODO CLARO
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -25,8 +25,8 @@ window.hardwareDB = {
     "erojoy_x3": { name: "Erojoy X3", stroke: 115, factor: 1.15, supports_overclock: false, standard: { max: 320, min: 22 } }
 };
 
-window.activeDevice = localStorage.getItem('funscript_device') || null;
-window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
+window.activeDevice = null;
+window.isOverclockEnabled = false;
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -83,25 +83,21 @@ function pDistance(x, y, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// 🎯 FIX: Algoritmo Matemático Puro (Libre de la regla del 5%)
 function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
     let dt_s = (act2.at - act1.at) / 1000.0;
     if (dt_s <= 0) return null;
     let dp = Math.abs(act2.pos - act1.pos);
     let speed = (dp * factor) / dt_s;
 
-    // Si la velocidad está dentro de los límites seguros, no hace nada
     if (speed <= hwMax && (speed >= hwMin || dp === 0)) return null;
 
     let isTooFast = speed > hwMax;
-    // Margen de seguridad (1 mm/s) para garantizar que la línea vuelva a ser azul
     let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
     let target_dp = (safe_speed * dt_s) / factor;
 
     let dir = act2.pos >= act1.pos ? 1 : -1;
     if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
 
-    // 🚀 ELIMINADA LA REGLA DEL 5%. Ahora busca el 1% exacto más cercano.
     let raw2 = act1.pos + dir * target_dp;
     let exact2 = Math.round(raw2);
     exact2 = Math.max(0, Math.min(100, exact2));
@@ -112,7 +108,6 @@ function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
 
     if (valid2 && exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
 
-    // Si corregir el segundo punto choca con los límites (0% o 100%), intenta corregir el primer punto
     let raw1 = act2.pos - dir * target_dp;
     let exact1 = Math.round(raw1);
     exact1 = Math.max(0, Math.min(100, exact1));
@@ -123,7 +118,6 @@ function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
 
     if (valid1 && exact1 !== act1.pos) return { modIdx: 1, newPos: exact1 };
 
-    // Si falla por decimales minúsculos, arroja la mejor aproximación posible
     if (exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
     return null;
 }
@@ -929,7 +923,8 @@ window.drawTimeline = function() {
                     speed_mms = (dp * device.factor) / (dt_ms / 1000);
                 }
 
-                let colorNormal = isLight ? '#0284c7' : '#38bdf8'; 
+                // 🎯 FIX: Azul idéntico en claro/oscuro. Naranja radiante para advertencias en modo claro.
+                let colorNormal = '#38bdf8'; 
                 let lineColor = colorNormal; 
                 
                 const tPulse = performance.now() / 150;
@@ -938,7 +933,7 @@ window.drawTimeline = function() {
                 if (speed_mms > hwMax) {
                     lineColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
                 } else if (speed_mms < hwMin && dp > 0) {
-                    lineColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
+                    lineColor = isLight ? `rgba(245, 158, 11, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
                 }
 
                 let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
@@ -961,7 +956,7 @@ window.drawTimeline = function() {
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    let dotColor = isLight ? '#0284c7' : '#38bdf8';
+                    let dotColor = '#38bdf8';
                     if (i > 0) {
                         let prevAct = actions[i-1];
                         let dt_ms = act.at - prevAct.at;
@@ -971,7 +966,7 @@ window.drawTimeline = function() {
                         const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
                         
                         if (speed_mms > hwMax) dotColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.5 + 0.5 * pulseFactor})`; 
-                        else if (speed_mms < hwMin && dp > 0) dotColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.5 + 0.5 * pulseFactor})`; 
+                        else if (speed_mms < hwMin && dp > 0) dotColor = isLight ? `rgba(245, 158, 11, ${0.8 + 0.2 * pulseFactor})` : `rgba(250, 204, 21, ${0.5 + 0.5 * pulseFactor})`; 
                     }
                     if (act.selected) dotColor = isLight ? '#d97706' : '#f59e0b'; 
 
@@ -991,22 +986,33 @@ window.drawTimeline = function() {
             });
         }
 
+        // 🎯 FIX: Dibujo correcto de la Vista Previa Verde Punteada (Respeta el punto que se corrige)
         if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
             const act1 = actions[window.activeSuggestion.idx1];
             const act2 = actions[window.activeSuggestion.idx2];
             const sx1 = timeToX(act1.at);
-            const sy1 = posToY(act1.pos);
             const sx2 = timeToX(act2.at);
-            const sy2 = posToY(window.activeSuggestion.newPos);
             
-            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
+            let drawY1 = posToY(act1.pos);
+            let drawY2 = posToY(act2.pos);
+            let targetX, targetY;
+
+            if (window.activeSuggestion.modIdx === 1) {
+                drawY1 = posToY(window.activeSuggestion.newPos);
+                targetX = sx1; targetY = drawY1;
+            } else {
+                drawY2 = posToY(window.activeSuggestion.newPos);
+                targetX = sx2; targetY = drawY2;
+            }
+            
+            ctx.beginPath(); ctx.moveTo(sx1, drawY1); ctx.lineTo(sx2, drawY2);
             ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
             
-            ctx.beginPath(); ctx.arc(sx2, sy2, 7, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
             ctx.fillStyle = '#10b981'; ctx.fill();
             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
             
-            const mx = window.lastMouseX || sx2; const my = window.lastMouseY || sy2;
+            const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
             
             ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
             ctx.fillRect(mx + 15, my + 15, 240, 25);
