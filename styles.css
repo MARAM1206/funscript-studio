@@ -23,11 +23,10 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .success-btn:hover { background: #059669; }
 .blue-btn { background: #0891b2; color: #ffffff; }
 .purple-btn { background: #8b5cf6; color: #ffffff; }
-.orange-btn { background: #ea580c; color: #ffffff; }
+.orange-btn { background: #ea580c !important; color: #ffffff !important; border: none !important; }
 
-/* 🎯 FIX: Eliminación de overflow: hidden para liberar el sub-menú */
 .dropdown { position: relative; display: inline-block; padding-bottom: 5px; margin-bottom: -5px; }
-.dropdown-content { display: none; position: absolute; background-color: #0f172a; min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 100000; border: 1px solid #1e293b; border-radius: 8px; top: 100%; margin-top: 0; }
+.dropdown-content { display: none; position: absolute; background-color: #0f172a; min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 100000; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden; top: 100%; margin-top: 0; }
 .dropdown::after { content: ''; position: absolute; width: 100%; height: 10px; bottom: -10px; left: 0; }
 
 .dropdown-content > a, .sub-dropdown { color: #e2e8f0; padding: 10px 14px; text-decoration: none; display: block; font-size: 0.8rem; border-bottom: 1px solid #1e293b; transition: background-color 0.1s; white-space: nowrap; }
@@ -98,13 +97,9 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 #v-name { max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
 .fixed-info { display: inline-block; text-align: center; }
 #v-res { width: 70px; } #v-fps { width: 60px; } #v-speed { width: 85px; } 
-#v-mute-container { width: 95px; text-align: left; transition: all 0.3s; }
+#v-mute-container { width: 95px; text-align: left; }
 
-@keyframes heartBeatFlash {
-    0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px transparent); transform: scale(1); }
-    50% { opacity: 0.8; filter: drop-shadow(0 0 8px #ef4444); transform: scale(1.05); }
-}
-.mute-flash { animation: heartBeatFlash 1s infinite ease-in-out; display: inline-block; color: #ef4444 !important; }
+.mute-flash { animation: heartBeatFlash 0.8s infinite ease-in-out; display: inline-block; font-weight: bold !important; color: #ef4444 !important; }
 
 .resize-handle { position: absolute; z-index: 20; }
 .resize-handle-n  { top: 0; left: 0; width: 100%; height: 6px; cursor: ns-resize; }
@@ -187,8 +182,19 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .panel-content { background: #ffffff; }
 .light-theme .custom-progress { background: #e2e8f0; }
 
+/* 🎯 FIX: MODO CLARO COMPLETO PARA PANELES EXTERNOS E INTERNOS */
 .light-theme .dark-btn { background: #ffffff; color: #334155; border: 1px solid #cbd5e1; }
 .light-theme .dark-btn:hover { background: #f1f5f9; }
+.light-theme .handy-container .menu-btn { color: #0f172a; border-color: #cbd5e1; }
+
+/* Modal Clear Fix */
+.light-theme .modal-overlay { background: rgba(241, 245, 249, 0.85); }
+.light-theme .modal-content { background: #ffffff; border-color: #cbd5e1; color: #0f172a; }
+.light-theme .modal-content label, 
+.light-theme .modal-content span, 
+.light-theme .modal-content p,
+.light-theme .modal-h4 { color: #334155 !important; }
+.light-theme .modal-input { background: #f8fafc; color: #0f172a; border: 1px solid #cbd5e1; }
 
 .light-theme .dropdown-content { background-color: #ffffff; border-color: #cbd5e1; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1); }
 .light-theme .dropdown-content > a, .light-theme .sub-dropdown { color: #0f172a; border-bottom-color: #cbd5e1; }
