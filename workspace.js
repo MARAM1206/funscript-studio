@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V71.0: OVERCLOCK TEXT DINAMICO
+// WORKSPACE V74.0: OVERCLOCK TEXT DINAMICO CORREGIDO
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -51,26 +51,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const ocToggles = document.querySelectorAll('.oc-toggle');
     window.isOverclockEnabled = false; 
 
-    // 🎯 FIX: Función para estilizar el texto de Overclock On/Off
+    // 🎯 FIX: Función para estilizar el texto de Overclock On/Off (Oculta el rayito si está off)
     function updateOcUI() {
         document.querySelectorAll('.oc-text').forEach(span => {
             if (window.isOverclockEnabled) {
                 span.innerText = "⚡ Overclock On";
                 span.style.color = "#10b981"; 
             } else {
-                span.innerText = "⚡ Overclock Off";
+                span.innerText = "Overclock Off";
                 span.style.color = "#ef4444"; 
             }
         });
     }
-    updateOcUI(); // Carga inicial
+    updateOcUI(); 
     
     ocToggles.forEach(toggle => {
         toggle.checked = window.isOverclockEnabled;
         toggle.addEventListener('change', (e) => {
             window.isOverclockEnabled = e.target.checked;
             ocToggles.forEach(t => t.checked = window.isOverclockEnabled);
-            updateOcUI(); // Actualiza el color y texto
+            updateOcUI();
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
         });
