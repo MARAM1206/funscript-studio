@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=75">
+    <link rel="stylesheet" href="styles.css?v=76">
 </head>
 <body>
 
@@ -19,9 +19,9 @@
                 </div>
             </div>
             
-            <!-- 🎯 FIX: Ancho fijo (190px) y control de texto para evitar empujes de UI -->
-            <div class="dropdown" style="width: 190px;">
-                <button class="menu-btn dark-btn device-alert-pulse" id="device-menu-btn" style="width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📱 Dispositivos</button>
+            <div class="dropdown">
+                <!-- 🎯 FIX: Se añade la clase 'device-btn-fixed' para anclar el tamaño y evitar brincos -->
+                <button class="menu-btn dark-btn device-alert-pulse device-btn-fixed" id="device-menu-btn">📱 Dispositivos</button>
                 <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
                     
                     <a href="#" data-device="handy_std">Handy V1 / 2 Standar</a>
@@ -41,7 +41,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V75.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V76.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -204,12 +204,12 @@
 
     </div>
 
-    <script src="workspace.js?v=75"></script>
-    <script src="handy.js?v=75"></script> 
-    <script src="funscript.js?v=75"></script>
-    <script src="player.js?v=75"></script>
-    <script src="tracking.js?v=75"></script>
-    <script src="presets.js?v=75"></script>
-    <script src="timeline.js?v=75"></script>
+    <script src="workspace.js?v=76"></script>
+    <script src="handy.js?v=76"></script> 
+    <script src="funscript.js?v=76"></script>
+    <script src="player.js?v=76"></script>
+    <script src="tracking.js?v=76"></script>
+    <script src="presets.js?v=76"></script>
+    <script src="timeline.js?v=76"></script>
 </body>
 </html>
