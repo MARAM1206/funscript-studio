@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V75.0: AUTO-CORRECTOR MASIVO EN BLOQUE (SWARM FIX)
+// TIMELINE V76.0: AUTO-CORRECTOR MASIVO SWARM-FIX & MARCADORES SEGUROS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -25,8 +25,8 @@ window.hardwareDB = {
     "erojoy_x3": { name: "Erojoy X3", stroke: 115, factor: 1.15, supports_overclock: false, standard: { max: 320, min: 22 } }
 };
 
-window.activeDevice = localStorage.getItem('funscript_device') || null;
-window.isOverclockEnabled = localStorage.getItem('funscript_overclock') === 'true';
+window.activeDevice = null;
+window.isOverclockEnabled = false;
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -83,6 +83,7 @@ function pDistance(x, y, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
+// ALGORITMO AUTO-CORRECTOR INDIVIDUAL (Puro)
 function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
     let dt_s = (act2.at - act1.at) / 1000.0;
     if (dt_s <= 0) return null;
@@ -99,8 +100,7 @@ function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
     if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
 
     let raw2 = act1.pos + dir * target_dp;
-    let exact2 = Math.round(raw2);
-    exact2 = Math.max(0, Math.min(100, exact2));
+    let exact2 = Math.max(0, Math.min(100, Math.round(raw2)));
 
     let new_dp2 = Math.abs(exact2 - act1.pos);
     let new_speed2 = (new_dp2 * factor) / dt_s;
@@ -109,8 +109,7 @@ function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
     if (valid2 && exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
 
     let raw1 = act2.pos - dir * target_dp;
-    let exact1 = Math.round(raw1);
-    exact1 = Math.max(0, Math.min(100, exact1));
+    let exact1 = Math.max(0, Math.min(100, Math.round(raw1)));
 
     let new_dp1 = Math.abs(act2.pos - exact1);
     let new_speed1 = (new_dp1 * factor) / dt_s;
@@ -120,6 +119,60 @@ function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
 
     if (exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
     return null;
+}
+
+// 🎯 FIX: ALGORITMO DE CORRECCIÓN MASIVA (Swarm Fix Constraint Solver)
+function massCorrectSelection(actions, hwMax, hwMin, factor) {
+    let selectedIdxs = [];
+    actions.forEach((a, i) => { if(a.selected) selectedIdxs.push(i); });
+    if (selectedIdxs.length <= 1) return false;
+
+    let changed = false;
+    // 10 pasadas a velocidad luz para asentar el resorte matemático
+    for(let pass = 0; pass < 10; pass++) {
+        let passChanged = false;
+        for(let i = 0; i < actions.length - 1; i++) {
+            if (!actions[i].selected && !actions[i+1].selected) continue;
+
+            let act1 = actions[i]; let act2 = actions[i+1];
+            let dt_s = (act2.at - act1.at) / 1000.0;
+            if(dt_s <= 0) continue;
+
+            let dp = Math.abs(act2.pos - act1.pos);
+            let speed = (dp * factor) / dt_s;
+
+            if (speed > hwMax || (speed < hwMin && dp > 0)) {
+                let isTooFast = speed > hwMax;
+                let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
+                let target_dp = (safe_speed * dt_s) / factor;
+
+                let dir = act2.pos >= act1.pos ? 1 : -1;
+                if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
+
+                let ideal1 = act2.pos - dir * target_dp;
+                let ideal2 = act1.pos + dir * target_dp;
+
+                if (act1.selected && act2.selected) {
+                    let mid = (act1.pos + act2.pos) / 2;
+                    let new_dp_half = target_dp / 2;
+                    let new1 = Math.max(0, Math.min(100, Math.round(mid - dir * new_dp_half)));
+                    let new2 = Math.max(0, Math.min(100, Math.round(mid + dir * new_dp_half)));
+                    if(act1.pos !== new1 || act2.pos !== new2) {
+                        act1.pos = new1; act2.pos = new2;
+                        passChanged = true; changed = true;
+                    }
+                } else if (act1.selected) {
+                    let new1 = Math.max(0, Math.min(100, Math.round(ideal1)));
+                    if(act1.pos !== new1) { act1.pos = new1; passChanged = true; changed = true; }
+                } else if (act2.selected) {
+                    let new2 = Math.max(0, Math.min(100, Math.round(ideal2)));
+                    if(act2.pos !== new2) { act2.pos = new2; passChanged = true; changed = true; }
+                }
+            }
+        }
+        if (!passChanged) break; 
+    }
+    return changed;
 }
 
 function updateFpsInput(change) {
@@ -139,6 +192,26 @@ if (fpsUp) fpsUp.addEventListener('click', () => updateFpsInput(1));
 if (fpsDown) fpsDown.addEventListener('click', () => updateFpsInput(-1));
 
 window.addEventListener('keydown', (e) => {
+    // 🎯 FIX: LA TECLA T HA VUELTO (Protegida 100%)
+    if ((e.target.tagName === 'INPUT' && e.target.type === 'text') || e.target.tagName === 'TEXTAREA' || e.target.type === 'number') return;
+    
+    if (e.key.toLowerCase() === 't' && !e.ctrlKey) {
+        e.preventDefault();
+        window.timelineMarkers = window.timelineMarkers || [];
+        const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+        
+        let foundIdx = -1;
+        for (let i=0; i<window.timelineMarkers.length; i++) {
+            if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
+        }
+        
+        if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
+        else window.timelineMarkers.push({at: timeMs, pos: 80}); 
+        
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
+    }
+
     if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
         e.preventDefault();
         if (window.presetMorphMode === 'stretch') window.presetMorphMode = 'anchor';
@@ -985,6 +1058,7 @@ window.drawTimeline = function() {
             });
         }
 
+        // 🎯 FIX: TEXTO DINÁMICO PARA AUTO-CORRECCIÓN MASIVA (Swarm Fix)
         if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
             const act1 = actions[window.activeSuggestion.idx1];
             const act2 = actions[window.activeSuggestion.idx2];
@@ -1012,10 +1086,9 @@ window.drawTimeline = function() {
             
             const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
             
-            // 🎯 FIX: TEXTO DINÁMICO PARA AUTO-CORRECCIÓN MÚLTIPLE
             let hasMultiselect = actions.filter(a => a.selected).length > 1;
-            let tooltipText = hasMultiselect ? "Clic Derecho: Auto-Corregir Selección" : "Clic Derecho para Auto-Corregir";
-            let boxWidth = hasMultiselect ? 275 : 240;
+            let tooltipText = hasMultiselect ? "Clic Der: Auto-Corregir Masivo" : "Clic Derecho para Auto-Corregir";
+            let boxWidth = hasMultiselect ? 245 : 240;
 
             ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
             ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
@@ -1406,22 +1479,16 @@ canvas?.addEventListener('mousedown', (e) => {
         }
     } else if (e.button === 2) { 
         
-        // 🎯 FIX: CORRECCIÓN EN MASA O INDIVIDUAL
-        if (window.activeSuggestion) {
+        let selectedCount = actions.filter(a => a.selected).length;
+        
+        // 🎯 FIX: AUTO-CORRECTOR MASIVO O INDIVIDUAL EN CLIC DERECHO
+        if (selectedCount > 1 || window.activeSuggestion) {
             e.preventDefault();
             saveHistoryState();
             
-            let selectedPoints = actions.filter(a => a.selected);
+            let wasFixed = false;
             
-            // Si el punto que detona la sugerencia se repara:
-            if (window.activeSuggestion.modIdx === 1) {
-                actions[window.activeSuggestion.idx1].pos = window.activeSuggestion.newPos;
-            } else {
-                actions[window.activeSuggestion.idx2].pos = window.activeSuggestion.newPos;
-            }
-
-            // Si hay una selección múltiple, lanzamos el barrido masivo
-            if (selectedPoints.length > 1) {
+            if (selectedCount > 1) {
                 const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
                 let hwMax = device.standard.max;
                 let hwMin = device.standard.min;
@@ -1429,33 +1496,24 @@ canvas?.addEventListener('mousedown', (e) => {
                     hwMax = device.overclock.max;
                     hwMin = device.overclock.min;
                 }
-
-                // 5 pasadas para asegurar que las correcciones no rompan a los vecinos
-                for (let pass = 0; pass < 5; pass++) {
-                    let passFixed = false;
-                    for (let i = 0; i < actions.length - 1; i++) {
-                        let act1 = actions[i];
-                        let act2 = actions[i+1];
-
-                        if (act1.selected || act2.selected) {
-                            let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor);
-                            if (suggestion) {
-                                if (suggestion.modIdx === 1) actions[i].pos = suggestion.newPos;
-                                else actions[i+1].pos = suggestion.newPos;
-                                passFixed = true;
-                            }
-                        }
-                    }
-                    if (!passFixed) break; // Si ya no hay errores, se detiene
+                wasFixed = massCorrectSelection(actions, hwMax, hwMin, device.factor);
+            } else if (window.activeSuggestion) {
+                if (window.activeSuggestion.modIdx === 1) {
+                    actions[window.activeSuggestion.idx1].pos = window.activeSuggestion.newPos;
+                } else {
+                    actions[window.activeSuggestion.idx2].pos = window.activeSuggestion.newPos;
                 }
+                wasFixed = true;
             }
 
-            window.activeSuggestion = null;
-            cleanDuplicates();
-            if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-            notifyCloud(); window.updateHeatmapAndStats();
-            if (typeof window.drawTimeline === 'function') window.drawTimeline();
-            return;
+            if (wasFixed) {
+                window.activeSuggestion = null;
+                cleanDuplicates();
+                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+                notifyCloud(); window.updateHeatmapAndStats();
+                if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                return;
+            }
         }
 
         e.preventDefault();
