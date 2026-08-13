@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V76.0
+// REPRODUCTOR Y MOTOR DE ATAJOS V78.0 (BLINDAJE DE MODAL Y TECLADO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -222,10 +222,18 @@ window.addEventListener('drop', (e) => {
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
+// 🛡️ TECLADO COMPLETO CON BLINDAJE DE MODAL
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
+    const modal = document.getElementById('preset-editor-modal');
+    const isModalOpen = modal && modal.style.display === 'flex';
+
     if (event.key === 'Escape' || event.key === 'Esc') {
+        if (isModalOpen) {
+            // Se cierra vía presets.js
+            return;
+        }
         if (window.isPastingMode || window.isDraggingPreset) {
             window.isPastingMode = false;
             window.isDraggingPreset = false;
@@ -236,6 +244,9 @@ window.addEventListener('keydown', (event) => {
         }
         if (document.fullscreenElement) document.exitFullscreen();
     }
+
+    // 🎯 FIX: AISLAMIENTO TOTAL. Si el modal está abierto, la línea de tiempo ignora TODOS los comandos.
+    if (isModalOpen) return;
 
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
         window.fsTimelineVisible = !window.fsTimelineVisible;
@@ -277,7 +288,6 @@ window.addEventListener('keydown', (event) => {
         window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
         if (typeof window.syncAdaptiveButtons === 'function') window.syncAdaptiveButtons(window.isAdaptiveModeActive);
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
         return;
     }
 
