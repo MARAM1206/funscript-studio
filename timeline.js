@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V76.0: AUTO-CORRECTOR MASIVO SWARM-FIX & MARCADORES SEGUROS
+// TIMELINE V77.0: OMNI-CORRECTOR, RIPPLE FIX, MAGNETIC TAGS & SWARM FIX
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -83,10 +83,11 @@ function pDistance(x, y, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// ALGORITMO AUTO-CORRECTOR INDIVIDUAL (Puro)
-function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
-    let dt_s = (act2.at - act1.at) / 1000.0;
-    if (dt_s <= 0) return null;
+// 🎯 FIX: SOLUCIONADOR OMNI-DIRECCIONAL (Busca la mejor opción entre X y Y)
+function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor, act0 = null, act3 = null) {
+    let dt_ms = act2.at - act1.at;
+    if (dt_ms <= 0) return null;
+    let dt_s = dt_ms / 1000.0;
     let dp = Math.abs(act2.pos - act1.pos);
     let speed = (dp * factor) / dt_s;
 
@@ -94,83 +95,109 @@ function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
 
     let isTooFast = speed > hwMax;
     let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
-    let target_dp = (safe_speed * dt_s) / factor;
+    let options = [];
 
+    // Opciones 1 & 2: Mover Y (Posición)
+    let target_dp = (safe_speed * dt_s) / factor;
     let dir = act2.pos >= act1.pos ? 1 : -1;
     if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
 
-    let raw2 = act1.pos + dir * target_dp;
-    let exact2 = Math.max(0, Math.min(100, Math.round(raw2)));
+    let snap2_pos = Math.max(0, Math.min(100, Math.round(act1.pos + dir * target_dp)));
+    if (Math.abs(snap2_pos - act1.pos) > 0) options.push({ modIdx: 2, key: 'pos', val: snap2_pos, diff: Math.abs(snap2_pos - act2.pos) });
 
-    let new_dp2 = Math.abs(exact2 - act1.pos);
-    let new_speed2 = (new_dp2 * factor) / dt_s;
-    let valid2 = (new_speed2 <= hwMax) && (new_speed2 >= hwMin || new_dp2 === 0);
+    let snap1_pos = Math.max(0, Math.min(100, Math.round(act2.pos - dir * target_dp)));
+    if (Math.abs(act2.pos - snap1_pos) > 0) options.push({ modIdx: 1, key: 'pos', val: snap1_pos, diff: Math.abs(snap1_pos - act1.pos) });
 
-    if (valid2 && exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
+    // Opciones 3 & 4: Mover X (Tiempo)
+    let target_dt_ms = Math.round(((dp * factor) / safe_speed) * 1000);
 
-    let raw1 = act2.pos - dir * target_dp;
-    let exact1 = Math.max(0, Math.min(100, Math.round(raw1)));
+    let snap2_at = act1.at + target_dt_ms;
+    if (!act3 || snap2_at < act3.at - 10) options.push({ modIdx: 2, key: 'at', val: snap2_at, diff: Math.abs(snap2_at - act2.at) / 10 }); // Diff escalado para competir con Y
 
-    let new_dp1 = Math.abs(act2.pos - exact1);
-    let new_speed1 = (new_dp1 * factor) / dt_s;
-    let valid1 = (new_speed1 <= hwMax) && (new_speed1 >= hwMin || new_dp1 === 0);
+    let snap1_at = act2.at - target_dt_ms;
+    if (snap1_at >= 0 && (!act0 || snap1_at > act0.at + 10)) options.push({ modIdx: 1, key: 'at', val: snap1_at, diff: Math.abs(snap1_at - act1.at) / 10 });
 
-    if (valid1 && exact1 !== act1.pos) return { modIdx: 1, newPos: exact1 };
+    // Filtrar opciones válidas matemáticamente
+    let validOptions = options.filter(opt => {
+        let test_dt = opt.key === 'at' ? (opt.modIdx === 2 ? opt.val - act1.at : act2.at - opt.val) : dt_ms;
+        let test_dp = opt.key === 'pos' ? (opt.modIdx === 2 ? Math.abs(opt.val - act1.pos) : Math.abs(act2.pos - opt.val)) : dp;
+        let test_s = (test_dp * factor) / (test_dt / 1000);
+        return test_s <= hwMax && (test_s >= hwMin || test_dp === 0);
+    });
 
-    if (exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
-    return null;
+    if (validOptions.length === 0) return null;
+
+    validOptions.sort((a, b) => a.diff - b.diff);
+    return validOptions[0]; 
 }
 
-// 🎯 FIX: ALGORITMO DE CORRECCIÓN MASIVA (Swarm Fix Constraint Solver)
+// 🎯 FIX: CORRECCIÓN MASIVA EN ENJAMBRE (Swarm Solver)
 function massCorrectSelection(actions, hwMax, hwMin, factor) {
-    let selectedIdxs = [];
-    actions.forEach((a, i) => { if(a.selected) selectedIdxs.push(i); });
-    if (selectedIdxs.length <= 1) return false;
-
     let changed = false;
-    // 10 pasadas a velocidad luz para asentar el resorte matemático
-    for(let pass = 0; pass < 10; pass++) {
+    for (let pass = 0; pass < 30; pass++) { // 30 Iteraciones de Relajación
         let passChanged = false;
-        for(let i = 0; i < actions.length - 1; i++) {
-            if (!actions[i].selected && !actions[i+1].selected) continue;
-
+        for (let i = 0; i < actions.length - 1; i++) {
             let act1 = actions[i]; let act2 = actions[i+1];
-            let dt_s = (act2.at - act1.at) / 1000.0;
-            if(dt_s <= 0) continue;
+            if (!act1.selected && !act2.selected) continue; // Respeta los no seleccionados
 
+            let act0 = i > 0 ? actions[i-1] : null;
+            let act3 = i < actions.length - 2 ? actions[i+2] : null;
+
+            let dt_ms = act2.at - act1.at;
+            if (dt_ms <= 0) continue;
             let dp = Math.abs(act2.pos - act1.pos);
-            let speed = (dp * factor) / dt_s;
+            let speed = (dp * factor) / (dt_ms / 1000);
 
             if (speed > hwMax || (speed < hwMin && dp > 0)) {
                 let isTooFast = speed > hwMax;
                 let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
-                let target_dp = (safe_speed * dt_s) / factor;
-
+                let target_dp = (safe_speed * (dt_ms/1000)) / factor;
                 let dir = act2.pos >= act1.pos ? 1 : -1;
                 if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
 
-                let ideal1 = act2.pos - dir * target_dp;
-                let ideal2 = act1.pos + dir * target_dp;
-
+                // Intento 1: Ajustar Posición
+                let p1 = act1.pos, p2 = act2.pos;
                 if (act1.selected && act2.selected) {
-                    let mid = (act1.pos + act2.pos) / 2;
-                    let new_dp_half = target_dp / 2;
-                    let new1 = Math.max(0, Math.min(100, Math.round(mid - dir * new_dp_half)));
-                    let new2 = Math.max(0, Math.min(100, Math.round(mid + dir * new_dp_half)));
-                    if(act1.pos !== new1 || act2.pos !== new2) {
-                        act1.pos = new1; act2.pos = new2;
-                        passChanged = true; changed = true;
-                    }
-                } else if (act1.selected) {
-                    let new1 = Math.max(0, Math.min(100, Math.round(ideal1)));
-                    if(act1.pos !== new1) { act1.pos = new1; passChanged = true; changed = true; }
-                } else if (act2.selected) {
-                    let new2 = Math.max(0, Math.min(100, Math.round(ideal2)));
-                    if(act2.pos !== new2) { act2.pos = new2; passChanged = true; changed = true; }
+                    let diff = Math.abs(target_dp - dp) / 2;
+                    if (isTooFast) { p1 += dir*diff; p2 -= dir*diff; }
+                    else { p1 -= dir*diff; p2 += dir*diff; }
+                } else if (act2.selected) { p2 = act1.pos + dir * target_dp; } 
+                else if (act1.selected) { p1 = act2.pos - dir * target_dp; }
+                
+                p1 = Math.max(0, Math.min(100, Math.round(p1)));
+                p2 = Math.max(0, Math.min(100, Math.round(p2)));
+
+                let checkSpeedPos = (Math.abs(p2 - p1) * factor) / (dt_ms / 1000);
+                if (checkSpeedPos <= hwMax && (checkSpeedPos >= hwMin || Math.abs(p2-p1)===0)) {
+                    if (act1.pos !== p1 && act1.selected) { act1.pos = p1; passChanged = true; changed = true; }
+                    if (act2.pos !== p2 && act2.selected) { act2.pos = p2; passChanged = true; changed = true; }
+                    continue;
+                }
+
+                // Intento 2: Ajustar Tiempo
+                let target_dt_ms = Math.round(((dp * factor) / safe_speed) * 1000);
+                let t1 = act1.at, t2 = act2.at;
+                if (act1.selected && act2.selected) {
+                    let tDiff = Math.abs(target_dt_ms - dt_ms) / 2;
+                    if (isTooFast) { t1 -= tDiff; t2 += tDiff; }
+                    else { t1 += tDiff; t2 -= tDiff; }
+                } else if (act2.selected) { t2 = act1.at + target_dt_ms; } 
+                else if (act1.selected) { t1 = act2.at - target_dt_ms; }
+
+                if (act0 && t1 <= act0.at) t1 = act0.at + 10;
+                if (t1 < 0) t1 = 0;
+                if (act3 && t2 >= act3.at) t2 = act3.at - 10;
+
+                t1 = Math.round(t1); t2 = Math.round(t2);
+
+                let checkSpeedTime = (dp * factor) / ((t2 - t1) / 1000);
+                if (checkSpeedTime <= hwMax && (checkSpeedTime >= hwMin || dp === 0)) {
+                    if (act1.at !== t1 && act1.selected) { act1.at = t1; passChanged = true; changed = true; }
+                    if (act2.at !== t2 && act2.selected) { act2.at = t2; passChanged = true; changed = true; }
                 }
             }
         }
-        if (!passChanged) break; 
+        if (!passChanged) break; // Termina si estabilizó todo antes de 30
     }
     return changed;
 }
@@ -190,37 +217,6 @@ if (fpsInput) {
 }
 if (fpsUp) fpsUp.addEventListener('click', () => updateFpsInput(1));
 if (fpsDown) fpsDown.addEventListener('click', () => updateFpsInput(-1));
-
-window.addEventListener('keydown', (e) => {
-    // 🎯 FIX: LA TECLA T HA VUELTO (Protegida 100%)
-    if ((e.target.tagName === 'INPUT' && e.target.type === 'text') || e.target.tagName === 'TEXTAREA' || e.target.type === 'number') return;
-    
-    if (e.key.toLowerCase() === 't' && !e.ctrlKey) {
-        e.preventDefault();
-        window.timelineMarkers = window.timelineMarkers || [];
-        const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
-        
-        let foundIdx = -1;
-        for (let i=0; i<window.timelineMarkers.length; i++) {
-            if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
-        }
-        
-        if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
-        else window.timelineMarkers.push({at: timeMs, pos: 80}); 
-        
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        return;
-    }
-
-    if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
-        e.preventDefault();
-        if (window.presetMorphMode === 'stretch') window.presetMorphMode = 'anchor';
-        else if (window.presetMorphMode === 'anchor') window.presetMorphMode = 'repeat';
-        else if (window.presetMorphMode === 'repeat') window.presetMorphMode = 'raw';
-        else window.presetMorphMode = 'stretch';
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    }
-});
 
 function formatTimelineLabel(timeMs) {
     const isNeg = timeMs < 0;
@@ -1028,7 +1024,7 @@ window.drawTimeline = function() {
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    let dotColor = '#38bdf8';
+                    let dotColor = isLight ? '#0284c7' : '#38bdf8';
                     if (i > 0) {
                         let prevAct = actions[i-1];
                         let dt_ms = act.at - prevAct.at;
@@ -1058,28 +1054,29 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: TEXTO DINÁMICO PARA AUTO-CORRECCIÓN MASIVA (Swarm Fix)
+        // 🎯 FIX: VISTA PREVIA OMNI-DIRECCIONAL DEL AUTO-CORRECTOR
         if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
             const act1 = actions[window.activeSuggestion.idx1];
             const act2 = actions[window.activeSuggestion.idx2];
-            const sx1 = timeToX(act1.at);
-            const sx2 = timeToX(act2.at);
-            
-            let drawY1 = posToY(act1.pos);
-            let drawY2 = posToY(act2.pos);
-            let targetX, targetY;
 
-            if (window.activeSuggestion.modIdx === 1) {
-                drawY1 = posToY(window.activeSuggestion.newPos);
-                targetX = sx1; targetY = drawY1;
-            } else {
-                drawY2 = posToY(window.activeSuggestion.newPos);
-                targetX = sx2; targetY = drawY2;
-            }
-            
-            ctx.beginPath(); ctx.moveTo(sx1, drawY1); ctx.lineTo(sx2, drawY2);
+            let simAct1 = {at: act1.at, pos: act1.pos};
+            let simAct2 = {at: act2.at, pos: act2.pos};
+
+            // Inyectamos la matemática sugerida en el clon
+            if (window.activeSuggestion.modIdx === 1) simAct1[window.activeSuggestion.key] = window.activeSuggestion.val;
+            else simAct2[window.activeSuggestion.key] = window.activeSuggestion.val;
+
+            let sx1 = timeToX(simAct1.at); let sy1 = posToY(simAct1.pos);
+            let sx2 = timeToX(simAct2.at); let sy2 = posToY(simAct2.pos);
+
+            // Dibuja la línea verde punteada perfecta
+            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
             ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
-            
+
+            // Dibuja el punto verde exactamente donde debe ir
+            let targetX = window.activeSuggestion.modIdx === 1 ? sx1 : sx2;
+            let targetY = window.activeSuggestion.modIdx === 1 ? sy1 : sy2;
+
             ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
             ctx.fillStyle = '#10b981'; ctx.fill();
             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
@@ -1481,7 +1478,6 @@ canvas?.addEventListener('mousedown', (e) => {
         
         let selectedCount = actions.filter(a => a.selected).length;
         
-        // 🎯 FIX: AUTO-CORRECTOR MASIVO O INDIVIDUAL EN CLIC DERECHO
         if (selectedCount > 1 || window.activeSuggestion) {
             e.preventDefault();
             saveHistoryState();
@@ -1499,9 +1495,9 @@ canvas?.addEventListener('mousedown', (e) => {
                 wasFixed = massCorrectSelection(actions, hwMax, hwMin, device.factor);
             } else if (window.activeSuggestion) {
                 if (window.activeSuggestion.modIdx === 1) {
-                    actions[window.activeSuggestion.idx1].pos = window.activeSuggestion.newPos;
+                    actions[window.activeSuggestion.idx1][window.activeSuggestion.key] = window.activeSuggestion.val;
                 } else {
-                    actions[window.activeSuggestion.idx2].pos = window.activeSuggestion.newPos;
+                    actions[window.activeSuggestion.idx2][window.activeSuggestion.key] = window.activeSuggestion.val;
                 }
                 wasFixed = true;
             }
@@ -1545,8 +1541,28 @@ canvas?.addEventListener('mousemove', (e) => {
     
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         const m = window.timelineMarkers[draggedMarkerIndex];
-        m.at = Math.max(0, Math.round(xToTime(mouseX) / 50) * 50); 
-        m.pos = Math.max(0, Math.min(100, Math.round(yToPos(mouseY) / 5) * 5)); 
+        let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
+        let newPos = Math.max(0, Math.min(100, Math.round(yToPos(mouseY) / 5) * 5)); 
+
+        // 🎯 FIX: MAGNETISMO ABSOLUTO (Imán a Playhead y a otros puntos)
+        const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+        if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = actualTimeMs;
+
+        let minPxDist = 15;
+        const actions = getSafeActions();
+        actions.forEach(act => {
+            const px = timeToX(act.at);
+            const py = posToY(act.pos);
+            const mPx = timeToX(newAt);
+            const mPy = posToY(newPos);
+            if (Math.hypot(mPx - px, mPy - py) < minPxDist) {
+                newAt = act.at;
+                newPos = act.pos;
+            }
+        });
+
+        m.at = Math.max(0, newAt);
+        m.pos = newPos;
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         return;
     }
@@ -1607,7 +1623,9 @@ canvas?.addEventListener('mousemove', (e) => {
             if (mouseX >= Math.min(px1, px2) - 20 && mouseX <= Math.max(px1, px2) + 20) {
                 let dist = pDistance(mouseX, mouseY, px1, py1, px2, py2);
                 if (dist <= 15) { 
-                    let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor);
+                    let act0 = i > 0 ? actions[i-1] : null;
+                    let act3 = i < actions.length - 2 ? actions[i+2] : null;
+                    let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor, act0, act3);
                     if (suggestion) {
                         window.activeSuggestion = { ...suggestion, idx1: i, idx2: i+1 };
                         break;
