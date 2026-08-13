@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V70.0: PROTECCIÓN DE PRESETS Y RESETEO DE DISPOSITIVOS
+// WORKSPACE V71.0: OVERCLOCK TEXT DINAMICO
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -46,25 +46,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const deviceLinks = document.querySelectorAll('#device-dropdown-list > a, #device-dropdown-list .sub-dropdown > a');
     const deviceBtn = document.getElementById('device-menu-btn');
-    
-    // 🎯 FIX: Ya no leemos de localStorage. Forzamos el estado nulo al iniciar.
     window.activeDevice = null; 
     
     const ocToggles = document.querySelectorAll('.oc-toggle');
-    window.isOverclockEnabled = false; // Resetear overclock al iniciar
+    window.isOverclockEnabled = false; 
+
+    // 🎯 FIX: Función para estilizar el texto de Overclock On/Off
+    function updateOcUI() {
+        document.querySelectorAll('.oc-text').forEach(span => {
+            if (window.isOverclockEnabled) {
+                span.innerText = "⚡ Overclock On";
+                span.style.color = "#10b981"; 
+            } else {
+                span.innerText = "⚡ Overclock Off";
+                span.style.color = "#ef4444"; 
+            }
+        });
+    }
+    updateOcUI(); // Carga inicial
     
     ocToggles.forEach(toggle => {
         toggle.checked = window.isOverclockEnabled;
         toggle.addEventListener('change', (e) => {
             window.isOverclockEnabled = e.target.checked;
             ocToggles.forEach(t => t.checked = window.isOverclockEnabled);
+            updateOcUI(); // Actualiza el color y texto
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
         });
     });
     
     function updateDeviceMenu() {
-        // 🎯 FIX: Si no hay dispositivo seleccionado, activa el parpadeo de alerta
         if (!window.activeDevice) {
             if (deviceBtn) {
                 deviceBtn.innerText = `📱 Dispositivos`;
@@ -87,14 +99,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     
-    // Ejecutar al cargar la página
     updateDeviceMenu();
 
     deviceLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             window.activeDevice = link.getAttribute('data-device');
-            // Ya no guardamos la selección en el caché
             updateDeviceMenu();
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
@@ -106,7 +116,6 @@ document.addEventListener("DOMContentLoaded", () => {
         cacheMenuBtn.addEventListener('click', (e) => {
             e.preventDefault();
             if(confirm("¿Estás seguro de querer recargar el entorno? (Tus Presets y Acomodo están 100% a salvo).")) {
-                // 🎯 FIX: Adiós opción nuclear. Solo recargamos limpiamente.
                 location.reload(true);
             }
         });
