@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V72.0: AUTO-CORRECTOR 100% FIABLE, CLIC DERECHO Y COLORES HD
+// TIMELINE V73.0: AUTO-CORRECTOR MATEMÁTICO PURO (PRECISIÓN 1%)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -83,51 +83,48 @@ function pDistance(x, y, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// 🎯 FIX: Algoritmo Matemático Fuerte para Auto-Corrección Garantizada
+// 🎯 FIX: Algoritmo Matemático Puro (Libre de la regla del 5%)
 function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
     let dt_s = (act2.at - act1.at) / 1000.0;
     if (dt_s <= 0) return null;
     let dp = Math.abs(act2.pos - act1.pos);
     let speed = (dp * factor) / dt_s;
-    
-    if (speed <= hwMax && (speed >= hwMin || dp === 0)) return null; 
-    
+
+    // Si la velocidad está dentro de los límites seguros, no hace nada
+    if (speed <= hwMax && (speed >= hwMin || dp === 0)) return null;
+
     let isTooFast = speed > hwMax;
-    let target_dp = isTooFast ? (hwMax * dt_s) / factor : (hwMin * dt_s) / factor;
-    
+    // Margen de seguridad (1 mm/s) para garantizar que la línea vuelva a ser azul
+    let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
+    let target_dp = (safe_speed * dt_s) / factor;
+
     let dir = act2.pos >= act1.pos ? 1 : -1;
-    if (dp === 0) dir = act1.pos > 50 ? -1 : 1; 
-    
+    if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
+
+    // 🚀 ELIMINADA LA REGLA DEL 5%. Ahora busca el 1% exacto más cercano.
     let raw2 = act1.pos + dir * target_dp;
-    let snap2 = Math.round(raw2 / 5) * 5;
-    
-    // Forzamos el redondeo para asegurar que solucione el problema matemático
-    if (isTooFast && Math.abs(snap2 - act1.pos) > target_dp) snap2 -= dir * 5;
-    if (!isTooFast && Math.abs(snap2 - act1.pos) < target_dp) snap2 += dir * 5;
-    
-    snap2 = Math.max(0, Math.min(100, snap2));
-    let new_dp2 = Math.abs(snap2 - act1.pos);
+    let exact2 = Math.round(raw2);
+    exact2 = Math.max(0, Math.min(100, exact2));
+
+    let new_dp2 = Math.abs(exact2 - act1.pos);
     let new_speed2 = (new_dp2 * factor) / dt_s;
     let valid2 = (new_speed2 <= hwMax) && (new_speed2 >= hwMin || new_dp2 === 0);
-    
-    if (valid2 && snap2 !== act2.pos) return { modIdx: 2, newPos: snap2 };
-    
-    // Si mover act2 choca con los límites (0 o 100), intentamos arreglar moviendo act1
+
+    if (valid2 && exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
+
+    // Si corregir el segundo punto choca con los límites (0% o 100%), intenta corregir el primer punto
     let raw1 = act2.pos - dir * target_dp;
-    let snap1 = Math.round(raw1 / 5) * 5;
-    
-    if (isTooFast && Math.abs(act2.pos - snap1) > target_dp) snap1 += dir * 5;
-    if (!isTooFast && Math.abs(act2.pos - snap1) < target_dp) snap1 -= dir * 5;
-    
-    snap1 = Math.max(0, Math.min(100, snap1));
-    let new_dp1 = Math.abs(act2.pos - snap1);
+    let exact1 = Math.round(raw1);
+    exact1 = Math.max(0, Math.min(100, exact1));
+
+    let new_dp1 = Math.abs(act2.pos - exact1);
     let new_speed1 = (new_dp1 * factor) / dt_s;
     let valid1 = (new_speed1 <= hwMax) && (new_speed1 >= hwMin || new_dp1 === 0);
-    
-    if (valid1 && snap1 !== act1.pos) return { modIdx: 1, newPos: snap1 };
-    
-    // Si ambos fracasan por un pelo, sugerimos lo más cercano posible al límite
-    if (snap2 !== act2.pos) return { modIdx: 2, newPos: snap2 };
+
+    if (valid1 && exact1 !== act1.pos) return { modIdx: 1, newPos: exact1 };
+
+    // Si falla por decimales minúsculos, arroja la mejor aproximación posible
+    if (exact2 !== act2.pos) return { modIdx: 2, newPos: exact2 };
     return null;
 }
 
@@ -932,7 +929,6 @@ window.drawTimeline = function() {
                     speed_mms = (dp * device.factor) / (dt_ms / 1000);
                 }
 
-                // 🎯 FIX: CONTRASTES DE LÍNEA OPTIMIZADOS PARA MODO CLARO
                 let colorNormal = isLight ? '#0284c7' : '#38bdf8'; 
                 let lineColor = colorNormal; 
                 
@@ -942,7 +938,6 @@ window.drawTimeline = function() {
                 if (speed_mms > hwMax) {
                     lineColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
                 } else if (speed_mms < hwMin && dp > 0) {
-                    // Naranja tostado en lugar de amarillo en Modo Claro
                     lineColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
                 }
 
@@ -966,7 +961,6 @@ window.drawTimeline = function() {
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    // 🎯 FIX: CONTRASTES DE PUNTOS OPTIMIZADOS PARA MODO CLARO
                     let dotColor = isLight ? '#0284c7' : '#38bdf8';
                     if (i > 0) {
                         let prevAct = actions[i-1];
@@ -1014,7 +1008,6 @@ window.drawTimeline = function() {
             
             const mx = window.lastMouseX || sx2; const my = window.lastMouseY || sy2;
             
-            // 🎯 FIX: TEXTO CLARO/OSCURO PARA AUTO-CORRECCIÓN Y CLIC DERECHO
             ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
             ctx.fillRect(mx + 15, my + 15, 240, 25);
             ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
@@ -1403,7 +1396,6 @@ canvas?.addEventListener('mousedown', (e) => {
             window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
-        // 🎯 FIX: CLIC DERECHO EJECUTA AUTO-CORRECCIÓN SI HAY UNA SUGERENCIA ACTIVA
         if (window.activeSuggestion) {
             e.preventDefault();
             saveHistoryState();
