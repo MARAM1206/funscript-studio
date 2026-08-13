@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V76.0: RIPPLE THEME ANIMATION & OVERCLOCK LOGIC
+// WORKSPACE V78.0: RIPPLE THEME ANIMATION & OVERCLOCK LOGIC
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
