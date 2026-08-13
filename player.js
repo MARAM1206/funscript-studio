@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V78.0 (BLINDAJE DE MODAL Y TECLADO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V78.0 (CORTAFUEGOS DE MODAL)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -222,18 +222,15 @@ window.addEventListener('drop', (e) => {
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
 
-// 🛡️ TECLADO COMPLETO CON BLINDAJE DE MODAL
+// 🛡️ TECLADO COMPLETO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
-    const modal = document.getElementById('preset-editor-modal');
-    const isModalOpen = modal && modal.style.display === 'flex';
+    // 🎯 FIX: Escudo Protector. Si el Editor de Presets está abierto, se ignoran los atajos del reproductor/línea principal.
+    const presetModal = document.getElementById('preset-editor-modal');
+    if (presetModal && presetModal.style.display === 'flex') return;
 
     if (event.key === 'Escape' || event.key === 'Esc') {
-        if (isModalOpen) {
-            // Se cierra vía presets.js
-            return;
-        }
         if (window.isPastingMode || window.isDraggingPreset) {
             window.isPastingMode = false;
             window.isDraggingPreset = false;
@@ -244,9 +241,6 @@ window.addEventListener('keydown', (event) => {
         }
         if (document.fullscreenElement) document.exitFullscreen();
     }
-
-    // 🎯 FIX: AISLAMIENTO TOTAL. Si el modal está abierto, la línea de tiempo ignora TODOS los comandos.
-    if (isModalOpen) return;
 
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
         window.fsTimelineVisible = !window.fsTimelineVisible;
@@ -276,6 +270,23 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
+    if (key === 't' && !event.ctrlKey) {
+        event.preventDefault();
+        window.timelineMarkers = window.timelineMarkers || [];
+        const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
+        
+        let foundIdx = -1;
+        for (let i=0; i<window.timelineMarkers.length; i++) {
+            if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
+        }
+        
+        if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
+        else window.timelineMarkers.push({at: timeMs, pos: 80}); 
+        
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
+    }
+
     if (key === 'f' && !event.ctrlKey) {
         event.preventDefault();
         if (!document.fullscreenElement) videoContainer.requestFullscreen().catch(err => console.error(err));
@@ -288,6 +299,7 @@ window.addEventListener('keydown', (event) => {
         window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
         if (typeof window.syncAdaptiveButtons === 'function') window.syncAdaptiveButtons(window.isAdaptiveModeActive);
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
         return;
     }
 
