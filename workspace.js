@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V74.0: OVERCLOCK TEXT DINAMICO CORREGIDO
+// WORKSPACE V76.0: RIPPLE THEME ANIMATION & OVERCLOCK LOGIC
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -51,7 +51,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const ocToggles = document.querySelectorAll('.oc-toggle');
     window.isOverclockEnabled = false; 
 
-    // 🎯 FIX: Función para estilizar el texto de Overclock On/Off (Oculta el rayito si está off)
     function updateOcUI() {
         document.querySelectorAll('.oc-text').forEach(span => {
             if (window.isOverclockEnabled) {
