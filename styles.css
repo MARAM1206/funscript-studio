@@ -11,6 +11,8 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 @keyframes ripple-in { to { clip-path: circle(150% at var(--ripple-x, 50%) var(--ripple-y, 50%)); } }
 
 .top-bar-menu { height: 44px; background: #0b0f17; border-bottom: 1px solid #141b29; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 9999; position: relative; }
+
+/* 🎯 FIX: El panel central está anclado absoluto. ¡Nada a su izquierda o derecha lo moverá jamás! */
 .top-center-toggles { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: nowrap; }
 
 .toggle-panel-btn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; font-weight: bold; }
@@ -253,7 +255,8 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme #v-name,
 .light-theme #v-res,
 .light-theme #v-fps,
-.light-theme #v-speed { 
+.light-theme #v-speed,
+.light-theme #v-mute { 
     color: #0056b3 !important; 
     text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.9); 
     font-weight: normal !important; 
