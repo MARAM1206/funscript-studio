@@ -1,9 +1,6 @@
-/**
- * ============================================================================
- * PRESETS.JS - VERSIÓN 62.0
- * Módulo: ARRASTRE ESPECIAL CON CLIC DERECHO (MODIFICADOR DE ANCLAJE)
- * ============================================================================
- */
+// ==========================================================================
+// PRESETS.JS V78.0: MOTOR DE ATAJOS AISLADO Y MODO CLARO COMPATIBLE
+// ==========================================================================
 
 window.savedPresets = {};
 window.currentEditingPreset = [];
@@ -12,9 +9,8 @@ window.isDraggingPreset = false;
 window.timelineGhostPreset = null;
 window.timelineGhostTimeMs = null;
 window.timelineGhostDeltaPos = 0;
-window.isRightClickDrag = false; // 🎯 NUEVO: Bandera global para detectar arrastre especial
+window.isRightClickDrag = false; 
 
-// Estado del editor en el Modal
 let modalAnimationFrame = null;
 let mZoom = 1.0;
 let mBasePixels = 0.5; 
@@ -95,14 +91,11 @@ function renderPresetsList() {
     if (listModal) listModal.innerHTML = html;
 
     document.querySelectorAll('.preset-card').forEach(card => {
-        // 🎯 FIX: Prevenimos el menú contextual de Windows/Mac para que el Clic Derecho pueda usarse para arrastrar
         card.addEventListener('contextmenu', e => e.preventDefault());
-        
         card.addEventListener('mousedown', (e) => {
             if (e.target.closest('.preset-action-btn')) return; 
             const name = card.getAttribute('data-name');
             if (window.savedPresets[name]) {
-                // Detecta si es Clic Derecho (botón 2) o Izquierdo (botón 0)
                 window.isRightClickDrag = (e.button === 2);
                 startCustomDrag(e, name, window.savedPresets[name]);
             }
@@ -160,7 +153,6 @@ function startCustomDrag(e, name, actions) {
     ctxGhost.fillStyle = 'rgba(15, 23, 42, 0.9)'; 
     ctxGhost.beginPath(); ctxGhost.roundRect(0, 0, ghost.width, ghost.height, 8); ctxGhost.fill();
     
-    // 🎯 FIX: Borde Rojo si es Clic Derecho, Borde Azul si es normal
     ctxGhost.strokeStyle = window.isRightClickDrag ? '#f43f5e' : '#38bdf8'; 
     ctxGhost.lineWidth = 1.5; ctxGhost.stroke();
     
@@ -257,7 +249,6 @@ function startCustomDrag(e, name, actions) {
             if(typeof window.drawTimeline === 'function') window.drawTimeline();
         }
         
-        // Limpiamos la bandera del clic derecho después de un milisegundo para que los eventos CustomDrop alcancen a leerla
         setTimeout(() => { window.isRightClickDrag = false; }, 50);
     };
 
@@ -546,39 +537,55 @@ function redoModal() {
     }
 }
 
+// 🎯 FIX: REESTRUCTURA TOTAL DE ATAJOS PARA EL MODAL (Editor de Presets)
 document.addEventListener('keydown', (e) => {
     if (modalEl && modalEl.style.display === 'flex') {
+        if ((e.target.tagName === 'INPUT' && e.target.type === 'text') || e.target.tagName === 'TEXTAREA' || e.target.type === 'number') return;
+        
         const key = e.key.toLowerCase();
+        const hasSelection = window.currentEditingPreset.some(a => a.selected);
+
         if (e.ctrlKey) {
             if (key === 'z') { e.preventDefault(); undoModal(); }
             if (key === 'y') { e.preventDefault(); redoModal(); }
             if (key === 'a') { e.preventDefault(); window.currentEditingPreset.forEach(a => a.selected = true); }
             if (key === 'arrowup' || key === 'arrowdown') {
                 e.preventDefault();
-                saveModalHistoryState();
-                window.currentEditingPreset.forEach(act => {
-                    if (act.selected) {
-                        if (key === 'arrowup') act.pos = Math.min(100, act.pos + 5);
-                        if (key === 'arrowdown') act.pos = Math.max(0, act.pos - 5);
-                    }
-                });
+                if (hasSelection) {
+                    saveModalHistoryState();
+                    window.currentEditingPreset.forEach(act => {
+                        if (act.selected) {
+                            if (key === 'arrowup') {
+                                if (act.pos % 5 !== 0) act.pos = Math.ceil(act.pos / 5) * 5;
+                                else act.pos = Math.min(100, act.pos + 5);
+                            }
+                            if (key === 'arrowdown') {
+                                if (act.pos % 5 !== 0) act.pos = Math.floor(act.pos / 5) * 5;
+                                else act.pos = Math.max(0, act.pos - 5);
+                            }
+                        }
+                    });
+                }
+            }
+        } else {
+            if (key === 'delete' || key === 'backspace') {
+                if (hasSelection) {
+                    e.preventDefault();
+                    saveModalHistoryState();
+                    window.currentEditingPreset = window.currentEditingPreset.filter(a => !a.selected);
+                }
             }
             if (key === 'arrowleft' || key === 'arrowright') {
-                e.preventDefault();
-                saveModalHistoryState();
-                window.currentEditingPreset.forEach(act => {
-                    if (act.selected) {
-                        if (key === 'arrowleft') act.at = Math.max(0, act.at - 100);
-                        if (key === 'arrowright') act.at = act.at + 100;
-                    }
-                });
-            }
-        } else if (key === 'delete' || key === 'backspace') {
-            const hasSel = window.currentEditingPreset.some(a => a.selected);
-            if(hasSel) {
-                e.preventDefault();
-                saveModalHistoryState();
-                window.currentEditingPreset = window.currentEditingPreset.filter(a => !a.selected);
+                if (hasSelection) {
+                    e.preventDefault();
+                    saveModalHistoryState();
+                    window.currentEditingPreset.forEach(act => {
+                        if (act.selected) {
+                            if (key === 'arrowleft') act.at = Math.max(0, act.at - 50);
+                            if (key === 'arrowright') act.at = act.at + 50;
+                        }
+                    });
+                }
             }
         }
     }
