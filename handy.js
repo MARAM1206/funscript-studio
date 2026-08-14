@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V67.0: OFFSET REAL TIME CON IMÁN MAGNÉTICO
+// THE HANDY API V80.0: SUBIDA INTELIGENTE (CERO SUBIDAS FANTASMA)
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -9,6 +9,9 @@ let handyKey = localStorage.getItem('funscript_handy_key') || "";
 let isHandyConnected = false;
 let serverTimeOffset = 0;
 let autoUpdateTimeout = null;
+
+// 🎯 FIX: Memoria estricta del último script subido para evitar envíos basura
+let lastUploadedScriptStr = "";
 
 const handyKeyInput = document.getElementById('handy-key');
 const handyConnectBtn = document.getElementById('handy-connect-btn');
@@ -21,7 +24,6 @@ if (handyOffsetInput && handyOffsetDisplay) {
     handyOffsetInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value, 10);
         
-        // 🎯 FIX: Imán Fuerte en 0, Imán Suave en 50, 100, etc.
         if (Math.abs(val) <= 15) {
             val = 0; 
         } else {
@@ -56,6 +58,9 @@ handyConnectBtn?.addEventListener('click', async () => {
             handyStatus.innerText = "🟢";
             handyStatus.title = "Conectado";
             await syncServerTime();
+            
+            // Forzamos la subida inicial vaciando la memoria temporal
+            lastUploadedScriptStr = "";
             if (window.funscriptActions && window.funscriptActions.length > 0) triggerHandyUpdate();
         } else {
             throw new Error("Juguete apagado o desconectado.");
@@ -134,6 +139,16 @@ window.stopHandy = async function() {
 
 window.triggerHandyUpdate = function() {
     if (!isHandyConnected) return;
+    
+    // 🎯 FIX: Filtro Maestro. Construimos un mapa de coordenadas puras (ignorando si están seleccionadas o no).
+    const currentScriptStr = window.funscriptActions ? window.funscriptActions.map(a => `${a.at},${a.pos}`).join('|') : "";
+    
+    // Si la rítmica y los puntos son exactamente iguales a la última vez, abortamos la subida.
+    if (currentScriptStr === lastUploadedScriptStr) return; 
+    
+    // Si pasó el filtro, guardamos esta nueva configuración como la más reciente
+    lastUploadedScriptStr = currentScriptStr;
+
     clearTimeout(autoUpdateTimeout);
     
     handyStatus.innerText = "⌛";
