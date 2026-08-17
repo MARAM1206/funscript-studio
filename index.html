@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=77">
+    <link rel="stylesheet" href="styles.css?v=79">
 </head>
 <body>
 
@@ -19,10 +19,10 @@
                 </div>
             </div>
             
-            <!-- 🎯 FIX: Restauramos la adaptabilidad natural del botón -->
-            <div class="dropdown">
-                <button class="menu-btn dark-btn device-alert-pulse" id="device-menu-btn">📱 Dispositivos</button>
+            <div class="dropdown" style="width: 190px;">
+                <button class="menu-btn dark-btn device-alert-pulse device-btn-fixed" id="device-menu-btn" style="width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📱 Dispositivos</button>
                 <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
+                    
                     <a href="#" data-device="handy_std">Handy V1 / 2 Standar</a>
                     
                     <div class="sub-dropdown">
@@ -40,12 +40,13 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V77.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V79.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
         
         <div class="top-right-actions" style="display: flex; align-items: center; gap: 15px;">
+            
             <div class="handy-container" id="handy-main-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid;">
                 <span id="handy-status" style="font-size:0.75rem; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
                 <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
@@ -158,12 +159,14 @@
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
                 <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
                 <div class="dual-slider-labels">
-                    <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 15%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 85%</span>
+                    <!-- 🎯 FIX: Ajuste visual de 20% y 70% -->
+                    <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 70%</span>
                 </div>
                 <div class="dual-slider-container">
                     <div class="dual-slider-track"></div><div id="dual-slider-fill" class="dual-slider-fill"></div>
-                    <input type="range" id="min-slider" class="dual-range" min="0" max="100" step="5" value="15">
-                    <input type="range" id="max-slider" class="dual-range" min="0" max="100" step="5" value="85">
+                    <!-- 🎯 FIX: Ajuste lógico de 20 y 70 -->
+                    <input type="range" id="min-slider" class="dual-range" min="0" max="100" step="5" value="20">
+                    <input type="range" id="max-slider" class="dual-range" min="0" max="100" step="5" value="70">
                 </div>
             </div>
         </div>
@@ -202,12 +205,12 @@
 
     </div>
 
-    <script src="workspace.js?v=77"></script>
-    <script src="handy.js?v=77"></script> 
-    <script src="funscript.js?v=77"></script>
-    <script src="player.js?v=77"></script>
-    <script src="tracking.js?v=77"></script>
-    <script src="presets.js?v=77"></script>
-    <script src="timeline.js?v=77"></script>
+    <script src="workspace.js?v=79"></script>
+    <script src="handy.js?v=79"></script> 
+    <script src="funscript.js?v=79"></script>
+    <script src="player.js?v=79"></script>
+    <script src="tracking.js?v=79"></script>
+    <script src="presets.js?v=79"></script>
+    <script src="timeline.js?v=79"></script>
 </body>
 </html>
