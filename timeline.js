@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V78.0: ZOOM RAPIDO Y TAGS SUPERIORES EXACTOS
+// TIMELINE V79.0: FIX METRICAS FAPTAP EXACTAS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -128,10 +128,6 @@ function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor, act0 = null, 
 }
 
 function massCorrectSelection(actions, hwMax, hwMin, factor) {
-    let selectedIdxs = [];
-    actions.forEach((a, i) => { if(a.selected) selectedIdxs.push(i); });
-    if (selectedIdxs.length <= 1) return false;
-
     let changed = false;
     for(let pass = 0; pass < 30; pass++) {
         let passChanged = false;
@@ -197,7 +193,10 @@ if (fpsDown) fpsDown.addEventListener('click', () => updateFpsInput(-1));
 window.addEventListener('keydown', (e) => {
     if ((e.target.tagName === 'INPUT' && e.target.type === 'text') || e.target.tagName === 'TEXTAREA' || e.target.type === 'number') return;
     
-    // 🎯 FIX: Tecla 't' migrada al Timeline principal y protegida
+    // El Modal bloquea el timeline pero la T siempre estará activa si el Modal no existe o no está abierto
+    const presetModal = document.getElementById('preset-editor-modal');
+    if (presetModal && presetModal.style.display === 'flex') return;
+
     if (e.key.toLowerCase() === 't' && !e.ctrlKey) {
         e.preventDefault();
         window.timelineMarkers = window.timelineMarkers || [];
@@ -409,7 +408,8 @@ window.updateHeatmapAndStats = function() {
     const statsSpan = document.getElementById('timeline-stats');
     if (statsSpan) {
         let speedText = "--";
-        let colorHtml = "#94a3b8"; 
+        const isLight = document.body.classList.contains('light-theme');
+        let colorHtml = isLight ? "#94a3b8" : "#94a3b8"; 
 
         if (actions.length > 1) {
             let totalSegmentSpeed = 0;
@@ -424,15 +424,30 @@ window.updateHeatmapAndStats = function() {
                 }
             }
 
+            // 🎯 FIX: Umbrales exactos de FapTap (0-150, 151-300, 301-500, 501+)
             if (validSegments > 0) {
                 const fapTapSpeed = Math.round(totalSegmentSpeed / validSegments);
-                if (fapTapSpeed >= 250) { speedText = `Very Fast (${fapTapSpeed})`; colorHtml = "#ef4444"; } 
-                else if (fapTapSpeed >= 150) { speedText = `Fast (${fapTapSpeed})`; colorHtml = "#f97316"; } 
-                else if (fapTapSpeed >= 80) { speedText = `Medium (${fapTapSpeed})`; colorHtml = "#facc15"; } 
-                else { speedText = `Slow (${fapTapSpeed})`; colorHtml = "#10b981"; } 
+                if (fapTapSpeed >= 501) { 
+                    speedText = `Very Fast (${fapTapSpeed})`; 
+                    colorHtml = isLight ? "#dc2626" : "#ef4444"; // Red
+                } 
+                else if (fapTapSpeed >= 301) { 
+                    speedText = `Fast (${fapTapSpeed})`; 
+                    colorHtml = isLight ? "#ea580c" : "#f97316"; // Orange
+                } 
+                else if (fapTapSpeed >= 151) { 
+                    speedText = `Medium (${fapTapSpeed})`; 
+                    colorHtml = isLight ? "#ca8a04" : "#facc15"; // Yellow/Amber
+                } 
+                else { 
+                    speedText = `Slow (${fapTapSpeed})`; 
+                    colorHtml = isLight ? "#059669" : "#10b981"; // Green
+                } 
             }
         } else if (actions.length === 1) {
-            speedText = "Slow (0)"; colorHtml = "#10b981";
+            const isLight = document.body.classList.contains('light-theme');
+            speedText = "Slow (0)"; 
+            colorHtml = isLight ? "#059669" : "#10b981";
         }
         statsSpan.innerHTML = `Puntos: <strong style="color:var(--text-main, #e2e8f0);">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88; white-space: nowrap;">${speedText}</strong>`;
     }
@@ -509,7 +524,6 @@ canvas?.addEventListener('wheel', (e) => {
     
     if (e.shiftKey) {
         const timeAtMouse = xToTime(mouseX);
-        // 🎯 FIX: Zoom de línea de tiempo con la misma velocidad ágil del modal (0.08)
         zoom = Math.round((zoom + (e.deltaY < 0 ? 0.08 : -0.08)) * 100) / 100;
         zoom = Math.max(0.1, Math.min(zoom, 15.0)); 
         
@@ -713,7 +727,7 @@ window.addEventListener('injectPoint', function(e) {
 
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
     
-    const valA = parseInt(sliderA?.value || '15', 10); const valB = parseInt(sliderB?.value || '85', 10);
+    const valA = parseInt(sliderA?.value || '20', 10); const valB = parseInt(sliderB?.value || '70', 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
 
@@ -1032,7 +1046,7 @@ window.drawTimeline = function() {
                 if (x >= -20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    let dotColor = '#38bdf8';
+                    let dotColor = isLight ? '#0284c7' : '#38bdf8';
                     if (i > 0) {
                         let prevAct = actions[i-1];
                         let dt_ms = act.at - prevAct.at;
@@ -1438,7 +1452,6 @@ canvas?.addEventListener('mousedown', (e) => {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                // 🎯 FIX: Restringimos el HitBox del TAG solo a la parte superior para no chocar
                 if (Math.abs(clickX - mx) <= 15 && clickY <= 30) { 
                     isDraggingMarker = true;
                     draggedMarkerIndex = i;
