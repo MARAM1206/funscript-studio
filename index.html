@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=84">
+    <link rel="stylesheet" href="styles.css?v=85">
 </head>
 <body>
 
@@ -40,7 +40,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V84.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V85.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -106,7 +106,8 @@
             <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column;">
                 <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
-                    <video id="video-player" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;"></video>
+                    <!-- 🎯 FIX: 'width: 100%; height: 100%;' forza al video a llenar la pantalla en FullScreen -->
+                    <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
                     <div id="fs-mini-btn" class="fs-mini-icon" title="Pantalla Completa (F)">⤢</div>
                     <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
@@ -204,12 +205,12 @@
 
     </div>
 
-    <script src="workspace.js?v=84"></script>
-    <script src="handy.js?v=84"></script> 
-    <script src="funscript.js?v=84"></script>
-    <script src="player.js?v=84"></script>
-    <script src="tracking.js?v=84"></script>
-    <script src="presets.js?v=84"></script>
-    <script src="timeline.js?v=84"></script>
+    <script src="workspace.js?v=85"></script>
+    <script src="handy.js?v=85"></script> 
+    <script src="funscript.js?v=85"></script>
+    <script src="player.js?v=85"></script>
+    <script src="tracking.js?v=85"></script>
+    <script src="presets.js?v=85"></script>
+    <script src="timeline.js?v=85"></script>
 </body>
 </html>
