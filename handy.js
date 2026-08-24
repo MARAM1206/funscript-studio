@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V80.0: SUBIDA INTELIGENTE (CERO SUBIDAS FANTASMA)
+// THE HANDY API V81.0: HARDWARE OFFSET Y SUBIDA INSTANTANEA
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -8,10 +8,10 @@ const HANDY_UPLOAD_URL = "https://www.handyfeeling.com/api/sync/upload";
 let handyKey = localStorage.getItem('funscript_handy_key') || "";
 let isHandyConnected = false;
 let serverTimeOffset = 0;
-let autoUpdateTimeout = null;
 
-// 🎯 FIX: Memoria estricta del último script subido para evitar envíos basura
+let autoUpdateTimeout = null;
 let lastUploadedScriptStr = "";
+let isUpdatePending = false; 
 
 const handyKeyInput = document.getElementById('handy-key');
 const handyConnectBtn = document.getElementById('handy-connect-btn');
@@ -23,18 +23,24 @@ const handyOffsetDisplay = document.getElementById('handy-offset-display');
 if (handyOffsetInput && handyOffsetDisplay) {
     handyOffsetInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value, 10);
-        
-        if (Math.abs(val) <= 15) {
-            val = 0; 
-        } else {
-            let remainder = val % 50;
-            if (remainder >= -5 && remainder <= 5) {
-                val = Math.round(val / 50) * 50;
-            }
-        }
-        
-        e.target.value = val;
         handyOffsetDisplay.innerText = val;
+    });
+
+    // 🎯 FIX: El Slider ahora altera el Offset interno físico del Handy
+    handyOffsetInput.addEventListener('change', async (e) => {
+        if (!isHandyConnected) return;
+        let val = parseInt(e.target.value, 10);
+        handyStatus.innerText = "⏳";
+        try {
+            await fetch(`${HANDY_API_BASE}/offset`, {
+                method: 'PUT',
+                headers: { 'X-Connection-Key': handyKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ offset: val })
+            });
+            handyStatus.innerText = "🟢";
+        } catch(err) {
+            handyStatus.innerText = "❌";
+        }
     });
 }
 
@@ -57,11 +63,20 @@ handyConnectBtn?.addEventListener('click', async () => {
             isHandyConnected = true;
             handyStatus.innerText = "🟢";
             handyStatus.title = "Conectado";
-            await syncServerTime();
             
-            // Forzamos la subida inicial vaciando la memoria temporal
+            // 🎯 FIX: Rescatar el Offset actual que tenga guardado la máquina
+            try {
+                const offRes = await fetch(`${HANDY_API_BASE}/offset`, { headers: { 'X-Connection-Key': handyKey } });
+                const offData = await offRes.json();
+                if (offData && typeof offData.offset === 'number') {
+                    if (handyOffsetInput) handyOffsetInput.value = offData.offset;
+                    if (handyOffsetDisplay) handyOffsetDisplay.innerText = offData.offset;
+                }
+            } catch(e) {}
+
+            await syncServerTime();
             lastUploadedScriptStr = "";
-            if (window.funscriptActions && window.funscriptActions.length > 0) triggerHandyUpdate();
+            if (window.funscriptActions && window.funscriptActions.length > 0) window.triggerHandyUpdate();
         } else {
             throw new Error("Juguete apagado o desconectado.");
         }
@@ -115,12 +130,30 @@ async function setupHandyScript(url) {
     } catch (err) {}
 }
 
+// 🎯 FIX: Función para forzar subida si quedó algo en cola
+async function forceUploadPending() {
+    if (!isUpdatePending) return;
+    const scriptUrl = await uploadScriptToHandyCloud();
+    if (scriptUrl) {
+        await setupHandyScript(scriptUrl);
+    }
+    isUpdatePending = false;
+}
+
 window.playHandy = async function(videoCurrentTimeMs) {
     if (!isHandyConnected) return;
     try {
+        // Si hay una actualización esperando el timer, cancélalo y súbela de inmediato antes de arrancar.
+        if (isUpdatePending) {
+            clearTimeout(autoUpdateTimeout);
+            await forceUploadPending();
+            handyStatus.innerText = "🟢";
+        }
+
         const serverTime = Date.now() + serverTimeOffset;
-        const userOffset = handyOffsetInput ? (parseInt(handyOffsetInput.value, 10) || 0) : 0;
-        const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs) + userOffset);
+        
+        // Ya no sumamos el offset aquí. La máquina lo hace sola gracias a la API /offset.
+        const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs)); 
 
         await fetch(`${HANDY_API_BASE}/hssp/play`, {
             method: 'PUT',
@@ -140,31 +173,21 @@ window.stopHandy = async function() {
 window.triggerHandyUpdate = function() {
     if (!isHandyConnected) return;
     
-    // 🎯 FIX: Filtro Maestro. Construimos un mapa de coordenadas puras (ignorando si están seleccionadas o no).
     const currentScriptStr = window.funscriptActions ? window.funscriptActions.map(a => `${a.at},${a.pos}`).join('|') : "";
-    
-    // Si la rítmica y los puntos son exactamente iguales a la última vez, abortamos la subida.
     if (currentScriptStr === lastUploadedScriptStr) return; 
-    
-    // Si pasó el filtro, guardamos esta nueva configuración como la más reciente
     lastUploadedScriptStr = currentScriptStr;
 
     clearTimeout(autoUpdateTimeout);
     
+    isUpdatePending = true;
     handyStatus.innerText = "⌛";
     handyStatus.title = "Esperando inactividad para subir...";
     
     autoUpdateTimeout = setTimeout(async () => {
-        const scriptUrl = await uploadScriptToHandyCloud();
-        if (scriptUrl) {
-            await setupHandyScript(scriptUrl);
-            const videoNode = document.getElementById('video-player');
-            if (videoNode && !videoNode.paused) {
-                window.playHandy(videoNode.currentTime * 1000);
-            }
-        } else {
-            handyStatus.innerText = "🟢";
-            handyStatus.title = "Conectado";
+        await forceUploadPending();
+        const videoNode = document.getElementById('video-player');
+        if (videoNode && !videoNode.paused) {
+            window.playHandy(videoNode.currentTime * 1000);
         }
     }, 1000);
 };
