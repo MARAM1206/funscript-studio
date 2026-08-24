@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V78.0 (CORTAFUEGOS DE MODAL)
+// REPRODUCTOR Y MOTOR DE ATAJOS V81.0 (SRT/VTT SUBTITLE INJECTION)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -55,16 +55,100 @@ videoPlayer?.addEventListener('click', () => {
     else videoPlayer.pause();
 });
 
+// 🎯 FIX: Parseador de Subtítulos SRT -> VTT
+function parseSRTtoVTT(srtText) {
+    return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+}
+
+// 🎯 FIX: Inyector de subtítulos
+async function loadSubtitleFile(file) {
+    const text = await file.text();
+    let vttText = text;
+    
+    if (file.name.toLowerCase().endsWith('.srt')) {
+        vttText = parseSRTtoVTT(text);
+    } else if (!vttText.startsWith("WEBVTT")) {
+        vttText = "WEBVTT\n\n" + vttText;
+    }
+
+    const blob = new Blob([vttText], { type: 'text/vtt' });
+    const url = URL.createObjectURL(blob);
+
+    let track = document.getElementById('custom-subtitles');
+    if (!track) {
+        track = document.createElement('track');
+        track.id = 'custom-subtitles';
+        track.kind = 'subtitles';
+        track.srclang = 'es';
+        track.label = 'Español';
+        videoPlayer.appendChild(track);
+    }
+    
+    track.src = url;
+    track.default = true;
+    
+    if (videoPlayer.textTracks && videoPlayer.textTracks.length > 0) {
+        videoPlayer.textTracks[0].mode = 'showing';
+    }
+
+    // Actualizamos la UI del File Manager para mostrar el subtítulo cargado
+    const tracksList = document.getElementById('tracks-list');
+    if (tracksList) {
+        const emptyMsg = tracksList.querySelector('.empty-tracks-msg');
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        const oldSub = document.getElementById('ui-sub-track');
+        if (oldSub) oldSub.remove();
+
+        const subDiv = document.createElement('div');
+        subDiv.id = 'ui-sub-track';
+        subDiv.className = 'file-manager-script';
+        subDiv.style.borderLeftColor = '#f59e0b';
+        subDiv.innerHTML = `
+            <div class="track-info">
+                <span class="track-name" title="${file.name}">💬 ${file.name}</span>
+            </div>
+        `;
+        tracksList.appendChild(subDiv);
+    }
+}
+
+// 🎯 FIX: El lector Universal ahora procesa Subtítulos
 universalInput?.addEventListener('change', function(event) {
     const files = Array.from(event.target.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
+    const subtitleFiles = files.filter(f => f.name.toLowerCase().endsWith('.srt') || f.name.toLowerCase().endsWith('.vtt'));
 
     const hasFunscripts = funscriptFiles.length > 0;
     if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
+    if (subtitleFiles.length > 0) loadSubtitleFile(subtitleFiles[0]);
+    
     event.target.value = '';
     window.checkEmptyState();
+});
+
+window.addEventListener('drop', (e) => {
+    if (window.isDraggingPreset) return; 
+    if (!e.dataTransfer.types.includes('Files')) return; 
+    e.preventDefault(); 
+    
+    const files = Array.from(e.dataTransfer.files);
+    const videoFiles = files.filter(f => f.type.startsWith('video/'));
+    const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
+    const subtitleFiles = files.filter(f => f.name.toLowerCase().endsWith('.srt') || f.name.toLowerCase().endsWith('.vtt'));
+
+    const hasFunscripts = funscriptFiles.length > 0;
+    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
+    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
+    if (subtitleFiles.length > 0) loadSubtitleFile(subtitleFiles[0]);
+});
+
+window.addEventListener('dragover', (e) => { 
+    if (window.isDraggingPreset) return; 
+    if (!e.dataTransfer.types.includes('Files')) return; 
+    e.preventDefault(); 
 });
 
 async function loadVideoFile(file, hasFunscripts = false) {
@@ -202,31 +286,9 @@ videoPlayer?.addEventListener('volumechange', () => {
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
-window.addEventListener('dragover', (e) => { 
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); 
-});
-
-window.addEventListener('drop', (e) => {
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); 
-    
-    const files = Array.from(e.dataTransfer.files);
-    const videoFiles = files.filter(f => f.type.startsWith('video/'));
-    const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-
-    const hasFunscripts = funscriptFiles.length > 0;
-    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
-    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
-});
-
-// 🛡️ TECLADO COMPLETO
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
-    // 🎯 FIX: Escudo Protector. Si el Editor de Presets está abierto, se ignoran los atajos del reproductor/línea principal.
     const presetModal = document.getElementById('preset-editor-modal');
     if (presetModal && presetModal.style.display === 'flex') return;
 
@@ -267,23 +329,6 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault();
         const exportBtn = document.getElementById('export-btn');
         if (exportBtn) exportBtn.click();
-        return;
-    }
-
-    if (key === 't' && !event.ctrlKey) {
-        event.preventDefault();
-        window.timelineMarkers = window.timelineMarkers || [];
-        const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
-        
-        let foundIdx = -1;
-        for (let i=0; i<window.timelineMarkers.length; i++) {
-            if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
-        }
-        
-        if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
-        else window.timelineMarkers.push({at: timeMs, pos: 80}); 
-        
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
         return;
     }
 
