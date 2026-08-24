@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=79">
+    <link rel="stylesheet" href="styles.css?v=81">
 </head>
 <body>
 
@@ -19,7 +19,7 @@
                 </div>
             </div>
             
-            <div class="dropdown" style="width: 190px;">
+            <div class="dropdown">
                 <button class="menu-btn dark-btn device-alert-pulse device-btn-fixed" id="device-menu-btn" style="width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📱 Dispositivos</button>
                 <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
                     
@@ -40,7 +40,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V79.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V81.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -66,7 +66,8 @@
         </div>
     </div>
 
-    <input type="file" id="universal-file-input" accept="video/*,.funscript,.json" multiple style="display: none;">
+    <!-- 🎯 FIX: Se añade soporte explícito para .vtt y .srt en el input maestro -->
+    <input type="file" id="universal-file-input" accept="video/*,.funscript,.json,.vtt,.srt" multiple style="display: none;">
 
     <div id="preset-editor-modal" class="modal-overlay">
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 500px;">
@@ -139,7 +140,7 @@
         <div id="panel-tracks" class="workspace-panel" data-title="📂 Gestor de Archivos">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
                 <span style="font-weight: bold;">📂 Gestor de Archivos</span>
-                <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1.1rem; padding:0 5px;" title="Añadir Archivos (Video o FunScript)">➕</button>
+                <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1.1rem; padding:0 5px;" title="Añadir Archivos (Video, Scripts o Subtítulos)">➕</button>
             </div>
             <div class="panel-content">
                 <div id="tracks-list" class="tracks-list-container"><span class="empty-tracks-msg">No hay archivos cargados.</span></div>
@@ -159,12 +160,10 @@
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
                 <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
                 <div class="dual-slider-labels">
-                    <!-- 🎯 FIX: Ajuste visual de 20% y 70% -->
                     <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 70%</span>
                 </div>
                 <div class="dual-slider-container">
                     <div class="dual-slider-track"></div><div id="dual-slider-fill" class="dual-slider-fill"></div>
-                    <!-- 🎯 FIX: Ajuste lógico de 20 y 70 -->
                     <input type="range" id="min-slider" class="dual-range" min="0" max="100" step="5" value="20">
                     <input type="range" id="max-slider" class="dual-range" min="0" max="100" step="5" value="70">
                 </div>
@@ -205,12 +204,12 @@
 
     </div>
 
-    <script src="workspace.js?v=79"></script>
-    <script src="handy.js?v=79"></script> 
-    <script src="funscript.js?v=79"></script>
-    <script src="player.js?v=79"></script>
-    <script src="tracking.js?v=79"></script>
-    <script src="presets.js?v=79"></script>
-    <script src="timeline.js?v=79"></script>
+    <script src="workspace.js?v=81"></script>
+    <script src="handy.js?v=81"></script> 
+    <script src="funscript.js?v=81"></script>
+    <script src="player.js?v=81"></script>
+    <script src="tracking.js?v=81"></script>
+    <script src="presets.js?v=81"></script>
+    <script src="timeline.js?v=81"></script>
 </body>
 </html>
