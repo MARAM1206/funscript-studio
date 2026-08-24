@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V81.0 (SRT/VTT SUBTITLE INJECTION)
+// REPRODUCTOR Y MOTOR DE ATAJOS V81.0 (SRT/VTT SUBTITLE INJECTION & AI API)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -55,12 +55,12 @@ videoPlayer?.addEventListener('click', () => {
     else videoPlayer.pause();
 });
 
-// 🎯 FIX: Parseador de Subtítulos SRT -> VTT
+// Parseador de Subtítulos SRT -> VTT
 function parseSRTtoVTT(srtText) {
     return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
 }
 
-// 🎯 FIX: Inyector de subtítulos
+// Inyector de subtítulos
 async function loadSubtitleFile(file) {
     const text = await file.text();
     let vttText = text;
@@ -91,7 +91,6 @@ async function loadSubtitleFile(file) {
         videoPlayer.textTracks[0].mode = 'showing';
     }
 
-    // Actualizamos la UI del File Manager para mostrar el subtítulo cargado
     const tracksList = document.getElementById('tracks-list');
     if (tracksList) {
         const emptyMsg = tracksList.querySelector('.empty-tracks-msg');
@@ -113,7 +112,6 @@ async function loadSubtitleFile(file) {
     }
 }
 
-// 🎯 FIX: El lector Universal ahora procesa Subtítulos
 universalInput?.addEventListener('change', function(event) {
     const files = Array.from(event.target.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
@@ -464,3 +462,55 @@ window.addEventListener('keydown', (event) => {
         }
     }
 }, true);
+
+// 🎯 FIX: BOTÓN Y FUNCIÓN PARA CONECTAR CON PYTHON LOCAL (GENERADOR IA)
+document.getElementById('ai-translate-btn')?.addEventListener('click', async () => {
+    const videoNode = document.getElementById('video-player');
+
+    if (!videoNode || !videoNode.src || videoNode.src === "") {
+        alert("⚠️ Primero carga un video en el reproductor.");
+        return;
+    }
+
+    let apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+        apiKey = prompt("🔑 Ingresa tu API Key gratuita de Google Gemini (se guardará de forma local y privada):");
+        if (apiKey) localStorage.setItem('gemini_api_key', apiKey.trim());
+        else return;
+    }
+
+    const btn = document.getElementById('ai-translate-btn');
+    const originalText = btn.innerText;
+    btn.innerText = "⏳ Escuchando y Traduciendo...";
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(videoNode.src);
+        const blob = await response.blob();
+        
+        const formData = new FormData();
+        formData.append("video", blob, window.currentVideoName || "video.mp4");
+        formData.append("api_key", apiKey);
+
+        const serverRes = await fetch("http://127.0.0.1:8000/translate-video", {
+            method: "POST",
+            body: formData
+        });
+
+        if (!serverRes.ok) throw new Error("Error en el servidor Python local.");
+
+        const data = await serverRes.json();
+        
+        const subBlob = new Blob([data.vtt], { type: 'text/vtt' });
+        const subFile = new File([subBlob], data.filename, { type: 'text/vtt' });
+        await loadSubtitleFile(subFile);
+
+        alert("✅ ¡Subtítulos generados y cargados con éxito!");
+    } catch (err) {
+        alert("❌ Error: Asegúrate de que 'server.py' esté ejecutándose en tu terminal (Ejecuta: python -m uvicorn server:app --reload).");
+        console.error(err);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+});
