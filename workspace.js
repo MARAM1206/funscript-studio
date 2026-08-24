@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE V78.0: RIPPLE THEME ANIMATION & OVERCLOCK LOGIC
+// WORKSPACE V81.0: INTEGRACIÓN UI PARA SUBTÍTULOS
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
