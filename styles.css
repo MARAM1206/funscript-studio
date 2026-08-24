@@ -1,6 +1,8 @@
 /* ==========================================================================
    CONFIGURACIÓN GENERAL Y TEMA OSCURO
    ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap');
+
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100vh; width: 100vw; transition: background-color 0.1s ease, color 0.1s ease; }
 
@@ -80,15 +82,17 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 #panel-video-content, #video-container-wrapper { background: #000000; }
 #video-empty-state { position: absolute; color: #475569; font-size: 1.8rem; font-weight: bold; pointer-events: none; z-index: 10; font-family: monospace; border: 2px dashed #334155; padding: 20px 40px; border-radius: 16px; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); }
 
-/* 🎯 FIX: ESTILO CINEMATOGRÁFICO DE SUBTÍTULOS NATIVOS (CLON NETFLIX/YOUTUBE) */
+/* 🎯 FIX: ESTILO CINEMATOGRÁFICO DE SUBTÍTULOS NATIVOS (MONTSERRAT + ROUNDED) */
 ::cue {
-    background-color: rgba(8, 8, 8, 0.8) !important; /* Fondo semitransparente oscuro */
+    background-color: rgba(8, 8, 8, 0.85) !important; /* Fondo semitransparente oscuro */
     color: #ffffff !important;
-    font-family: Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-    font-size: 0.95rem !important; /* Texto más pequeño y elegante */
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.95rem !important; 
     font-weight: 500 !important;
-    text-shadow: none !important; /* Quitamos la sombra, el fondo oscuro hace el contraste */
-    line-height: 1.4 !important;
+    text-shadow: none !important; 
+    line-height: 1.5 !important;
+    border-radius: 8px !important; /* Esquinas redondeadas */
+    padding: 4px 10px !important; /* Espacio para que el radio se note elegante */
 }
 
 .video-bottom-unified-bar { background: #0b0f17; display: flex; flex-direction: column; border: none; overflow: visible; }
