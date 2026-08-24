@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V79.0: FIX METRICAS FAPTAP EXACTAS
+// TIMELINE V81.0: INTACTO CON PROTECCIÓN DE MODAL
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -193,7 +193,6 @@ if (fpsDown) fpsDown.addEventListener('click', () => updateFpsInput(-1));
 window.addEventListener('keydown', (e) => {
     if ((e.target.tagName === 'INPUT' && e.target.type === 'text') || e.target.tagName === 'TEXTAREA' || e.target.type === 'number') return;
     
-    // El Modal bloquea el timeline pero la T siempre estará activa si el Modal no existe o no está abierto
     const presetModal = document.getElementById('preset-editor-modal');
     if (presetModal && presetModal.style.display === 'flex') return;
 
@@ -424,24 +423,23 @@ window.updateHeatmapAndStats = function() {
                 }
             }
 
-            // 🎯 FIX: Umbrales exactos de FapTap (0-150, 151-300, 301-500, 501+)
             if (validSegments > 0) {
                 const fapTapSpeed = Math.round(totalSegmentSpeed / validSegments);
                 if (fapTapSpeed >= 501) { 
                     speedText = `Very Fast (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#dc2626" : "#ef4444"; // Red
+                    colorHtml = isLight ? "#dc2626" : "#ef4444"; 
                 } 
                 else if (fapTapSpeed >= 301) { 
                     speedText = `Fast (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#ea580c" : "#f97316"; // Orange
+                    colorHtml = isLight ? "#ea580c" : "#f97316"; 
                 } 
                 else if (fapTapSpeed >= 151) { 
                     speedText = `Medium (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#ca8a04" : "#facc15"; // Yellow/Amber
+                    colorHtml = isLight ? "#ca8a04" : "#facc15"; 
                 } 
                 else { 
                     speedText = `Slow (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#059669" : "#10b981"; // Green
+                    colorHtml = isLight ? "#059669" : "#10b981"; 
                 } 
             }
         } else if (actions.length === 1) {
@@ -1014,7 +1012,7 @@ window.drawTimeline = function() {
                     speed_mms = (dp * device.factor) / (dt_ms / 1000);
                 }
 
-                let colorNormal = '#38bdf8'; 
+                let colorNormal = isLight ? '#0284c7' : '#38bdf8'; 
                 let lineColor = colorNormal; 
                 
                 const tPulse = performance.now() / 150;
@@ -1023,7 +1021,7 @@ window.drawTimeline = function() {
                 if (speed_mms > hwMax) {
                     lineColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
                 } else if (speed_mms < hwMin && dp > 0) {
-                    lineColor = isLight ? `rgba(245, 158, 11, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
+                    lineColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
                 }
 
                 let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
@@ -1056,7 +1054,7 @@ window.drawTimeline = function() {
                         const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
                         
                         if (speed_mms > hwMax) dotColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.5 + 0.5 * pulseFactor})`; 
-                        else if (speed_mms < hwMin && dp > 0) dotColor = isLight ? `rgba(245, 158, 11, ${0.8 + 0.2 * pulseFactor})` : `rgba(250, 204, 21, ${0.5 + 0.5 * pulseFactor})`; 
+                        else if (speed_mms < hwMin && dp > 0) dotColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.5 + 0.5 * pulseFactor})`; 
                     }
                     if (act.selected) dotColor = isLight ? '#d97706' : '#f59e0b'; 
 
