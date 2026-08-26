@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V81.0 (SRT/VTT SUBTITLE INJECTION & AI API)
+// REPRODUCTOR Y MOTOR DE ATAJOS V86.0 (BOTÓN DE PÁNICO, VOLUMEN Y ELIMINAR SUB)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -22,6 +22,11 @@ const vSpeed = document.getElementById('v-speed');
 const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
+
+// 🚨 VARIABLES PARA BOTÓN DE PÁNICO Y VOLUMEN
+let isPanicMode = false;
+const panicOverlay = document.getElementById('panic-overlay');
+const videoVolume = document.getElementById('video-volume');
 
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
@@ -60,7 +65,7 @@ function parseSRTtoVTT(srtText) {
     return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
 }
 
-// Inyector de subtítulos
+// 🗑️ FIX: Lógica para cargar y eliminar subtítulos
 async function loadSubtitleFile(file) {
     const text = await file.text();
     let vttText = text;
@@ -107,10 +112,24 @@ async function loadSubtitleFile(file) {
             <div class="track-info">
                 <span class="track-name" title="${file.name}">💬 ${file.name}</span>
             </div>
+            <div class="track-actions">
+                <button class="track-btn delete-sub-btn" title="Eliminar Subtítulos">🗑️</button>
+            </div>
         `;
         tracksList.appendChild(subDiv);
     }
 }
+
+// 🗑️ FIX: Evento para eliminar el subtítulo
+document.getElementById('tracks-list')?.addEventListener('click', (e) => {
+    if (e.target.closest('.delete-sub-btn')) {
+        const track = document.getElementById('custom-subtitles');
+        if (track) track.remove();
+        const uiTrack = document.getElementById('ui-sub-track');
+        if (uiTrack) uiTrack.remove();
+        window.checkEmptyState();
+    }
+});
 
 universalInput?.addEventListener('change', function(event) {
     const files = Array.from(event.target.files);
@@ -154,6 +173,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
     videoPlayer.src = videoURL;
     videoPlayer.load();
     videoPlayer.playbackRate = currentSpeed;
+    if (videoVolume) videoPlayer.volume = videoVolume.value;
     window.currentVideoName = file.name;
     
     if (vName) {
@@ -201,7 +221,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
         window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; 
         
         if (vMute) { 
-            vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On"; 
+            vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇" : "🔊"; 
             if (videoPlayer.muted || videoPlayer.volume === 0) {
                 if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
             } else {
@@ -271,19 +291,29 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     }
 });
 
+// 🔊 FIX: Lógica del Volumen y Mutear
+videoVolume?.addEventListener('input', (e) => {
+    if(videoPlayer) {
+        videoPlayer.volume = e.target.value;
+        videoPlayer.muted = (videoPlayer.volume == 0);
+    }
+});
+
 videoPlayer?.addEventListener('volumechange', () => {
     const vMuteContainer = document.getElementById('v-mute-container');
     if (vMute && window.audioPeaks) {
-        vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On";
+        vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇" : "🔊";
         if (videoPlayer.muted || videoPlayer.volume === 0) {
             if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
         } else {
             if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
         }
     }
+    if (videoVolume) videoVolume.value = videoPlayer.muted ? 0 : videoPlayer.volume;
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
+// 🚨 FIX: BOTÓN DE PÁNICO EN TECLA ESC
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
@@ -299,7 +329,26 @@ window.addEventListener('keydown', (event) => {
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
-        if (document.fullscreenElement) document.exitFullscreen();
+
+        // Si está en pantalla completa, ESC sirve nativamente para salir de ella, no activa el pánico.
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+            return;
+        }
+
+        // 🚨 Toggle del Botón de Pánico
+        isPanicMode = !isPanicMode;
+        if (isPanicMode) {
+            videoPlayer?.pause();
+            const randomId = Math.floor(Math.random() * 1000); // Evita caché, trae imagen nueva
+            if (panicOverlay) {
+                panicOverlay.style.backgroundImage = `url('https://picsum.photos/1280/720?random=${randomId}')`;
+                panicOverlay.style.display = 'block';
+            }
+        } else {
+            if (panicOverlay) panicOverlay.style.display = 'none';
+        }
+        return;
     }
 
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
@@ -389,15 +438,6 @@ window.addEventListener('keydown', (event) => {
     if (key === 'm' && !event.ctrlKey) { 
         event.preventDefault(); 
         videoPlayer.muted = !videoPlayer.muted; 
-        const vMuteContainer = document.getElementById('v-mute-container');
-        if (vMute) { 
-            vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇 Sonido Off" : "🔊 Sonido On"; 
-            if (videoPlayer.muted || videoPlayer.volume === 0) {
-                if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
-            } else {
-                if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
-            }
-        }
     }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
@@ -463,7 +503,6 @@ window.addEventListener('keydown', (event) => {
     }
 }, true);
 
-// 🎯 FIX: BOTÓN Y FUNCIÓN PARA CONECTAR CON PYTHON LOCAL (GENERADOR IA)
 document.getElementById('ai-translate-btn')?.addEventListener('click', async () => {
     const videoNode = document.getElementById('video-player');
 
