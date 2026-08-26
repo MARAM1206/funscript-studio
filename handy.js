@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V81.0: HARDWARE OFFSET Y SUBIDA INSTANTANEA
+// THE HANDY API V87.0: MEMORIA REAL Y MAGNETISMO PURO AL CERO
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -21,12 +21,17 @@ const handyOffsetInput = document.getElementById('handy-offset');
 const handyOffsetDisplay = document.getElementById('handy-offset-display');
 
 if (handyOffsetInput && handyOffsetDisplay) {
+    // 🎯 FIX: Imán perfecto solo al CERO. Si pasas cerca (entre -12 y 12), te atrapa.
+    // Adiós a los saltos locos de -50 a 0.
     handyOffsetInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value, 10);
+        if (Math.abs(val) <= 12) {
+            val = 0;
+        }
+        e.target.value = val;
         handyOffsetDisplay.innerText = val;
     });
 
-    // 🎯 FIX: El Slider ahora altera el Offset interno físico del Handy
     handyOffsetInput.addEventListener('change', async (e) => {
         if (!isHandyConnected) return;
         let val = parseInt(e.target.value, 10);
@@ -64,14 +69,18 @@ handyConnectBtn?.addEventListener('click', async () => {
             handyStatus.innerText = "🟢";
             handyStatus.title = "Conectado";
             
-            // 🎯 FIX: Rescatar el Offset actual que tenga guardado la máquina
+            // 🎯 FIX: Leer la memoria interna del Handy con Parser robusto
             try {
                 const offRes = await fetch(`${HANDY_API_BASE}/offset`, { headers: { 'X-Connection-Key': handyKey } });
                 const offData = await offRes.json();
-                if (offData && typeof offData.offset === 'number') {
-                    if (handyOffsetInput) handyOffsetInput.value = offData.offset;
-                    if (handyOffsetDisplay) handyOffsetDisplay.innerText = offData.offset;
-                }
+                let savedOffset = 0;
+                
+                // Extrae el valor sin importar si Handy lo manda como "10" o como "{"offset": 10}"
+                if (typeof offData === 'number') savedOffset = offData;
+                else if (offData && offData.offset !== undefined) savedOffset = offData.offset;
+
+                if (handyOffsetInput) handyOffsetInput.value = savedOffset;
+                if (handyOffsetDisplay) handyOffsetDisplay.innerText = savedOffset;
             } catch(e) {}
 
             await syncServerTime();
@@ -130,7 +139,6 @@ async function setupHandyScript(url) {
     } catch (err) {}
 }
 
-// 🎯 FIX: Función para forzar subida si quedó algo en cola
 async function forceUploadPending() {
     if (!isUpdatePending) return;
     const scriptUrl = await uploadScriptToHandyCloud();
@@ -143,7 +151,6 @@ async function forceUploadPending() {
 window.playHandy = async function(videoCurrentTimeMs) {
     if (!isHandyConnected) return;
     try {
-        // Si hay una actualización esperando el timer, cancélalo y súbela de inmediato antes de arrancar.
         if (isUpdatePending) {
             clearTimeout(autoUpdateTimeout);
             await forceUploadPending();
@@ -151,8 +158,6 @@ window.playHandy = async function(videoCurrentTimeMs) {
         }
 
         const serverTime = Date.now() + serverTimeOffset;
-        
-        // Ya no sumamos el offset aquí. La máquina lo hace sola gracias a la API /offset.
         const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs)); 
 
         await fetch(`${HANDY_API_BASE}/hssp/play`, {
