@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=86">
+    <link rel="stylesheet" href="styles.css?v=87">
 </head>
 <body>
 
@@ -40,7 +40,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V86.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V87.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -53,9 +53,10 @@
                 
                 <div class="dropdown" style="display: flex; align-items: center;">
                     <button class="menu-btn offset-btn" style="background: transparent; border: 1px solid #475569; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
-                    <div class="dropdown-content" style="padding: 10px; width: 220px; left: -70px; text-align: center;">
-                        <label class="offset-label" style="font-size:0.75rem; display: block; margin-bottom: 5px;">Sync Offset: <span id="handy-offset-display">0</span> ms</label>
-                        <input type="range" id="handy-offset" min="-250" max="250" step="1" value="0" style="width: 100%;">
+                    <!-- 🎯 FIX: Caja de Offset alargada a 350px para precisión extrema -->
+                    <div class="dropdown-content" style="padding: 15px; width: 350px; left: -140px; text-align: center;">
+                        <label class="offset-label" style="font-size:0.8rem; font-weight: bold; display: block; margin-bottom: 10px;">Sync Offset: <span id="handy-offset-display" style="color: #38bdf8;">0</span> ms</label>
+                        <input type="range" id="handy-offset" min="-400" max="400" step="1" value="0" style="width: 100%;">
                     </div>
                 </div>
 
@@ -108,7 +109,6 @@
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
                     <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
                     
-                    <!-- 🚨 NUEVO: Capa del Botón de Pánico -->
                     <div id="panic-overlay" class="panic-overlay"></div>
 
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
@@ -134,10 +134,11 @@
                             <span id="v-fps" class="fixed-info">-- fps</span> <span class="divider">|</span> 
                             <span id="v-speed" class="fixed-info">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
                             
-                            <!-- 🔊 NUEVO: Contenedor con Barra de Volumen -->
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute">🔊</span></span>
-                                <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.05" value="1" title="Volumen">
+                            <!-- 🎯 FIX: Volumen Interactivo y Globo de Porcentaje -->
+                            <div style="display: flex; align-items: center; gap: 6px; position: relative;">
+                                <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute" style="display:inline-block; width: 18px; text-align: center;">🔊</span></span>
+                                <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.01" value="1" title="Volumen">
+                                <div id="volume-tooltip" style="position: absolute; top: -25px; right: 0; background: #0f172a; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.2s;">100%</div>
                             </div>
                         </div>
                     </div>
@@ -213,12 +214,12 @@
 
     </div>
 
-    <script src="workspace.js?v=86"></script>
-    <script src="handy.js?v=86"></script> 
-    <script src="funscript.js?v=86"></script>
-    <script src="player.js?v=86"></script>
-    <script src="tracking.js?v=86"></script>
-    <script src="presets.js?v=86"></script>
-    <script src="timeline.js?v=86"></script>
+    <script src="workspace.js?v=87"></script>
+    <script src="handy.js?v=87"></script> 
+    <script src="funscript.js?v=87"></script>
+    <script src="player.js?v=87"></script>
+    <script src="tracking.js?v=87"></script>
+    <script src="presets.js?v=87"></script>
+    <script src="timeline.js?v=87"></script>
 </body>
 </html>
