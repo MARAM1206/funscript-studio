@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V86.0 (BOTÓN DE PÁNICO, VOLUMEN Y ELIMINAR SUB)
+// REPRODUCTOR Y MOTOR DE ATAJOS V87.0 (VOLUMEN DINÁMICO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,10 +23,10 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🚨 VARIABLES PARA BOTÓN DE PÁNICO Y VOLUMEN
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 const videoVolume = document.getElementById('video-volume');
+const volumeTooltip = document.getElementById('volume-tooltip');
 
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
@@ -55,17 +55,22 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// Click para mutear en el ícono
+document.getElementById('v-mute-container')?.addEventListener('click', () => {
+    if(videoPlayer) {
+        videoPlayer.muted = !videoPlayer.muted;
+    }
+});
+
 videoPlayer?.addEventListener('click', () => {
     if (videoPlayer.paused) videoPlayer.play();
     else videoPlayer.pause();
 });
 
-// Parseador de Subtítulos SRT -> VTT
 function parseSRTtoVTT(srtText) {
     return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
 }
 
-// 🗑️ FIX: Lógica para cargar y eliminar subtítulos
 async function loadSubtitleFile(file) {
     const text = await file.text();
     let vttText = text;
@@ -120,7 +125,6 @@ async function loadSubtitleFile(file) {
     }
 }
 
-// 🗑️ FIX: Evento para eliminar el subtítulo
 document.getElementById('tracks-list')?.addEventListener('click', (e) => {
     if (e.target.closest('.delete-sub-btn')) {
         const track = document.getElementById('custom-subtitles');
@@ -186,13 +190,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
     if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
     window.checkEmptyState();
 
-    const vMuteContainer = document.getElementById('v-mute-container');
-
-    if (vMute) { 
-        vMute.innerText = "⏳ Audio..."; 
-        vMute.style.color = "#f59e0b"; 
-        if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
-    }
+    updateVolumeUI(videoPlayer.volume);
     
     try {
         const arrayBuffer = await file.arrayBuffer();
@@ -220,18 +218,11 @@ async function loadVideoFile(file, hasFunscripts = false) {
         window.audioPeaksSampleRate = samplesPerSec;
         window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; 
         
-        if (vMute) { 
-            vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇" : "🔊"; 
-            if (videoPlayer.muted || videoPlayer.volume === 0) {
-                if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
-            } else {
-                if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
-            }
-        }
+        updateVolumeUI(videoPlayer.muted ? 0 : videoPlayer.volume);
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
 
     } catch (err) {
-        if (vMute) { vMute.innerText = "🔇 Sin Pista"; vMute.style.color = "#94a3b8"; if(vMuteContainer) vMuteContainer.classList.remove('mute-flash'); }
+        if (vMute) { vMute.innerText = "🔇"; vMute.style.color = "#94a3b8"; document.getElementById('v-mute-container')?.classList.remove('mute-flash'); }
     }
 }
 
@@ -291,29 +282,49 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     }
 });
 
-// 🔊 FIX: Lógica del Volumen y Mutear
-videoVolume?.addEventListener('input', (e) => {
-    if(videoPlayer) {
-        videoPlayer.volume = e.target.value;
-        videoPlayer.muted = (videoPlayer.volume == 0);
+// 🎯 FIX: Sistema Reactivo de Volumen (Emojis dinámicos y Globo Ocultable)
+function updateVolumeUI(vol) {
+    let volPercent = Math.round(vol * 100);
+    
+    if (volumeTooltip) {
+        volumeTooltip.innerText = volPercent + '%';
+        volumeTooltip.style.opacity = '1';
+        clearTimeout(window.volTooltipTimeout);
+        window.volTooltipTimeout = setTimeout(() => {
+            volumeTooltip.style.opacity = '0';
+        }, 1000);
     }
+
+    if (vMute) {
+        if (vol === 0 || videoPlayer?.muted) vMute.innerText = "🔇";
+        else if (vol < 0.3) vMute.innerText = "🔈";
+        else if (vol < 0.7) vMute.innerText = "🔉";
+        else vMute.innerText = "🔊";
+    }
+    
+    const vMuteContainer = document.getElementById('v-mute-container');
+    if (vMuteContainer) {
+        if (vol === 0 || videoPlayer?.muted) vMuteContainer.classList.add('mute-flash');
+        else vMuteContainer.classList.remove('mute-flash');
+    }
+}
+
+videoVolume?.addEventListener('input', (e) => {
+    let vol = parseFloat(e.target.value);
+    if(videoPlayer) {
+        videoPlayer.volume = vol;
+        videoPlayer.muted = (vol === 0);
+    }
+    updateVolumeUI(vol);
 });
 
 videoPlayer?.addEventListener('volumechange', () => {
-    const vMuteContainer = document.getElementById('v-mute-container');
-    if (vMute && window.audioPeaks) {
-        vMute.innerText = videoPlayer.muted || videoPlayer.volume === 0 ? "🔇" : "🔊";
-        if (videoPlayer.muted || videoPlayer.volume === 0) {
-            if(vMuteContainer) vMuteContainer.classList.add('mute-flash');
-        } else {
-            if(vMuteContainer) vMuteContainer.classList.remove('mute-flash');
-        }
-    }
-    if (videoVolume) videoVolume.value = videoPlayer.muted ? 0 : videoPlayer.volume;
+    let vol = videoPlayer.muted ? 0 : videoPlayer.volume;
+    if (videoVolume) videoVolume.value = vol;
+    updateVolumeUI(vol);
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
-// 🚨 FIX: BOTÓN DE PÁNICO EN TECLA ESC
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
@@ -330,17 +341,15 @@ window.addEventListener('keydown', (event) => {
             return;
         }
 
-        // Si está en pantalla completa, ESC sirve nativamente para salir de ella, no activa el pánico.
         if (document.fullscreenElement) {
             document.exitFullscreen();
             return;
         }
 
-        // 🚨 Toggle del Botón de Pánico
         isPanicMode = !isPanicMode;
         if (isPanicMode) {
             videoPlayer?.pause();
-            const randomId = Math.floor(Math.random() * 1000); // Evita caché, trae imagen nueva
+            const randomId = Math.floor(Math.random() * 1000); 
             if (panicOverlay) {
                 panicOverlay.style.backgroundImage = `url('https://picsum.photos/1280/720?random=${randomId}')`;
                 panicOverlay.style.display = 'block';
@@ -437,7 +446,7 @@ window.addEventListener('keydown', (event) => {
     
     if (key === 'm' && !event.ctrlKey) { 
         event.preventDefault(); 
-        videoPlayer.muted = !videoPlayer.muted; 
+        if(videoPlayer) videoPlayer.muted = !videoPlayer.muted; 
     }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
