@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=89">
+    <link rel="stylesheet" href="styles.css?v=90">
 </head>
 <body>
 
@@ -14,6 +14,8 @@
                 <button class="menu-btn dark-btn">⚙️ Configuración</button>
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
+                    <a href="#" style="pointer-events: none; color: #64748b;">Controles (Próximamente)</a>
+                    <a href="#" style="pointer-events: none; color: #64748b;">Notas (Próximamente)</a>
                     <a href="#" id="menu-theme-btn">☀️ Modo claro</a>
                     <a href="#" id="menu-cache-btn">🗑️ Borrar Caché</a>
                 </div>
@@ -40,7 +42,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V89.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V90.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -54,13 +56,18 @@
                 <div class="dropdown" style="display: flex; align-items: center;">
                     <button class="menu-btn offset-btn" style="background: transparent; border: 1px solid #475569; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
                     <div class="dropdown-content" style="padding: 15px; width: 350px; left: -140px; text-align: center;">
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <span id="handy-connection-status" style="font-size: 0.8rem; font-weight: bold; color: #94a3b8;">Desconectado</span>
+                            <button id="handy-disconnect-btn" class="menu-btn dark-btn" style="font-size: 0.65rem; padding: 2px 6px; display: none;">Desconectar</button>
+                        </div>
+
                         <label class="offset-label" style="font-size:0.8rem; font-weight: bold; display: block; margin-bottom: 10px;">Sync Offset: <span id="handy-offset-display" style="color: #38bdf8;">0</span> ms</label>
                         <input type="range" id="handy-offset" min="-400" max="400" step="1" value="0" style="width: 100%;">
                         
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #1e293b; padding-top: 10px;">
-                            <span id="handy-latency-display" style="font-size: 0.7rem; color: #94a3b8; font-family: monospace;">Latencia: -- ms</span>
-                            <!-- 🎯 FIX: Tooltip y retroalimentación añadida -->
-                            <button id="handy-autosync-btn" class="menu-btn dark-btn" style="font-size: 0.7rem; padding: 4px 8px; transition: all 0.3s;" title="Sincroniza el reloj de tu PC con los servidores para evitar que el video y el script se desfasen con el tiempo.">🔄 Auto-Calibrar Ping</button>
+                            <span id="handy-latency-display" style="font-size: 0.7rem; color: #94a3b8; font-family: monospace;">Red: --</span>
+                            <button id="handy-autosync-btn" class="menu-btn dark-btn" style="font-size: 0.7rem; padding: 4px 8px; transition: all 0.3s;" title="Resuelve el reloj de tu PC con los servidores para evitar desfases">🔄 Reparar Sincronía</button>
                         </div>
                     </div>
                 </div>
@@ -132,7 +139,7 @@
                     </div>
                     <div class="video-info-bar">
                         <div class="video-info-left">
-                            <span id="v-name" class="info-text-white">Sin video</span>
+                            <span id="v-name" class="info-text-white" style="max-width: 600px;">Sin video</span>
                         </div>
                         <div class="video-info-right">
                             <span id="v-res" class="fixed-info">--x--</span> <span class="divider">|</span> 
@@ -218,12 +225,12 @@
 
     </div>
 
-    <script src="workspace.js?v=89"></script>
-    <script src="handy.js?v=89"></script> 
-    <script src="funscript.js?v=89"></script>
-    <script src="player.js?v=89"></script>
-    <script src="tracking.js?v=89"></script>
-    <script src="presets.js?v=89"></script>
-    <script src="timeline.js?v=89"></script>
+    <script src="workspace.js?v=90"></script>
+    <script src="handy.js?v=90"></script> 
+    <script src="funscript.js?v=90"></script>
+    <script src="player.js?v=90"></script>
+    <script src="tracking.js?v=90"></script>
+    <script src="presets.js?v=90"></script>
+    <script src="timeline.js?v=90"></script>
 </body>
 </html>
