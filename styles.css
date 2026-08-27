@@ -6,6 +6,12 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100vh; width: 100vw; transition: background-color 0.1s ease, color 0.1s ease; }
 
+/* 🚨 BLINDAJE DE PÁNICO: Difumina todos los textos explícitos sin romper el diseño */
+body.panic-mode-active #panel-presets .panel-content { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
+body.panic-mode-active .track-name { filter: blur(6px); opacity: 0.2; user-select: none; transition: all 0.1s; }
+body.panic-mode-active #v-name { filter: blur(6px); opacity: 0.2; user-select: none; transition: all 0.1s; }
+body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: none; }
+
 ::view-transition-old(root),
 ::view-transition-new(root) { animation-duration: 0.8s; mix-blend-mode: normal; }
 ::view-transition-old(root) { animation-name: none; z-index: 1; }
@@ -82,7 +88,6 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 #panel-video-content, #video-container-wrapper { background: #000000; }
 #video-empty-state { position: absolute; color: #475569; font-size: 1.8rem; font-weight: bold; pointer-events: none; z-index: 10; font-family: monospace; border: 2px dashed #334155; padding: 20px 40px; border-radius: 16px; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); }
 
-/* 🚨 NUEVO: ESTILO DEL BOTÓN DE PÁNICO (Fondo Aleatorio) */
 .panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background-color: #000; background-position: center; background-size: cover; background-repeat: no-repeat; display: none; }
 
 ::cue {
@@ -117,12 +122,11 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .video-info-bar .divider { color: #334155; }
 .video-info-left { display: flex; align-items: center; }
 .video-info-right { display: flex; align-items: center; gap: 8px; }
-#v-name { max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+#v-name { max-width: 600px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
 .fixed-info { display: inline-block; text-align: center; }
 #v-res { width: 70px; } #v-fps { width: 60px; } #v-speed { width: 85px; } 
 #v-mute-container { width: 30px; text-align: left; transition: all 0.3s; }
 
-/* 🔊 NUEVO: Estilos para el Deslizador de Volumen */
 .volume-slider { width: 70px; height: 4px; -webkit-appearance: none; appearance: none; background: #334155; border-radius: 4px; outline: none; cursor: pointer; }
 .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #38bdf8; cursor: pointer; transition: transform 0.1s, background 0.1s; }
 .volume-slider::-webkit-slider-thumb:hover { transform: scale(1.3); background: #f97316; }
@@ -153,7 +157,7 @@ body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100v
 .file-manager-script::before { content: "└"; position: absolute; left: -16px; top: 4px; color: #475569; font-weight: bold; font-size: 1rem; }
 
 .track-info { display: flex; align-items: center; gap: 8px; overflow: hidden; flex-grow: 1; }
-.track-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.1s; }
 .track-actions { display: flex; gap: 6px; }
 .track-btn { background: none; border: none; cursor: pointer; font-size: 0.85rem; padding: 2px 4px; border-radius: 4px; transition: background 0.2s; }
 .track-btn:hover { background: rgba(255,255,255,0.1); }
