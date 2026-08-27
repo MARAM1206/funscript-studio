@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=88">
+    <link rel="stylesheet" href="styles.css?v=89">
 </head>
 <body>
 
@@ -40,7 +40,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V88.0 | Made with ❤️ by <strong>MARAM</strong></span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V89.0 | Made with ❤️ by <strong>MARAM</strong></span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -57,10 +57,10 @@
                         <label class="offset-label" style="font-size:0.8rem; font-weight: bold; display: block; margin-bottom: 10px;">Sync Offset: <span id="handy-offset-display" style="color: #38bdf8;">0</span> ms</label>
                         <input type="range" id="handy-offset" min="-400" max="400" step="1" value="0" style="width: 100%;">
                         
-                        <!-- 🎯 FIX: Panel de Telemetría para solucionar desfases de reloj (Clock Drift) -->
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #1e293b; padding-top: 10px;">
                             <span id="handy-latency-display" style="font-size: 0.7rem; color: #94a3b8; font-family: monospace;">Latencia: -- ms</span>
-                            <button id="handy-autosync-btn" class="menu-btn dark-btn" style="font-size: 0.7rem; padding: 4px 8px;">🔄 Auto-Calibrar Ping</button>
+                            <!-- 🎯 FIX: Tooltip y retroalimentación añadida -->
+                            <button id="handy-autosync-btn" class="menu-btn dark-btn" style="font-size: 0.7rem; padding: 4px 8px; transition: all 0.3s;" title="Sincroniza el reloj de tu PC con los servidores para evitar que el video y el script se desfasen con el tiempo.">🔄 Auto-Calibrar Ping</button>
                         </div>
                     </div>
                 </div>
@@ -142,7 +142,6 @@
                             <div style="display: flex; align-items: center; gap: 6px; position: relative;">
                                 <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute" style="display:inline-block; width: 18px; text-align: center;">🔊</span></span>
                                 <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.01" value="1" title="Volumen">
-                                <!-- 🎯 FIX: left: 0 en lugar de right: 0 para permitir su desplazamiento libre -->
                                 <div id="volume-tooltip" style="position: absolute; top: -25px; left: 0; transform: translateX(-50%); background: #0f172a; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.2s;">100%</div>
                             </div>
                         </div>
@@ -219,12 +218,12 @@
 
     </div>
 
-    <script src="workspace.js?v=88"></script>
-    <script src="handy.js?v=88"></script> 
-    <script src="funscript.js?v=88"></script>
-    <script src="player.js?v=88"></script>
-    <script src="tracking.js?v=88"></script>
-    <script src="presets.js?v=88"></script>
-    <script src="timeline.js?v=88"></script>
+    <script src="workspace.js?v=89"></script>
+    <script src="handy.js?v=89"></script> 
+    <script src="funscript.js?v=89"></script>
+    <script src="player.js?v=89"></script>
+    <script src="tracking.js?v=89"></script>
+    <script src="presets.js?v=89"></script>
+    <script src="timeline.js?v=89"></script>
 </body>
 </html>
