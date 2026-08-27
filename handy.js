@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V89.0: FEEDBACK VISUAL DE ÉLITE EN AUTO-SYNC
+// THE HANDY API V90.0: DESCONEXIÓN MANUAL Y OFFSET POR SOFTWARE
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -23,33 +23,43 @@ const handyOffsetDisplay = document.getElementById('handy-offset-display');
 
 const handyLatencyDisplay = document.getElementById('handy-latency-display');
 const handyAutoSyncBtn = document.getElementById('handy-autosync-btn');
+const handyDisconnectBtn = document.getElementById('handy-disconnect-btn');
+const handyConnectionStatus = document.getElementById('handy-connection-status');
+
+// 🎯 FIX: Volvemos al Offset por Software. Se guarda en localStorage y no falla jamás.
+let savedOffset = parseInt(localStorage.getItem('funscript_handy_offset')) || 0;
+if (handyOffsetInput) handyOffsetInput.value = savedOffset;
+if (handyOffsetDisplay) handyOffsetDisplay.innerText = savedOffset;
 
 if (handyOffsetInput && handyOffsetDisplay) {
     handyOffsetInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value, 10);
-        if (Math.abs(val) <= 12) {
-            val = 0;
-        }
+        if (Math.abs(val) <= 12) val = 0;
         e.target.value = val;
         handyOffsetDisplay.innerText = val;
     });
 
-    handyOffsetInput.addEventListener('change', async (e) => {
-        if (!isHandyConnected) return;
+    handyOffsetInput.addEventListener('change', (e) => {
         let val = parseInt(e.target.value, 10);
-        handyStatus.innerText = "⏳";
-        try {
-            await fetch(`${HANDY_API_BASE}/offset`, {
-                method: 'PUT',
-                headers: { 'X-Connection-Key': handyKey, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ offset: val })
-            });
-            handyStatus.innerText = "🟢";
-        } catch(err) {
-            handyStatus.innerText = "❌";
+        localStorage.setItem('funscript_handy_offset', val);
+        const videoNode = document.getElementById('video-player');
+        if (videoNode && !videoNode.paused && isHandyConnected) {
+            window.playHandy(videoNode.currentTime * 1000);
         }
     });
 }
+
+// 🎯 FIX: Botón de desconexión manual
+handyDisconnectBtn?.addEventListener('click', () => {
+    isHandyConnected = false;
+    if(pingInterval) clearInterval(pingInterval);
+    handyStatus.innerText = "🔴";
+    handyStatus.title = "Desconectado";
+    handyConnectionStatus.innerText = "Desconectado";
+    handyConnectionStatus.style.color = "#94a3b8";
+    handyDisconnectBtn.style.display = 'none';
+    if (handyLatencyDisplay) handyLatencyDisplay.innerHTML = `Red: --`;
+});
 
 if (handyKeyInput) handyKeyInput.value = handyKey;
 
@@ -71,20 +81,11 @@ handyConnectBtn?.addEventListener('click', async () => {
             handyStatus.innerText = "🟢";
             handyStatus.title = "Conectado";
             
-            try {
-                const offRes = await fetch(`${HANDY_API_BASE}/offset`, { headers: { 'X-Connection-Key': handyKey } });
-                const offData = await offRes.json();
-                let savedOffset = 0;
-                
-                if (typeof offData === 'number') savedOffset = offData;
-                else if (offData && offData.offset !== undefined) savedOffset = offData.offset;
-
-                if (handyOffsetInput) handyOffsetInput.value = savedOffset;
-                if (handyOffsetDisplay) handyOffsetDisplay.innerText = savedOffset;
-            } catch(e) {}
+            handyConnectionStatus.innerText = "Conectado a la Nube";
+            handyConnectionStatus.style.color = "#10b981";
+            handyDisconnectBtn.style.display = 'block';
 
             await syncServerTime();
-            
             if (pingInterval) clearInterval(pingInterval);
             pingInterval = setInterval(syncServerTime, 60000);
 
@@ -100,7 +101,6 @@ handyConnectBtn?.addEventListener('click', async () => {
     }
 });
 
-// 🎯 FIX: Feedback visual claro y elegante al Auto-Calibrar
 async function syncServerTime() {
     if (!isHandyConnected) return;
 
@@ -135,20 +135,20 @@ async function syncServerTime() {
         
         if (handyLatencyDisplay) {
             let color = "#10b981"; // Excelente
-            if (avgRtt > 150) color = "#facc15"; // Medio
-            if (avgRtt > 350) color = "#ef4444"; // Malo
+            let status = "Excelente";
+            if (avgRtt > 150) { color = "#facc15"; status = "Buena"; }
+            if (avgRtt > 350) { color = "#ef4444"; status = "Inestable"; }
             
-            handyLatencyDisplay.innerHTML = `Latencia: <span style="color: ${color}; font-weight: bold;">${avgRtt} ms</span>`;
+            handyLatencyDisplay.innerHTML = `Red: <span style="color: ${color}; font-weight: bold;">📶 ${status} (${avgRtt}ms)</span>`;
         }
 
         if (handyAutoSyncBtn) {
             handyAutoSyncBtn.innerText = "✅ ¡Relojes Sincronizados!";
-            handyAutoSyncBtn.style.background = "#10b981"; // Botón se pinta verde éxito
+            handyAutoSyncBtn.style.background = "#10b981"; 
             handyAutoSyncBtn.style.color = "white";
 
-            // Regresa a la normalidad después de 2.5 segundos
             setTimeout(() => {
-                handyAutoSyncBtn.innerText = "🔄 Auto-Calibrar Ping";
+                handyAutoSyncBtn.innerText = "🔄 Reparar Sincronía";
                 handyAutoSyncBtn.style.background = ""; 
                 handyAutoSyncBtn.style.color = "";
                 handyAutoSyncBtn.disabled = false;
@@ -158,7 +158,7 @@ async function syncServerTime() {
         if (handyAutoSyncBtn) {
             handyAutoSyncBtn.innerText = "❌ Falló";
             setTimeout(() => {
-                handyAutoSyncBtn.innerText = "🔄 Auto-Calibrar Ping";
+                handyAutoSyncBtn.innerText = "🔄 Reparar Sincronía";
                 handyAutoSyncBtn.disabled = false;
             }, 2500);
         }
@@ -201,6 +201,18 @@ async function forceUploadPending() {
     const scriptUrl = await uploadScriptToHandyCloud();
     if (scriptUrl) {
         await setupHandyScript(scriptUrl);
+        // Reanudamos la máquina si el video no fue pausado mientras se subía el script
+        const videoNode = document.getElementById('video-player');
+        if (videoNode && !videoNode.paused && isHandyConnected) {
+            const serverTime = Date.now() + serverTimeOffset;
+            const userOffset = handyOffsetInput ? (parseInt(handyOffsetInput.value, 10) || 0) : 0;
+            const adjustedVideoTime = Math.max(0, Math.round(videoNode.currentTime * 1000) + userOffset);
+            fetch(`${HANDY_API_BASE}/hssp/play`, {
+                method: 'PUT',
+                headers: { 'X-Connection-Key': handyKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estimatedServerTime: serverTime, startTime: adjustedVideoTime })
+            });
+        }
     }
     isUpdatePending = false;
 }
@@ -208,14 +220,13 @@ async function forceUploadPending() {
 window.playHandy = async function(videoCurrentTimeMs) {
     if (!isHandyConnected) return;
     try {
-        if (isUpdatePending) {
-            clearTimeout(autoUpdateTimeout);
-            await forceUploadPending();
-            handyStatus.innerText = "🟢";
-        }
-
+        // 🎯 FIX: Ya NO bloqueamos la reproducción de tu código esperando la subida. 
+        // Eliminado el "await forceUploadPending()". Si no ha subido el nuevo script, 
+        // reproducirá el viejo al instante, y el nuevo subirá solo en 1 seg de inactividad.
+        
         const serverTime = Date.now() + serverTimeOffset;
-        const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs)); 
+        const userOffset = handyOffsetInput ? (parseInt(handyOffsetInput.value, 10) || 0) : 0;
+        const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs) + userOffset); 
 
         await fetch(`${HANDY_API_BASE}/hssp/play`, {
             method: 'PUT',
@@ -245,11 +256,5 @@ window.triggerHandyUpdate = function() {
     handyStatus.innerText = "⌛";
     handyStatus.title = "Esperando inactividad para subir...";
     
-    autoUpdateTimeout = setTimeout(async () => {
-        await forceUploadPending();
-        const videoNode = document.getElementById('video-player');
-        if (videoNode && !videoNode.paused) {
-            window.playHandy(videoNode.currentTime * 1000);
-        }
-    }, 1000);
+    autoUpdateTimeout = setTimeout(forceUploadPending, 1000);
 };
