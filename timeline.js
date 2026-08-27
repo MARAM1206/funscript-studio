@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V81.0: INTACTO CON PROTECCIÓN DE MODAL
+// TIMELINE V91.0: NOMENCLATURA .FUNSCRIPT
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -190,39 +190,6 @@ if (fpsInput) {
 if (fpsUp) fpsUp.addEventListener('click', () => updateFpsInput(1));
 if (fpsDown) fpsDown.addEventListener('click', () => updateFpsInput(-1));
 
-window.addEventListener('keydown', (e) => {
-    if ((e.target.tagName === 'INPUT' && e.target.type === 'text') || e.target.tagName === 'TEXTAREA' || e.target.type === 'number') return;
-    
-    const presetModal = document.getElementById('preset-editor-modal');
-    if (presetModal && presetModal.style.display === 'flex') return;
-
-    if (e.key.toLowerCase() === 't' && !e.ctrlKey) {
-        e.preventDefault();
-        window.timelineMarkers = window.timelineMarkers || [];
-        const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
-        
-        let foundIdx = -1;
-        for (let i=0; i<window.timelineMarkers.length; i++) {
-            if (Math.abs(window.timelineMarkers[i].at - timeMs) <= 50) { foundIdx = i; break; }
-        }
-        
-        if (foundIdx !== -1) window.timelineMarkers.splice(foundIdx, 1);
-        else window.timelineMarkers.push({at: timeMs, pos: 80}); 
-        
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        return;
-    }
-
-    if (e.code === 'Space' && (window.isDraggingPreset || window.isPastingMode)) {
-        e.preventDefault();
-        if (window.presetMorphMode === 'stretch') window.presetMorphMode = 'anchor';
-        else if (window.presetMorphMode === 'anchor') window.presetMorphMode = 'repeat';
-        else if (window.presetMorphMode === 'repeat') window.presetMorphMode = 'raw';
-        else window.presetMorphMode = 'stretch';
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    }
-});
-
 function formatTimelineLabel(timeMs) {
     const isNeg = timeMs < 0;
     const totalSecs = Math.abs(timeMs) / 1000;
@@ -245,11 +212,12 @@ function cleanDuplicates() {
     }
 }
 
+// 🎯 FIX: Se añade explícitamente la extensión .funscript al generarse
 function ensureTrackExists() {
     if (!window.loadedFunscriptTracks || window.loadedFunscriptTracks.length === 0) {
-        let baseName = "Nuevo_Script";
+        let baseName = "Nuevo_Script.funscript";
         if (window.currentVideoName) {
-            baseName = window.currentVideoName.replace(/\.[^/.]+$/, "");
+            baseName = window.currentVideoName.replace(/\.[^/.]+$/, "") + ".funscript";
         }
         if (typeof window.createEmptyTrack === 'function') {
             window.createEmptyTrack(baseName);
