@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V87.0: MEMORIA REAL Y MAGNETISMO PURO AL CERO
+// THE HANDY API V88.0: AUTO-SYNC DE LATENCIA Y PING BACKGROUND
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -8,6 +8,7 @@ const HANDY_UPLOAD_URL = "https://www.handyfeeling.com/api/sync/upload";
 let handyKey = localStorage.getItem('funscript_handy_key') || "";
 let isHandyConnected = false;
 let serverTimeOffset = 0;
+let pingInterval = null; 
 
 let autoUpdateTimeout = null;
 let lastUploadedScriptStr = "";
@@ -20,9 +21,11 @@ const handyStatus = document.getElementById('handy-status');
 const handyOffsetInput = document.getElementById('handy-offset'); 
 const handyOffsetDisplay = document.getElementById('handy-offset-display');
 
+// 🎯 FIX: Telemetría de Red
+const handyLatencyDisplay = document.getElementById('handy-latency-display');
+const handyAutoSyncBtn = document.getElementById('handy-autosync-btn');
+
 if (handyOffsetInput && handyOffsetDisplay) {
-    // 🎯 FIX: Imán perfecto solo al CERO. Si pasas cerca (entre -12 y 12), te atrapa.
-    // Adiós a los saltos locos de -50 a 0.
     handyOffsetInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value, 10);
         if (Math.abs(val) <= 12) {
@@ -69,13 +72,11 @@ handyConnectBtn?.addEventListener('click', async () => {
             handyStatus.innerText = "🟢";
             handyStatus.title = "Conectado";
             
-            // 🎯 FIX: Leer la memoria interna del Handy con Parser robusto
             try {
                 const offRes = await fetch(`${HANDY_API_BASE}/offset`, { headers: { 'X-Connection-Key': handyKey } });
                 const offData = await offRes.json();
                 let savedOffset = 0;
                 
-                // Extrae el valor sin importar si Handy lo manda como "10" o como "{"offset": 10}"
                 if (typeof offData === 'number') savedOffset = offData;
                 else if (offData && offData.offset !== undefined) savedOffset = offData.offset;
 
@@ -83,7 +84,13 @@ handyConnectBtn?.addEventListener('click', async () => {
                 if (handyOffsetDisplay) handyOffsetDisplay.innerText = savedOffset;
             } catch(e) {}
 
+            // Sincronización Inicial Profunda
             await syncServerTime();
+            
+            // Loop de calibración en segundo plano (cada 60s)
+            if (pingInterval) clearInterval(pingInterval);
+            pingInterval = setInterval(syncServerTime, 60000);
+
             lastUploadedScriptStr = "";
             if (window.funscriptActions && window.funscriptActions.length > 0) window.triggerHandyUpdate();
         } else {
@@ -96,19 +103,55 @@ handyConnectBtn?.addEventListener('click', async () => {
     }
 });
 
+// 🎯 FIX: Motor de Calibración Anti-ClockDrift y Latencia Visual
 async function syncServerTime() {
-    let sumOffset = 0;
-    for (let i = 0; i < 3; i++) {
-        const sendTime = Date.now();
-        const res = await fetch(`${HANDY_API_BASE}/servertime`, { headers: { 'X-Connection-Key': handyKey } });
-        const data = await res.json();
-        const receiveTime = Date.now();
-        const rtt = receiveTime - sendTime;
-        const estimatedServerTime = data.serverTime + (rtt / 2);
-        sumOffset += (estimatedServerTime - receiveTime);
+    if (!isHandyConnected) return;
+
+    if (handyAutoSyncBtn) {
+        handyAutoSyncBtn.innerText = "⏳ Calibrando...";
+        handyAutoSyncBtn.disabled = true;
     }
-    serverTimeOffset = Math.round(sumOffset / 3);
+
+    let sumOffset = 0;
+    let sumRtt = 0;
+    let validPings = 0;
+
+    for (let i = 0; i < 3; i++) {
+        try {
+            const sendTime = Date.now();
+            const res = await fetch(`${HANDY_API_BASE}/servertime`, { headers: { 'X-Connection-Key': handyKey } });
+            const data = await res.json();
+            const receiveTime = Date.now();
+            
+            const rtt = receiveTime - sendTime;
+            const estimatedServerTime = data.serverTime + (rtt / 2);
+            
+            sumOffset += (estimatedServerTime - receiveTime);
+            sumRtt += rtt;
+            validPings++;
+        } catch(e) {}
+    }
+    
+    if (validPings > 0) {
+        serverTimeOffset = Math.round(sumOffset / validPings);
+        const avgRtt = Math.round(sumRtt / validPings);
+        
+        if (handyLatencyDisplay) {
+            let color = "#10b981"; // Excelente (verde)
+            if (avgRtt > 150) color = "#facc15"; // Medio (amarillo)
+            if (avgRtt > 350) color = "#ef4444"; // Malo (rojo)
+            
+            handyLatencyDisplay.innerHTML = `Latencia: <span style="color: ${color}; font-weight: bold;">${avgRtt} ms</span>`;
+        }
+    }
+
+    if (handyAutoSyncBtn) {
+        handyAutoSyncBtn.innerText = "🔄 Auto-Calibrar Ping";
+        handyAutoSyncBtn.disabled = false;
+    }
 }
+
+handyAutoSyncBtn?.addEventListener('click', syncServerTime);
 
 async function uploadScriptToHandyCloud() {
     if (!window.funscriptActions || window.funscriptActions.length === 0) return null;
