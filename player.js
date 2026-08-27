@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V88.0 (GLOBO DE VOLUMEN MAGNÉTICO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V90.0 (PANIC PRELOAD, NO-LAG HANDY, EXTENDED TITLES)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,8 +23,18 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
+// 🚨 VARIABLES PARA BOTÓN DE PÁNICO Y VOLUMEN
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
+let panicImage = new Image();
+
+// Precarga de imagen inmediata para que el pánico sea instantáneo (0ms)
+function preloadPanicImage() {
+    const randomId = Math.floor(Math.random() * 1000);
+    panicImage.src = `https://picsum.photos/1280/720?random=${randomId}`;
+}
+preloadPanicImage();
+
 const videoVolume = document.getElementById('video-volume');
 const volumeTooltip = document.getElementById('volume-tooltip');
 
@@ -181,7 +191,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
     
     if (vName) {
         let displayName = file.name;
-        if (displayName.length > 35) displayName = displayName.substring(0, 32) + "...";
+        if (displayName.length > 60) displayName = displayName.substring(0, 57) + "..."; // 🎯 FIX: Título más largo
         vName.innerText = `📄 ${displayName}`;
         vName.title = file.name; 
     }
@@ -281,7 +291,6 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     }
 });
 
-// 🎯 FIX: Cálculo de geometría para el globo flotante magnético
 function updateVolumeUI(vol) {
     let volPercent = Math.round(vol * 100);
     
@@ -357,13 +366,15 @@ window.addEventListener('keydown', (event) => {
         isPanicMode = !isPanicMode;
         if (isPanicMode) {
             videoPlayer?.pause();
-            const randomId = Math.floor(Math.random() * 1000); 
             if (panicOverlay) {
-                panicOverlay.style.backgroundImage = `url('https://picsum.photos/1280/720?random=${randomId}')`;
+                panicOverlay.style.backgroundImage = `url('${panicImage.src}')`;
                 panicOverlay.style.display = 'block';
             }
+            document.body.classList.add('panic-mode-active');
+            preloadPanicImage(); // Precarga para la siguiente ocasión
         } else {
             if (panicOverlay) panicOverlay.style.display = 'none';
+            document.body.classList.remove('panic-mode-active');
         }
         return;
     }
