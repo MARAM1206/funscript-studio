@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V88.0: AUTO-SYNC DE LATENCIA Y PING BACKGROUND
+// THE HANDY API V89.0: FEEDBACK VISUAL DE ÉLITE EN AUTO-SYNC
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -21,7 +21,6 @@ const handyStatus = document.getElementById('handy-status');
 const handyOffsetInput = document.getElementById('handy-offset'); 
 const handyOffsetDisplay = document.getElementById('handy-offset-display');
 
-// 🎯 FIX: Telemetría de Red
 const handyLatencyDisplay = document.getElementById('handy-latency-display');
 const handyAutoSyncBtn = document.getElementById('handy-autosync-btn');
 
@@ -84,10 +83,8 @@ handyConnectBtn?.addEventListener('click', async () => {
                 if (handyOffsetDisplay) handyOffsetDisplay.innerText = savedOffset;
             } catch(e) {}
 
-            // Sincronización Inicial Profunda
             await syncServerTime();
             
-            // Loop de calibración en segundo plano (cada 60s)
             if (pingInterval) clearInterval(pingInterval);
             pingInterval = setInterval(syncServerTime, 60000);
 
@@ -103,12 +100,12 @@ handyConnectBtn?.addEventListener('click', async () => {
     }
 });
 
-// 🎯 FIX: Motor de Calibración Anti-ClockDrift y Latencia Visual
+// 🎯 FIX: Feedback visual claro y elegante al Auto-Calibrar
 async function syncServerTime() {
     if (!isHandyConnected) return;
 
     if (handyAutoSyncBtn) {
-        handyAutoSyncBtn.innerText = "⏳ Calibrando...";
+        handyAutoSyncBtn.innerText = "⏳ Midiendo...";
         handyAutoSyncBtn.disabled = true;
     }
 
@@ -137,17 +134,34 @@ async function syncServerTime() {
         const avgRtt = Math.round(sumRtt / validPings);
         
         if (handyLatencyDisplay) {
-            let color = "#10b981"; // Excelente (verde)
-            if (avgRtt > 150) color = "#facc15"; // Medio (amarillo)
-            if (avgRtt > 350) color = "#ef4444"; // Malo (rojo)
+            let color = "#10b981"; // Excelente
+            if (avgRtt > 150) color = "#facc15"; // Medio
+            if (avgRtt > 350) color = "#ef4444"; // Malo
             
             handyLatencyDisplay.innerHTML = `Latencia: <span style="color: ${color}; font-weight: bold;">${avgRtt} ms</span>`;
         }
-    }
 
-    if (handyAutoSyncBtn) {
-        handyAutoSyncBtn.innerText = "🔄 Auto-Calibrar Ping";
-        handyAutoSyncBtn.disabled = false;
+        if (handyAutoSyncBtn) {
+            handyAutoSyncBtn.innerText = "✅ ¡Relojes Sincronizados!";
+            handyAutoSyncBtn.style.background = "#10b981"; // Botón se pinta verde éxito
+            handyAutoSyncBtn.style.color = "white";
+
+            // Regresa a la normalidad después de 2.5 segundos
+            setTimeout(() => {
+                handyAutoSyncBtn.innerText = "🔄 Auto-Calibrar Ping";
+                handyAutoSyncBtn.style.background = ""; 
+                handyAutoSyncBtn.style.color = "";
+                handyAutoSyncBtn.disabled = false;
+            }, 2500);
+        }
+    } else {
+        if (handyAutoSyncBtn) {
+            handyAutoSyncBtn.innerText = "❌ Falló";
+            setTimeout(() => {
+                handyAutoSyncBtn.innerText = "🔄 Auto-Calibrar Ping";
+                handyAutoSyncBtn.disabled = false;
+            }, 2500);
+        }
     }
 }
 
