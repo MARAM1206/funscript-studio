@@ -6,10 +6,10 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100vh; width: 100vw; transition: background-color 0.1s ease, color 0.1s ease; }
 
-/* 🚨 BLINDAJE DE PÁNICO: Difumina todos los textos explícitos sin romper el diseño */
+/* 🚨 BLINDAJE DE PÁNICO: Difumina todos los contenedores enteros para máxima privacidad */
 body.panic-mode-active #panel-presets .panel-content { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
-body.panic-mode-active .track-name { filter: blur(6px); opacity: 0.2; user-select: none; transition: all 0.1s; }
-body.panic-mode-active #v-name { filter: blur(6px); opacity: 0.2; user-select: none; transition: all 0.1s; }
+body.panic-mode-active #tracks-list { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
+body.panic-mode-active #v-name { filter: blur(10px); opacity: 0.2; user-select: none; transition: all 0.1s; }
 body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: none; }
 
 ::view-transition-old(root),
