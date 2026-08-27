@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V87.0 (VOLUMEN DINÁMICO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V88.0 (GLOBO DE VOLUMEN MAGNÉTICO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -55,7 +55,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Click para mutear en el ícono
 document.getElementById('v-mute-container')?.addEventListener('click', () => {
     if(videoPlayer) {
         videoPlayer.muted = !videoPlayer.muted;
@@ -282,13 +281,22 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     }
 });
 
-// 🎯 FIX: Sistema Reactivo de Volumen (Emojis dinámicos y Globo Ocultable)
+// 🎯 FIX: Cálculo de geometría para el globo flotante magnético
 function updateVolumeUI(vol) {
     let volPercent = Math.round(vol * 100);
     
-    if (volumeTooltip) {
+    if (volumeTooltip && videoVolume) {
         volumeTooltip.innerText = volPercent + '%';
         volumeTooltip.style.opacity = '1';
+        
+        const sliderWidth = videoVolume.offsetWidth || 70;
+        const thumbWidth = 10;
+        const usableWidth = sliderWidth - thumbWidth;
+        const sliderLeft = videoVolume.offsetLeft;
+        const posPx = sliderLeft + (vol * usableWidth) + (thumbWidth / 2);
+        
+        volumeTooltip.style.left = `${posPx}px`;
+
         clearTimeout(window.volTooltipTimeout);
         window.volTooltipTimeout = setTimeout(() => {
             volumeTooltip.style.opacity = '0';
