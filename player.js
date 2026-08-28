@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V90.0 (PANIC PRELOAD, NO-LAG HANDY, EXTENDED TITLES)
+// REPRODUCTOR Y MOTOR DE ATAJOS V93.0 (CAMUFLAJE DE BOTÓN DE EXPORTAR Y BANDERA)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,12 +23,10 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🚨 VARIABLES PARA BOTÓN DE PÁNICO Y VOLUMEN
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let panicImage = new Image();
 
-// Precarga de imagen inmediata para que el pánico sea instantáneo (0ms)
 function preloadPanicImage() {
     const randomId = Math.floor(Math.random() * 1000);
     panicImage.src = `https://picsum.photos/1280/720?random=${randomId}`;
@@ -191,7 +189,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
     
     if (vName) {
         let displayName = file.name;
-        if (displayName.length > 60) displayName = displayName.substring(0, 57) + "..."; // 🎯 FIX: Título más largo
+        if (displayName.length > 60) displayName = displayName.substring(0, 57) + "..."; 
         vName.innerText = `📄 ${displayName}`;
         vName.title = file.name; 
     }
@@ -371,10 +369,19 @@ window.addEventListener('keydown', (event) => {
                 panicOverlay.style.display = 'block';
             }
             document.body.classList.add('panic-mode-active');
-            preloadPanicImage(); // Precarga para la siguiente ocasión
+            
+            // 🚨 FIX: Cambiar texto del botón de exportar (camuflaje)
+            const expBtn = document.getElementById('export-btn');
+            if (expBtn) expBtn.innerText = "💾 Exportar";
+            
+            preloadPanicImage(); 
         } else {
             if (panicOverlay) panicOverlay.style.display = 'none';
             document.body.classList.remove('panic-mode-active');
+            
+            // 🚨 FIX: Restaurar texto del botón de exportar
+            const expBtn = document.getElementById('export-btn');
+            if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
         }
         return;
     }
