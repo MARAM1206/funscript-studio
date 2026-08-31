@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=95">
+    <link rel="stylesheet" href="styles.css?v=96">
 </head>
 <body>
 
@@ -42,7 +42,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V95.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V96.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -114,7 +114,6 @@
         </div>
     </div>
 
-    <!-- 🎯 FIX: MODAL DE CONTROLES ACTUALIZADO -->
     <div id="controls-modal" class="modal-overlay">
         <div class="modal-content" style="width: 750px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
@@ -173,8 +172,10 @@
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
                     <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
                     
-                    <!-- 🎯 FIX: Etiqueta IMG Nativa. Carga Inmediata garantizada -->
-                    <img id="panic-overlay" class="panic-overlay" alt="Panic Screen" />
+                    <!-- 🎯 FIX: Volvemos a un DIV blindado y le agregamos una marca de agua elegante por si el internet falla -->
+                    <div id="panic-overlay" class="panic-overlay">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(148, 163, 184, 0.2); font-family: monospace; font-size: 2rem; font-weight: bold; pointer-events: none; user-select: none;">PREVIEW OFFLINE</div>
+                    </div>
 
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
                     <div id="fs-mini-btn" class="fs-mini-icon" title="Pantalla Completa (F)">⤢</div>
@@ -277,12 +278,12 @@
 
     </div>
 
-    <script src="workspace.js?v=95"></script>
-    <script src="handy.js?v=95"></script> 
-    <script src="funscript.js?v=95"></script>
-    <script src="player.js?v=95"></script>
-    <script src="tracking.js?v=95"></script>
-    <script src="presets.js?v=95"></script>
-    <script src="timeline.js?v=95"></script>
+    <script src="workspace.js?v=96"></script>
+    <script src="handy.js?v=96"></script> 
+    <script src="funscript.js?v=96"></script>
+    <script src="player.js?v=96"></script>
+    <script src="tracking.js?v=96"></script>
+    <script src="presets.js?v=96"></script>
+    <script src="timeline.js?v=96"></script>
 </body>
 </html>
