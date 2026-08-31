@@ -6,10 +6,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100vh; width: 100vw; transition: background-color 0.1s ease, color 0.1s ease; }
 
-/* 🚨 BLINDAJE DE PÁNICO */
-body.panic-mode-active #panel-presets .panel-content { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
-body.panic-mode-active #tracks-list { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
-body.panic-mode-active #v-name { filter: blur(10px); opacity: 0.2; user-select: none; transition: all 0.1s; }
+/* 🚨 BLINDAJE DE PÁNICO: Se eliminó el BLUR, la privacidad se hace mediante camuflaje de texto. Solo ocultamos botones delatores */
 body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: none; }
 
 ::view-transition-old(root),
@@ -18,7 +15,6 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 ::view-transition-new(root) { animation-name: ripple-in; z-index: 2; clip-path: circle(0px at var(--ripple-x, 50%) var(--ripple-y, 50%)); }
 @keyframes ripple-in { to { clip-path: circle(150% at var(--ripple-x, 50%) var(--ripple-y, 50%)); } }
 
-/* 🎯 FIX: Z-index a 999999 para que los submenús nunca desaparezcan en Pánico */
 .top-bar-menu { height: 44px; background: #0b0f17; border-bottom: 1px solid #141b29; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 999999; position: relative; }
 .top-center-toggles { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: nowrap; }
 
@@ -101,8 +97,8 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 #panel-video-content, #video-container-wrapper { background: #000000; }
 #video-empty-state { position: absolute; color: #475569; font-size: 1.8rem; font-weight: bold; pointer-events: none; z-index: 10; font-family: monospace; border: 2px dashed #334155; padding: 20px 40px; border-radius: 16px; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); }
 
-/* 🎯 FIX: Overlay ciego de Pánico, siempre elegante aunque falle la imagen */
-.panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background-color: #0f172a; background-position: center; background-size: cover; background-repeat: no-repeat; display: none; }
+/* 🎯 FIX: Z-Index ajustado a 100 para no aplastar al modal de controles (20000) */
+.panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; background-color: #0f172a; overflow: hidden; display: none; }
 
 ::cue {
     background-color: rgba(8, 8, 8, 0.85) !important; 
@@ -171,7 +167,7 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 .file-manager-script::before { content: "└"; position: absolute; left: -16px; top: 4px; color: #475569; font-weight: bold; font-size: 1rem; }
 
 .track-info { display: flex; align-items: center; gap: 8px; overflow: hidden; flex-grow: 1; }
-.track-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.1s; }
+.track-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .track-actions { display: flex; gap: 6px; }
 .track-btn { background: none; border: none; cursor: pointer; font-size: 0.85rem; padding: 2px 4px; border-radius: 4px; transition: background 0.2s; }
 .track-btn:hover { background: rgba(255,255,255,0.1); }
