@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.2 (PÁNICO PERFECTO, FAKE AUDIO, BLOQUEO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.2 (PÁNICO SÓLIDO, TEMA VIVO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,25 +23,23 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🎯 FIX 1: SOLUCIÓN DEL TEMA (Evita que el botón clone suprima la animación de workspace.js)
-const savedTheme = localStorage.getItem('funscript_theme');
-if (savedTheme === 'light') {
+// 🎯 FIX 1: TEMA OSCURO REPARADO. 
+// Usamos un Observador que espera a que la animación de workspace.js cambie la clase, y entonces guarda el dato.
+if (localStorage.getItem('funscript_theme') === 'light') {
     document.body.classList.add('light-theme');
     const tBtn = document.getElementById('menu-theme-btn');
     if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
 }
 
-// Ahora el botón escucha pasivamente con un delay mínimo. Deja que workspace.js haga la animación.
-document.getElementById('menu-theme-btn')?.addEventListener('click', () => {
-    setTimeout(() => {
-        const isLight = document.body.classList.toggle('light-theme');
-        const tBtn = document.getElementById('menu-theme-btn');
-        if (tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
-        localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-    }, 10);
+const themeObserver = new MutationObserver(() => {
+    const isLight = document.body.classList.contains('light-theme');
+    localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+    const tBtn = document.getElementById('menu-theme-btn');
+    if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
 });
+themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
-// 🎯 FIX 2: SISTEMA DE PÁNICO CON AUDIO FALSO Y TEXTOS CAMUFLADOS
+// 🎯 FIX 2: PÁNICO INTELIGENTE
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let preloadedPanicUrl = "";
@@ -195,9 +193,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
         updateVolumeUI(videoPlayer.muted ? 0 : videoPlayer.volume);
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
 
-    } catch (err) {
-        if (vMute) { vMute.innerText = "🔇"; vMute.style.color = "#94a3b8"; document.getElementById('v-mute-container')?.classList.remove('mute-flash'); }
-    }
+    } catch (err) {}
 }
 
 const fsMiniBtn = document.getElementById('fs-mini-btn');
@@ -227,7 +223,6 @@ videoPlayer?.addEventListener('timeupdate', () => {
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
 });
 
-// 🎯 FIX: Integración del Fake Audio en el reproductor si estás en pánico
 videoPlayer?.addEventListener('play', () => {
     if (isPanicMode) {
         fakeAudio.play();
@@ -261,6 +256,7 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     }
 });
 
+// 🎯 FIX 3: Sistema de Volumen de Pánico
 function updateVolumeUI(vol) {
     let volPercent = Math.round(vol * 100);
     
@@ -283,7 +279,8 @@ function updateVolumeUI(vol) {
     }
 
     if (vMute) {
-        if (vol === 0 || videoPlayer?.muted) vMute.innerText = "🔇";
+        let isMuted = isPanicMode ? fakeAudio.muted : videoPlayer?.muted;
+        if (vol === 0 || isMuted) vMute.innerText = "🔇";
         else if (vol < 0.3) vMute.innerText = "🔈";
         else if (vol < 0.7) vMute.innerText = "🔉";
         else vMute.innerText = "🔊";
@@ -291,47 +288,45 @@ function updateVolumeUI(vol) {
     
     const vMuteContainer = document.getElementById('v-mute-container');
     if (vMuteContainer) {
-        if (vol === 0 || videoPlayer?.muted) vMuteContainer.classList.add('mute-flash');
+        let isMuted = isPanicMode ? fakeAudio.muted : videoPlayer?.muted;
+        if (vol === 0 || isMuted) vMuteContainer.classList.add('mute-flash');
         else vMuteContainer.classList.remove('mute-flash');
     }
 }
 
 videoVolume?.addEventListener('input', (e) => {
     let vol = parseFloat(e.target.value);
-    if(videoPlayer) {
-        videoPlayer.volume = vol;
-        videoPlayer.muted = (vol === 0);
+    if (isPanicMode) {
+        fakeAudio.volume = vol;
+        fakeAudio.muted = (vol === 0);
+    } else {
+        if(videoPlayer) {
+            videoPlayer.volume = vol;
+            videoPlayer.muted = (vol === 0);
+        }
     }
     updateVolumeUI(vol);
 });
 
 videoPlayer?.addEventListener('volumechange', () => {
+    if (isPanicMode) return; // Si estamos en pánico, el video de atrás no controla la UI
     let vol = videoPlayer.muted ? 0 : videoPlayer.volume;
     if (videoVolume) videoVolume.value = vol;
     updateVolumeUI(vol);
-    if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
-// Función centralizada para camuflar TODOS los textos al activar pánico
+// 🎯 FIX 4: El Camuflaje de Textos definitivo (Destrucción y Reconstrucción)
 function togglePanicCamouflage(enable) {
     if (enable) {
         document.querySelectorAll('.file-manager-video').forEach(el => {
-            let textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
-            if (textNode) {
-                el.dataset.origText = textNode.textContent;
-                textNode.textContent = "🎬 Cam_03_final.mp4 ";
-            }
+            el.dataset.realHtml = el.innerHTML;
+            el.innerHTML = `🎬 Cam_03_final.mp4`;
+            el.style.color = '#38bdf8'; 
         });
         document.querySelectorAll('.file-manager-script').forEach((el, i) => {
-            let span = el.querySelector('.track-name');
-            if (span) {
-                span.dataset.orig = span.innerText; span.innerText = `💬 Audio_Sync_Trk_${i+1}.wav`;
-            } else {
-                let textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
-                if (textNode) {
-                    el.dataset.origText = textNode.textContent; textNode.textContent = `💬 Audio_Sync_Trk_${i+1}.wav `;
-                }
-            }
+            el.dataset.realHtml = el.innerHTML;
+            el.innerHTML = `💬 Audio_Sync_Trk_${i+1}.wav`;
+            el.style.color = '#10b981'; 
         });
         document.querySelectorAll('.preset-card-title').forEach((el, i) => {
             const fakes = ["Vocal Compressor", "De-Esser Base", "EQ Parametric", "Reverb Hall", "Limiter Pro"];
@@ -340,12 +335,12 @@ function togglePanicCamouflage(enable) {
         if (vName) { vName.dataset.orig = vName.innerText; vName.innerText = "📄 Cam_03_final.mp4"; }
     } else {
         document.querySelectorAll('.file-manager-video, .file-manager-script').forEach(el => {
-            if (el.dataset.origText) {
-                let textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
-                if (textNode) textNode.textContent = el.dataset.origText;
+            if (el.dataset.realHtml) {
+                el.innerHTML = el.dataset.realHtml;
+                el.style.color = '';
             }
         });
-        document.querySelectorAll('.track-name, .preset-card-title, #v-name').forEach(el => {
+        document.querySelectorAll('.preset-card-title, #v-name').forEach(el => {
             if (el.dataset.orig) el.innerText = el.dataset.orig;
         });
     }
@@ -378,7 +373,15 @@ window.addEventListener('keydown', (event) => {
         isPanicMode = !isPanicMode;
         if (isPanicMode) {
             wasMutedBeforePanic = videoPlayer ? videoPlayer.muted : false;
-            if (videoPlayer) videoPlayer.muted = true;
+            let currentVol = videoVolume ? parseFloat(videoVolume.value) : 1;
+            
+            if (videoPlayer) videoPlayer.muted = true; // Callamos lo indebido
+            
+            // Pasamos el mando al audio ambiental
+            fakeAudio.volume = currentVol;
+            fakeAudio.muted = (currentVol === 0);
+            updateVolumeUI(currentVol); 
+            
             if (videoPlayer && !videoPlayer.paused) fakeAudio.play();
             
             if (panicOverlay) {
@@ -400,8 +403,12 @@ window.addEventListener('keydown', (event) => {
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
             
         } else {
-            if (videoPlayer) videoPlayer.muted = wasMutedBeforePanic;
             fakeAudio.pause();
+            if (videoPlayer) videoPlayer.muted = wasMutedBeforePanic;
+            
+            let realVol = videoPlayer ? (videoPlayer.muted ? 0 : videoPlayer.volume) : 1;
+            if (videoVolume) videoVolume.value = realVol;
+            updateVolumeUI(realVol);
 
             if (panicOverlay) panicOverlay.style.display = 'none';
             document.body.classList.remove('panic-mode-active');
@@ -417,7 +424,6 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 FIX: Bloqueo absoluto de teclado para no editar "a ciegas" en el modo pánico
     if (isPanicMode && event.code !== 'Space') {
         return; 
     }
