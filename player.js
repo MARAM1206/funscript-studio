@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.1 (PÁNICO PERFECTO, CAMUFLAJE DE TEXTOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.2 (PÁNICO PERFECTO, FAKE AUDIO, BLOQUEO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,34 +23,38 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-const themeBtn = document.getElementById('menu-theme-btn');
+// 🎯 FIX 1: SOLUCIÓN DEL TEMA (Evita que el botón clone suprima la animación de workspace.js)
 const savedTheme = localStorage.getItem('funscript_theme');
-
 if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
-    if(themeBtn) themeBtn.innerText = '🌙 Modo oscuro';
+    const tBtn = document.getElementById('menu-theme-btn');
+    if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
 }
 
-if (themeBtn) {
-    const newThemeBtn = themeBtn.cloneNode(true);
-    themeBtn.parentNode.replaceChild(newThemeBtn, themeBtn);
-    newThemeBtn.addEventListener('click', (e) => {
-        e.preventDefault();
+// Ahora el botón escucha pasivamente con un delay mínimo. Deja que workspace.js haga la animación.
+document.getElementById('menu-theme-btn')?.addEventListener('click', () => {
+    setTimeout(() => {
         const isLight = document.body.classList.toggle('light-theme');
-        newThemeBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
+        const tBtn = document.getElementById('menu-theme-btn');
+        if (tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
         localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-    });
-}
+    }, 10);
+});
 
-// 🎯 FIX: Sistema infalible de Pánico. Se carga una URL nativa que cubrirá el "Preview Offline" si carga a tiempo.
+// 🎯 FIX 2: SISTEMA DE PÁNICO CON AUDIO FALSO Y TEXTOS CAMUFLADOS
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let preloadedPanicUrl = "";
+const fakeAudio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3');
+fakeAudio.loop = true;
+let wasMutedBeforePanic = false;
 
 function preloadPanicImage() {
     const randomId = Math.floor(Math.random() * 100000);
     preloadedPanicUrl = `https://picsum.photos/1280/720?random=${randomId}`;
     const img = new Image();
+    img.onload = () => { preloadedPanicUrl = img.src; };
+    img.onerror = () => { preloadedPanicUrl = ""; }; 
     img.src = preloadedPanicUrl; 
 }
 preloadPanicImage(); 
@@ -108,70 +112,6 @@ videoPlayer?.addEventListener('click', () => {
 function parseSRTtoVTT(srtText) {
     return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
 }
-
-async function loadSubtitleFile(file) {
-    const text = await file.text();
-    let vttText = text;
-    
-    if (file.name.toLowerCase().endsWith('.srt')) {
-        vttText = parseSRTtoVTT(text);
-    } else if (!vttText.startsWith("WEBVTT")) {
-        vttText = "WEBVTT\n\n" + vttText;
-    }
-
-    const blob = new Blob([vttText], { type: 'text/vtt' });
-    const url = URL.createObjectURL(blob);
-
-    let track = document.getElementById('custom-subtitles');
-    if (!track) {
-        track = document.createElement('track');
-        track.id = 'custom-subtitles';
-        track.kind = 'subtitles';
-        track.srclang = 'es';
-        track.label = 'Español';
-        videoPlayer.appendChild(track);
-    }
-    
-    track.src = url;
-    track.default = true;
-    
-    if (videoPlayer.textTracks && videoPlayer.textTracks.length > 0) {
-        videoPlayer.textTracks[0].mode = 'showing';
-    }
-
-    const tracksList = document.getElementById('tracks-list');
-    if (tracksList) {
-        const emptyMsg = tracksList.querySelector('.empty-tracks-msg');
-        if (emptyMsg) emptyMsg.style.display = 'none';
-
-        const oldSub = document.getElementById('ui-sub-track');
-        if (oldSub) oldSub.remove();
-
-        const subDiv = document.createElement('div');
-        subDiv.id = 'ui-sub-track';
-        subDiv.className = 'file-manager-script';
-        subDiv.style.borderLeftColor = '#f59e0b';
-        subDiv.innerHTML = `
-            <div class="track-info">
-                <span class="track-name" title="${file.name}">💬 ${file.name}</span>
-            </div>
-            <div class="track-actions">
-                <button class="track-btn delete-sub-btn" title="Eliminar Subtítulos">🗑️</button>
-            </div>
-        `;
-        tracksList.appendChild(subDiv);
-    }
-}
-
-document.getElementById('tracks-list')?.addEventListener('click', (e) => {
-    if (e.target.closest('.delete-sub-btn')) {
-        const track = document.getElementById('custom-subtitles');
-        if (track) track.remove();
-        const uiTrack = document.getElementById('ui-sub-track');
-        if (uiTrack) uiTrack.remove();
-        window.checkEmptyState();
-    }
-});
 
 universalInput?.addEventListener('change', function(event) {
     const files = Array.from(event.target.files);
@@ -287,12 +227,17 @@ videoPlayer?.addEventListener('timeupdate', () => {
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
 });
 
+// 🎯 FIX: Integración del Fake Audio en el reproductor si estás en pánico
 videoPlayer?.addEventListener('play', () => {
+    if (isPanicMode) {
+        fakeAudio.play();
+    }
     window.dispatchEvent(new Event('videoPlay'));
     if (typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
 videoPlayer?.addEventListener('pause', () => {
+    fakeAudio.pause();
     if (typeof window.stopHandy === 'function') window.stopHandy();
 });
 
@@ -367,11 +312,47 @@ videoPlayer?.addEventListener('volumechange', () => {
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
+// Función centralizada para camuflar TODOS los textos al activar pánico
+function togglePanicCamouflage(enable) {
+    if (enable) {
+        document.querySelectorAll('.file-manager-video').forEach(el => {
+            let textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
+            if (textNode) {
+                el.dataset.origText = textNode.textContent;
+                textNode.textContent = "🎬 Cam_03_final.mp4 ";
+            }
+        });
+        document.querySelectorAll('.file-manager-script').forEach((el, i) => {
+            let span = el.querySelector('.track-name');
+            if (span) {
+                span.dataset.orig = span.innerText; span.innerText = `💬 Audio_Sync_Trk_${i+1}.wav`;
+            } else {
+                let textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
+                if (textNode) {
+                    el.dataset.origText = textNode.textContent; textNode.textContent = `💬 Audio_Sync_Trk_${i+1}.wav `;
+                }
+            }
+        });
+        document.querySelectorAll('.preset-card-title').forEach((el, i) => {
+            const fakes = ["Vocal Compressor", "De-Esser Base", "EQ Parametric", "Reverb Hall", "Limiter Pro"];
+            el.dataset.orig = el.innerText; el.innerText = fakes[i % fakes.length];
+        });
+        if (vName) { vName.dataset.orig = vName.innerText; vName.innerText = "📄 Cam_03_final.mp4"; }
+    } else {
+        document.querySelectorAll('.file-manager-video, .file-manager-script').forEach(el => {
+            if (el.dataset.origText) {
+                let textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
+                if (textNode) textNode.textContent = el.dataset.origText;
+            }
+        });
+        document.querySelectorAll('.track-name, .preset-card-title, #v-name').forEach(el => {
+            if (el.dataset.orig) el.innerText = el.dataset.orig;
+        });
+    }
+}
+
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
-
-    const presetModal = document.getElementById('preset-editor-modal');
-    if (presetModal && presetModal.style.display === 'flex') return;
 
     if (event.key === 'Escape' || event.key === 'Esc') {
         
@@ -396,9 +377,10 @@ window.addEventListener('keydown', (event) => {
 
         isPanicMode = !isPanicMode;
         if (isPanicMode) {
-            videoPlayer?.pause();
+            wasMutedBeforePanic = videoPlayer ? videoPlayer.muted : false;
+            if (videoPlayer) videoPlayer.muted = true;
+            if (videoPlayer && !videoPlayer.paused) fakeAudio.play();
             
-            // 🎯 FIX: Sistema de respaldo absoluto de Pánico (A prueba de fallos de red)
             if (panicOverlay) {
                 panicOverlay.innerHTML = `
                     <img src="${preloadedPanicUrl}" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1;" onerror="this.style.display='none'" />
@@ -413,39 +395,31 @@ window.addEventListener('keydown', (event) => {
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar";
 
-            // 🎯 FIX: CAMUFLAJE DE TEXTOS INTELIGENTE (Sin Blur)
-            document.querySelectorAll('.file-manager-video .track-name').forEach(el => {
-                el.dataset.orig = el.innerText; el.innerText = "🎬 Cam_01_final.mp4";
-            });
-            document.querySelectorAll('.file-manager-script .track-name').forEach((el, i) => {
-                el.dataset.orig = el.innerText; el.innerText = `💬 Audio_Sync_Trk_${i+1}.wav`;
-            });
-            document.querySelectorAll('.preset-card-title').forEach((el, i) => {
-                const fakes = ["Vocal Compressor", "De-Esser Base", "EQ Parametric", "Reverb Hall", "Limiter Pro"];
-                el.dataset.orig = el.innerText; el.innerText = fakes[i % fakes.length];
-            });
-            if (vName) {
-                vName.dataset.orig = vName.innerText; vName.innerText = "📄 Cam_01_final.mp4";
-            }
+            togglePanicCamouflage(true);
             
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
             
         } else {
+            if (videoPlayer) videoPlayer.muted = wasMutedBeforePanic;
+            fakeAudio.pause();
+
             if (panicOverlay) panicOverlay.style.display = 'none';
             document.body.classList.remove('panic-mode-active');
             
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
             
-            // 🎯 FIX: RESTAURA TEXTOS CAMUFLADOS
-            document.querySelectorAll('.track-name, .preset-card-title, #v-name').forEach(el => {
-                if (el.dataset.orig) { el.innerText = el.dataset.orig; }
-            });
+            togglePanicCamouflage(false);
 
             preloadPanicImage(); 
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
         }
         return;
+    }
+
+    // 🎯 FIX: Bloqueo absoluto de teclado para no editar "a ciegas" en el modo pánico
+    if (isPanicMode && event.code !== 'Space') {
+        return; 
     }
 
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
