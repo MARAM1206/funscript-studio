@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.0">
+    <link rel="stylesheet" href="styles.css?v=1.1.1">
 </head>
 <body>
 
@@ -42,8 +42,7 @@
                 </div>
             </div>
 
-            <!-- 🎯 FIX: Sistema Semantic Versioning V1.1.0 -->
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.1 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -115,8 +114,9 @@
         </div>
     </div>
 
+    <!-- 🎯 FIX: Modal ampliado a 950px para evitar saltos de línea -->
     <div id="controls-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 750px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
+        <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
                 <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
                 <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
@@ -159,7 +159,6 @@
                     <div class="control-item"><div class="control-keys"><span class="kbd">H</span></div><div class="control-desc">Ocultar gráfica (en Fullscreen)</div></div>
                     <div class="control-item"><div class="control-keys"><span class="kbd">Shift</span> + <span class="kbd">Rueda</span></div><div class="control-desc">Hacer Zoom en Línea de Tiempo</div></div>
                     <div class="control-item"><div class="control-keys"><span class="kbd">Rueda Mouse</span></div><div class="control-desc">Desplazarse horizontalmente</div></div>
-                    <!-- 🎯 FIX: Corrección de leyenda del botón de Pánico -->
                     <div class="control-item" style="border-color: #ef4444;"><div class="control-keys"><span class="kbd" style="background:#ef4444; color:white; border:none;">Esc</span></div><div class="control-desc"><strong>Botón de Pánico</strong> <br> <span style="font-size: 0.65rem; color: #94a3b8;">(Camufla el editor si alguien se acerca)</span></div></div>
                 </div>
             </div>
@@ -173,7 +172,6 @@
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
                     <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
                     
-                    <!-- 🎯 FIX: Div de Pánico restituido con su marca de agua de emergencia -->
                     <div id="panic-overlay" class="panic-overlay"></div>
 
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
@@ -277,12 +275,12 @@
 
     </div>
 
-    <script src="workspace.js?v=1.1.0"></script>
-    <script src="handy.js?v=1.1.0"></script> 
-    <script src="funscript.js?v=1.1.0"></script>
-    <script src="player.js?v=1.1.0"></script>
-    <script src="tracking.js?v=1.1.0"></script>
-    <script src="presets.js?v=1.1.0"></script>
-    <script src="timeline.js?v=1.1.0"></script>
+    <script src="workspace.js?v=1.1.1"></script>
+    <script src="handy.js?v=1.1.1"></script> 
+    <script src="funscript.js?v=1.1.1"></script>
+    <script src="player.js?v=1.1.1"></script>
+    <script src="tracking.js?v=1.1.1"></script>
+    <script src="presets.js?v=1.1.1"></script>
+    <script src="timeline.js?v=1.1.1"></script>
 </body>
 </html>
