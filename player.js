@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.0 (PÁNICO SÓLIDO Y MEMORIA DE TEMA)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.1 (PÁNICO PERFECTO, CAMUFLAJE DE TEXTOS)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,38 +23,35 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🎯 FIX: Memoria Inteligente de Tema
-// Al arrancar, verificamos si guardaste el modo claro. Si no hay nada, inicia en oscuro por defecto.
+const themeBtn = document.getElementById('menu-theme-btn');
 const savedTheme = localStorage.getItem('funscript_theme');
+
 if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
-    const tBtn = document.getElementById('menu-theme-btn');
-    if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
+    if(themeBtn) themeBtn.innerText = '🌙 Modo oscuro';
 }
 
-// 🎯 FIX: Listener Pasivo. Deja que "workspace.js" haga la animación de la gota 
-// y este código solo escucha y guarda la preferencia en la memoria un milisegundo después.
-document.getElementById('menu-theme-btn')?.addEventListener('click', () => {
-    setTimeout(() => {
-        const isLight = document.body.classList.contains('light-theme');
+if (themeBtn) {
+    const newThemeBtn = themeBtn.cloneNode(true);
+    themeBtn.parentNode.replaceChild(newThemeBtn, themeBtn);
+    newThemeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isLight = document.body.classList.toggle('light-theme');
+        newThemeBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
         localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-        const tBtn = document.getElementById('menu-theme-btn');
-        if (tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
-    }, 50);
-});
+    });
+}
 
-// 🎯 FIX: Precarga de imagen Pánico a prueba de fallos
+// 🎯 FIX: Sistema infalible de Pánico. Se carga una URL nativa que cubrirá el "Preview Offline" si carga a tiempo.
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let preloadedPanicUrl = "";
 
 function preloadPanicImage() {
     const randomId = Math.floor(Math.random() * 100000);
-    const url = `https://picsum.photos/1280/720?random=${randomId}`;
+    preloadedPanicUrl = `https://picsum.photos/1280/720?random=${randomId}`;
     const img = new Image();
-    img.onload = () => { preloadedPanicUrl = url; };
-    img.onerror = () => { preloadedPanicUrl = ""; }; // Si falla el internet, se queda vacía
-    img.src = url;
+    img.src = preloadedPanicUrl; 
 }
 preloadPanicImage(); 
 
@@ -106,6 +103,74 @@ document.getElementById('v-mute-container')?.addEventListener('click', () => {
 videoPlayer?.addEventListener('click', () => {
     if (videoPlayer.paused) videoPlayer.play();
     else videoPlayer.pause();
+});
+
+function parseSRTtoVTT(srtText) {
+    return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+}
+
+async function loadSubtitleFile(file) {
+    const text = await file.text();
+    let vttText = text;
+    
+    if (file.name.toLowerCase().endsWith('.srt')) {
+        vttText = parseSRTtoVTT(text);
+    } else if (!vttText.startsWith("WEBVTT")) {
+        vttText = "WEBVTT\n\n" + vttText;
+    }
+
+    const blob = new Blob([vttText], { type: 'text/vtt' });
+    const url = URL.createObjectURL(blob);
+
+    let track = document.getElementById('custom-subtitles');
+    if (!track) {
+        track = document.createElement('track');
+        track.id = 'custom-subtitles';
+        track.kind = 'subtitles';
+        track.srclang = 'es';
+        track.label = 'Español';
+        videoPlayer.appendChild(track);
+    }
+    
+    track.src = url;
+    track.default = true;
+    
+    if (videoPlayer.textTracks && videoPlayer.textTracks.length > 0) {
+        videoPlayer.textTracks[0].mode = 'showing';
+    }
+
+    const tracksList = document.getElementById('tracks-list');
+    if (tracksList) {
+        const emptyMsg = tracksList.querySelector('.empty-tracks-msg');
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        const oldSub = document.getElementById('ui-sub-track');
+        if (oldSub) oldSub.remove();
+
+        const subDiv = document.createElement('div');
+        subDiv.id = 'ui-sub-track';
+        subDiv.className = 'file-manager-script';
+        subDiv.style.borderLeftColor = '#f59e0b';
+        subDiv.innerHTML = `
+            <div class="track-info">
+                <span class="track-name" title="${file.name}">💬 ${file.name}</span>
+            </div>
+            <div class="track-actions">
+                <button class="track-btn delete-sub-btn" title="Eliminar Subtítulos">🗑️</button>
+            </div>
+        `;
+        tracksList.appendChild(subDiv);
+    }
+}
+
+document.getElementById('tracks-list')?.addEventListener('click', (e) => {
+    if (e.target.closest('.delete-sub-btn')) {
+        const track = document.getElementById('custom-subtitles');
+        if (track) track.remove();
+        const uiTrack = document.getElementById('ui-sub-track');
+        if (uiTrack) uiTrack.remove();
+        window.checkEmptyState();
+    }
 });
 
 universalInput?.addEventListener('change', function(event) {
@@ -333,23 +398,37 @@ window.addEventListener('keydown', (event) => {
         if (isPanicMode) {
             videoPlayer?.pause();
             
-            // 🎯 FIX: Si hay imagen lista la pone, si no, escribe el texto de OFFLINE
+            // 🎯 FIX: Sistema de respaldo absoluto de Pánico (A prueba de fallos de red)
             if (panicOverlay) {
-                if (preloadedPanicUrl !== "") {
-                    panicOverlay.style.backgroundImage = `url('${preloadedPanicUrl}')`;
-                    panicOverlay.innerHTML = '';
-                } else {
-                    panicOverlay.style.backgroundImage = 'none';
-                    panicOverlay.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(148, 163, 184, 0.2); font-family: monospace; font-size: 2rem; font-weight: bold; pointer-events: none; user-select: none; text-align: center;">PREVIEW OFFLINE<br><span style="font-size:1rem; opacity:0.5;">No network connection for media streaming</span></div>';
-                }
+                panicOverlay.innerHTML = `
+                    <img src="${preloadedPanicUrl}" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1;" onerror="this.style.display='none'" />
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(148, 163, 184, 0.2); font-family: monospace; font-size: 2rem; font-weight: bold; pointer-events: none; user-select: none; text-align: center; z-index: 0;">
+                        PREVIEW OFFLINE<br><span style="font-size:1rem; opacity:0.5;">No network connection for media streaming</span>
+                    </div>
+                `;
                 panicOverlay.style.display = 'block';
             }
             document.body.classList.add('panic-mode-active');
             
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar";
+
+            // 🎯 FIX: CAMUFLAJE DE TEXTOS INTELIGENTE (Sin Blur)
+            document.querySelectorAll('.file-manager-video .track-name').forEach(el => {
+                el.dataset.orig = el.innerText; el.innerText = "🎬 Cam_01_final.mp4";
+            });
+            document.querySelectorAll('.file-manager-script .track-name').forEach((el, i) => {
+                el.dataset.orig = el.innerText; el.innerText = `💬 Audio_Sync_Trk_${i+1}.wav`;
+            });
+            document.querySelectorAll('.preset-card-title').forEach((el, i) => {
+                const fakes = ["Vocal Compressor", "De-Esser Base", "EQ Parametric", "Reverb Hall", "Limiter Pro"];
+                el.dataset.orig = el.innerText; el.innerText = fakes[i % fakes.length];
+            });
+            if (vName) {
+                vName.dataset.orig = vName.innerText; vName.innerText = "📄 Cam_01_final.mp4";
+            }
             
-            if (typeof window.drawTimeline === 'function') window.drawTimeline(); // Activa la línea de tiempo falsa
+            if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
             
         } else {
             if (panicOverlay) panicOverlay.style.display = 'none';
@@ -358,8 +437,13 @@ window.addEventListener('keydown', (event) => {
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
             
+            // 🎯 FIX: RESTAURA TEXTOS CAMUFLADOS
+            document.querySelectorAll('.track-name, .preset-card-title, #v-name').forEach(el => {
+                if (el.dataset.orig) { el.innerText = el.dataset.orig; }
+            });
+
             preloadPanicImage(); 
-            if (typeof window.drawTimeline === 'function') window.drawTimeline(); // Regresa la línea de tiempo real
+            if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
         }
         return;
     }
