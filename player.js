@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V95.0 (PÁNICO INSTANTÁNEO, MEMORIA TEMA, CONTROLES)
+// REPRODUCTOR Y MOTOR DE ATAJOS V95.0 (PÁNICO INSTANTÁNEO Y MEMORIA TEMA)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -43,15 +43,20 @@ if (themeBtn) {
     });
 }
 
-// 🎯 FIX: Sistema a prueba de balas para la imagen de Pánico
+// 🎯 FIX: Sistema a prueba de fallos para la imagen de Pánico
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
+let preloadedPanicUrl = "";
 
 function preloadPanicImage() {
     const randomId = Math.floor(Math.random() * 1000);
-    if (panicOverlay) panicOverlay.src = `https://picsum.photos/1280/720?random=${randomId}`;
+    const url = `https://picsum.photos/1280/720?random=${randomId}`;
+    const img = new Image();
+    img.onload = () => { preloadedPanicUrl = url; };
+    img.onerror = () => { preloadedPanicUrl = ""; }; // Si falla, queda vacía y mostrará el fondo gris elegante
+    img.src = url;
 }
-preloadPanicImage(); // Se carga apenas arranca la web
+preloadPanicImage(); 
 
 const controlsModal = document.getElementById('controls-modal');
 document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
@@ -399,7 +404,11 @@ window.addEventListener('keydown', (event) => {
         isPanicMode = !isPanicMode;
         if (isPanicMode) {
             videoPlayer?.pause();
-            if (panicOverlay) panicOverlay.style.display = 'block';
+            
+            if (panicOverlay) {
+                panicOverlay.style.backgroundImage = preloadedPanicUrl ? `url('${preloadedPanicUrl}')` : 'none';
+                panicOverlay.style.display = 'block';
+            }
             document.body.classList.add('panic-mode-active');
             
             const expBtn = document.getElementById('export-btn');
