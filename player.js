@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V93.0 (CAMUFLAJE DE BOTÓN DE EXPORTAR Y BANDERA)
+// REPRODUCTOR Y MOTOR DE ATAJOS V94.0 (GUÍA DE CONTROLES, SIN I.A.)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -26,6 +26,16 @@ const vTimeTotal = document.getElementById('v-time-total');
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let panicImage = new Image();
+
+// 🎯 FIX: Controles del Nuevo Modal
+const controlsModal = document.getElementById('controls-modal');
+document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (controlsModal) controlsModal.style.display = 'flex';
+});
+document.getElementById('close-controls-btn')?.addEventListener('click', () => {
+    if (controlsModal) controlsModal.style.display = 'none';
+});
 
 function preloadPanicImage() {
     const randomId = Math.floor(Math.random() * 1000);
@@ -347,6 +357,13 @@ window.addEventListener('keydown', (event) => {
     if (presetModal && presetModal.style.display === 'flex') return;
 
     if (event.key === 'Escape' || event.key === 'Esc') {
+        
+        // 🎯 FIX: Cerrar modal de controles si está abierto antes del pánico
+        if (controlsModal && controlsModal.style.display === 'flex') {
+            controlsModal.style.display = 'none';
+            return;
+        }
+
         if (window.isPastingMode || window.isDraggingPreset) {
             window.isPastingMode = false;
             window.isDraggingPreset = false;
@@ -370,7 +387,6 @@ window.addEventListener('keydown', (event) => {
             }
             document.body.classList.add('panic-mode-active');
             
-            // 🚨 FIX: Cambiar texto del botón de exportar (camuflaje)
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar";
             
@@ -379,7 +395,6 @@ window.addEventListener('keydown', (event) => {
             if (panicOverlay) panicOverlay.style.display = 'none';
             document.body.classList.remove('panic-mode-active');
             
-            // 🚨 FIX: Restaurar texto del botón de exportar
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
         }
@@ -537,54 +552,3 @@ window.addEventListener('keydown', (event) => {
         }
     }
 }, true);
-
-document.getElementById('ai-translate-btn')?.addEventListener('click', async () => {
-    const videoNode = document.getElementById('video-player');
-
-    if (!videoNode || !videoNode.src || videoNode.src === "") {
-        alert("⚠️ Primero carga un video en el reproductor.");
-        return;
-    }
-
-    let apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) {
-        apiKey = prompt("🔑 Ingresa tu API Key gratuita de Google Gemini (se guardará de forma local y privada):");
-        if (apiKey) localStorage.setItem('gemini_api_key', apiKey.trim());
-        else return;
-    }
-
-    const btn = document.getElementById('ai-translate-btn');
-    const originalText = btn.innerText;
-    btn.innerText = "⏳ Escuchando y Traduciendo...";
-    btn.disabled = true;
-
-    try {
-        const response = await fetch(videoNode.src);
-        const blob = await response.blob();
-        
-        const formData = new FormData();
-        formData.append("video", blob, window.currentVideoName || "video.mp4");
-        formData.append("api_key", apiKey);
-
-        const serverRes = await fetch("http://127.0.0.1:8000/translate-video", {
-            method: "POST",
-            body: formData
-        });
-
-        if (!serverRes.ok) throw new Error("Error en el servidor Python local.");
-
-        const data = await serverRes.json();
-        
-        const subBlob = new Blob([data.vtt], { type: 'text/vtt' });
-        const subFile = new File([subBlob], data.filename, { type: 'text/vtt' });
-        await loadSubtitleFile(subFile);
-
-        alert("✅ ¡Subtítulos generados y cargados con éxito!");
-    } catch (err) {
-        alert("❌ Error: Asegúrate de que 'server.py' esté ejecutándose en tu terminal (Ejecuta: python -m uvicorn server:app --reload).");
-        console.error(err);
-    } finally {
-        btn.innerText = originalText;
-        btn.disabled = false;
-    }
-});
