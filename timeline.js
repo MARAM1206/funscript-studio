@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V91.0: NOMENCLATURA .FUNSCRIPT
+// TIMELINE V1.1.0: MODO PÁNICO CON LÍNEA DE TIEMPO FALSA (GENÉRICA)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -212,7 +212,6 @@ function cleanDuplicates() {
     }
 }
 
-// 🎯 FIX: Se añade explícitamente la extensión .funscript al generarse
 function ensureTrackExists() {
     if (!window.loadedFunscriptTracks || window.loadedFunscriptTracks.length === 0) {
         let baseName = "Nuevo_Script.funscript";
@@ -849,6 +848,12 @@ window.updateGhostThumb = function() {
     }
 };
 
+// 🎯 FIX: Sistema Random Falso para que las ondas de audio del Pánico no parpadeen a 60fps
+function fakeRandom(seed) {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+}
+
 window.drawTimeline = function() {
     try {
         ensureCanvasSize();
@@ -872,6 +877,84 @@ window.drawTimeline = function() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // =========================================================================
+        // 🎯 FIX: MODO PÁNICO - LÍNEA DE TIEMPO FALSA (Editor de Video Genérico)
+        // =========================================================================
+        if (document.body.classList.contains('panic-mode-active')) {
+            const visibleStartMs = scrollLeftMs;
+            const visibleEndMs = scrollLeftMs + (canvas.width - 30) / (basePixelsPerMs * zoom);
+            let stepMs = 1000;
+            const startTimeMs = Math.max(0, xToTime(30));
+            const endTimeMs = xToTime(canvas.width);
+            let t = Math.floor(startTimeMs / stepMs) * stepMs;
+
+            ctx.fillStyle = textDimColor; ctx.font = '10px monospace';
+            while (t <= endTimeMs) {
+                if (t >= 0) {
+                    const x = timeToX(t);
+                    if (x >= 30) {
+                        ctx.strokeStyle = timeLineColor; 
+                        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+                        ctx.fillText(formatTimelineLabel(t), x + 4, 12);
+                    }
+                }
+                t += stepMs;
+            }
+
+            const trackY1 = 30;  // Video Track
+            const trackY2 = 80;  // Audio Track
+            const trackH = 40;
+            const clipMs = 25000; // Clips largos de 25 segs
+            const gapMs = 500;    // Cortes pequeños
+            const startIdx = Math.floor(visibleStartMs / (clipMs + gapMs));
+            const endIdx = Math.ceil(visibleEndMs / (clipMs + gapMs));
+
+            ctx.lineWidth = 1;
+            for (let i = startIdx; i <= endIdx; i++) {
+                const cStartMs = i * (clipMs + gapMs);
+                const cEndMs = cStartMs + clipMs;
+                const startX = Math.max(30, timeToX(cStartMs));
+                const endX = timeToX(cEndMs);
+                const w = endX - startX;
+
+                if (w > 0) {
+                    // Fake Video Track (Azul)
+                    ctx.fillStyle = isLight ? '#bae6fd' : '#0ea5e9';
+                    ctx.strokeStyle = isLight ? '#38bdf8' : '#0284c7';
+                    ctx.beginPath(); ctx.roundRect(startX, trackY1, w, trackH, 4); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = isLight ? '#0c4a6e' : '#f0f9ff'; ctx.font = 'bold 11px sans-serif';
+                    ctx.fillText(`Cam_0${(i%3)+1}_final.mp4`, startX + 8, trackY1 + 16);
+
+                    // Fake Audio Track (Verde)
+                    ctx.fillStyle = isLight ? '#bbf7d0' : '#10b981';
+                    ctx.strokeStyle = isLight ? '#34d399' : '#059669';
+                    ctx.beginPath(); ctx.roundRect(startX, trackY2, w, trackH, 4); ctx.fill(); ctx.stroke();
+                    
+                    ctx.strokeStyle = isLight ? '#064e3b' : '#a7f3d0';
+                    ctx.beginPath();
+                    for (let px = startX + 2; px < endX - 2; px += 4) {
+                        const waveH = fakeRandom(px + i) * (trackH - 12) + 6;
+                        ctx.moveTo(px, trackY2 + trackH/2 - waveH/2);
+                        ctx.lineTo(px, trackY2 + trackH/2 + waveH/2);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            // Barra lateral izquierda (Oculta números)
+            ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
+            ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
+
+            // Playhead estándar
+            const playheadX = timeToX(actualTime);
+            if (playheadX >= 30) {
+                ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
+                ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
+            }
+            return; // Corta aquí. No dibuja los picos obscenos de .funscript
+        }
+        // =========================================================================
 
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             ctx.lineWidth = 1;
@@ -1250,7 +1333,7 @@ window.drawTimeline = function() {
                         fCtx.stroke();
                         actions.forEach(a => {
                             fCtx.fillStyle = a.selected ? '#f59e0b' : '#38bdf8';
-                            fCtx.beginPath(); fCtx.arc(fsTimeToX(a.at), fsPosToY(a.pos), a.selected ? 5 : 3, 0, Math.PI*2); fCtx.fill();
+                            fCtx.beginPath(); fCtx.arc(fsTimeToX(a.at), fsPosToY(a.pos), a.selected ? 5 : 3, Math.PI*2); fCtx.fill();
                         });
                     }
                     
