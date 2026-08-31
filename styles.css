@@ -81,6 +81,19 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(6, 9, 14, 0.9); z-index: 20000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
 .modal-content { padding: 20px; border-radius: 14px; border-width: 1px; border-style: solid; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
 
+/* 🎯 FIX: ESTILOS PARA TECLAS DEL MODAL DE CONTROLES */
+.controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.controls-section { margin-bottom: 20px; }
+.controls-section h4 { color: #38bdf8; margin-bottom: 12px; font-size: 0.95rem; border-bottom: 1px solid #1e293b; padding-bottom: 6px;}
+.control-item { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; background: rgba(15, 23, 42, 0.4); padding: 8px 12px; border-radius: 8px; border: 1px solid #1e293b; margin-bottom: 8px;}
+.control-keys { min-width: 110px; }
+.control-desc { color: #94a3b8; line-height: 1.2;}
+.kbd {
+    background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-bottom-width: 2px;
+    border-radius: 6px; padding: 3px 6px; font-family: monospace; font-size: 0.75rem; font-weight: bold;
+    display: inline-block; margin: 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
 .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); overflow: hidden; }
 .workspace-panel { position: absolute; background: #0f131a; border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #1e293b; overflow: hidden; }
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
@@ -272,6 +285,10 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .fs-mini-icon { color: #0f172a !important; background: rgba(255, 255, 255, 0.45); border: 1px solid rgba(15, 23, 42, 0.15); }
 .light-theme .fs-mini-icon:hover { color: #0284c7 !important; background: rgba(255, 255, 255, 0.75); }
 .light-theme .volume-slider { background: #cbd5e1; }
+
+.light-theme .kbd { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+.light-theme .control-item { background: rgba(255, 255, 255, 0.5); border-color: #cbd5e1; }
+.light-theme .control-desc { color: #475569; }
 
 .light-theme .adaptive-btn.off { background: rgba(239, 68, 68, 0.05); border-color: #ef4444; color: #ef4444; }
 
