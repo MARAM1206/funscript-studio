@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V95.0 (PÁNICO INSTANTÁNEO Y MEMORIA TEMA)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.0 (PÁNICO SÓLIDO Y MEMORIA DE TEMA)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,37 +23,37 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🎯 FIX: Recuperar memoria del Tema (Modo Oscuro es el predeterminado)
-const themeBtn = document.getElementById('menu-theme-btn');
+// 🎯 FIX: Memoria Inteligente de Tema
+// Al arrancar, verificamos si guardaste el modo claro. Si no hay nada, inicia en oscuro por defecto.
 const savedTheme = localStorage.getItem('funscript_theme');
-
 if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
-    if(themeBtn) themeBtn.innerText = '🌙 Modo oscuro';
+    const tBtn = document.getElementById('menu-theme-btn');
+    if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
 }
 
-if (themeBtn) {
-    const newThemeBtn = themeBtn.cloneNode(true);
-    themeBtn.parentNode.replaceChild(newThemeBtn, themeBtn);
-    newThemeBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const isLight = document.body.classList.toggle('light-theme');
-        newThemeBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
+// 🎯 FIX: Listener Pasivo. Deja que "workspace.js" haga la animación de la gota 
+// y este código solo escucha y guarda la preferencia en la memoria un milisegundo después.
+document.getElementById('menu-theme-btn')?.addEventListener('click', () => {
+    setTimeout(() => {
+        const isLight = document.body.classList.contains('light-theme');
         localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-    });
-}
+        const tBtn = document.getElementById('menu-theme-btn');
+        if (tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
+    }, 50);
+});
 
-// 🎯 FIX: Sistema a prueba de fallos para la imagen de Pánico
+// 🎯 FIX: Precarga de imagen Pánico a prueba de fallos
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let preloadedPanicUrl = "";
 
 function preloadPanicImage() {
-    const randomId = Math.floor(Math.random() * 1000);
+    const randomId = Math.floor(Math.random() * 100000);
     const url = `https://picsum.photos/1280/720?random=${randomId}`;
     const img = new Image();
     img.onload = () => { preloadedPanicUrl = url; };
-    img.onerror = () => { preloadedPanicUrl = ""; }; // Si falla, queda vacía y mostrará el fondo gris elegante
+    img.onerror = () => { preloadedPanicUrl = ""; }; // Si falla el internet, se queda vacía
     img.src = url;
 }
 preloadPanicImage(); 
@@ -108,84 +108,14 @@ videoPlayer?.addEventListener('click', () => {
     else videoPlayer.pause();
 });
 
-function parseSRTtoVTT(srtText) {
-    return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
-}
-
-async function loadSubtitleFile(file) {
-    const text = await file.text();
-    let vttText = text;
-    
-    if (file.name.toLowerCase().endsWith('.srt')) {
-        vttText = parseSRTtoVTT(text);
-    } else if (!vttText.startsWith("WEBVTT")) {
-        vttText = "WEBVTT\n\n" + vttText;
-    }
-
-    const blob = new Blob([vttText], { type: 'text/vtt' });
-    const url = URL.createObjectURL(blob);
-
-    let track = document.getElementById('custom-subtitles');
-    if (!track) {
-        track = document.createElement('track');
-        track.id = 'custom-subtitles';
-        track.kind = 'subtitles';
-        track.srclang = 'es';
-        track.label = 'Español';
-        videoPlayer.appendChild(track);
-    }
-    
-    track.src = url;
-    track.default = true;
-    
-    if (videoPlayer.textTracks && videoPlayer.textTracks.length > 0) {
-        videoPlayer.textTracks[0].mode = 'showing';
-    }
-
-    const tracksList = document.getElementById('tracks-list');
-    if (tracksList) {
-        const emptyMsg = tracksList.querySelector('.empty-tracks-msg');
-        if (emptyMsg) emptyMsg.style.display = 'none';
-
-        const oldSub = document.getElementById('ui-sub-track');
-        if (oldSub) oldSub.remove();
-
-        const subDiv = document.createElement('div');
-        subDiv.id = 'ui-sub-track';
-        subDiv.className = 'file-manager-script';
-        subDiv.style.borderLeftColor = '#f59e0b';
-        subDiv.innerHTML = `
-            <div class="track-info">
-                <span class="track-name" title="${file.name}">💬 ${file.name}</span>
-            </div>
-            <div class="track-actions">
-                <button class="track-btn delete-sub-btn" title="Eliminar Subtítulos">🗑️</button>
-            </div>
-        `;
-        tracksList.appendChild(subDiv);
-    }
-}
-
-document.getElementById('tracks-list')?.addEventListener('click', (e) => {
-    if (e.target.closest('.delete-sub-btn')) {
-        const track = document.getElementById('custom-subtitles');
-        if (track) track.remove();
-        const uiTrack = document.getElementById('ui-sub-track');
-        if (uiTrack) uiTrack.remove();
-        window.checkEmptyState();
-    }
-});
-
 universalInput?.addEventListener('change', function(event) {
     const files = Array.from(event.target.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-    const subtitleFiles = files.filter(f => f.name.toLowerCase().endsWith('.srt') || f.name.toLowerCase().endsWith('.vtt'));
 
     const hasFunscripts = funscriptFiles.length > 0;
     if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
-    if (subtitleFiles.length > 0) loadSubtitleFile(subtitleFiles[0]);
     
     event.target.value = '';
     window.checkEmptyState();
@@ -199,12 +129,10 @@ window.addEventListener('drop', (e) => {
     const files = Array.from(e.dataTransfer.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-    const subtitleFiles = files.filter(f => f.name.toLowerCase().endsWith('.srt') || f.name.toLowerCase().endsWith('.vtt'));
 
     const hasFunscripts = funscriptFiles.length > 0;
     if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
-    if (subtitleFiles.length > 0) loadSubtitleFile(subtitleFiles[0]);
 });
 
 window.addEventListener('dragover', (e) => { 
@@ -405,14 +333,23 @@ window.addEventListener('keydown', (event) => {
         if (isPanicMode) {
             videoPlayer?.pause();
             
+            // 🎯 FIX: Si hay imagen lista la pone, si no, escribe el texto de OFFLINE
             if (panicOverlay) {
-                panicOverlay.style.backgroundImage = preloadedPanicUrl ? `url('${preloadedPanicUrl}')` : 'none';
+                if (preloadedPanicUrl !== "") {
+                    panicOverlay.style.backgroundImage = `url('${preloadedPanicUrl}')`;
+                    panicOverlay.innerHTML = '';
+                } else {
+                    panicOverlay.style.backgroundImage = 'none';
+                    panicOverlay.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(148, 163, 184, 0.2); font-family: monospace; font-size: 2rem; font-weight: bold; pointer-events: none; user-select: none; text-align: center;">PREVIEW OFFLINE<br><span style="font-size:1rem; opacity:0.5;">No network connection for media streaming</span></div>';
+                }
                 panicOverlay.style.display = 'block';
             }
             document.body.classList.add('panic-mode-active');
             
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar";
+            
+            if (typeof window.drawTimeline === 'function') window.drawTimeline(); // Activa la línea de tiempo falsa
             
         } else {
             if (panicOverlay) panicOverlay.style.display = 'none';
@@ -422,6 +359,7 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
             
             preloadPanicImage(); 
+            if (typeof window.drawTimeline === 'function') window.drawTimeline(); // Regresa la línea de tiempo real
         }
         return;
     }
@@ -476,10 +414,9 @@ window.addEventListener('keydown', (event) => {
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
-        if (key === 'arrowup' || key === 'arrowdown') {
+        if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
             event.preventDefault(); event.stopPropagation();
-            const dir = (key === 'arrowup') ? 'up' : 'down';
-            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: dir }));
+            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
         }
         return; 
     }
@@ -488,23 +425,11 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
-    if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
-        event.preventDefault(); 
-        event.stopPropagation();
+    if (key === 'arrowup' || key === 'arrowdown') {
+        event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
-
-        if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
-            const dir = (key === 'arrowup') ? 'up' : 'down';
-            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
-        } 
-        else if (!isPlaying && hasSelection && (key === 'arrowleft' || key === 'arrowright')) {
-            const dir = (key === 'arrowleft') ? 'left' : 'right';
-            window.dispatchEvent(new CustomEvent('nudgeTime', { detail: dir }));
-        } 
-        else if (!isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
-            const dir = (key === 'arrowup') ? 'up' : 'down';
-            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
-        }
+        const dir = (key === 'arrowup') ? 'up' : 'down';
+        window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
         return; 
     }
 
