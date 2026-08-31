@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.0: MODO PÁNICO CON LÍNEA DE TIEMPO FALSA (GENÉRICA)
+// TIMELINE V1.1.2: BLOQUEO DE PÁNICO Y EXTENSIONES .FUNSCRIPT FORZADAS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -474,6 +474,27 @@ window.updateHeatmapAndStats = function() {
             hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
         }
     }
+
+    // 🎯 FIX: Obliga a mostrar .funscript en los nombres de archivo si faltan
+    if (!document.body.classList.contains('panic-mode-active')) {
+        document.querySelectorAll('.file-manager-script .track-name').forEach(el => {
+            let txt = el.innerText.trim();
+            if (txt && !txt.toLowerCase().includes('.funscript') && !txt.toLowerCase().includes('.wav')) {
+                if (txt !== "💬") { el.innerText = txt + ".funscript"; }
+            }
+        });
+        document.querySelectorAll('.file-manager-script').forEach(el => {
+            if (!el.querySelector('.track-name')) {
+                let textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0);
+                if (textNode && textNode.textContent) {
+                    let txt = textNode.textContent.trim();
+                    if (txt && !txt.toLowerCase().includes('.funscript') && !txt.toLowerCase().includes('.wav')) {
+                        textNode.textContent = txt + ".funscript ";
+                    }
+                }
+            }
+        });
+    }
 };
 
 const originalUpdateActionsLog = window.updateActionsLog;
@@ -483,6 +504,9 @@ window.updateActionsLog = function() {
 };
 
 canvas?.addEventListener('wheel', (e) => {
+    // 🎯 FIX: Bloqueo de rueda en Pánico
+    if (document.body.classList.contains('panic-mode-active')) return;
+
     e.preventDefault();
     const mouseX = e.clientX - canvas.getBoundingClientRect().left;
     const mouseY = e.clientY - canvas.getBoundingClientRect().top;
@@ -687,6 +711,7 @@ sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('cha
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
 window.addEventListener('injectPoint', function(e) {
+    if (document.body.classList.contains('panic-mode-active')) return; // 🎯 FIX: Bloqueo de pánico
     ensureTrackExists(); 
     const actions = getSafeActions();
 
@@ -714,6 +739,7 @@ window.addEventListener('injectPoint', function(e) {
 });
 
 window.addEventListener('nudgeTime', function(e) {
+    if (document.body.classList.contains('panic-mode-active')) return;
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
     actions.forEach(act => {
@@ -731,6 +757,7 @@ window.addEventListener('nudgeTime', function(e) {
 });
 
 window.addEventListener('nudgePoints', function(e) {
+    if (document.body.classList.contains('panic-mode-active')) return;
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
     
@@ -761,6 +788,7 @@ window.addEventListener('nudgePoints', function(e) {
 });
 
 window.addEventListener('magnetPoint', function() {
+    if (document.body.classList.contains('panic-mode-active')) return;
     const actions = getSafeActions();
     const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
     let moved = false; saveHistoryState();
@@ -773,6 +801,7 @@ window.addEventListener('magnetPoint', function() {
 });
 
 window.addEventListener('deletePoints', () => {
+    if (document.body.classList.contains('panic-mode-active')) return; // 🎯 FIX: Bloqueo de pánico
     const actions = getSafeActions();
     let hasSelection = actions.some(a => a.selected);
     if (!hasSelection) {
@@ -848,7 +877,6 @@ window.updateGhostThumb = function() {
     }
 };
 
-// 🎯 FIX: Sistema Random Falso para que las ondas de audio del Pánico no parpadeen a 60fps
 function fakeRandom(seed) {
     let x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
@@ -878,9 +906,6 @@ window.drawTimeline = function() {
         ctx.fillStyle = bgColor; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // =========================================================================
-        // 🎯 FIX: MODO PÁNICO - LÍNEA DE TIEMPO FALSA (Editor de Video Genérico)
-        // =========================================================================
         if (document.body.classList.contains('panic-mode-active')) {
             const visibleStartMs = scrollLeftMs;
             const visibleEndMs = scrollLeftMs + (canvas.width - 30) / (basePixelsPerMs * zoom);
@@ -902,11 +927,11 @@ window.drawTimeline = function() {
                 t += stepMs;
             }
 
-            const trackY1 = 30;  // Video Track
-            const trackY2 = 80;  // Audio Track
+            const trackY1 = 30;  
+            const trackY2 = 80;  
             const trackH = 40;
-            const clipMs = 25000; // Clips largos de 25 segs
-            const gapMs = 500;    // Cortes pequeños
+            const clipMs = 25000; 
+            const gapMs = 500;    
             const startIdx = Math.floor(visibleStartMs / (clipMs + gapMs));
             const endIdx = Math.ceil(visibleEndMs / (clipMs + gapMs));
 
@@ -919,14 +944,12 @@ window.drawTimeline = function() {
                 const w = endX - startX;
 
                 if (w > 0) {
-                    // Fake Video Track (Azul)
                     ctx.fillStyle = isLight ? '#bae6fd' : '#0ea5e9';
                     ctx.strokeStyle = isLight ? '#38bdf8' : '#0284c7';
                     ctx.beginPath(); ctx.roundRect(startX, trackY1, w, trackH, 4); ctx.fill(); ctx.stroke();
                     ctx.fillStyle = isLight ? '#0c4a6e' : '#f0f9ff'; ctx.font = 'bold 11px sans-serif';
                     ctx.fillText(`Cam_0${(i%3)+1}_final.mp4`, startX + 8, trackY1 + 16);
 
-                    // Fake Audio Track (Verde)
                     ctx.fillStyle = isLight ? '#bbf7d0' : '#10b981';
                     ctx.strokeStyle = isLight ? '#34d399' : '#059669';
                     ctx.beginPath(); ctx.roundRect(startX, trackY2, w, trackH, 4); ctx.fill(); ctx.stroke();
@@ -942,19 +965,16 @@ window.drawTimeline = function() {
                 }
             }
 
-            // Barra lateral izquierda (Oculta números)
             ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
             ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
 
-            // Playhead estándar
             const playheadX = timeToX(actualTime);
             if (playheadX >= 30) {
                 ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
                 ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
             }
-            return; // Corta aquí. No dibuja los picos obscenos de .funscript
+            return; 
         }
-        // =========================================================================
 
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             ctx.lineWidth = 1;
@@ -1333,7 +1353,7 @@ window.drawTimeline = function() {
                         fCtx.stroke();
                         actions.forEach(a => {
                             fCtx.fillStyle = a.selected ? '#f59e0b' : '#38bdf8';
-                            fCtx.beginPath(); fCtx.arc(fsTimeToX(a.at), fsPosToY(a.pos), a.selected ? 5 : 3, Math.PI*2); fCtx.fill();
+                            fCtx.beginPath(); fCtx.arc(fsTimeToX(a.at), fsPosToY(a.pos), a.selected ? 5 : 3, 0, Math.PI*2); fCtx.fill();
                         });
                     }
                     
@@ -1458,6 +1478,8 @@ pointSlider?.addEventListener('change', function() {
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
 canvas?.addEventListener('mousedown', (e) => {
+    if (document.body.classList.contains('panic-mode-active')) return; 
+
     if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
@@ -1601,6 +1623,8 @@ canvas?.addEventListener('mousedown', (e) => {
 });
 
 canvas?.addEventListener('mousemove', (e) => {
+    if (document.body.classList.contains('panic-mode-active')) return; 
+
     const pos = getMousePos(e);
     const mouseX = pos.x; const mouseY = pos.y;
     window.lastMouseX = mouseX;
