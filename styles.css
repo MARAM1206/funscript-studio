@@ -11,6 +11,7 @@ body.panic-mode-active #panel-presets .panel-content { filter: blur(10px); opaci
 body.panic-mode-active #tracks-list { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
 body.panic-mode-active #v-name { filter: blur(10px); opacity: 0.2; user-select: none; transition: all 0.1s; }
 body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: none; }
+body.panic-mode-active #export-btn { visibility: hidden; pointer-events: none; }
 
 ::view-transition-old(root),
 ::view-transition-new(root) { animation-duration: 0.8s; mix-blend-mode: normal; }
@@ -81,7 +82,6 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(6, 9, 14, 0.9); z-index: 20000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
 .modal-content { padding: 20px; border-radius: 14px; border-width: 1px; border-style: solid; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
 
-/* 🎯 FIX: ESTILOS PARA TECLAS DEL MODAL DE CONTROLES */
 .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .controls-section { margin-bottom: 20px; }
 .controls-section h4 { color: #38bdf8; margin-bottom: 12px; font-size: 0.95rem; border-bottom: 1px solid #1e293b; padding-bottom: 6px;}
@@ -101,7 +101,8 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 #panel-video-content, #video-container-wrapper { background: #000000; }
 #video-empty-state { position: absolute; color: #475569; font-size: 1.8rem; font-weight: bold; pointer-events: none; z-index: 10; font-family: monospace; border: 2px dashed #334155; padding: 20px 40px; border-radius: 16px; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); }
 
-.panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background-color: #000; background-position: center; background-size: cover; background-repeat: no-repeat; display: none; }
+/* 🎯 FIX: El Panic Overlay ahora maneja un IMG nativo */
+.panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; object-fit: cover; display: none; }
 
 ::cue {
     background-color: rgba(8, 8, 8, 0.85) !important; 
