@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V94.0 (GUÍA DE CONTROLES, SIN I.A.)
+// REPRODUCTOR Y MOTOR DE ATAJOS V95.0 (PÁNICO INSTANTÁNEO, MEMORIA TEMA, CONTROLES)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -23,11 +23,36 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
+// 🎯 FIX: Recuperar memoria del Tema (Modo Oscuro es el predeterminado)
+const themeBtn = document.getElementById('menu-theme-btn');
+const savedTheme = localStorage.getItem('funscript_theme');
+
+if (savedTheme === 'light') {
+    document.body.classList.add('light-theme');
+    if(themeBtn) themeBtn.innerText = '🌙 Modo oscuro';
+}
+
+if (themeBtn) {
+    const newThemeBtn = themeBtn.cloneNode(true);
+    themeBtn.parentNode.replaceChild(newThemeBtn, themeBtn);
+    newThemeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isLight = document.body.classList.toggle('light-theme');
+        newThemeBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
+        localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+    });
+}
+
+// 🎯 FIX: Sistema a prueba de balas para la imagen de Pánico
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
-let panicImage = new Image();
 
-// 🎯 FIX: Controles del Nuevo Modal
+function preloadPanicImage() {
+    const randomId = Math.floor(Math.random() * 1000);
+    if (panicOverlay) panicOverlay.src = `https://picsum.photos/1280/720?random=${randomId}`;
+}
+preloadPanicImage(); // Se carga apenas arranca la web
+
 const controlsModal = document.getElementById('controls-modal');
 document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -36,12 +61,6 @@ document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
 document.getElementById('close-controls-btn')?.addEventListener('click', () => {
     if (controlsModal) controlsModal.style.display = 'none';
 });
-
-function preloadPanicImage() {
-    const randomId = Math.floor(Math.random() * 1000);
-    panicImage.src = `https://picsum.photos/1280/720?random=${randomId}`;
-}
-preloadPanicImage();
 
 const videoVolume = document.getElementById('video-volume');
 const volumeTooltip = document.getElementById('volume-tooltip');
@@ -358,7 +377,6 @@ window.addEventListener('keydown', (event) => {
 
     if (event.key === 'Escape' || event.key === 'Esc') {
         
-        // 🎯 FIX: Cerrar modal de controles si está abierto antes del pánico
         if (controlsModal && controlsModal.style.display === 'flex') {
             controlsModal.style.display = 'none';
             return;
@@ -381,22 +399,20 @@ window.addEventListener('keydown', (event) => {
         isPanicMode = !isPanicMode;
         if (isPanicMode) {
             videoPlayer?.pause();
-            if (panicOverlay) {
-                panicOverlay.style.backgroundImage = `url('${panicImage.src}')`;
-                panicOverlay.style.display = 'block';
-            }
+            if (panicOverlay) panicOverlay.style.display = 'block';
             document.body.classList.add('panic-mode-active');
             
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar";
             
-            preloadPanicImage(); 
         } else {
             if (panicOverlay) panicOverlay.style.display = 'none';
             document.body.classList.remove('panic-mode-active');
             
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
+            
+            preloadPanicImage(); 
         }
         return;
     }
