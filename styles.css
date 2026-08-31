@@ -6,12 +6,11 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100vh; width: 100vw; transition: background-color 0.1s ease, color 0.1s ease; }
 
-/* 🚨 BLINDAJE DE PÁNICO: Difumina todos los contenedores enteros para máxima privacidad */
+/* 🚨 BLINDAJE DE PÁNICO */
 body.panic-mode-active #panel-presets .panel-content { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
 body.panic-mode-active #tracks-list { filter: blur(10px); opacity: 0.2; pointer-events: none; transition: all 0.1s; }
 body.panic-mode-active #v-name { filter: blur(10px); opacity: 0.2; user-select: none; transition: all 0.1s; }
 body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: none; }
-body.panic-mode-active #export-btn { visibility: hidden; pointer-events: none; }
 
 ::view-transition-old(root),
 ::view-transition-new(root) { animation-duration: 0.8s; mix-blend-mode: normal; }
@@ -19,7 +18,8 @@ body.panic-mode-active #export-btn { visibility: hidden; pointer-events: none; }
 ::view-transition-new(root) { animation-name: ripple-in; z-index: 2; clip-path: circle(0px at var(--ripple-x, 50%) var(--ripple-y, 50%)); }
 @keyframes ripple-in { to { clip-path: circle(150% at var(--ripple-x, 50%) var(--ripple-y, 50%)); } }
 
-.top-bar-menu { height: 44px; background: #0b0f17; border-bottom: 1px solid #141b29; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 9999; position: relative; }
+/* 🎯 FIX: Z-index a 999999 para que los submenús nunca desaparezcan en Pánico */
+.top-bar-menu { height: 44px; background: #0b0f17; border-bottom: 1px solid #141b29; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 999999; position: relative; }
 .top-center-toggles { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: nowrap; }
 
 .toggle-panel-btn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; font-weight: bold; }
@@ -101,8 +101,8 @@ body.panic-mode-active #export-btn { visibility: hidden; pointer-events: none; }
 #panel-video-content, #video-container-wrapper { background: #000000; }
 #video-empty-state { position: absolute; color: #475569; font-size: 1.8rem; font-weight: bold; pointer-events: none; z-index: 10; font-family: monospace; border: 2px dashed #334155; padding: 20px 40px; border-radius: 16px; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); }
 
-/* 🎯 FIX: El Panic Overlay ahora maneja un IMG nativo */
-.panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; object-fit: cover; display: none; }
+/* 🎯 FIX: Overlay ciego de Pánico, siempre elegante aunque falle la imagen */
+.panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background-color: #0f172a; background-position: center; background-size: cover; background-repeat: no-repeat; display: none; }
 
 ::cue {
     background-color: rgba(8, 8, 8, 0.85) !important; 
