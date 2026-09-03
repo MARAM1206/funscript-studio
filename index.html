@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.9">
+    <link rel="stylesheet" href="styles.css?v=1.1.11">
 </head>
 <body>
 
@@ -15,13 +15,10 @@
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
                     <a href="#" id="menu-controls-btn">⌨️ Controles</a>
-                    
-                    <!-- 🎯 FIX: Botón de Bloqueo 5% independiente con persistencia de memoria -->
                     <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
                         <input type="checkbox" id="menu-snap-toggle" class="snap-toggle" checked>
                         <span class="snap-text">Bloqueo de 5%</span>
                     </label>
-
                     <a href="#" style="pointer-events: none; color: #64748b;">Notas (Próximamente)</a>
                     <a href="#" id="menu-theme-btn">☀️ Modo claro</a>
                     <a href="#" id="menu-cache-btn">🗑️ Borrar Caché</a>
@@ -31,9 +28,7 @@
             <div class="dropdown">
                 <button class="menu-btn dark-btn device-alert-pulse device-btn-fixed" id="device-menu-btn" style="width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📱 Dispositivos</button>
                 <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
-                    
                     <a href="#" data-device="handy_std">Handy V1 / 2 Standar</a>
-                    
                     <div class="sub-dropdown">
                         <a href="#" data-device="handy_pro">Handy 2 PRO</a>
                         <span class="sub-arrow">▶</span>
@@ -41,7 +36,6 @@
                             <label class="oc-label"><input type="checkbox" class="oc-toggle"> <span class="oc-text">Overclock Off</span></label>
                         </div>
                     </div>
-
                     <a href="#" data-device="keon_1">Keon 1</a>
                     <a href="#" data-device="keon_2">Keon 2</a>
                     <a href="#" data-device="keon_sm">Keon Sex Machine</a>
@@ -49,13 +43,12 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.9 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.11 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
         
         <div class="top-right-actions" style="display: flex; align-items: center; gap: 15px;">
-            
             <div class="handy-container" id="handy-main-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid;">
                 <span id="handy-status" style="font-size:0.75rem; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
                 <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
@@ -63,15 +56,12 @@
                 <div class="dropdown" style="display: flex; align-items: center;">
                     <button class="menu-btn offset-btn" style="background: transparent; border: 1px solid #475569; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
                     <div class="dropdown-content" style="padding: 15px; width: 350px; left: -140px; text-align: center;">
-                        
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <span id="handy-connection-status" style="font-size: 0.8rem; font-weight: bold; color: #94a3b8;">Desconectado</span>
                             <button id="handy-disconnect-btn" class="menu-btn dark-btn" style="font-size: 0.65rem; padding: 2px 6px; display: none;">Desconectar</button>
                         </div>
-
                         <label class="offset-label" style="font-size:0.8rem; font-weight: bold; display: block; margin-bottom: 10px;">Sync Offset: <span id="handy-offset-display" style="color: #38bdf8;">0</span> ms</label>
                         <input type="range" id="handy-offset" min="-400" max="400" step="1" value="0" style="width: 100%;">
-                        
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #1e293b; padding-top: 10px;">
                             <span id="handy-latency-display" style="font-size: 0.7rem; color: #94a3b8; font-family: monospace;">Red: --</span>
                             <button id="handy-autosync-btn" class="menu-btn dark-btn" style="font-size: 0.7rem; padding: 4px 8px; transition: all 0.3s;" title="Resuelve el reloj de tu PC con los servidores para evitar desfases">🔄 Reparar Sincronía</button>
@@ -81,7 +71,6 @@
 
                 <button id="handy-connect-btn" class="menu-btn orange-btn">🛜 Conectar</button>
             </div>
-
             <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
         </div>
     </div>
@@ -120,14 +109,12 @@
         </div>
     </div>
 
-    <!-- 🎯 FIX: Atajos Y y U inyectados en la guía visual de los marcadores -->
     <div id="controls-modal" class="modal-overlay">
         <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
                 <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
                 <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
             </div>
-            
             <div class="controls-grid">
                 <div class="controls-section">
                     <h4>▶️ Reproducción</h4>
@@ -281,12 +268,12 @@
 
     </div>
 
-    <script src="workspace.js?v=1.1.9"></script>
-    <script src="handy.js?v=1.1.9"></script> 
-    <script src="funscript.js?v=1.1.9"></script>
-    <script src="player.js?v=1.1.9"></script>
-    <script src="tracking.js?v=1.1.9"></script>
-    <script src="presets.js?v=1.1.9"></script>
-    <script src="timeline.js?v=1.1.9"></script>
+    <script src="workspace.js?v=1.1.11"></script>
+    <script src="handy.js?v=1.1.11"></script> 
+    <script src="funscript.js?v=1.1.11"></script>
+    <script src="player.js?v=1.1.11"></script>
+    <script src="tracking.js?v=1.1.11"></script>
+    <script src="presets.js?v=1.1.11"></script>
+    <script src="timeline.js?v=1.1.11"></script>
 </body>
 </html>
