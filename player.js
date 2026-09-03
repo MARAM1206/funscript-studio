@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.7 (RESTAURACIÓN DE FLECHAS DIRECCIONALES)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.8 (NAVEGACIÓN MARCADORES Y AUTO-LIMPIEZA)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -363,6 +363,7 @@ window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
     if (event.key === 'Escape' || event.key === 'Esc') {
+        
         if (controlsModal && controlsModal.style.display === 'flex') {
             controlsModal.style.display = 'none';
             return;
@@ -411,6 +412,7 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar";
 
             togglePanicCamouflage(true);
+            
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
             
         } else {
@@ -428,6 +430,7 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
             
             togglePanicCamouflage(false);
+
             preloadPanicImage(); 
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
         }
@@ -508,13 +511,45 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 FIX: Restauración inteligente de Flechas (Izquierda/Derecha para mover en el tiempo, Arriba/Abajo para Posición)
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
+        
+        // 🎯 FIX: Teclas Ctrl + B y Ctrl + N para saltar entre Marcadores
+        if (key === 'b') {
+            event.preventDefault();
+            const currentTimeMs = videoPlayer.currentTime * 1000;
+            if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+                const prevMarkers = window.timelineMarkers.filter(m => m.at < currentTimeMs - 15);
+                if (prevMarkers.length > 0) {
+                    videoPlayer.currentTime = prevMarkers[prevMarkers.length - 1].at / 1000;
+                    window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: prevMarkers[prevMarkers.length - 1].at } }));
+                }
+            }
+            return;
+        }
+        if (key === 'n') {
+            event.preventDefault();
+            const currentTimeMs = videoPlayer.currentTime * 1000;
+            if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+                const nextMarkers = window.timelineMarkers.filter(m => m.at > currentTimeMs + 15);
+                if (nextMarkers.length > 0) {
+                    videoPlayer.currentTime = nextMarkers[0].at / 1000;
+                    window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: nextMarkers[0].at } }));
+                } else {
+                    const lastMarker = window.timelineMarkers[window.timelineMarkers.length - 1];
+                    if (currentTimeMs >= lastMarker.at + 15) {
+                        videoPlayer.currentTime = lastMarker.at / 1000;
+                        window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: lastMarker.at } }));
+                    }
+                }
+            }
+            return;
+        }
+
         if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
             event.preventDefault(); event.stopPropagation();
             if (key === 'arrowleft' || key === 'arrowright') {
@@ -530,22 +565,11 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
-    if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
+    if (key === 'arrowup' || key === 'arrowdown') {
         event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
-        
-        if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
-            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
-        } 
-        else if (!isPlaying && hasSelection && (key === 'arrowleft' || key === 'arrowright')) {
-            window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
-        } 
-        else if (!isPlaying && hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
-            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
-        } 
-        else if (!isPlaying && !hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
-            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
-        }
+        const dir = (key === 'arrowup') ? 'up' : 'down';
+        window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
         return; 
     }
 
