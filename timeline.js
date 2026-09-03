@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.8: SELECCIÓN MILIMÉTRICA DE MARCADORES Y BLOQUEO POR CTRL
+// TIMELINE V1.1.9: PADDING DE PROTECCIÓN Y AUTO-LIMPIEZA DE MARCADORES
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -58,7 +58,6 @@ let hasDraggedSelection = false;
 let selStartT = 0, selStartY = 0;
 let selCurrT = 0, selCurrY = 0;
 
-// 🎯 FIX: Sistema basado en Tiempo Real en lugar de Píxeles estáticos
 let isSelectingMarkers = false;
 let selStartMarkerT = 0;
 let selCurrMarkerT = 0;
@@ -591,7 +590,7 @@ window.addEventListener('presetCustomDrop', (e) => {
                 window.isDraggingPreset = false; window.timelineGhostPreset = null;
                 window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
                 
-                // 🎯 FIX: Des-seleccionar marcadores después de pegar un preset con éxito
+                // 🎯 FIX: Auto-deselección de marcadores después de usar un preset
                 if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
 
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -621,7 +620,6 @@ window.addEventListener('presetCustomDrop', (e) => {
         cleanDuplicates(); 
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
-        // 🎯 FIX: Des-seleccionar marcadores en dropeo normal
         if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
 
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -807,8 +805,17 @@ function redo() {
 }
 function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
 function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom); }
-function posToY(pos) { const padding = 20; const usableHeight = canvas.height - (padding * 2); return canvas.height - padding - (pos / 100) * usableHeight; }
-function yToPos(y) { const padding = 20; const usableHeight = canvas.height - (padding * 2); const rawPos = ((canvas.height - padding - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
+
+// 🎯 FIX: Ecuación matemática reajustada. Padding Top de 40px para la zona de marcadores.
+function posToY(pos) { 
+    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
+    return canvas.height - botPad - (pos / 100) * usableHeight; 
+}
+function yToPos(y) { 
+    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
+    const rawPos = ((canvas.height - botPad - y) / usableHeight) * 100; 
+    return Math.max(0, Math.min(100, Math.round(rawPos))); 
+}
 
 window.updateGhostThumb = function() {
     const ghostThumb = document.getElementById('ghost-thumb');
@@ -1009,14 +1016,17 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: Dibujado de Caja Mágica de Selección de Marcadores
+        // 🎯 FIX: Dibujado Matemático de la Caja Mágica de Selección de Marcadores 
+        // (Sincronizado con Time en lugar de Pixeles para soportar Zoom y Scroll)
         if (isSelectingMarkers) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(217, 70, 239, 0.8)'; ctx.fillStyle = 'rgba(217, 70, 239, 0.15)';
             ctx.setLineDash([2, 2]); ctx.beginPath(); 
             const sX_m = timeToX(selStartMarkerT);
             const cX_m = timeToX(selCurrMarkerT);
-            ctx.fillRect(sX_m, 0, cX_m - sX_m, 40); 
-            ctx.strokeRect(sX_m, 0, cX_m - sX_m, 40); 
+            const xLeft = Math.min(sX_m, cX_m);
+            const xRight = Math.max(sX_m, cX_m);
+            ctx.fillRect(xLeft, 0, xRight - xLeft, 35); 
+            ctx.strokeRect(xLeft, 0, xRight - xLeft, 35); 
             ctx.setLineDash([]);
         }
 
@@ -1037,12 +1047,12 @@ window.drawTimeline = function() {
 
                     ctx.fillStyle = m.selected ? '#facc15' : '#d946ef';
                     ctx.beginPath();
-                    // 🎯 FIX: Marcadores un 25% más altos para fácil clicleo
-                    ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
+                    // 🎯 FIX: Marcadores con Hitbox de Altura 32px para clicks precisos
+                    ctx.roundRect(mx - 15, 0, 30, 32, [0, 0, 4, 4]);
                     ctx.fill();
 
                     ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText(`M${idx + 1}`, mx, 16); 
+                    ctx.fillText(`M${idx + 1}`, mx, 20); 
                     ctx.textAlign = 'left';
                     ctx.globalAlpha = 1.0;
                 }
@@ -1109,6 +1119,25 @@ window.drawTimeline = function() {
                     ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                 }
             });
+            
+            // 🎯 FIX: Etiquetas de porcentaje sutiles para todos los puntos en pausa
+            if (videoNode && videoNode.paused && !document.body.classList.contains('panic-mode-active')) {
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 9px monospace';
+                actions.forEach(act => {
+                    const px = timeToX(act.at);
+                    if (px >= 30 && px <= canvas.width) {
+                        const py = posToY(act.pos);
+                        ctx.fillStyle = isLight ? 'rgba(255,255,255,0.7)' : 'rgba(15,23,42,0.7)';
+                        ctx.beginPath();
+                        ctx.roundRect(px - 12, py - 18, 24, 11, 3);
+                        ctx.fill();
+                        ctx.fillStyle = isLight ? '#0f172a' : '#e2e8f0';
+                        ctx.fillText(`${act.pos}%`, px, py - 10);
+                    }
+                });
+                ctx.textAlign = 'left';
+            }
         }
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
@@ -1273,6 +1302,76 @@ window.drawTimeline = function() {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
+
+        // 🎯 FIX: Restauración de Paneo visual animado (Scroll Momentum)
+        if (window.scrollMomentum) {
+            if (Math.abs(window.scrollMomentum) > 0.1) {
+                window.scrollMomentum *= 0.92;
+            } else {
+                window.scrollMomentum = 0;
+            }
+
+            if (window.scrollMomentum !== 0) {
+                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
+                const isForward = window.scrollMomentum > 0;
+                
+                ctx.save();
+                ctx.globalAlpha = intensity * 0.6; 
+
+                const gradWidth = 200;
+                const centerY = canvas.height / 2;
+
+                if (isForward) {
+                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
+                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
+                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    
+                    for(let i = 0; i < 3; i++) {
+                        let cx = canvas.width - 60 + offset - (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
+                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
+
+                } else {
+                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
+                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
+                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(30, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+                    for(let i = 0; i < 3; i++) {
+                        let cx = 80 - offset + (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
+                }
+                ctx.restore();
+            }
+        }
         
         window.updateGhostThumb();
 
@@ -1357,7 +1456,7 @@ canvas?.addEventListener('mousedown', (e) => {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                if (Math.abs(clickX - mx) <= 15 && clickY <= 40) { 
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 35) { 
                     clickedMarker = true;
                     if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mx !== m ? mk.selected = false : null);
                     m.selected = e.ctrlKey ? !m.selected : true;
@@ -1372,8 +1471,12 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        // 🎯 FIX: Activar Caja Mágica en todo el Header Superior de la línea de tiempo (Altura 40px)
-        if (clickY <= 40 && !clickedMarker) {
+        // 🎯 FIX: Auto-deseleccionar marcadores si se hace click fuera de su zona superior
+        if (!e.ctrlKey && !clickedMarker && clickY > 35) {
+            window.timelineMarkers.forEach(m => m.selected = false);
+        }
+
+        if (clickY <= 35 && !clickedMarker) {
             isSelectingMarkers = true;
             selStartMarkerT = xToTime(clickX);
             selCurrMarkerT = selStartMarkerT;
@@ -1418,7 +1521,7 @@ canvas?.addEventListener('mousedown', (e) => {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                if (Math.abs(clickX - mx) <= 15 && clickY <= 40) {
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 35) {
                     const now = performance.now();
                     if (window.lastMarkerRightClickIdx === i && (now - window.lastMarkerRightClickTime < 350)) {
                         if (videoNode) {
@@ -1498,7 +1601,6 @@ canvas?.addEventListener('mousemove', (e) => {
     window.lastMouseX = mouseX;
     window.lastMouseY = mouseY;
     
-    // 🎯 FIX: Caja Mágica basada 100% en el tiempo para que no falle al hacer scroll con el mouse
     if (isSelectingMarkers) {
         selCurrMarkerT = xToTime(mouseX);
         const minT = Math.min(selStartMarkerT, selCurrMarkerT);
