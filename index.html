@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.15">
+    <link rel="stylesheet" href="styles.css?v=1.1.16">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.15 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.16 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -77,8 +77,9 @@
 
     <input type="file" id="universal-file-input" accept="video/*,.funscript,.json,.vtt,.srt" multiple style="display: none;">
 
+    <!-- 🎯 FIX: Editor expandido a 75vh para máximo respiro visual -->
     <div id="preset-editor-modal" class="modal-overlay">
-        <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 500px;">
+        <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 75vh; min-height: 600px;">
             <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 class="modal-title" style="margin: 0; font-size: 1.1rem;">✏️ Editor de Presets</h3>
@@ -115,13 +116,13 @@
                 <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
                 <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
             </div>
-            <div class="controls-grid"></div>
+            <div class="controls-grid">
+            </div>
         </div>
     </div>
 
     <div class="workspace-container">
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
-            <!-- 🎯 FIX: Header minimalista restaurado para recuperar el poder de arrastre -->
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎬 Reproductor</span>
             </div>
@@ -239,12 +240,12 @@
 
     </div>
 
-    <script src="workspace.js?v=1.1.15"></script>
-    <script src="handy.js?v=1.1.15"></script> 
-    <script src="funscript.js?v=1.1.15"></script>
-    <script src="player.js?v=1.1.15"></script>
-    <script src="tracking.js?v=1.1.15"></script>
-    <script src="presets.js?v=1.1.15"></script>
-    <script src="timeline.js?v=1.1.15"></script>
+    <script src="workspace.js?v=1.1.16"></script>
+    <script src="handy.js?v=1.1.16"></script> 
+    <script src="funscript.js?v=1.1.16"></script>
+    <script src="player.js?v=1.1.16"></script>
+    <script src="tracking.js?v=1.1.16"></script>
+    <script src="presets.js?v=1.1.16"></script>
+    <script src="timeline.js?v=1.1.16"></script>
 </body>
 </html>
