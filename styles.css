@@ -6,7 +6,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background-color: #06090e; color: #e2e8f0; overflow: hidden; height: 100vh; width: 100vw; transition: background-color 0.1s ease, color 0.1s ease; }
 
-/* 🚨 BLINDAJE DE PÁNICO: Se eliminó el BLUR, la privacidad se hace mediante camuflaje de texto. Solo ocultamos botones delatores */
+/* 🚨 BLINDAJE DE PÁNICO */
 body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: none; }
 
 ::view-transition-old(root),
@@ -97,7 +97,6 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 #panel-video-content, #video-container-wrapper { background: #000000; }
 #video-empty-state { position: absolute; color: #475569; font-size: 1.8rem; font-weight: bold; pointer-events: none; z-index: 10; font-family: monospace; border: 2px dashed #334155; padding: 20px 40px; border-radius: 16px; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); }
 
-/* 🎯 FIX: Z-Index ajustado a 100 para no aplastar al modal de controles (20000) */
 .panic-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; background-color: #0f172a; overflow: hidden; display: none; }
 
 ::cue {
@@ -167,20 +166,22 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 .file-manager-script::before { content: "└"; position: absolute; left: -16px; top: 4px; color: #475569; font-weight: bold; font-size: 1rem; }
 
 .track-info { display: flex; align-items: center; gap: 8px; overflow: hidden; flex-grow: 1; }
-.track-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.1s; }
 .track-actions { display: flex; gap: 6px; }
 .track-btn { background: none; border: none; cursor: pointer; font-size: 0.85rem; padding: 2px 4px; border-radius: 4px; transition: background 0.2s; }
 .track-btn:hover { background: rgba(255,255,255,0.1); }
 .primary-badge { background: #2563eb; color: white; font-size: 0.65rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; }
 
-.preset-card { background: #070a0f; border: 1px solid #1e293b; padding: 10px; margin-bottom: 8px; border-radius: 8px; display: flex; flex-direction: column; cursor: grab; transition: border-color 0.2s; position: relative; }
+/* 🎯 FIX: Tarjetas de Preset compactas y horizontales + clase Dragging */
+.preset-card { background: #070a0f; border: 1px solid #1e293b; padding: 6px 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; gap: 8px; cursor: grab; transition: border-color 0.2s; position: relative; height: 45px; }
 .preset-card:active { cursor: grabbing; border-color: #38bdf8; }
-.preset-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 6px; }
-.preset-card-header > div { display: flex; gap: 6px; }
-.preset-card-title { font-weight: bold; font-size: 0.85rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin-right: 8px; }
-.preset-mini-canvas { width: 100%; height: 36px; background: #020617; border-radius: 4px; border: 1px solid #0f131a; pointer-events: none; }
+.preset-card-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 0; width: 45%; gap: 4px; flex-shrink: 0; }
+.preset-card-header > div { display: flex; gap: 4px; }
+.preset-card-title { font-weight: bold; font-size: 0.75rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin-right: 4px; }
+.preset-mini-canvas { width: 100%; height: 26px; background: #020617; border-radius: 4px; border: 1px solid #0f131a; pointer-events: none; flex-grow: 1; }
 .preset-action-btn { background: none; border: none; cursor: pointer; font-size: 0.65rem; padding: 2px; transition: transform 0.1s; }
 .preset-action-btn:hover { transform: scale(1.2); }
+.dragging-preset-item { opacity: 0.4; border: 1px dashed #38bdf8; }
 
 .vertical-slider-wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; height: 100%; justify-content: center; width: 100%; }
 .slider-badge { background: #3b82f6; color: white; font-weight: bold; font-size: 0.9rem; padding: 4px 10px; border-radius: 6px; }
@@ -210,10 +211,6 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 
 .fs-timeline { position: absolute; bottom: 30px; left: 5%; width: 90%; height: 120px; background: rgba(11, 15, 23, 0.75); border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(8px); z-index: 2147483647; pointer-events: none; display: none; }
 :fullscreen .fs-timeline { display: block; } :-webkit-full-screen .fs-timeline { display: block; }
-
-.adaptive-btn { font-size: 0.7rem; font-weight: bold; border-radius: 12px; padding: 2px 10px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; outline: none; margin-left: auto;}
-.adaptive-btn.on { background: #10b981; color: #ffffff; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); border-color: #059669; }
-.adaptive-btn.off { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; color: #ef4444; }
 
 /* ==========================================================================
    ☀️ TEMA CLARO (SLATE THEME PROFESIONAL)
@@ -286,8 +283,6 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .kbd { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
 .light-theme .control-item { background: rgba(255, 255, 255, 0.5); border-color: #cbd5e1; }
 .light-theme .control-desc { color: #475569; }
-
-.light-theme .adaptive-btn.off { background: rgba(239, 68, 68, 0.05); border-color: #ef4444; color: #ef4444; }
 
 .light-theme .info-text-white,
 .light-theme .video-info-bar .fixed-info,
