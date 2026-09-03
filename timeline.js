@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.4: MALLA INTELIGENTE DE MARCADORES Y SALTO DE DOBLE CLIC
+// TIMELINE V1.1.5: TOLERANCIA DE INYECTOR Y RESTAURACIÓN DE AUTO-CORRECCIÓN
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -88,6 +88,97 @@ function pDistance(x, y, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
+function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor, act0 = null, act3 = null) {
+    let dt_ms = act2.at - act1.at;
+    if (dt_ms <= 0) return null;
+    let dt_s = dt_ms / 1000.0;
+    let dp = Math.abs(act2.pos - act1.pos);
+    let speed = (dp * factor) / dt_s;
+
+    if (speed <= hwMax && (speed >= hwMin || dp === 0)) return null;
+
+    let isTooFast = speed > hwMax;
+    let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
+    let options = [];
+
+    let target_dp = (safe_speed * dt_s) / factor;
+    let dir = act2.pos >= act1.pos ? 1 : -1;
+    if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
+
+    let snap2_pos = Math.max(0, Math.min(100, Math.round(act1.pos + dir * target_dp)));
+    if (Math.abs(snap2_pos - act1.pos) > 0) options.push({ modIdx: 2, key: 'pos', val: snap2_pos, diff: Math.abs(snap2_pos - act2.pos) });
+
+    let snap1_pos = Math.max(0, Math.min(100, Math.round(act2.pos - dir * target_dp)));
+    if (Math.abs(act2.pos - snap1_pos) > 0) options.push({ modIdx: 1, key: 'pos', val: snap1_pos, diff: Math.abs(snap1_pos - act1.pos) });
+
+    let target_dt_ms = Math.round(((dp * factor) / safe_speed) * 1000);
+
+    let snap2_at = act1.at + target_dt_ms;
+    if (!act3 || snap2_at < act3.at - 10) options.push({ modIdx: 2, key: 'at', val: snap2_at, diff: Math.abs(snap2_at - act2.at) / 10 }); 
+
+    let snap1_at = act2.at - target_dt_ms;
+    if (snap1_at >= 0 && (!act0 || snap1_at > act0.at + 10)) options.push({ modIdx: 1, key: 'at', val: snap1_at, diff: Math.abs(snap1_at - act1.at) / 10 });
+
+    let validOptions = options.filter(opt => {
+        let test_dt = opt.key === 'at' ? (opt.modIdx === 2 ? opt.val - act1.at : act2.at - opt.val) : dt_ms;
+        let test_dp = opt.key === 'pos' ? (opt.modIdx === 2 ? Math.abs(opt.val - act1.pos) : Math.abs(act2.pos - opt.val)) : dp;
+        let test_s = (test_dp * factor) / (test_dt / 1000);
+        return test_s <= hwMax && (test_s >= hwMin || test_dp === 0);
+    });
+
+    if (validOptions.length === 0) return null;
+
+    validOptions.sort((a, b) => a.diff - b.diff);
+    return validOptions[0]; 
+}
+
+function massCorrectSelection(actions, hwMax, hwMin, factor) {
+    let changed = false;
+    for(let pass = 0; pass < 30; pass++) {
+        let passChanged = false;
+        for(let i = 0; i < actions.length - 1; i++) {
+            if (!actions[i].selected && !actions[i+1].selected) continue;
+
+            let act1 = actions[i]; let act2 = actions[i+1];
+            let dt_s = (act2.at - act1.at) / 1000.0;
+            if(dt_s <= 0) continue;
+
+            let dp = Math.abs(act2.pos - act1.pos);
+            let speed = (dp * factor) / dt_s;
+
+            if (speed > hwMax || (speed < hwMin && dp > 0)) {
+                let isTooFast = speed > hwMax;
+                let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
+                let target_dp = (safe_speed * dt_s) / factor;
+                let dir = act2.pos >= act1.pos ? 1 : -1;
+                if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
+
+                let ideal1 = act2.pos - dir * target_dp;
+                let ideal2 = act1.pos + dir * target_dp;
+
+                if (act1.selected && act2.selected) {
+                    let mid = (act1.pos + act2.pos) / 2;
+                    let new_dp_half = target_dp / 2;
+                    let new1 = Math.max(0, Math.min(100, Math.round(mid - dir * new_dp_half)));
+                    let new2 = Math.max(0, Math.min(100, Math.round(mid + dir * new_dp_half)));
+                    if(act1.pos !== new1 || act2.pos !== new2) {
+                        act1.pos = new1; act2.pos = new2;
+                        passChanged = true; changed = true;
+                    }
+                } else if (act2.selected) {
+                    let new2 = Math.max(0, Math.min(100, Math.round(ideal2)));
+                    if(act2.pos !== new2) { act2.pos = new2; passChanged = true; changed = true; }
+                } else if (act1.selected) {
+                    let new1 = Math.max(0, Math.min(100, Math.round(ideal1)));
+                    if(act1.pos !== new1) { act1.pos = new1; passChanged = true; changed = true; }
+                }
+            }
+        }
+        if (!passChanged) break; 
+    }
+    return changed;
+}
+
 function updateFpsInput(change) {
     if (!fpsInput) return;
     let val = parseInt(fpsInput.value, 10);
@@ -149,8 +240,6 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: Sistema Malla Multimarcador. Si hay más de 2 marcadores, 
-// estira el preset dentro de CADA bloque que forman entre ellos.
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
     let result = [];
@@ -551,6 +640,7 @@ sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener(
 sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
+// 🎯 FIX: Tolerancia magnética para el Inyector Rápido (Evita duplicar puntos)
 window.addEventListener('injectPoint', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
     ensureTrackExists(); 
@@ -565,9 +655,11 @@ window.addEventListener('injectPoint', function(e) {
     saveHistoryState();
     actions.forEach(a => { a.selected = false; }); 
     
-    const existingIdx = actions.findIndex(a => a.at === timeMs);
+    // Si estás a menos de 15ms de un punto, se sobreescribe para evitar fantasmas dobles
+    const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
+        actions[existingIdx].at = timeMs;
         actions[existingIdx].selected = true; 
     } 
     else { 
@@ -1062,6 +1154,43 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
+        // 🎯 FIX: Restauración de Auto-Corregir Visual
+        if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
+            const act1 = actions[window.activeSuggestion.idx1];
+            const act2 = actions[window.activeSuggestion.idx2];
+
+            let simAct1 = {at: act1.at, pos: act1.pos};
+            let simAct2 = {at: act2.at, pos: act2.pos};
+
+            if (window.activeSuggestion.modIdx === 1) simAct1[window.activeSuggestion.key] = window.activeSuggestion.val;
+            else simAct2[window.activeSuggestion.key] = window.activeSuggestion.val;
+
+            let sx1 = timeToX(simAct1.at); let sy1 = posToY(simAct1.pos);
+            let sx2 = timeToX(simAct2.at); let sy2 = posToY(simAct2.pos);
+
+            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
+            ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+
+            let targetX = window.activeSuggestion.modIdx === 1 ? sx1 : sx2;
+            let targetY = window.activeSuggestion.modIdx === 1 ? sy1 : sy2;
+
+            ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#10b981'; ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+            
+            const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
+            
+            let hasMultiselect = actions.filter(a => a.selected).length > 1;
+            let tooltipText = hasMultiselect ? "Clic Der: Auto-Corregir Masivo" : "Clic Derecho para Auto-Corregir";
+            let boxWidth = hasMultiselect ? 245 : 240;
+
+            ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
+            ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
+            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(tooltipText, mx + 25, my + 32);
+        }
+
         ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
         ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
 
@@ -1253,7 +1382,6 @@ canvas?.addEventListener('mousedown', (e) => {
         }
     } else if (e.button === 2) { 
         
-        // 🎯 FIX: Doble Clic Derecho en Marcadores
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
@@ -1274,6 +1402,40 @@ canvas?.addEventListener('mousedown', (e) => {
                     }
                     return; 
                 }
+            }
+        }
+
+        // 🎯 FIX: Restauración de bloque de Auto-Corregir IA
+        let selectedCount = actions.filter(a => a.selected).length;
+        if (selectedCount > 1 || window.activeSuggestion) {
+            e.preventDefault();
+            saveHistoryState();
+            let wasFixed = false;
+            if (selectedCount > 1) {
+                const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
+                let hwMax = device.standard.max;
+                let hwMin = device.standard.min;
+                if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
+                    hwMax = device.overclock.max;
+                    hwMin = device.overclock.min;
+                }
+                wasFixed = massCorrectSelection(actions, hwMax, hwMin, device.factor);
+            } else if (window.activeSuggestion) {
+                if (window.activeSuggestion.modIdx === 1) {
+                    actions[window.activeSuggestion.idx1][window.activeSuggestion.key] = window.activeSuggestion.val;
+                } else {
+                    actions[window.activeSuggestion.idx2][window.activeSuggestion.key] = window.activeSuggestion.val;
+                }
+                wasFixed = true;
+            }
+
+            if (wasFixed) {
+                window.activeSuggestion = null;
+                cleanDuplicates();
+                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+                notifyCloud(); window.updateHeatmapAndStats();
+                if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                return;
             }
         }
 
@@ -1380,6 +1542,36 @@ canvas?.addEventListener('mousemove', (e) => {
     }
 
     const actions = getSafeActions();
+
+    window.activeSuggestion = null;
+    const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
+    let hwMax = device.standard.max;
+    let hwMin = device.standard.min;
+    if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
+        hwMax = device.overclock.max;
+        hwMin = device.overclock.min;
+    }
+
+    if (!isDraggingNode && !isSelecting && !isDraggingMarker) {
+        for (let i = 0; i < actions.length - 1; i++) {
+            let act1 = actions[i]; let act2 = actions[i+1];
+            let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
+            let px2 = timeToX(act2.at); let py2 = posToY(act2.pos);
+            
+            if (mouseX >= Math.min(px1, px2) - 20 && mouseX <= Math.max(px1, px2) + 20) {
+                let dist = pDistance(mouseX, mouseY, px1, py1, px2, py2);
+                if (dist <= 15) { 
+                    let act0 = i > 0 ? actions[i-1] : null;
+                    let act3 = i < actions.length - 2 ? actions[i+2] : null;
+                    let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor, act0, act3);
+                    if (suggestion) {
+                        window.activeSuggestion = { ...suggestion, idx1: i, idx2: i+1 };
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     if (isDraggingNode && dragSelectionInitialStates.length > 0) {
         let snappedTimeDelta = 0;
