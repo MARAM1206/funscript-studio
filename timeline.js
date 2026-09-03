@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.5: TOLERANCIA DE INYECTOR Y RESTAURACIÓN DE AUTO-CORRECCIÓN
+// TIMELINE V1.1.6: PROTECCIÓN CONTRA DECIMALES Y MUTACIÓN DE ARRAYS (SPLICE)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -256,7 +256,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                 if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
                 result.push({
                     at: Math.round(t1 + (preset[j].at / p_dur) * targetDuration),
-                    pos: preset[j].pos
+                    pos: Math.round(preset[j].pos)
                 });
             }
         }
@@ -269,7 +269,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
         if (window.presetFillMode === 'stretch') {
             result = preset.map(act => ({
                 at: Math.round(t_start + (act.at / p_dur) * targetDuration),
-                pos: act.pos
+                pos: Math.round(act.pos)
             }));
         } else {
             const reps = window.presetFillReps || 1;
@@ -280,7 +280,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                     if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
                     result.push({
                         at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
-                        pos: preset[i].pos
+                        pos: Math.round(preset[i].pos)
                     });
                 }
             }
@@ -486,7 +486,7 @@ window.addEventListener('copyPoints', () => {
     const selected = getSafeActions().filter(a => a.selected);
     if (selected.length > 0) {
         const baseTime = selected[0].at;
-        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: a.pos }));
+        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos) }));
     }
 });
 
@@ -564,6 +564,8 @@ window.addEventListener('presetCustomDragOver', (e) => {
     }
 });
 
+// 🎯 FIX: Mutación In-Place de Arrays. Nunca sobreescribimos window.funscriptActions con un arreglo nuevo, 
+// usamos splice para que los módulos externos no pierdan la referencia a la memoria
 window.addEventListener('presetCustomDrop', (e) => {
     if (!canvas) return;
     if (window.isDraggingPreset && window.timelineGhostPreset) {
@@ -575,10 +577,11 @@ window.addEventListener('presetCustomDrop', (e) => {
             if (morphed) {
                 saveHistoryState();
                 const newTimes = new Set(morphed.map(a => a.at));
-                window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
-                window.funscriptActions.forEach(a => a.selected = false);
+                
+                actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
+                actions.forEach(a => a.selected = false);
                 morphed.forEach(m => m.selected = true);
-                window.funscriptActions.push(...morphed);
+                actions.push(...morphed);
                 
                 cleanDuplicates();
                 window.isDraggingPreset = false; window.timelineGhostPreset = null;
@@ -592,23 +595,23 @@ window.addEventListener('presetCustomDrop', (e) => {
 
         const rect = canvas.getBoundingClientRect();
         const pos = { x: (e.detail.clientX - rect.left) * (canvas.width / rect.width), y: (e.detail.clientY - rect.top) * (canvas.height / rect.height) };
-        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
+        let dropTimeMs = Math.round(window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x)));
         const deltaY = window.timelineGhostDeltaPos || 0;
         
         saveHistoryState();
         
         const newActions = window.timelineGhostPreset.map(act => ({
-            at: dropTimeMs + act.at,
-            pos: Math.max(0, Math.min(100, act.pos + deltaY)),
+            at: Math.round(dropTimeMs + act.at),
+            pos: Math.max(0, Math.min(100, Math.round(act.pos + deltaY))),
             selected: true 
         }));
         
         const newTimes = new Set(newActions.map(a => a.at));
-        window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
-        window.funscriptActions.forEach(a => a.selected = false); 
-        window.funscriptActions.push(...newActions);
-        cleanDuplicates(); 
+        actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
+        actions.forEach(a => a.selected = false); 
+        actions.push(...newActions);
         
+        cleanDuplicates(); 
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -640,7 +643,6 @@ sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener(
 sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
-// 🎯 FIX: Tolerancia magnética para el Inyector Rápido (Evita duplicar puntos)
 window.addEventListener('injectPoint', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
     ensureTrackExists(); 
@@ -655,7 +657,7 @@ window.addEventListener('injectPoint', function(e) {
     saveHistoryState();
     actions.forEach(a => { a.selected = false; }); 
     
-    // Si estás a menos de 15ms de un punto, se sobreescribe para evitar fantasmas dobles
+    // 🎯 FIX: Tolerancia Magnética. Si inyectas un punto a menos de 15ms de otro, lo reescribe sin duplicar fantasmas
     const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
@@ -752,7 +754,7 @@ window.addEventListener('deletePoints', () => {
     
     if (actions.some(a => a.selected) || deletedMarker) {
         saveHistoryState();
-        window.funscriptActions = actions.filter(a => !a.selected);
+        actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
         notifyCloud(); window.updateHeatmapAndStats();
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
@@ -778,14 +780,18 @@ window.calculateAdaptiveZoom = function() { basePixelsPerMs = 0.1; };
 function saveHistoryState() { undoStack.push(JSON.stringify(getSafeActions())); if (undoStack.length > MAX_HISTORY) undoStack.shift(); redoStack = []; }
 function undo() {
     if (undoStack.length > 0) {
-        redoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(undoStack.pop());
+        redoStack.push(JSON.stringify(getSafeActions())); 
+        const parsed = JSON.parse(undoStack.pop());
+        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); window.updateHeatmapAndStats();
     }
 }
 function redo() {
     if (redoStack.length > 0) {
-        undoStack.push(JSON.stringify(getSafeActions())); window.funscriptActions = JSON.parse(redoStack.pop());
+        undoStack.push(JSON.stringify(getSafeActions())); 
+        const parsed = JSON.parse(redoStack.pop());
+        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); window.updateHeatmapAndStats();
     }
@@ -1154,43 +1160,6 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: Restauración de Auto-Corregir Visual
-        if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
-            const act1 = actions[window.activeSuggestion.idx1];
-            const act2 = actions[window.activeSuggestion.idx2];
-
-            let simAct1 = {at: act1.at, pos: act1.pos};
-            let simAct2 = {at: act2.at, pos: act2.pos};
-
-            if (window.activeSuggestion.modIdx === 1) simAct1[window.activeSuggestion.key] = window.activeSuggestion.val;
-            else simAct2[window.activeSuggestion.key] = window.activeSuggestion.val;
-
-            let sx1 = timeToX(simAct1.at); let sy1 = posToY(simAct1.pos);
-            let sx2 = timeToX(simAct2.at); let sy2 = posToY(simAct2.pos);
-
-            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
-            ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
-
-            let targetX = window.activeSuggestion.modIdx === 1 ? sx1 : sx2;
-            let targetY = window.activeSuggestion.modIdx === 1 ? sy1 : sy2;
-
-            ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
-            ctx.fillStyle = '#10b981'; ctx.fill();
-            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
-            
-            const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
-            
-            let hasMultiselect = actions.filter(a => a.selected).length > 1;
-            let tooltipText = hasMultiselect ? "Clic Der: Auto-Corregir Masivo" : "Clic Derecho para Auto-Corregir";
-            let boxWidth = hasMultiselect ? 245 : 240;
-
-            ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
-            ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
-            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
-            ctx.font = 'bold 11px monospace';
-            ctx.fillText(tooltipText, mx + 25, my + 32);
-        }
-
         ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
         ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
 
@@ -1295,21 +1264,19 @@ canvas?.addEventListener('mousedown', (e) => {
             saveHistoryState();
             let actions = getSafeActions();
             const pos = getMousePos(e);
-            let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x));
+            let dropTimeMs = Math.round(window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x)));
             const deltaY = window.timelineGhostDeltaPos || 0;
             
-            getSafeActions().forEach(a => a.selected = false); 
-            
             const newActions = window.timelineGhostPreset.map(act => ({
-                at: Math.max(0, dropTimeMs + act.at),
-                pos: Math.max(0, Math.min(100, act.pos + deltaY)),
+                at: Math.max(0, Math.round(dropTimeMs + act.at)),
+                pos: Math.max(0, Math.min(100, Math.round(act.pos + deltaY))),
                 selected: true 
             }));
             
             const newTimes = new Set(newActions.map(a => a.at));
-            window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
-            window.funscriptActions.forEach(a => a.selected = false);
-            window.funscriptActions.push(...newActions);
+            actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
+            actions.forEach(a => a.selected = false);
+            actions.push(...newActions);
             cleanDuplicates(); 
             
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
@@ -1405,7 +1372,6 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        // 🎯 FIX: Restauración de bloque de Auto-Corregir IA
         let selectedCount = actions.filter(a => a.selected).length;
         if (selectedCount > 1 || window.activeSuggestion) {
             e.preventDefault();
@@ -1454,7 +1420,7 @@ canvas?.addEventListener('mousedown', (e) => {
         lastRightClickTime = now;
         
         saveHistoryState();
-        window.funscriptActions = actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10);
+        actions.splice(0, actions.length, ...actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10));
         notifyCloud(); window.updateHeatmapAndStats();
     }
 });
@@ -1644,7 +1610,7 @@ window.addEventListener('mouseup', (e) => {
         }
     } else if (isDraggingNode || hasDraggedSelection) { 
         const selectedTimes = new Set(actions.filter(a => a.selected).map(a => a.at));
-        window.funscriptActions = actions.filter(a => a.selected || !selectedTimes.has(a.at));
+        actions.splice(0, actions.length, ...actions.filter(a => a.selected || !selectedTimes.has(a.at)));
         
         cleanDuplicates();
         notifyCloud(); window.updateHeatmapAndStats();
