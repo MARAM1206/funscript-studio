@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.2 (PÁNICO SÓLIDO, TEMA VIVO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.2.0 (INTEGRACIÓN DE MOTOR DE MARCADORES)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -11,8 +11,6 @@ window.currentVideoName = null;
 window.audioPeaks = null; 
 window.clipboardFunscript = null; 
 window.isPastingMode = false; 
-
-window.isAdaptiveModeActive = false;
 window.fsTimelineVisible = true; 
 
 const vName = document.getElementById('v-name');
@@ -23,9 +21,8 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🎯 FIX 1: TEMA OSCURO REPARADO. 
-// Usamos un Observador que espera a que la animación de workspace.js cambie la clase, y entonces guarda el dato.
-if (localStorage.getItem('funscript_theme') === 'light') {
+const savedTheme = localStorage.getItem('funscript_theme');
+if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
     const tBtn = document.getElementById('menu-theme-btn');
     if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
@@ -39,7 +36,6 @@ const themeObserver = new MutationObserver(() => {
 });
 themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
-// 🎯 FIX 2: PÁNICO INTELIGENTE
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let preloadedPanicUrl = "";
@@ -240,6 +236,23 @@ videoPlayer?.addEventListener('seeked', () => {
     if (!videoPlayer.paused && typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
+// 🎯 FIX: Dibujar Marcadores finos en la barra de progreso general
+window.drawProgressMarkers = function() {
+    const c = document.getElementById('progress-markers-canvas');
+    if(!c || !videoPlayer || !videoPlayer.duration || !window.timelineMarkers) return;
+    c.width = c.clientWidth; c.height = c.clientHeight;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0,0,c.width,c.height);
+    const totalMs = videoPlayer.duration * 1000;
+    if(totalMs <= 0) return;
+    
+    ctx.fillStyle = '#facc15'; 
+    window.timelineMarkers.forEach(m => {
+        const px = (m.at / totalMs) * c.width;
+        ctx.fillRect(px - 1, 0, 2, c.height);
+    });
+};
+
 videoPlayer?.addEventListener('loadedmetadata', () => {
     window.videoFPS = 30; 
     if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
@@ -254,9 +267,9 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
         let val = parseInt(fpsInput.value, 10);
         if (val > window.videoFPS) fpsInput.value = window.videoFPS;
     }
+    window.drawProgressMarkers();
 });
 
-// 🎯 FIX 3: Sistema de Volumen de Pánico
 function updateVolumeUI(vol) {
     let volPercent = Math.round(vol * 100);
     
@@ -309,13 +322,13 @@ videoVolume?.addEventListener('input', (e) => {
 });
 
 videoPlayer?.addEventListener('volumechange', () => {
-    if (isPanicMode) return; // Si estamos en pánico, el video de atrás no controla la UI
+    if (isPanicMode) return; 
     let vol = videoPlayer.muted ? 0 : videoPlayer.volume;
     if (videoVolume) videoVolume.value = vol;
     updateVolumeUI(vol);
+    if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
-// 🎯 FIX 4: El Camuflaje de Textos definitivo (Destrucción y Reconstrucción)
 function togglePanicCamouflage(enable) {
     if (enable) {
         document.querySelectorAll('.file-manager-video').forEach(el => {
@@ -361,6 +374,8 @@ window.addEventListener('keydown', (event) => {
             window.isDraggingPreset = false;
             window.timelineGhostPreset = null;
             window.timelineGhostTimeMs = null;
+            window.presetFillInitialized = false; 
+            window.timelineGhostTargetEnd = null;
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
@@ -375,9 +390,7 @@ window.addEventListener('keydown', (event) => {
             wasMutedBeforePanic = videoPlayer ? videoPlayer.muted : false;
             let currentVol = videoVolume ? parseFloat(videoVolume.value) : 1;
             
-            if (videoPlayer) videoPlayer.muted = true; // Callamos lo indebido
-            
-            // Pasamos el mando al audio ambiental
+            if (videoPlayer) videoPlayer.muted = true; 
             fakeAudio.volume = currentVol;
             fakeAudio.muted = (currentVol === 0);
             updateVolumeUI(currentVol); 
@@ -424,14 +437,33 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    if (isPanicMode && event.code !== 'Space') {
-        return; 
-    }
+    if (isPanicMode && event.code !== 'Space') return; 
 
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
         window.fsTimelineVisible = !window.fsTimelineVisible;
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    // 🎯 FIX: Controles exclusivos para adaptación de Preset mediante Marcadores
+    if (window.isDraggingPreset || window.isPastingMode) {
+        if (event.code === 'Space') {
+            event.preventDefault();
+            window.presetFillMode = window.presetFillMode === 'repeat' ? 'stretch' : 'repeat';
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            return;
+        }
+        if (key === 'arrowleft' || key === 'arrowright') {
+            event.preventDefault();
+            if (window.presetFillMode === 'repeat') {
+                if (key === 'arrowleft') window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
+                if (key === 'arrowright') window.presetFillReps = (window.presetFillReps || 1) + 1;
+                if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            }
+            return;
+        }
     }
 
     if (event.code === 'Space') {
@@ -445,7 +477,17 @@ window.addEventListener('keydown', (event) => {
         }
     }
 
-    const key = event.key.toLowerCase();
+    // 🎯 FIX: Tecla "T" inyecta Marcador numerado
+    if (key === 't' && !event.ctrlKey) {
+        event.preventDefault();
+        const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
+        window.timelineMarkers.push({ at: timeMs, selected: false });
+        window.timelineMarkers.sort((a, b) => a.at - b.at);
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        window.drawProgressMarkers();
+        return;
+    }
+
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
@@ -460,15 +502,6 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault();
         if (!document.fullscreenElement) videoContainer.requestFullscreen().catch(err => console.error(err));
         else document.exitFullscreen();
-        return;
-    }
-
-    if (key === 'p' && !event.ctrlKey) {
-        event.preventDefault(); 
-        window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
-        if (typeof window.syncAdaptiveButtons === 'function') window.syncAdaptiveButtons(window.isAdaptiveModeActive);
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
         return;
     }
 
