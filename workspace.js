@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.1.14 (MOTOR RESTAURADO: UI, MEMORIA Y FÍSICA)
+// WORKSPACE MANAGER V1.1.15 (PANEL PRINCIPAL PERMANENTE)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const SNAP_DIST = 15; 
     const GAP = 10; 
 
-    // 1. Coordenadas base por si es la primera vez que se abre el programa
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
         'panel-tracks': { left: 620, top: 10, width: 320, height: 250, visible: true },
@@ -20,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
-    // 2. Recuperar memoria del navegador
     let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v2'));
     if (!layoutState) layoutState = defaultLayout;
 
@@ -41,37 +39,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = panel.id;
         const title = panel.getAttribute('data-title');
 
-        // 3. Crear los botones del menú superior automáticamente
-        const btn = document.createElement('button');
-        btn.className = 'toggle-panel-btn';
-        btn.innerText = title;
-        
+        // 🎯 FIX: Forzamos la visibilidad del Reproductor y Línea de tiempo
+        if (id === 'panel-video' || id === 'panel-timeline') {
+            if (layoutState[id]) layoutState[id].visible = true;
+        }
+
         const state = layoutState[id] || defaultLayout[id] || { left: 10, top: 10, width: 300, height: 200, visible: true };
         
         if (state.visible) {
-            btn.classList.add('active');
             panel.style.display = 'flex';
         } else {
             panel.style.display = 'none';
         }
 
-        togglesContainer.appendChild(btn);
+        // 🎯 FIX: Generamos los botones toggle SOLO para las pestañas secundarias
+        if (id !== 'panel-video' && id !== 'panel-timeline') {
+            const btn = document.createElement('button');
+            btn.className = 'toggle-panel-btn';
+            btn.innerText = title;
+            if (state.visible) btn.classList.add('active');
+            togglesContainer.appendChild(btn);
 
-        btn.addEventListener('click', () => {
-            const isVisible = panel.style.display !== 'none';
-            if (isVisible) {
-                panel.style.display = 'none';
-                btn.classList.remove('active');
-            } else {
-                panel.style.display = 'flex';
-                btn.classList.add('active');
-                panel.style.zIndex = ++highestZIndex;
-            }
-            saveLayout();
-            if (id === 'panel-timeline' || id === 'panel-video') {
-                setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
-            }
-        });
+            btn.addEventListener('click', () => {
+                const isVisible = panel.style.display !== 'none';
+                if (isVisible) {
+                    panel.style.display = 'none';
+                    btn.classList.remove('active');
+                } else {
+                    panel.style.display = 'flex';
+                    btn.classList.add('active');
+                    panel.style.zIndex = ++highestZIndex;
+                }
+                saveLayout();
+            });
+        }
 
         // 4. Inyectar bordes invisibles para redimensionar
         const directions = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
@@ -87,13 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.style.width = state.width + 'px';
         panel.style.height = state.height + 'px';
 
-        // Poner la pestaña al frente si le das clic
         panel.addEventListener('mousedown', () => {
             panel.style.zIndex = ++highestZIndex;
         });
 
         // --------------------------------------------------------
-        // LÓGICA DE ARRASTRE DE PESTAÑA (Física Restaurada)
+        // LÓGICA DE ARRASTRE DE PESTAÑA
         // --------------------------------------------------------
         const header = panel.querySelector('.panel-header');
         if (header) {
@@ -115,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const container = panel.parentElement;
                     
-                    // Snap a los bordes de la pantalla
                     if (newL < SNAP_DIST) newL = GAP;
                     if (newT < SNAP_DIST) newT = GAP;
                     if (newL + panel.offsetWidth > container.clientWidth - SNAP_DIST) {
@@ -125,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         newT = container.clientHeight - panel.offsetHeight - GAP;
                     }
 
-                    // Snap equitativo entre paneles (Ejes X y Y con 10px de GAP)
                     panels.forEach(other => {
                         if (other === panel || other.style.display === 'none') return;
 
@@ -139,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (Math.abs(newT - (other.offsetTop + other.offsetHeight + GAP)) < SNAP_DIST) 
                             newT = other.offsetTop + other.offsetHeight + GAP;
                         
-                        // Alineación paralela
                         if (Math.abs(newL - other.offsetLeft) < SNAP_DIST) newL = other.offsetLeft;
                         if (Math.abs(newT - other.offsetTop) < SNAP_DIST) newT = other.offsetTop;
                     });
@@ -152,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.removeEventListener('mousemove', onMouseMove);
                     document.removeEventListener('mouseup', onMouseUp);
                     document.body.style.userSelect = '';
-                    saveLayout(); // Guardar nueva posición
+                    saveLayout(); 
                 };
 
                 document.addEventListener('mousemove', onMouseMove);
@@ -161,13 +158,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --------------------------------------------------------
-        // LÓGICA DE REDIMENSIONAMIENTO (Blindada contra Bugs)
+        // LÓGICA DE REDIMENSIONAMIENTO 
         // --------------------------------------------------------
         const handles = panel.querySelectorAll('.resize-handle');
         handles.forEach(handle => {
             handle.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                e.stopPropagation(); // Evita que se dispare el arrastre del panel
+                e.stopPropagation(); 
                 panel.style.zIndex = ++highestZIndex;
                 document.body.style.userSelect = 'none';
 
@@ -179,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const startL = panel.offsetLeft;
                 const startT = panel.offsetTop;
 
-                // Límites mínimos de CSS (Panel Ajuste = 70px)
                 const minW = parseInt(window.getComputedStyle(panel).minWidth) || 200;
                 const minH = parseInt(window.getComputedStyle(panel).minHeight) || 150;
 
@@ -207,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.removeEventListener('mousemove', onMouseMove);
                     document.removeEventListener('mouseup', onMouseUp);
                     document.body.style.userSelect = '';
-                    saveLayout(); // Guardar nuevo tamaño
+                    saveLayout(); 
                 };
 
                 document.addEventListener('mousemove', onMouseMove);
@@ -216,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 6. Botón de Borrar Caché
     const cacheBtn = document.getElementById('menu-cache-btn');
     if (cacheBtn) {
         cacheBtn.addEventListener('click', (e) => {
