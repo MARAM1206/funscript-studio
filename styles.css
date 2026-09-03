@@ -92,7 +92,12 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 }
 
 .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); overflow: hidden; }
+
+/* 🎯 FIX: Se añaden límites de tamaño mínimo de ancho a los paneles */
 .workspace-panel { position: absolute; background: #0f131a; border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #1e293b; overflow: hidden; }
+#panel-presets, #panel-quick, #panel-slider { min-width: 280px; min-height: 180px; }
+#panel-tracks { min-width: 300px; min-height: 200px; }
+
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
 
 #panel-video-content, #video-container-wrapper { background: #000000; }
@@ -173,16 +178,28 @@ body.panic-mode-active #device-menu-btn { visibility: hidden; pointer-events: no
 .track-btn:hover { background: rgba(255,255,255,0.1); }
 .primary-badge { background: #2563eb; color: white; font-size: 0.65rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; }
 
-.preset-card { background: #070a0f; border: 1px solid #1e293b; padding: 6px 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; gap: 8px; cursor: grab; transition: border-color 0.2s; position: relative; height: 45px; }
+/* 🎯 FIX: Arquitectura visual V2 de las Tarjetas de Presets. 90% Vista Previa, 10% Botones. */
+.preset-card { 
+    background: #070a0f; border: 1px solid #1e293b; padding: 0; margin-bottom: 8px; 
+    border-radius: 8px; display: flex; align-items: stretch; cursor: grab; 
+    transition: border-color 0.2s, transform 0.1s; position: relative; height: 50px; overflow: hidden;
+}
 .preset-card:active { cursor: grabbing; border-color: #38bdf8; }
-.preset-card-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 0; width: 45%; gap: 4px; flex-shrink: 0; }
-.preset-card-header > div { display: flex; gap: 4px; }
-.preset-card-title { font-weight: bold; font-size: 0.75rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin-right: 4px; }
-.preset-mini-canvas { width: 100%; height: 26px; background: #020617; border-radius: 4px; border: 1px solid #0f131a; pointer-events: none; flex-grow: 1; }
-.preset-action-btn { background: none; border: none; cursor: pointer; font-size: 0.65rem; padding: 2px; transition: transform 0.1s; }
+.preset-card-canvas-container { flex-grow: 1; position: relative; overflow: hidden; background: #020617; }
+.preset-mini-canvas { width: 100%; height: 100%; pointer-events: none; }
+.preset-card-title {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-weight: 800; font-size: 0.85rem; color: #e2e8f0; opacity: 0.3;
+    white-space: nowrap; pointer-events: none; transition: all 0.3s ease;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9); z-index: 2;
+}
+.preset-card:hover .preset-card-title { opacity: 1; font-size: 1rem; color: #38bdf8; }
+.preset-card-actions {
+    width: 35px; background: rgba(15, 23, 42, 0.95); border-left: 1px solid #1e293b;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; z-index: 3;
+}
+.preset-action-btn { background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 2px; transition: transform 0.1s; }
 .preset-action-btn:hover { transform: scale(1.2); }
-
-/* 🎯 FIX: Blindaje CSS para el Drop Indicator. Cero temblores y sin estorbar los clicks. */
 .preset-drop-indicator { height: 4px; background: #38bdf8; border-radius: 2px; margin: 4px 0; box-shadow: 0 0 8px #38bdf8; pointer-events: none; transition: none; }
 .dragging-preset-item { opacity: 0.4; border: 1px dashed #38bdf8; }
 
@@ -243,8 +260,11 @@ body.light-theme { background-color: #f1f5f9; color: #0f172a; }
 .light-theme .modal-input { background: #f8fafc; color: #0f172a; border: 1px solid #cbd5e1; }
 .light-theme .modal-canvas-container { border-color: #cbd5e1; }
 .light-theme .preset-card { background: #f8fafc; border: 1px solid #cbd5e1; }
-.light-theme .preset-card-title { color: #0f172a; }
-.light-theme .preset-mini-canvas { background: #ffffff; border: 1px solid #e2e8f0; }
+.light-theme .preset-card-title { color: #0f172a; text-shadow: none; opacity: 0.6; }
+.light-theme .preset-card:hover .preset-card-title { opacity: 1; color: #0284c7; }
+.light-theme .preset-card-canvas-container { background: #ffffff; }
+.light-theme .preset-card-actions { background: #f1f5f9; border-left-color: #cbd5e1; }
+.light-theme .preset-mini-canvas { background: #ffffff; }
 .light-theme .modal-content .dark-btn { background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; }
 .light-theme .modal-content .dark-btn:hover { background: #cbd5e1; }
 
