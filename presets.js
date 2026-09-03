@@ -1,8 +1,7 @@
 // ==========================================================================
-// PRESETS MANAGER V1.1.10 (GESTOR COMPLETO, REORDENAMIENTO Y AUTO-ESCALA)
+// PRESETS MANAGER V1.1.11 (AUTO-ESCALA NATIVA, REORDENAMIENTO FINO)
 // ==========================================================================
 
-// 1. INICIALIZACIÓN Y BASE DE DATOS LOCAL
 window.presetsLibrary = JSON.parse(localStorage.getItem('funscript_presets')) || [
     {
         id: 'default-1',
@@ -40,8 +39,7 @@ function savePresets() {
     updatePresetsUI();
 }
 
-// 2. RENDERIZADO DEL MINI CANVAS (AUTO-ESCALA)
-// Adaptará cualquier preset (largo o corto) para que quepa en la tarjeta sin desbordarse.
+// 🎯 FIX: Auto-escala matemática para presets súper largos
 window.renderPresetMiniCanvas = function(canvas, presetData) {
     if (!canvas || !presetData || presetData.length === 0) return;
     const ctx = canvas.getContext('2d');
@@ -50,7 +48,6 @@ window.renderPresetMiniCanvas = function(canvas, presetData) {
     
     ctx.clearRect(0, 0, w, h);
     
-    // Padding para que los puntos no se corten en los bordes del canvas
     const padX = 4;
     const padY = 4;
     const usableW = w - (padX * 2);
@@ -65,7 +62,6 @@ window.renderPresetMiniCanvas = function(canvas, presetData) {
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
     
-    // Trazar las líneas de la gráfica
     presetData.forEach((pt, i) => {
         const x = padX + ((pt.at - minTime) / duration) * usableW;
         const y = padY + usableH - (pt.pos / 100) * usableH;
@@ -74,7 +70,6 @@ window.renderPresetMiniCanvas = function(canvas, presetData) {
     });
     ctx.stroke();
     
-    // Dibujar los puntos exactos
     presetData.forEach(pt => {
         const x = padX + ((pt.at - minTime) / duration) * usableW;
         const y = padY + usableH - (pt.pos / 100) * usableH;
@@ -85,7 +80,6 @@ window.renderPresetMiniCanvas = function(canvas, presetData) {
     });
 };
 
-// 3. CREACIÓN DE TARJETAS DE PRESETS (DISEÑO COMPACTO Y FUNCIONES)
 function createPresetCard(preset, isModal = false) {
     const card = document.createElement('div');
     card.className = 'preset-card';
@@ -106,19 +100,16 @@ function createPresetCard(preset, isModal = false) {
     const canvas = card.querySelector('canvas');
     setTimeout(() => window.renderPresetMiniCanvas(canvas, preset.data), 10);
 
-    // Eventos Drag & Drop (Para inyectar en la línea de tiempo y para reordenar)
     card.addEventListener('dragstart', (e) => {
         if (document.body.classList.contains('panic-mode-active')) {
             e.preventDefault();
             return;
         }
         
-        // Atributos para inyección en línea de tiempo
         window.isDraggingPreset = true;
         window.timelineGhostPreset = preset.data;
         window.presetFillInitialized = false;
         
-        // Atributos para reordenamiento de la lista
         card.classList.add('dragging-preset-item');
         if(e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'copyMove';
@@ -128,8 +119,6 @@ function createPresetCard(preset, isModal = false) {
 
     card.addEventListener('dragend', () => {
         card.classList.remove('dragging-preset-item');
-        // La limpieza del Ghost Preset se hace en player.js/timeline.js al soltar, 
-        // pero esto actúa como seguro anti-bugs si sueltas fuera del navegador.
         setTimeout(() => {
             if (window.isDraggingPreset && !window.timelineGhostTimeMs) {
                 window.isDraggingPreset = false;
@@ -137,15 +126,11 @@ function createPresetCard(preset, isModal = false) {
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
             }
         }, 100);
-        
-        // Disparar evento para actualizar el reordenamiento si lo hubo
         window.dispatchEvent(new Event('presetsReordered')); 
     });
 
-    // Doble clic para pegar rápidamente donde está la aguja naranja (Playhead)
     card.addEventListener('dblclick', () => {
         if (document.body.classList.contains('panic-mode-active')) return;
-        
         if (window.videoPlayer && typeof window.getSafeActions === 'function') {
             const timeMs = Math.round(window.videoPlayer.currentTime * 1000);
             window.clipboardFunscript = preset.data;
@@ -154,14 +139,12 @@ function createPresetCard(preset, isModal = false) {
             window.timelineGhostTimeMs = timeMs;
             window.presetFillInitialized = false;
             
-            // Auto-Deseleccionar marcadores para forzar el pegado libre
             if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
             
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
         }
     });
 
-    // Botones de acción (Eliminar y Editar)
     card.querySelector('.del-preset-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         if(confirm(`¿Eliminar el preset "${preset.name}"?`)) {
@@ -178,11 +161,16 @@ function createPresetCard(preset, isModal = false) {
     return card;
 }
 
-// 4. MOTOR DE REORDENAMIENTO (DRAG & DROP EN LISTA)
+// 🎯 FIX: Sistema Drag & Drop Limpio (Una sola línea indicadora que no parpadea)
 function initPresetReordering() {
     const lists = [document.getElementById('presets-list'), document.getElementById('modal-presets-library-list')];
-    let dropIndicator = document.createElement('div');
-    dropIndicator.className = 'preset-drop-indicator';
+    
+    let dropIndicator = document.getElementById('global-preset-drop-indicator');
+    if (!dropIndicator) {
+        dropIndicator = document.createElement('div');
+        dropIndicator.id = 'global-preset-drop-indicator';
+        dropIndicator.className = 'preset-drop-indicator';
+    }
     
     lists.forEach(container => {
         if(!container) return;
@@ -215,7 +203,6 @@ function initPresetReordering() {
                 dropIndicator.parentNode.replaceChild(draggable, dropIndicator);
             }
 
-            // Actualizar la base de datos basándose en el nuevo orden visual del DOM
             const newOrderIds = Array.from(container.querySelectorAll('.preset-card')).map(card => card.dataset.id);
             const newLibrary = [];
             
@@ -224,7 +211,6 @@ function initPresetReordering() {
                 if(preset) newLibrary.push(preset);
             });
             
-            // Añadir los que falten por si ocurrió un error al arrastrar entre contenedores distintos
             window.presetsLibrary.forEach(p => {
                 if(!newOrderIds.includes(p.id)) newLibrary.push(p);
             });
@@ -232,7 +218,7 @@ function initPresetReordering() {
             window.presetsLibrary = newLibrary;
             localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
             
-            updatePresetsUI(); // Sincroniza todas las listas con el nuevo orden
+            updatePresetsUI(); 
         });
     });
 
@@ -250,7 +236,6 @@ function initPresetReordering() {
     }
 }
 
-// 5. ACTUALIZAR INTERFAZ Y RENDERIZAR
 function updatePresetsUI() {
     const mainList = document.getElementById('presets-list');
     const modalList = document.getElementById('modal-presets-library-list');
@@ -270,7 +255,6 @@ function updatePresetsUI() {
     }
 }
 
-// 6. CREACIÓN DE NUEVOS PRESETS DESDE LA SELECCIÓN DE LÍNEA DE TIEMPO
 document.getElementById('save-preset-btn')?.addEventListener('click', () => {
     if (!window.funscriptActions) return;
     const selected = window.funscriptActions.filter(a => a.selected).sort((a, b) => a.at - b.at);
@@ -284,10 +268,6 @@ document.getElementById('save-preset-btn')?.addEventListener('click', () => {
     
     openPresetEditor({ id: 'new', name: 'Nuevo Preset', data: presetData });
 });
-
-// ==========================================================================
-// 7. LÓGICA DEL MODAL DE EDICIÓN DE PRESETS
-// ==========================================================================
 
 const modal = document.getElementById('preset-editor-modal');
 const nameInput = document.getElementById('preset-editor-name');
@@ -326,7 +306,6 @@ saveBtn?.addEventListener('click', () => {
     const name = nameInput.value.trim() || 'Sin Nombre';
     if (editData.length < 2) { alert("El preset debe tener al menos 2 puntos."); return; }
     
-    // Reordenar y limpiar
     editData.sort((a,b) => a.at - b.at);
     const baseTime = editData[0].at;
     editData = editData.map(a => ({ at: Math.round(a.at - baseTime), pos: Math.round(a.pos) }));
@@ -373,7 +352,6 @@ window.drawModalCanvas = function() {
     
     const maxTime = editData[editData.length - 1].at > 0 ? editData[editData.length - 1].at : 1000;
     
-    // Grid horizontal de porcentajes
     modalCtx.strokeStyle = 'rgba(255,255,255,0.05)';
     modalCtx.lineWidth = 1;
     [0, 25, 50, 75, 100].forEach(p => {
@@ -381,7 +359,6 @@ window.drawModalCanvas = function() {
         modalCtx.beginPath(); modalCtx.moveTo(0, y); modalCtx.lineTo(w, y); modalCtx.stroke();
     });
 
-    // Línea del Preset
     modalCtx.beginPath();
     modalCtx.strokeStyle = '#38bdf8';
     modalCtx.lineWidth = 2;
@@ -393,7 +370,6 @@ window.drawModalCanvas = function() {
     });
     modalCtx.stroke();
     
-    // Puntos Interactivos del Preset
     editData.forEach((pt, i) => {
         const x = (pt.at / maxTime) * w;
         const y = h - (pt.pos / 100) * h;
@@ -407,7 +383,6 @@ window.drawModalCanvas = function() {
     });
 };
 
-// Motor básico de interacción dentro del Modal (Doble Clic borra puntos)
 canvasModal?.addEventListener('mousedown', (e) => {
     if (editData.length === 0) return;
     const rect = canvasModal.getBoundingClientRect();
@@ -426,7 +401,7 @@ canvasModal?.addEventListener('mousedown', (e) => {
         }
     }
 
-    if (e.button === 0) { // Clic Izquierdo
+    if (e.button === 0) { 
         if (clickedIdx !== -1) {
             editData.forEach((p, i) => p.selected = (i === clickedIdx));
             isModalDraggingNode = true;
@@ -434,7 +409,7 @@ canvasModal?.addEventListener('mousedown', (e) => {
         } else {
             editData.forEach(p => p.selected = false);
         }
-    } else if (e.button === 2) { // Clic Derecho (Borrar punto)
+    } else if (e.button === 2) { 
         if (clickedIdx !== -1 && editData.length > 2) {
             editData.splice(clickedIdx, 1);
         }
@@ -462,7 +437,6 @@ canvasModal?.addEventListener('mouseup', () => {
 });
 canvasModal?.addEventListener('contextmenu', e => e.preventDefault());
 
-// 8. BOOT INICIAL DE ARRANQUE
 document.addEventListener('DOMContentLoaded', () => {
     updatePresetsUI();
     initPresetReordering();
