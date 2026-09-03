@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.6: PROTECCIÓN CONTRA DECIMALES Y MUTACIÓN DE ARRAYS (SPLICE)
+// TIMELINE V1.1.6: AUTO-CORRECCIÓN Y SEPARACIÓN DE FLECHAS DE TIEMPO/POSICIÓN
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -256,7 +256,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                 if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
                 result.push({
                     at: Math.round(t1 + (preset[j].at / p_dur) * targetDuration),
-                    pos: Math.round(preset[j].pos)
+                    pos: preset[j].pos
                 });
             }
         }
@@ -269,7 +269,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
         if (window.presetFillMode === 'stretch') {
             result = preset.map(act => ({
                 at: Math.round(t_start + (act.at / p_dur) * targetDuration),
-                pos: Math.round(act.pos)
+                pos: act.pos
             }));
         } else {
             const reps = window.presetFillReps || 1;
@@ -280,7 +280,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                     if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
                     result.push({
                         at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
-                        pos: Math.round(preset[i].pos)
+                        pos: preset[i].pos
                     });
                 }
             }
@@ -564,8 +564,7 @@ window.addEventListener('presetCustomDragOver', (e) => {
     }
 });
 
-// 🎯 FIX: Mutación In-Place de Arrays. Nunca sobreescribimos window.funscriptActions con un arreglo nuevo, 
-// usamos splice para que los módulos externos no pierdan la referencia a la memoria
+// 🎯 FIX: SPLICE forzado. Nunca desconectamos la memoria del arreglo original al pegar presets
 window.addEventListener('presetCustomDrop', (e) => {
     if (!canvas) return;
     if (window.isDraggingPreset && window.timelineGhostPreset) {
@@ -576,9 +575,9 @@ window.addEventListener('presetCustomDrop', (e) => {
             const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
             if (morphed) {
                 saveHistoryState();
-                const newTimes = new Set(morphed.map(a => a.at));
+                const newTimes = new Set(morphed.map(a => Math.round(a.at)));
                 
-                actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
+                actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(Math.round(a.at))));
                 actions.forEach(a => a.selected = false);
                 morphed.forEach(m => m.selected = true);
                 actions.push(...morphed);
@@ -607,7 +606,7 @@ window.addEventListener('presetCustomDrop', (e) => {
         }));
         
         const newTimes = new Set(newActions.map(a => a.at));
-        actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
+        actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(Math.round(a.at))));
         actions.forEach(a => a.selected = false); 
         actions.push(...newActions);
         
@@ -657,7 +656,7 @@ window.addEventListener('injectPoint', function(e) {
     saveHistoryState();
     actions.forEach(a => { a.selected = false; }); 
     
-    // 🎯 FIX: Tolerancia Magnética. Si inyectas un punto a menos de 15ms de otro, lo reescribe sin duplicar fantasmas
+    // 🎯 FIX: Margen magnético anti-fantasmas. Sobreescribe puntos cercanos en lugar de duplicarlos.
     const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
@@ -1158,6 +1157,43 @@ window.drawTimeline = function() {
             ctx.fillRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
             ctx.strokeRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
             ctx.setLineDash([]);
+        }
+
+        // 🎯 FIX: Se devuelve la UI de Corrección IA con Click Derecho
+        if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
+            const act1 = actions[window.activeSuggestion.idx1];
+            const act2 = actions[window.activeSuggestion.idx2];
+
+            let simAct1 = {at: act1.at, pos: act1.pos};
+            let simAct2 = {at: act2.at, pos: act2.pos};
+
+            if (window.activeSuggestion.modIdx === 1) simAct1[window.activeSuggestion.key] = window.activeSuggestion.val;
+            else simAct2[window.activeSuggestion.key] = window.activeSuggestion.val;
+
+            let sx1 = timeToX(simAct1.at); let sy1 = posToY(simAct1.pos);
+            let sx2 = timeToX(simAct2.at); let sy2 = posToY(simAct2.pos);
+
+            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
+            ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+
+            let targetX = window.activeSuggestion.modIdx === 1 ? sx1 : sx2;
+            let targetY = window.activeSuggestion.modIdx === 1 ? sy1 : sy2;
+
+            ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#10b981'; ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+            
+            const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
+            
+            let hasMultiselect = actions.filter(a => a.selected).length > 1;
+            let tooltipText = hasMultiselect ? "Clic Der: Auto-Corregir Masivo" : "Clic Derecho para Auto-Corregir";
+            let boxWidth = hasMultiselect ? 245 : 240;
+
+            ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
+            ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
+            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(tooltipText, mx + 25, my + 32);
         }
 
         ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
