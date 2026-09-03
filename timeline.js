@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.10: PADDING DE PISTA Y AUTO-LIMPIEZA, PORCENTAJES EN PAUSA
+// TIMELINE V1.1.9: PADDING DE PISTA Y AUTO-LIMPIEZA, PORCENTAJES EN PAUSA
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -464,7 +464,8 @@ canvas?.addEventListener('wheel', (e) => {
         if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
         
         const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
-        const minY = Math.min(selStartY, selCurrY); const maxY = Math.max(selStartY, selCurrY);
+        const minY = Math.max(posToY(100), Math.min(selStartY, selCurrY)); 
+        const maxY = Math.max(posToY(100), Math.max(selStartY, selCurrY));
         
         const actions = getSafeActions();
         actions.forEach(act => {
@@ -579,7 +580,8 @@ window.addEventListener('presetCustomDragOver', (e) => {
             if (bestSnapTime < 0) bestSnapTime = 0;
             window.timelineGhostTimeMs = bestSnapTime;
             
-            let hoverPos = Math.round(hoverPosRaw / (window.snapValue||5)) * (window.snapValue||5);
+            const snap = window.snapValue || 5;
+            let hoverPos = Math.round(hoverPosRaw / snap) * snap;
             const basePos = window.timelineGhostPreset[0].pos;
             window.timelineGhostDeltaPos = hoverPos - basePos;
         }
@@ -681,6 +683,7 @@ window.addEventListener('injectPoint', function(e) {
     saveHistoryState();
     actions.forEach(a => { a.selected = false; }); 
     
+    // 🎯 FIX: Margen magnético anti-fantasmas. Sobreescribe puntos cercanos en lugar de duplicarlos
     const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
@@ -691,6 +694,9 @@ window.addEventListener('injectPoint', function(e) {
         actions.push({ at: timeMs, pos: pos, selected: true }); 
     }
     
+    // 🎯 FIX: Auto-deselección de marcadores al inyectar un punto
+    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
     cleanDuplicates();
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     notifyCloud(); window.updateHeatmapAndStats(); 
@@ -901,8 +907,8 @@ window.drawTimeline = function() {
                 t += stepMs;
             }
 
-            const trackY1 = 30;  
-            const trackY2 = 80;  
+            const trackY1 = 40;  
+            const trackY2 = 90;  
             const trackH = 40;
             const clipMs = 25000; 
             const gapMs = 500;    
@@ -1033,6 +1039,19 @@ window.drawTimeline = function() {
             });
         }
 
+        // 🎯 FIX: Dibujado de Caja Mágica de Selección de Marcadores
+        if (isSelectingMarkers) {
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(217, 70, 239, 0.8)'; ctx.fillStyle = 'rgba(217, 70, 239, 0.15)';
+            ctx.setLineDash([2, 2]); ctx.beginPath(); 
+            const sX_m = timeToX(selStartMarkerT);
+            const cX_m = timeToX(selCurrMarkerT);
+            const xLeft = Math.min(sX_m, cX_m);
+            const xRight = Math.max(sX_m, cX_m);
+            ctx.fillRect(xLeft, 0, xRight - xLeft, 40); 
+            ctx.strokeRect(xLeft, 0, xRight - xLeft, 40); 
+            ctx.setLineDash([]);
+        }
+
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, idx) => {
                 const mx = timeToX(m.at);
@@ -1050,7 +1069,6 @@ window.drawTimeline = function() {
 
                     ctx.fillStyle = m.selected ? '#facc15' : '#d946ef';
                     ctx.beginPath();
-                    // 🎯 FIX: Caja un poco más ancha para evitar errores de clic
                     ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
                     ctx.fill();
 
@@ -1121,8 +1139,8 @@ window.drawTimeline = function() {
                     ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
                     ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                     
-                    // 🎯 FIX: Mostrar Porcentajes de Puntos SOLO en Pausa (Diseño sutil y elegante)
-                    if (videoNode && videoNode.paused) {
+                    // 🎯 FIX: Mostrar Porcentajes de TODOS los puntos en Pausa
+                    if (videoNode && videoNode.paused && !document.body.classList.contains('panic-mode-active')) {
                         ctx.textAlign = 'center';
                         ctx.font = 'bold 9px monospace';
                         ctx.fillStyle = isLight ? 'rgba(255,255,255,0.75)' : 'rgba(15,23,42,0.75)';
@@ -1196,13 +1214,22 @@ window.drawTimeline = function() {
             }
         }
 
+        // 🎯 FIX: Caja de Selección de Puntos con límite Y en el 100%
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
             ctx.setLineDash([2, 2]); ctx.beginPath(); 
             const sX = timeToX(selStartT);
             const cX = timeToX(selCurrT);
-            ctx.fillRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
-            ctx.strokeRect(sX, selStartY, cX - sX, selCurrY - selStartY); 
+            
+            const topLimit = posToY(100);
+            const sY = Math.max(topLimit, selStartY);
+            const cY = Math.max(topLimit, selCurrY);
+
+            const xLeft = Math.min(sX, cX);
+            const yTop = Math.min(sY, cY);
+
+            ctx.fillRect(xLeft, yTop, Math.abs(cX - sX), Math.abs(cY - sY)); 
+            ctx.strokeRect(xLeft, yTop, Math.abs(cX - sX), Math.abs(cY - sY)); 
             ctx.setLineDash([]);
         }
 
@@ -1299,7 +1326,7 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        // 🎯 FIX: Paneo de Gráfica reestablecido.
+        // 🎯 FIX: Restauración de Paneo visual animado (Scroll Momentum)
         if (window.scrollMomentum) {
             if (Math.abs(window.scrollMomentum) > 0.1) {
                 window.scrollMomentum *= 0.92;
@@ -1435,7 +1462,6 @@ canvas?.addEventListener('mousedown', (e) => {
             
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
             
-            // 🎯 FIX: Auto limpieza de marcadores al inyectar preset suelto
             if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
 
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -1458,9 +1484,11 @@ canvas?.addEventListener('mousedown', (e) => {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                if (Math.abs(clickX - mx) <= 15 && clickY <= 35) { 
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 40) { 
                     clickedMarker = true;
                     if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mx !== m ? mk.selected = false : null);
+                    
+                    // 🎯 FIX: Bloqueo de arrastre si aprietas Ctrl
                     m.selected = e.ctrlKey ? !m.selected : true;
                     
                     if (m.selected && !e.ctrlKey) {
@@ -1473,12 +1501,12 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        // 🎯 FIX: Clic al vacío = Deselección automática
-        if (!e.ctrlKey && clickY > 35) {
+        // 🎯 FIX: Limpieza automática al hacer clic fuera del carril de marcadores
+        if (!e.ctrlKey && clickY > 40) {
             window.timelineMarkers.forEach(m => m.selected = false);
         }
 
-        if (clickY <= 35 && !clickedMarker) {
+        if (clickY <= 40 && !clickedMarker) {
             isSelectingMarkers = true;
             selStartMarkerT = xToTime(clickX);
             selCurrMarkerT = selStartMarkerT;
@@ -1523,7 +1551,7 @@ canvas?.addEventListener('mousedown', (e) => {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                if (Math.abs(clickX - mx) <= 15 && clickY <= 35) {
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 40) {
                     const now = performance.now();
                     if (window.lastMarkerRightClickIdx === i && (now - window.lastMarkerRightClickTime < 350)) {
                         if (videoNode) {
@@ -1687,8 +1715,7 @@ canvas?.addEventListener('mousemove', (e) => {
             if (bestSnapTime < 0) bestSnapTime = 0;
             window.timelineGhostTimeMs = bestSnapTime;
             
-            const snap = window.snapValue || 5;
-            let hoverPos = Math.round(hoverPosRaw / snap) * snap;
+            let hoverPos = Math.round(hoverPosRaw / 5) * 5;
             const basePos = window.timelineGhostPreset[0].pos;
             window.timelineGhostDeltaPos = hoverPos - basePos;
         }
@@ -1753,7 +1780,11 @@ canvas?.addEventListener('mousemove', (e) => {
         if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
         
         const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
-        const minY = Math.min(selStartY, selCurrY); const maxY = Math.max(selStartY, selCurrY);
+        
+        // 🎯 FIX: Límite Y superior ajustado para la selección de puntos (Evita seleccionar marcadores accidentalmente)
+        const topLimit = posToY(100);
+        const minY = Math.max(topLimit, Math.min(selStartY, selCurrY)); 
+        const maxY = Math.max(topLimit, Math.max(selStartY, selCurrY));
         
         actions.forEach(act => {
             const ny = posToY(act.pos);
