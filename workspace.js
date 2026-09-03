@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.1.15 (PANEL PRINCIPAL PERMANENTE)
+// WORKSPACE MANAGER V1.1.16 (CACHÉ SEGURO PARA PESTAÑAS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = panel.id;
         const title = panel.getAttribute('data-title');
 
-        // 🎯 FIX: Forzamos la visibilidad del Reproductor y Línea de tiempo
         if (id === 'panel-video' || id === 'panel-timeline') {
             if (layoutState[id]) layoutState[id].visible = true;
         }
@@ -52,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.style.display = 'none';
         }
 
-        // 🎯 FIX: Generamos los botones toggle SOLO para las pestañas secundarias
         if (id !== 'panel-video' && id !== 'panel-timeline') {
             const btn = document.createElement('button');
             btn.className = 'toggle-panel-btn';
@@ -74,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // 4. Inyectar bordes invisibles para redimensionar
         const directions = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
         directions.forEach(dir => {
             const handle = document.createElement('div');
@@ -82,7 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.appendChild(handle);
         });
 
-        // 5. Aplicar tamaño y posición guardada
         panel.style.left = state.left + 'px';
         panel.style.top = state.top + 'px';
         panel.style.width = state.width + 'px';
@@ -92,9 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.style.zIndex = ++highestZIndex;
         });
 
-        // --------------------------------------------------------
-        // LÓGICA DE ARRASTRE DE PESTAÑA
-        // --------------------------------------------------------
         const header = panel.querySelector('.panel-header');
         if (header) {
             header.addEventListener('mousedown', (e) => {
@@ -157,9 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // --------------------------------------------------------
-        // LÓGICA DE REDIMENSIONAMIENTO 
-        // --------------------------------------------------------
         const handles = panel.querySelectorAll('.resize-handle');
         handles.forEach(handle => {
             handle.addEventListener('mousedown', (e) => {
@@ -212,14 +202,5 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    const cacheBtn = document.getElementById('menu-cache-btn');
-    if (cacheBtn) {
-        cacheBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (confirm('¿Restablecer paneles a sus posiciones de fábrica? (Esto no borra tus presets)')) {
-                localStorage.removeItem('funscript_workspace_v2');
-                location.reload();
-            }
-        });
-    }
+    // Removido el comportamiento destructivo del botón caché
 });
