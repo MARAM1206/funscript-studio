@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.11">
+    <link rel="stylesheet" href="styles.css?v=1.1.12">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.11 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.12 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -89,11 +89,12 @@
                     <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
                     <span class="modal-hint" style="font-size: 0.7rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A, Flechas) | Zoom: Shift+Ruedita</span>
                 </div>
-                <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
+                <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #000;">
+                    <!-- Se ha vuelto un mini-motor de línea de tiempo con fondo negro -->
                     <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                    <p class="modal-hint" style="font-size: 0.75rem; margin: 0;">Click Izq: Crear/Mover/Pegar | Click Der: Eliminar/Cancelar</p>
+                    <p class="modal-hint" style="font-size: 0.75rem; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
                     <div style="display: flex; gap: 10px;">
                         <button id="preset-editor-cancel" class="menu-btn dark-btn">Cancelar</button>
                         <button id="preset-editor-save-new" class="menu-btn blue-btn">Crear como Nuevo</button>
@@ -125,7 +126,6 @@
                     <div class="control-item"><div class="control-keys"><span class="kbd">M</span></div><div class="control-desc">Mutear / Activar sonido</div></div>
                     <div class="control-item"><div class="control-keys"><span class="kbd">F</span></div><div class="control-desc">Activar Pantalla Completa</div></div>
                 </div>
-
                 <div class="controls-section">
                     <h4>🎯 Edición de Puntos</h4>
                     <div class="control-item"><div class="control-keys"><span class="kbd">Click Izq</span></div><div class="control-desc">Crear / Seleccionar / Mover</div></div>
@@ -135,7 +135,6 @@
                     <div class="control-item"><div class="control-keys"><span class="kbd">Flechas ⬆ / ⬇</span></div><div class="control-desc">Inyectar punto (En Play o Pausa)</div></div>
                     <div class="control-item"><div class="control-keys"><span class="kbd">Ctrl</span> + <span class="kbd">⬆ / ⬇ / ⬅ / ➡</span></div><div class="control-desc">Mover posición o tiempo del punto</div></div>
                 </div>
-
                 <div class="controls-section">
                     <h4>📋 Historial y Selección</h4>
                     <div class="control-item"><div class="control-keys"><span class="kbd">Ctrl</span> + <span class="kbd">C</span> / <span class="kbd">X</span> / <span class="kbd">V</span></div><div class="control-desc">Copiar / Cortar / Pegar puntos</div></div>
@@ -145,7 +144,6 @@
                     <div class="control-item"><div class="control-keys"><span class="kbd">C</span></div><div class="control-desc">Imantar puntos al tiempo actual</div></div>
                     <div class="control-item"><div class="control-keys"><span class="kbd">B</span> / <span class="kbd">N</span></div><div class="control-desc">Viajar al Punto Anterior / Siguiente</div></div>
                 </div>
-
                 <div class="controls-section">
                     <h4>🚀 Avanzado y Marcadores</h4>
                     <div class="control-item"><div class="control-keys"><span class="kbd">T</span></div><div class="control-desc">Crear un Marcador de Tiempo</div></div>
@@ -268,12 +266,12 @@
 
     </div>
 
-    <script src="workspace.js?v=1.1.11"></script>
-    <script src="handy.js?v=1.1.11"></script> 
-    <script src="funscript.js?v=1.1.11"></script>
-    <script src="player.js?v=1.1.11"></script>
-    <script src="tracking.js?v=1.1.11"></script>
-    <script src="presets.js?v=1.1.11"></script>
-    <script src="timeline.js?v=1.1.11"></script>
+    <script src="workspace.js?v=1.1.12"></script>
+    <script src="handy.js?v=1.1.12"></script> 
+    <script src="funscript.js?v=1.1.12"></script>
+    <script src="player.js?v=1.1.12"></script>
+    <script src="tracking.js?v=1.1.12"></script>
+    <script src="presets.js?v=1.1.12"></script>
+    <script src="timeline.js?v=1.1.12"></script>
 </body>
 </html>
