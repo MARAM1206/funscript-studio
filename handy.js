@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V90.0: DESCONEXIÓN MANUAL Y OFFSET POR SOFTWARE
+// THE HANDY API V1.1.5: FORMATEO DE MEMORIA PARA PUNTOS ELIMINADOS
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -26,7 +26,6 @@ const handyAutoSyncBtn = document.getElementById('handy-autosync-btn');
 const handyDisconnectBtn = document.getElementById('handy-disconnect-btn');
 const handyConnectionStatus = document.getElementById('handy-connection-status');
 
-// 🎯 FIX: Volvemos al Offset por Software. Se guarda en localStorage y no falla jamás.
 let savedOffset = parseInt(localStorage.getItem('funscript_handy_offset')) || 0;
 if (handyOffsetInput) handyOffsetInput.value = savedOffset;
 if (handyOffsetDisplay) handyOffsetDisplay.innerText = savedOffset;
@@ -49,7 +48,6 @@ if (handyOffsetInput && handyOffsetDisplay) {
     });
 }
 
-// 🎯 FIX: Botón de desconexión manual
 handyDisconnectBtn?.addEventListener('click', () => {
     isHandyConnected = false;
     if(pingInterval) clearInterval(pingInterval);
@@ -90,7 +88,7 @@ handyConnectBtn?.addEventListener('click', async () => {
             pingInterval = setInterval(syncServerTime, 60000);
 
             lastUploadedScriptStr = "";
-            if (window.funscriptActions && window.funscriptActions.length > 0) window.triggerHandyUpdate();
+            window.triggerHandyUpdate(); // Fuerza subida inmediata al conectar
         } else {
             throw new Error("Juguete apagado o desconectado.");
         }
@@ -134,7 +132,7 @@ async function syncServerTime() {
         const avgRtt = Math.round(sumRtt / validPings);
         
         if (handyLatencyDisplay) {
-            let color = "#10b981"; // Excelente
+            let color = "#10b981"; 
             let status = "Excelente";
             if (avgRtt > 150) { color = "#facc15"; status = "Buena"; }
             if (avgRtt > 350) { color = "#ef4444"; status = "Inestable"; }
@@ -167,9 +165,13 @@ async function syncServerTime() {
 
 handyAutoSyncBtn?.addEventListener('click', syncServerTime);
 
+// 🎯 FIX: Sistema Anti-Ghost. Si el script está vacío, sube "0,0" para formatear la memoria del Handy
 async function uploadScriptToHandyCloud() {
-    if (!window.funscriptActions || window.funscriptActions.length === 0) return null;
-    let csvString = window.funscriptActions.map(act => `${act.at},${act.pos}`).join('\n');
+    let csvString = "0,0\n"; 
+    if (window.funscriptActions && window.funscriptActions.length > 0) {
+        csvString = window.funscriptActions.map(act => `${act.at},${act.pos}`).join('\n');
+    }
+
     const blob = new Blob([csvString], { type: 'text/csv' });
     const formData = new FormData();
     formData.append('syncFile', blob, 'script.csv');
@@ -201,7 +203,6 @@ async function forceUploadPending() {
     const scriptUrl = await uploadScriptToHandyCloud();
     if (scriptUrl) {
         await setupHandyScript(scriptUrl);
-        // Reanudamos la máquina si el video no fue pausado mientras se subía el script
         const videoNode = document.getElementById('video-player');
         if (videoNode && !videoNode.paused && isHandyConnected) {
             const serverTime = Date.now() + serverTimeOffset;
@@ -220,10 +221,6 @@ async function forceUploadPending() {
 window.playHandy = async function(videoCurrentTimeMs) {
     if (!isHandyConnected) return;
     try {
-        // 🎯 FIX: Ya NO bloqueamos la reproducción de tu código esperando la subida. 
-        // Eliminado el "await forceUploadPending()". Si no ha subido el nuevo script, 
-        // reproducirá el viejo al instante, y el nuevo subirá solo en 1 seg de inactividad.
-        
         const serverTime = Date.now() + serverTimeOffset;
         const userOffset = handyOffsetInput ? (parseInt(handyOffsetInput.value, 10) || 0) : 0;
         const adjustedVideoTime = Math.max(0, Math.round(videoCurrentTimeMs) + userOffset); 
@@ -246,10 +243,7 @@ window.stopHandy = async function() {
 window.triggerHandyUpdate = function() {
     if (!isHandyConnected) return;
     
-    const currentScriptStr = window.funscriptActions ? window.funscriptActions.map(a => `${a.at},${a.pos}`).join('|') : "";
-    if (currentScriptStr === lastUploadedScriptStr) return; 
-    lastUploadedScriptStr = currentScriptStr;
-
+    // Ignoramos la caché local de strings para forzar la actualización si o si
     clearTimeout(autoUpdateTimeout);
     
     isUpdatePending = true;
