@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.9: PADDING DE PROTECCIÓN Y AUTO-LIMPIEZA DE MARCADORES
+// TIMELINE V1.1.10: PADDING DE PISTA Y AUTO-LIMPIEZA, PORCENTAJES EN PAUSA
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -495,6 +495,23 @@ window.addEventListener('copyPoints', () => {
     }
 });
 
+window.addEventListener('cutPoints', () => {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    const actions = getSafeActions();
+    const selected = actions.filter(a => a.selected);
+    if (selected.length > 0) {
+        const baseTime = selected[0].at;
+        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos) }));
+        
+        saveHistoryState();
+        actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
+        cleanDuplicates();
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+});
+
 window.addEventListener('pastePoints', () => {
     const modal = document.getElementById('preset-editor-modal');
     if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && (!modal || modal.style.display !== 'flex')) {
@@ -562,7 +579,7 @@ window.addEventListener('presetCustomDragOver', (e) => {
             if (bestSnapTime < 0) bestSnapTime = 0;
             window.timelineGhostTimeMs = bestSnapTime;
             
-            let hoverPos = Math.round(hoverPosRaw / 5) * 5;
+            let hoverPos = Math.round(hoverPosRaw / (window.snapValue||5)) * (window.snapValue||5);
             const basePos = window.timelineGhostPreset[0].pos;
             window.timelineGhostDeltaPos = hoverPos - basePos;
         }
@@ -590,7 +607,6 @@ window.addEventListener('presetCustomDrop', (e) => {
                 window.isDraggingPreset = false; window.timelineGhostPreset = null;
                 window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
                 
-                // 🎯 FIX: Auto-deselección de marcadores después de usar un preset
                 if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
 
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -701,6 +717,7 @@ window.addEventListener('nudgeTime', function(e) {
 window.addEventListener('nudgePoints', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
+    const snap = window.snapValue || 5;
     saveHistoryState();
     
     let hasSelection = actions.some(a => a.selected);
@@ -712,12 +729,12 @@ window.addEventListener('nudgePoints', function(e) {
     actions.forEach(act => {
         if (act.selected) {
             if (dir === 'up') {
-                if (act.pos % 5 !== 0) act.pos = Math.ceil(act.pos / 5) * 5;
-                else act.pos = Math.min(100, act.pos + 5);
+                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
+                else act.pos = Math.min(100, act.pos + snap);
             }
             if (dir === 'down') {
-                if (act.pos % 5 !== 0) act.pos = Math.floor(act.pos / 5) * 5;
-                else act.pos = Math.max(0, act.pos - 5);
+                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
+                else act.pos = Math.max(0, act.pos - snap);
             }
             moved = true;
         }
@@ -806,7 +823,7 @@ function redo() {
 function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
 function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom); }
 
-// 🎯 FIX: Ecuación matemática reajustada. Padding Top de 40px para la zona de marcadores.
+// 🎯 FIX: Ecuación matemática reajustada. Padding Top de 40px para la zona segura de marcadores.
 function posToY(pos) { 
     const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
     return canvas.height - botPad - (pos / 100) * usableHeight; 
@@ -1016,20 +1033,6 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: Dibujado Matemático de la Caja Mágica de Selección de Marcadores 
-        // (Sincronizado con Time en lugar de Pixeles para soportar Zoom y Scroll)
-        if (isSelectingMarkers) {
-            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(217, 70, 239, 0.8)'; ctx.fillStyle = 'rgba(217, 70, 239, 0.15)';
-            ctx.setLineDash([2, 2]); ctx.beginPath(); 
-            const sX_m = timeToX(selStartMarkerT);
-            const cX_m = timeToX(selCurrMarkerT);
-            const xLeft = Math.min(sX_m, cX_m);
-            const xRight = Math.max(sX_m, cX_m);
-            ctx.fillRect(xLeft, 0, xRight - xLeft, 35); 
-            ctx.strokeRect(xLeft, 0, xRight - xLeft, 35); 
-            ctx.setLineDash([]);
-        }
-
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, idx) => {
                 const mx = timeToX(m.at);
@@ -1047,12 +1050,12 @@ window.drawTimeline = function() {
 
                     ctx.fillStyle = m.selected ? '#facc15' : '#d946ef';
                     ctx.beginPath();
-                    // 🎯 FIX: Marcadores con Hitbox de Altura 32px para clicks precisos
-                    ctx.roundRect(mx - 15, 0, 30, 32, [0, 0, 4, 4]);
+                    // 🎯 FIX: Caja un poco más ancha para evitar errores de clic
+                    ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
                     ctx.fill();
 
                     ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText(`M${idx + 1}`, mx, 20); 
+                    ctx.fillText(`M${idx + 1}`, mx, 16); 
                     ctx.textAlign = 'left';
                     ctx.globalAlpha = 1.0;
                 }
@@ -1117,27 +1120,19 @@ window.drawTimeline = function() {
                     ctx.fillStyle = dotColor;
                     ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
                     ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    
+                    // 🎯 FIX: Mostrar Porcentajes de Puntos SOLO en Pausa (Diseño sutil y elegante)
+                    if (videoNode && videoNode.paused) {
+                        ctx.textAlign = 'center';
+                        ctx.font = 'bold 9px monospace';
+                        ctx.fillStyle = isLight ? 'rgba(255,255,255,0.75)' : 'rgba(15,23,42,0.75)';
+                        ctx.beginPath(); ctx.roundRect(x - 12, y - 18, 24, 11, 3); ctx.fill();
+                        ctx.fillStyle = isLight ? '#0f172a' : '#e2e8f0';
+                        ctx.fillText(`${act.pos}%`, x, y - 10);
+                        ctx.textAlign = 'left';
+                    }
                 }
             });
-            
-            // 🎯 FIX: Etiquetas de porcentaje sutiles para todos los puntos en pausa
-            if (videoNode && videoNode.paused && !document.body.classList.contains('panic-mode-active')) {
-                ctx.textAlign = 'center';
-                ctx.font = 'bold 9px monospace';
-                actions.forEach(act => {
-                    const px = timeToX(act.at);
-                    if (px >= 30 && px <= canvas.width) {
-                        const py = posToY(act.pos);
-                        ctx.fillStyle = isLight ? 'rgba(255,255,255,0.7)' : 'rgba(15,23,42,0.7)';
-                        ctx.beginPath();
-                        ctx.roundRect(px - 12, py - 18, 24, 11, 3);
-                        ctx.fill();
-                        ctx.fillStyle = isLight ? '#0f172a' : '#e2e8f0';
-                        ctx.fillText(`${act.pos}%`, px, py - 10);
-                    }
-                });
-                ctx.textAlign = 'left';
-            }
         }
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
@@ -1175,17 +1170,18 @@ window.drawTimeline = function() {
                     }
                 }
             } else {
+                const snap = window.snapValue || 5;
                 const deltaY = window.timelineGhostDeltaPos || 0;
                 ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
                 window.timelineGhostPreset.forEach((act, index) => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY))); 
+                    const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap))); 
                     if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 });
                 ctx.stroke();
                 window.timelineGhostPreset.forEach(act => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const y = posToY(Math.max(0, Math.min(100, act.pos + deltaY)));
+                    const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
                     ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                     ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
                 });
@@ -1303,7 +1299,7 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        // 🎯 FIX: Restauración de Paneo visual animado (Scroll Momentum)
+        // 🎯 FIX: Paneo de Gráfica reestablecido.
         if (window.scrollMomentum) {
             if (Math.abs(window.scrollMomentum) > 0.1) {
                 window.scrollMomentum *= 0.92;
@@ -1414,6 +1410,8 @@ function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { 
 canvas?.addEventListener('mousedown', (e) => {
     if (document.body.classList.contains('panic-mode-active')) return; 
 
+    const snap = window.snapValue || 5;
+
     if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
@@ -1425,7 +1423,7 @@ canvas?.addEventListener('mousedown', (e) => {
             
             const newActions = window.timelineGhostPreset.map(act => ({
                 at: Math.max(0, Math.round(dropTimeMs + act.at)),
-                pos: Math.max(0, Math.min(100, Math.round(act.pos + deltaY))),
+                pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
                 selected: true 
             }));
             
@@ -1436,6 +1434,10 @@ canvas?.addEventListener('mousedown', (e) => {
             cleanDuplicates(); 
             
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            
+            // 🎯 FIX: Auto limpieza de marcadores al inyectar preset suelto
+            if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
             notifyCloud(); window.updateHeatmapAndStats();
             return;
@@ -1471,8 +1473,8 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        // 🎯 FIX: Auto-deseleccionar marcadores si se hace click fuera de su zona superior
-        if (!e.ctrlKey && !clickedMarker && clickY > 35) {
+        // 🎯 FIX: Clic al vacío = Deselección automática
+        if (!e.ctrlKey && clickY > 35) {
             window.timelineMarkers.forEach(m => m.selected = false);
         }
 
@@ -1685,7 +1687,8 @@ canvas?.addEventListener('mousemove', (e) => {
             if (bestSnapTime < 0) bestSnapTime = 0;
             window.timelineGhostTimeMs = bestSnapTime;
             
-            let hoverPos = Math.round(hoverPosRaw / 5) * 5;
+            const snap = window.snapValue || 5;
+            let hoverPos = Math.round(hoverPosRaw / snap) * snap;
             const basePos = window.timelineGhostPreset[0].pos;
             window.timelineGhostDeltaPos = hoverPos - basePos;
         }
@@ -1726,17 +1729,18 @@ canvas?.addEventListener('mousemove', (e) => {
     if (isDraggingNode && dragSelectionInitialStates.length > 0) {
         let snappedTimeDelta = 0;
         let snappedPosDelta = 0;
+        const snap = window.snapValue || 5;
 
         const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
         const rawPosDelta = yToPos(mouseY) - dragStartYPos;
         snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
-        snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
+        snappedPosDelta = Math.round(rawPosDelta / snap) * snap;
 
         actions.forEach((act, i) => {
             if (dragSelectionInitialStates[i].selected) {
                 act.at = Math.max(0, dragSelectionInitialStates[i].at + snappedTimeDelta);
                 const rawP = dragSelectionInitialStates[i].pos + snappedPosDelta;
-                act.pos = Math.max(0, Math.min(100, Math.round(rawP / 5) * 5));
+                act.pos = Math.max(0, Math.min(100, Math.round(rawP / snap) * snap));
             }
         });
         
@@ -1774,6 +1778,7 @@ window.addEventListener('mouseup', (e) => {
         return;
     }
 
+    const snap = window.snapValue || 5;
     let actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
         
@@ -1782,7 +1787,7 @@ window.addEventListener('mouseup', (e) => {
             actions = getSafeActions(); 
 
             let clickTime = Math.max(0, Math.round(selStartT / 50) * 50);
-            let clickPos = Math.round(yToPos(selStartY) / 5) * 5; 
+            let clickPos = Math.round(yToPos(selStartY) / snap) * snap; 
 
             saveHistoryState();
             
