@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.6: AUTO-CORRECCIÓN Y SEPARACIÓN DE FLECHAS DE TIEMPO/POSICIÓN
+// TIMELINE V1.1.7: INERCIA DE CÁMARA RESTAURADA Y SELECCIÓN MÚLTIPLE LIGERA
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -57,6 +57,12 @@ let isSelecting = false;
 let hasDraggedSelection = false; 
 let selStartT = 0, selStartY = 0;
 let selCurrT = 0, selCurrY = 0;
+
+// 🎯 FIX: Variables para arrastre de caja superior en los marcadores
+let isSelectingMarkers = false;
+let selStartMarkerX = 0;
+let selCurrMarkerX = 0;
+let markerSelectionInitialStates = [];
 
 let isDraggingNode = false; 
 let draggedNodeIndex = -1; 
@@ -564,7 +570,6 @@ window.addEventListener('presetCustomDragOver', (e) => {
     }
 });
 
-// 🎯 FIX: SPLICE forzado. Nunca desconectamos la memoria del arreglo original al pegar presets
 window.addEventListener('presetCustomDrop', (e) => {
     if (!canvas) return;
     if (window.isDraggingPreset && window.timelineGhostPreset) {
@@ -656,7 +661,6 @@ window.addEventListener('injectPoint', function(e) {
     saveHistoryState();
     actions.forEach(a => { a.selected = false; }); 
     
-    // 🎯 FIX: Margen magnético anti-fantasmas. Sobreescribe puntos cercanos en lugar de duplicarlos.
     const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
     if (existingIdx !== -1) { 
         actions[existingIdx].pos = pos; 
@@ -999,6 +1003,17 @@ window.drawTimeline = function() {
             });
         }
 
+        // 🎯 FIX: Caja visual de Selección de Marcadores
+        if (isSelectingMarkers) {
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(217, 70, 239, 0.8)'; ctx.fillStyle = 'rgba(217, 70, 239, 0.15)';
+            ctx.setLineDash([2, 2]); ctx.beginPath(); 
+            const sX = selStartMarkerX;
+            const cX = selCurrMarkerX;
+            ctx.fillRect(sX, 0, cX - sX, 25); 
+            ctx.strokeRect(sX, 0, cX - sX, 25); 
+            ctx.setLineDash([]);
+        }
+
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, idx) => {
                 const mx = timeToX(m.at);
@@ -1159,7 +1174,6 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: Se devuelve la UI de Corrección IA con Click Derecho
         if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
             const act1 = actions[window.activeSuggestion.idx1];
             const act2 = actions[window.activeSuggestion.idx2];
@@ -1252,6 +1266,76 @@ window.drawTimeline = function() {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
+
+        // 🎯 FIX: Restauración de Paneo visual animado (Scroll Momentum)
+        if (window.scrollMomentum) {
+            if (Math.abs(window.scrollMomentum) > 0.1) {
+                window.scrollMomentum *= 0.92;
+            } else {
+                window.scrollMomentum = 0;
+            }
+
+            if (window.scrollMomentum !== 0) {
+                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
+                const isForward = window.scrollMomentum > 0;
+                
+                ctx.save();
+                ctx.globalAlpha = intensity * 0.6; 
+
+                const gradWidth = 200;
+                const centerY = canvas.height / 2;
+
+                if (isForward) {
+                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
+                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
+                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    
+                    for(let i = 0; i < 3; i++) {
+                        let cx = canvas.width - 60 + offset - (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
+                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
+
+                } else {
+                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
+                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
+                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(30, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+                    for(let i = 0; i < 3; i++) {
+                        let cx = 80 - offset + (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
+                }
+                ctx.restore();
+            }
+        }
         
         window.updateGhostThumb();
 
@@ -1331,15 +1415,18 @@ canvas?.addEventListener('mousedown', (e) => {
     const clickX = pos.x; const clickY = pos.y;
 
     if (e.button === 0) { 
+        let clickedMarker = false;
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
                 if (Math.abs(clickX - mx) <= 15 && clickY <= 25) { 
-                    if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mx !== m ? mk.selected = false : null);
-                    m.selected = !m.selected;
+                    clickedMarker = true;
+                    // 🎯 FIX: Respetar Ctrl para no deseleccionar, pero JAMÁS arrastrar si Ctrl está pisado
+                    if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mk !== m ? mk.selected = false : null);
+                    m.selected = e.ctrlKey ? !m.selected : true;
                     
-                    if (m.selected) {
+                    if (m.selected && !e.ctrlKey) {
                         isDraggingMarker = true;
                         draggedMarkerIndex = i;
                     }
@@ -1349,8 +1436,14 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        if (!e.ctrlKey && clickY > 25) {
-            window.timelineMarkers.forEach(m => m.selected = false);
+        // 🎯 FIX: Iniciar selección de arrastre en zona superior (solo marcadores)
+        if (clickY <= 25 && !clickedMarker) {
+            isSelectingMarkers = true;
+            selStartMarkerX = clickX;
+            selCurrMarkerX = clickX;
+            markerSelectionInitialStates = window.timelineMarkers.map(m => m.selected);
+            if (!e.ctrlKey) window.timelineMarkers.forEach(m => m.selected = false);
+            return; 
         }
 
         let clickedNode = null;
@@ -1469,6 +1562,23 @@ canvas?.addEventListener('mousemove', (e) => {
     window.lastMouseX = mouseX;
     window.lastMouseY = mouseY;
     
+    // 🎯 FIX: Lógica de arrastre de selección de marcadores (Caja Mágica)
+    if (isSelectingMarkers) {
+        selCurrMarkerX = mouseX;
+        const minX = Math.min(selStartMarkerX, selCurrMarkerX);
+        const maxX = Math.max(selStartMarkerX, selCurrMarkerX);
+        window.timelineMarkers.forEach((m, i) => {
+            const mx = timeToX(m.at);
+            if (mx >= minX && mx <= maxX) {
+                m.selected = true;
+            } else {
+                m.selected = e.ctrlKey ? markerSelectionInitialStates[i] : false;
+            }
+        });
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
+    }
+
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         const m = window.timelineMarkers[draggedMarkerIndex];
         let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
@@ -1613,6 +1723,12 @@ canvas?.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', (e) => {
     if (window.isPastingMode) return; 
+
+    if (isSelectingMarkers) {
+        isSelectingMarkers = false;
+        markerSelectionInitialStates = [];
+        return;
+    }
 
     if (isDraggingMarker) {
         isDraggingMarker = false;
