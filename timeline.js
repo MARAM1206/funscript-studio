@@ -1,15 +1,17 @@
 // ==========================================================================
-// TIMELINE V1.2.0: MOTOR DE MARCADORES INTERACTIVOS Y PRESETS DINÁMICOS
+// TIMELINE V1.1.4: MALLA INTELIGENTE DE MARCADORES Y SALTO DE DOBLE CLIC
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
 window.activeSuggestion = null; 
 
-// 🎯 FIX: Variables Maestras para el nuevo motor de Presets por Marcador
 window.presetFillMode = 'repeat'; 
 window.presetFillReps = 1;
 window.presetFillInitialized = false;
+
+window.lastMarkerRightClickIdx = -1;
+window.lastMarkerRightClickTime = 0;
 
 window.hardwareDB = {
     "handy_std": {
@@ -147,34 +149,51 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: Nuevo Motor Matemático de Presets guiado estrictamente por Marcadores (Reemplaza Modo Adaptativo)
-window.getMorphedPreset = function(preset, t_start, t_end) {
+// 🎯 FIX: Sistema Malla Multimarcador. Si hay más de 2 marcadores, 
+// estira el preset dentro de CADA bloque que forman entre ellos.
+window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
-    const targetDuration = t_end - t_start;
-    if (targetDuration <= 0) return null;
-
+    let result = [];
     const p_dur = preset[preset.length - 1].at;
     if (p_dur <= 0) return null;
 
-    let result = [];
-    
-    if (window.presetFillMode === 'stretch') {
-        result = preset.map(act => ({
-            at: Math.round(t_start + (act.at / p_dur) * targetDuration),
-            pos: act.pos
-        }));
-    } else {
-        const reps = window.presetFillReps || 1;
-        const repDuration = targetDuration / reps;
-        
-        for (let r = 0; r < reps; r++) {
-            const offset = t_start + (r * repDuration);
-            for (let i = 0; i < preset.length; i++) {
-                if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
+    if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
+        for (let i = 0; i < startOrMarkers.length - 1; i++) {
+            let t1 = startOrMarkers[i].at;
+            let t2 = startOrMarkers[i+1].at;
+            let targetDuration = t2 - t1;
+            if (targetDuration <= 0) continue;
+            for (let j = 0; j < preset.length; j++) {
+                if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
                 result.push({
-                    at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
-                    pos: preset[i].pos
+                    at: Math.round(t1 + (preset[j].at / p_dur) * targetDuration),
+                    pos: preset[j].pos
                 });
+            }
+        }
+    } else {
+        let t_start = Array.isArray(startOrMarkers) ? startOrMarkers[0].at : startOrMarkers;
+        let t_end = Array.isArray(startOrMarkers) ? startOrMarkers[startOrMarkers.length - 1].at : end;
+        let targetDuration = t_end - t_start;
+        if (targetDuration <= 0) return null;
+
+        if (window.presetFillMode === 'stretch') {
+            result = preset.map(act => ({
+                at: Math.round(t_start + (act.at / p_dur) * targetDuration),
+                pos: act.pos
+            }));
+        } else {
+            const reps = window.presetFillReps || 1;
+            const repDuration = targetDuration / reps;
+            for (let r = 0; r < reps; r++) {
+                const offset = t_start + (r * repDuration);
+                for (let i = 0; i < preset.length; i++) {
+                    if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
+                    result.push({
+                        at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
+                        pos: preset[i].pos
+                    });
+                }
             }
         }
     }
@@ -404,23 +423,25 @@ window.addEventListener('presetCustomDragOver', (e) => {
         window.timelineGhostMouseX = pos.x;
         window.timelineGhostMouseY = pos.y;
         
-        // 🎯 FIX: Sistema de Anclaje a Marcadores Múltiples (Reemplaza adaptativo)
         const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
         
         if (selectedMarkers.length >= 2) {
-            const t_start = selectedMarkers[0].at;
-            const t_end = selectedMarkers[selectedMarkers.length - 1].at;
-
-            window.timelineGhostTimeMs = t_start; 
-            window.timelineGhostTargetEnd = t_end;
+            window.timelineGhostTimeMs = selectedMarkers[0].at;
+            window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
+            window.timelineGhostMarkers = selectedMarkers;
 
             if (!window.presetFillInitialized) {
                 const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-                window.presetFillMode = 'repeat';
-                window.presetFillReps = Math.max(1, Math.round((t_end - t_start) / pDur));
+                if (selectedMarkers.length > 2) {
+                    window.presetFillMode = 'stretch';
+                } else {
+                    window.presetFillMode = 'repeat';
+                    window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
+                }
                 window.presetFillInitialized = true;
             }
         } else {
+            window.timelineGhostMarkers = null;
             window.timelineGhostTargetEnd = null;
             window.presetFillInitialized = false;
 
@@ -460,9 +481,8 @@ window.addEventListener('presetCustomDrop', (e) => {
         ensureTrackExists();
         let actions = getSafeActions();
 
-        // 🎯 FIX: Inyección del Preset usando el Motor de Marcadores
         if (window.timelineGhostTargetEnd) {
-            const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
+            const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
             if (morphed) {
                 saveHistoryState();
                 const newTimes = new Set(morphed.map(a => a.at));
@@ -473,7 +493,7 @@ window.addEventListener('presetCustomDrop', (e) => {
                 
                 cleanDuplicates();
                 window.isDraggingPreset = false; window.timelineGhostPreset = null;
-                window.presetFillInitialized = false; window.timelineGhostTargetEnd = null;
+                window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
                 
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
                 notifyCloud(); window.updateHeatmapAndStats();
@@ -624,7 +644,6 @@ window.addEventListener('magnetPoint', function() {
 window.addEventListener('deletePoints', () => {
     if (document.body.classList.contains('panic-mode-active')) return; 
 
-    // 🎯 FIX: Eliminación de Marcadores Activos con Suprimir
     let deletedMarker = false;
     const initialMarkerCount = window.timelineMarkers.length;
     window.timelineMarkers = window.timelineMarkers.filter(m => !m.selected);
@@ -883,7 +902,6 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: DIBUJADO DEL SISTEMA DE MARCADORES
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             window.timelineMarkers.forEach((m, idx) => {
                 const mx = timeToX(m.at);
@@ -974,11 +992,10 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: Renderizado Fantasma con Info de Marcadores
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             
             if (window.timelineGhostTargetEnd) {
-                const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
                 if (morphed) {
                     const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
                     ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
@@ -996,11 +1013,18 @@ window.drawTimeline = function() {
                     const cursorX = timeToX(window.timelineGhostTimeMs);
                     const cursorY = posToY(50);
                     
-                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    let modeText = window.presetFillMode === 'stretch' ? "Modo: Estirar (1x)" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
-                    ctx.fillText(modeText, cursorX + 15, cursorY + 30);
-                    ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
-                    ctx.fillText("(Espacio = Cambiar | Flechas ⬅ ➡ = Ajustar)", cursorX + 15, cursorY + 45);
+                    if (window.timelineGhostMarkers && window.timelineGhostMarkers.length > 2) {
+                        ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                        ctx.fillText("Modo: Adaptación Múltiple", cursorX + 15, cursorY + 30);
+                        ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
+                        ctx.fillText("(Ajustado por cada marcador)", cursorX + 15, cursorY + 45);
+                    } else {
+                        ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Estirar (1x)" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
+                        ctx.fillText(modeText, cursorX + 15, cursorY + 30);
+                        ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
+                        ctx.fillText("(Espacio = Cambiar | Flechas ⬅ ➡ = Ajustar)", cursorX + 15, cursorY + 45);
+                    }
                 }
             } else {
                 const deltaY = window.timelineGhostDeltaPos || 0;
@@ -1175,7 +1199,6 @@ canvas?.addEventListener('mousedown', (e) => {
     const clickX = pos.x; const clickY = pos.y;
 
     if (e.button === 0) { 
-        // 🎯 FIX: Detección y arrastre de Marcadores Superiores (M1, M2...)
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
@@ -1194,7 +1217,6 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        // Si se hizo click fuera de los marcadores (y sin ctrl), deseleccionarlos todos
         if (!e.ctrlKey && clickY > 25) {
             window.timelineMarkers.forEach(m => m.selected = false);
         }
@@ -1230,6 +1252,31 @@ canvas?.addEventListener('mousedown', (e) => {
             
         }
     } else if (e.button === 2) { 
+        
+        // 🎯 FIX: Doble Clic Derecho en Marcadores
+        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+            for (let i = 0; i < window.timelineMarkers.length; i++) {
+                const m = window.timelineMarkers[i];
+                const mx = timeToX(m.at);
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 25) {
+                    const now = performance.now();
+                    if (window.lastMarkerRightClickIdx === i && (now - window.lastMarkerRightClickTime < 350)) {
+                        if (videoNode) {
+                            videoNode.currentTime = m.at / 1000;
+                            window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: m.at } }));
+                            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                            if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
+                        }
+                        window.lastMarkerRightClickIdx = -1;
+                    } else {
+                        window.lastMarkerRightClickIdx = i;
+                        window.lastMarkerRightClickTime = now;
+                    }
+                    return; 
+                }
+            }
+        }
+
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
@@ -1258,7 +1305,6 @@ canvas?.addEventListener('mousemove', (e) => {
     window.lastMouseX = mouseX;
     window.lastMouseY = mouseY;
     
-    // 🎯 FIX: Lógica para arrastrar Marcadores y su dibujo en Video
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         const m = window.timelineMarkers[draggedMarkerIndex];
         let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
@@ -1285,19 +1331,22 @@ canvas?.addEventListener('mousemove', (e) => {
         const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
         
         if (selectedMarkers.length >= 2) {
-            const t_start = selectedMarkers[0].at;
-            const t_end = selectedMarkers[selectedMarkers.length - 1].at;
-
-            window.timelineGhostTimeMs = t_start; 
-            window.timelineGhostTargetEnd = t_end;
+            window.timelineGhostTimeMs = selectedMarkers[0].at;
+            window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
+            window.timelineGhostMarkers = selectedMarkers;
 
             if (!window.presetFillInitialized) {
                 const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-                window.presetFillMode = 'repeat';
-                window.presetFillReps = Math.max(1, Math.round((t_end - t_start) / pDur));
+                if (selectedMarkers.length > 2) {
+                    window.presetFillMode = 'stretch';
+                } else {
+                    window.presetFillMode = 'repeat';
+                    window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
+                }
                 window.presetFillInitialized = true;
             }
         } else {
+            window.timelineGhostMarkers = null;
             window.timelineGhostTargetEnd = null;
             window.presetFillInitialized = false;
 
