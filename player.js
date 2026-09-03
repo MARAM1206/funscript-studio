@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.9 (NAVEGACIÓN CON Y/U)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.10 (CTRL+X, REORDEN DE PRESETS, SNAP 5%)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -22,6 +22,7 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
+// 🎯 FIX: Recuperar memoria del Tema
 const savedTheme = localStorage.getItem('funscript_theme');
 if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
@@ -37,6 +38,68 @@ const themeObserver = new MutationObserver(() => {
 });
 themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
+// 🎯 FIX: Sistema global de "Bloqueo a 5%" desde Configuración
+const snapToggle = document.getElementById('menu-snap-toggle');
+let savedSnap = localStorage.getItem('funscript_snap');
+if(savedSnap !== null) { snapToggle.checked = (savedSnap === 'true'); }
+window.snapValue = snapToggle.checked ? 5 : 1;
+
+snapToggle.addEventListener('change', (e) => {
+    window.snapValue = e.target.checked ? 5 : 1;
+    localStorage.setItem('funscript_snap', e.target.checked);
+    document.getElementById('point-slider').step = window.snapValue;
+    document.getElementById('min-slider').step = window.snapValue;
+    document.getElementById('max-slider').step = window.snapValue;
+});
+document.getElementById('point-slider').step = window.snapValue;
+document.getElementById('min-slider').step = window.snapValue;
+document.getElementById('max-slider').step = window.snapValue;
+
+
+// 🎯 FIX: Motor de Arrastre Manual para Presets (Reordenar)
+let draggingPresetEl = null;
+document.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.preset-card');
+    if (card && card.parentNode.id.includes('presets')) {
+        draggingPresetEl = card;
+        card.classList.add('dragging-preset-item');
+    }
+});
+document.addEventListener('dragend', (e) => {
+    if (draggingPresetEl) {
+        draggingPresetEl.classList.remove('dragging-preset-item');
+        draggingPresetEl = null;
+        window.dispatchEvent(new Event('presetsReordered')); 
+    }
+});
+document.addEventListener('dragover', (e) => {
+    if (draggingPresetEl) {
+        const container = e.target.closest('.presets-list-container, #modal-presets-library-list');
+        if (container) {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) {
+                container.appendChild(draggingPresetEl);
+            } else {
+                container.insertBefore(draggingPresetEl, afterElement);
+            }
+        }
+    }
+});
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.preset-card:not(.dragging-preset-item)')];
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// 🎯 FIX: Precarga de imagen Pánico
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let preloadedPanicUrl = "";
@@ -152,7 +215,8 @@ async function loadVideoFile(file, hasFunscripts = false) {
     if (vName) {
         let displayName = file.name;
         if (displayName.length > 60) displayName = displayName.substring(0, 57) + "..."; 
-        vName.innerText = `📄 ${displayName}`;
+        // 🎯 FIX: Icono de Video en lugar de Documento
+        vName.innerText = `🎥 ${displayName}`;
         vName.title = file.name; 
     }
     
@@ -345,7 +409,7 @@ function togglePanicCamouflage(enable) {
             const fakes = ["Vocal Compressor", "De-Esser Base", "EQ Parametric", "Reverb Hall", "Limiter Pro"];
             el.dataset.orig = el.innerText; el.innerText = fakes[i % fakes.length];
         });
-        if (vName) { vName.dataset.orig = vName.innerText; vName.innerText = "📄 Cam_03_final.mp4"; }
+        if (vName) { vName.dataset.orig = vName.innerText; vName.innerText = "🎥 Cam_03_final.mp4"; }
     } else {
         document.querySelectorAll('.file-manager-video, .file-manager-script').forEach(el => {
             if (el.dataset.realHtml) {
@@ -494,7 +558,6 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 FIX: Teclas Y y U para navegación entre marcadores
     if (key === 'y' && !event.ctrlKey) {
         event.preventDefault();
         const currentTimeMs = videoPlayer.currentTime * 1000;
@@ -548,7 +611,11 @@ window.addEventListener('keydown', (event) => {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
+        
+        // 🎯 FIX: Ctrl+C y Ctrl+X
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
+        if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
+        
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
         if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
             event.preventDefault(); event.stopPropagation();
@@ -565,11 +632,22 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
-    if (key === 'arrowup' || key === 'arrowdown') {
+    if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
-        const dir = (key === 'arrowup') ? 'up' : 'down';
-        window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+        
+        if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
+        } 
+        else if (!isPlaying && hasSelection && (key === 'arrowleft' || key === 'arrowright')) {
+            window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
+        } 
+        else if (!isPlaying && hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
+            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
+        } 
+        else if (!isPlaying && !hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
+        }
         return; 
     }
 
