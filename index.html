@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.12">
+    <link rel="stylesheet" href="styles.css?v=1.1.13">
 </head>
 <body>
 
@@ -14,7 +14,8 @@
                 <button class="menu-btn dark-btn">⚙️ Configuración</button>
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
-                    <a href="#" id="menu-controls-btn">⌨️ Controles</a>
+                    <!-- 🎯 FIX: Controles desactivados temporalmente -->
+                    <a href="#" id="menu-controls-btn" style="display: none;">⌨️ Controles</a>
                     <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
                         <input type="checkbox" id="menu-snap-toggle" class="snap-toggle" checked>
                         <span class="snap-text">Bloqueo de 5%</span>
@@ -43,7 +44,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.12 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.13 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -90,7 +91,6 @@
                     <span class="modal-hint" style="font-size: 0.7rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A, Flechas) | Zoom: Shift+Ruedita</span>
                 </div>
                 <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #000;">
-                    <!-- Se ha vuelto un mini-motor de línea de tiempo con fondo negro -->
                     <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
@@ -116,43 +116,7 @@
                 <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
                 <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
             </div>
-            <div class="controls-grid">
-                <div class="controls-section">
-                    <h4>▶️ Reproducción</h4>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Espacio</span></div><div class="control-desc">Reproducir / Pausar video</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">A</span> / <span class="kbd">S</span></div><div class="control-desc">Atrasar / Adelantar 5 segundos</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Q</span> / <span class="kbd">W</span></div><div class="control-desc">Salto de precisión (Salto fps)</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">E</span> / <span class="kbd">R</span></div><div class="control-desc">Bajar / Subir velocidad de video</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">M</span></div><div class="control-desc">Mutear / Activar sonido</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">F</span></div><div class="control-desc">Activar Pantalla Completa</div></div>
-                </div>
-                <div class="controls-section">
-                    <h4>🎯 Edición de Puntos</h4>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Click Izq</span></div><div class="control-desc">Crear / Seleccionar / Mover</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Click Der</span></div><div class="control-desc">Eliminar punto (o Corrección Automática)</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Arrastrar</span></div><div class="control-desc">Caja de selección múltiple</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Suprimir</span></div><div class="control-desc">Eliminar puntos seleccionados</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Flechas ⬆ / ⬇</span></div><div class="control-desc">Inyectar punto (En Play o Pausa)</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Ctrl</span> + <span class="kbd">⬆ / ⬇ / ⬅ / ➡</span></div><div class="control-desc">Mover posición o tiempo del punto</div></div>
-                </div>
-                <div class="controls-section">
-                    <h4>📋 Historial y Selección</h4>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Ctrl</span> + <span class="kbd">C</span> / <span class="kbd">X</span> / <span class="kbd">V</span></div><div class="control-desc">Copiar / Cortar / Pegar puntos</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Ctrl</span> + <span class="kbd">Z</span> / <span class="kbd">Y</span></div><div class="control-desc">Deshacer / Rehacer acción</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Ctrl</span> + <span class="kbd">A</span></div><div class="control-desc">Seleccionar todo el script</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Ctrl</span> + <span class="kbd">S</span></div><div class="control-desc">Exportar FunScript rápido</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">C</span></div><div class="control-desc">Imantar puntos al tiempo actual</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">B</span> / <span class="kbd">N</span></div><div class="control-desc">Viajar al Punto Anterior / Siguiente</div></div>
-                </div>
-                <div class="controls-section">
-                    <h4>🚀 Avanzado y Marcadores</h4>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">T</span></div><div class="control-desc">Crear un Marcador de Tiempo</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Y</span> / <span class="kbd">U</span></div><div class="control-desc">Viajar al Marcador Anterior / Siguiente</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Doble Clic Der.</span></div><div class="control-desc">En un marcador, salta el video a ese tiempo</div></div>
-                    <div class="control-item"><div class="control-keys"><span class="kbd">Shift</span> + <span class="kbd">Rueda</span></div><div class="control-desc">Hacer Zoom en Línea de Tiempo</div></div>
-                    <div class="control-item" style="border-color: #ef4444;"><div class="control-keys"><span class="kbd" style="background:#ef4444; color:white; border:none;">Esc</span></div><div class="control-desc"><strong>Botón de Pánico</strong> <br> <span style="font-size: 0.65rem; color: #94a3b8;">(Camufla el editor si alguien se acerca)</span></div></div>
-                </div>
-            </div>
+            <div class="controls-grid"></div>
         </div>
     </div>
 
@@ -210,7 +174,11 @@
             </div>
         </div>
 
+        <!-- 🎯 FIX: Panel Ajuste individualizado en CSS -->
         <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎚️ Ajuste</span>
+            </div>
             <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                 <div class="vertical-slider-wrapper">
                     <span id="slider-value-display" class="slider-badge">50%</span>
@@ -220,6 +188,9 @@
         </div>
 
         <div id="panel-quick" class="workspace-panel" data-title="⚡ Inyector Rápido">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">⚡ Inyector Rápido</span>
+            </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
                 <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
                 <div class="dual-slider-labels">
@@ -266,12 +237,13 @@
 
     </div>
 
-    <script src="workspace.js?v=1.1.12"></script>
-    <script src="handy.js?v=1.1.12"></script> 
-    <script src="funscript.js?v=1.1.12"></script>
-    <script src="player.js?v=1.1.12"></script>
-    <script src="tracking.js?v=1.1.12"></script>
-    <script src="presets.js?v=1.1.12"></script>
-    <script src="timeline.js?v=1.1.12"></script>
+    <!-- Handles para redimensionar los paneles (Inyectados dinámicamente) -->
+    <script src="workspace.js?v=1.1.13"></script>
+    <script src="handy.js?v=1.1.13"></script> 
+    <script src="funscript.js?v=1.1.13"></script>
+    <script src="player.js?v=1.1.13"></script>
+    <script src="tracking.js?v=1.1.13"></script>
+    <script src="presets.js?v=1.1.13"></script>
+    <script src="timeline.js?v=1.1.13"></script>
 </body>
 </html>
