@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.10 (CTRL+X, REORDEN DE PRESETS, SNAP 5%)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.9 (ATJOS Y/U, CTRL+X, DRAG PRESETS, SNAP 5%)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -55,19 +55,23 @@ document.getElementById('point-slider').step = window.snapValue;
 document.getElementById('min-slider').step = window.snapValue;
 document.getElementById('max-slider').step = window.snapValue;
 
-
-// 🎯 FIX: Motor de Arrastre Manual para Presets (Reordenar)
+// 🎯 FIX: Motor de Arrastre Manual para Presets (Reordenar con Indicador)
 let draggingPresetEl = null;
+let dropIndicator = document.createElement('div');
+dropIndicator.className = 'preset-drop-indicator';
+
 document.addEventListener('dragstart', (e) => {
     const card = e.target.closest('.preset-card');
     if (card && card.parentNode.id.includes('presets')) {
         draggingPresetEl = card;
         card.classList.add('dragging-preset-item');
+        if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.id || ''); }
     }
 });
 document.addEventListener('dragend', (e) => {
     if (draggingPresetEl) {
         draggingPresetEl.classList.remove('dragging-preset-item');
+        if (dropIndicator.parentNode) dropIndicator.parentNode.replaceChild(draggingPresetEl, dropIndicator);
         draggingPresetEl = null;
         window.dispatchEvent(new Event('presetsReordered')); 
     }
@@ -79,9 +83,9 @@ document.addEventListener('dragover', (e) => {
             e.preventDefault();
             const afterElement = getDragAfterElement(container, e.clientY);
             if (afterElement == null) {
-                container.appendChild(draggingPresetEl);
+                container.appendChild(dropIndicator);
             } else {
-                container.insertBefore(draggingPresetEl, afterElement);
+                container.insertBefore(dropIndicator, afterElement);
             }
         }
     }
@@ -99,7 +103,6 @@ function getDragAfterElement(container, y) {
     }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-// 🎯 FIX: Precarga de imagen Pánico
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
 let preloadedPanicUrl = "";
@@ -215,7 +218,6 @@ async function loadVideoFile(file, hasFunscripts = false) {
     if (vName) {
         let displayName = file.name;
         if (displayName.length > 60) displayName = displayName.substring(0, 57) + "..."; 
-        // 🎯 FIX: Icono de Video en lugar de Documento
         vName.innerText = `🎥 ${displayName}`;
         vName.title = file.name; 
     }
@@ -558,6 +560,7 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
+    // 🎯 FIX: Teclas Y y U para navegación entre marcadores sin interferir con atajos del navegador
     if (key === 'y' && !event.ctrlKey) {
         event.preventDefault();
         const currentTimeMs = videoPlayer.currentTime * 1000;
@@ -607,16 +610,15 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
+    // 🎯 FIX: Implementación de Cortar (Ctrl + X) y navegación precisa
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
-        
-        // 🎯 FIX: Ctrl+C y Ctrl+X
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
-        
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
+        
         if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
             event.preventDefault(); event.stopPropagation();
             if (key === 'arrowleft' || key === 'arrowright') {
