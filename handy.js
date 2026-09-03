@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V1.1.6: ESCUDO ANTI-DECIMALES Y LIMPIEZA DE GHOST SCRIPTS
+// THE HANDY API V1.1.6: FILTRO DE SANEAMIENTO DE CSV ANTI-FALLOS
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -163,11 +163,30 @@ async function syncServerTime() {
 
 handyAutoSyncBtn?.addEventListener('click', syncServerTime);
 
-// 🎯 FIX: Escudo Anti-Decimales. Todo tiempo enviado al Handy DEBE ser número entero.
+// 🎯 FIX: Filtro Matemático Absoluto. Obliga a que todos los puntos sean enteros y estrictamente crecientes
+// El API de The Handy rechaza archivos si dos tiempos son idénticos o si detecta decimales.
 async function uploadScriptToHandyCloud() {
     let csvString = "0,0\n"; 
+    
     if (window.funscriptActions && window.funscriptActions.length > 0) {
-        csvString = window.funscriptActions.map(act => `${Math.round(act.at)},${Math.round(act.pos)}`).join('\n');
+        let sorted = [...window.funscriptActions].sort((a, b) => a.at - b.at);
+        let safeActions = [];
+        
+        for(let i = 0; i < sorted.length; i++) {
+            let at = Math.round(sorted[i].at);
+            let pos = Math.round(sorted[i].pos);
+            
+            // Forzar que el tiempo siempre avance, ni siquiera pueden ser iguales.
+            if (safeActions.length > 0) {
+                let prev = safeActions[safeActions.length - 1];
+                if (at <= prev.at) {
+                    at = prev.at + 1; 
+                }
+            }
+            safeActions.push({at, pos});
+        }
+        
+        csvString = safeActions.map(act => `${act.at},${act.pos}`).join('\n');
     }
 
     const blob = new Blob([csvString], { type: 'text/csv' });
