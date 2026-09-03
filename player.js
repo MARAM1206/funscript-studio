@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.9 (ATJOS Y/U, CTRL+X, DRAG PRESETS, SNAP 5%)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.11 (Y/U, CTRL+X, AUTO-DESELECCIÓN)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -22,7 +22,7 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🎯 FIX: Recuperar memoria del Tema
+// 🎯 FIX: Restauración de TEMA CLARO con Observador Pasivo
 const savedTheme = localStorage.getItem('funscript_theme');
 if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
@@ -38,7 +38,7 @@ const themeObserver = new MutationObserver(() => {
 });
 themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
-// 🎯 FIX: Sistema global de "Bloqueo a 5%" desde Configuración
+// 🎯 FIX: SNAP (BLOQUEO DE 5%) INDEPENDIENTE
 const snapToggle = document.getElementById('menu-snap-toggle');
 let savedSnap = localStorage.getItem('funscript_snap');
 if(savedSnap !== null) { snapToggle.checked = (savedSnap === 'true'); }
@@ -54,54 +54,6 @@ snapToggle.addEventListener('change', (e) => {
 document.getElementById('point-slider').step = window.snapValue;
 document.getElementById('min-slider').step = window.snapValue;
 document.getElementById('max-slider').step = window.snapValue;
-
-// 🎯 FIX: Motor de Arrastre Manual para Presets (Reordenar con Indicador)
-let draggingPresetEl = null;
-let dropIndicator = document.createElement('div');
-dropIndicator.className = 'preset-drop-indicator';
-
-document.addEventListener('dragstart', (e) => {
-    const card = e.target.closest('.preset-card');
-    if (card && card.parentNode.id.includes('presets')) {
-        draggingPresetEl = card;
-        card.classList.add('dragging-preset-item');
-        if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.id || ''); }
-    }
-});
-document.addEventListener('dragend', (e) => {
-    if (draggingPresetEl) {
-        draggingPresetEl.classList.remove('dragging-preset-item');
-        if (dropIndicator.parentNode) dropIndicator.parentNode.replaceChild(draggingPresetEl, dropIndicator);
-        draggingPresetEl = null;
-        window.dispatchEvent(new Event('presetsReordered')); 
-    }
-});
-document.addEventListener('dragover', (e) => {
-    if (draggingPresetEl) {
-        const container = e.target.closest('.presets-list-container, #modal-presets-library-list');
-        if (container) {
-            e.preventDefault();
-            const afterElement = getDragAfterElement(container, e.clientY);
-            if (afterElement == null) {
-                container.appendChild(dropIndicator);
-            } else {
-                container.insertBefore(dropIndicator, afterElement);
-            }
-        }
-    }
-});
-function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.preset-card:not(.dragging-preset-item)')];
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
 
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
@@ -279,11 +231,24 @@ videoProgress?.addEventListener('input', () => {
     }
 });
 
+// 🎯 FIX: Auto-deselección de Marcadores al reproducir o cambiar el tiempo activamente
 videoPlayer?.addEventListener('timeupdate', () => {
     if (!isSeeking && videoPlayer.duration && videoProgress) {
         videoProgress.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
     }
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+    
+    if (window.timelineMarkers) {
+        let currentMs = videoPlayer.currentTime * 1000;
+        let changed = false;
+        window.timelineMarkers.forEach(m => {
+            if (m.selected && Math.abs(m.at - currentMs) > 25) {
+                m.selected = false;
+                changed = true;
+            }
+        });
+        if(changed && typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
 });
 
 videoPlayer?.addEventListener('play', () => {
@@ -478,7 +443,6 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar";
 
             togglePanicCamouflage(true);
-            
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
             
         } else {
@@ -496,7 +460,6 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
             
             togglePanicCamouflage(false);
-
             preloadPanicImage(); 
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
         }
@@ -560,15 +523,19 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 FIX: Teclas Y y U para navegación entre marcadores sin interferir con atajos del navegador
     if (key === 'y' && !event.ctrlKey) {
         event.preventDefault();
         const currentTimeMs = videoPlayer.currentTime * 1000;
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             const prevMarkers = window.timelineMarkers.filter(m => m.at < currentTimeMs - 15);
             if (prevMarkers.length > 0) {
-                videoPlayer.currentTime = prevMarkers[prevMarkers.length - 1].at / 1000;
-                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: prevMarkers[prevMarkers.length - 1].at } }));
+                const targetMarker = prevMarkers[prevMarkers.length - 1];
+                videoPlayer.currentTime = targetMarker.at / 1000;
+                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: targetMarker.at } }));
+                
+                window.timelineMarkers.forEach(m => m.selected = false);
+                targetMarker.selected = true;
+                if (typeof window.drawTimeline === 'function') window.drawTimeline();
             }
         }
         return;
@@ -580,8 +547,13 @@ window.addEventListener('keydown', (event) => {
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             const nextMarkers = window.timelineMarkers.filter(m => m.at > currentTimeMs + 15);
             if (nextMarkers.length > 0) {
-                videoPlayer.currentTime = nextMarkers[0].at / 1000;
-                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: nextMarkers[0].at } }));
+                const targetMarker = nextMarkers[0];
+                videoPlayer.currentTime = targetMarker.at / 1000;
+                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: targetMarker.at } }));
+                
+                window.timelineMarkers.forEach(m => m.selected = false);
+                targetMarker.selected = true;
+                if (typeof window.drawTimeline === 'function') window.drawTimeline();
             } else {
                 const lastMarker = window.timelineMarkers[window.timelineMarkers.length - 1];
                 if (currentTimeMs >= lastMarker.at + 15) {
@@ -610,11 +582,11 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 FIX: Implementación de Cortar (Ctrl + X) y navegación precisa
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
+        
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
