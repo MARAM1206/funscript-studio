@@ -1,5 +1,5 @@
 // ==========================================================================
-// THE HANDY API V1.1.5: FORMATEO DE MEMORIA PARA PUNTOS ELIMINADOS
+// THE HANDY API V1.1.6: ESCUDO ANTI-DECIMALES Y LIMPIEZA DE GHOST SCRIPTS
 // ==========================================================================
 
 const HANDY_API_BASE = "https://www.handyfeeling.com/api/handy/v2";
@@ -11,7 +11,6 @@ let serverTimeOffset = 0;
 let pingInterval = null; 
 
 let autoUpdateTimeout = null;
-let lastUploadedScriptStr = "";
 let isUpdatePending = false; 
 
 const handyKeyInput = document.getElementById('handy-key');
@@ -87,8 +86,7 @@ handyConnectBtn?.addEventListener('click', async () => {
             if (pingInterval) clearInterval(pingInterval);
             pingInterval = setInterval(syncServerTime, 60000);
 
-            lastUploadedScriptStr = "";
-            window.triggerHandyUpdate(); // Fuerza subida inmediata al conectar
+            window.triggerHandyUpdate(); 
         } else {
             throw new Error("Juguete apagado o desconectado.");
         }
@@ -165,11 +163,11 @@ async function syncServerTime() {
 
 handyAutoSyncBtn?.addEventListener('click', syncServerTime);
 
-// 🎯 FIX: Sistema Anti-Ghost. Si el script está vacío, sube "0,0" para formatear la memoria del Handy
+// 🎯 FIX: Escudo Anti-Decimales. Todo tiempo enviado al Handy DEBE ser número entero.
 async function uploadScriptToHandyCloud() {
     let csvString = "0,0\n"; 
     if (window.funscriptActions && window.funscriptActions.length > 0) {
-        csvString = window.funscriptActions.map(act => `${act.at},${act.pos}`).join('\n');
+        csvString = window.funscriptActions.map(act => `${Math.round(act.at)},${Math.round(act.pos)}`).join('\n');
     }
 
     const blob = new Blob([csvString], { type: 'text/csv' });
@@ -243,7 +241,6 @@ window.stopHandy = async function() {
 window.triggerHandyUpdate = function() {
     if (!isHandyConnected) return;
     
-    // Ignoramos la caché local de strings para forzar la actualización si o si
     clearTimeout(autoUpdateTimeout);
     
     isUpdatePending = true;
