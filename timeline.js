@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.7: INERCIA DE CÁMARA RESTAURADA Y SELECCIÓN MÚLTIPLE LIGERA
+// TIMELINE V1.1.8: SELECCIÓN MILIMÉTRICA DE MARCADORES Y BLOQUEO POR CTRL
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -58,10 +58,10 @@ let hasDraggedSelection = false;
 let selStartT = 0, selStartY = 0;
 let selCurrT = 0, selCurrY = 0;
 
-// 🎯 FIX: Variables para arrastre de caja superior en los marcadores
+// 🎯 FIX: Sistema basado en Tiempo Real en lugar de Píxeles estáticos
 let isSelectingMarkers = false;
-let selStartMarkerX = 0;
-let selCurrMarkerX = 0;
+let selStartMarkerT = 0;
+let selCurrMarkerT = 0;
 let markerSelectionInitialStates = [];
 
 let isDraggingNode = false; 
@@ -591,6 +591,9 @@ window.addEventListener('presetCustomDrop', (e) => {
                 window.isDraggingPreset = false; window.timelineGhostPreset = null;
                 window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
                 
+                // 🎯 FIX: Des-seleccionar marcadores después de pegar un preset con éxito
+                if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
                 notifyCloud(); window.updateHeatmapAndStats();
                 return;
@@ -618,6 +621,9 @@ window.addEventListener('presetCustomDrop', (e) => {
         cleanDuplicates(); 
         window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
         
+        // 🎯 FIX: Des-seleccionar marcadores en dropeo normal
+        if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); window.updateHeatmapAndStats();
     }
@@ -1003,14 +1009,14 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: Caja visual de Selección de Marcadores
+        // 🎯 FIX: Dibujado de Caja Mágica de Selección de Marcadores
         if (isSelectingMarkers) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(217, 70, 239, 0.8)'; ctx.fillStyle = 'rgba(217, 70, 239, 0.15)';
             ctx.setLineDash([2, 2]); ctx.beginPath(); 
-            const sX = selStartMarkerX;
-            const cX = selCurrMarkerX;
-            ctx.fillRect(sX, 0, cX - sX, 25); 
-            ctx.strokeRect(sX, 0, cX - sX, 25); 
+            const sX_m = timeToX(selStartMarkerT);
+            const cX_m = timeToX(selCurrMarkerT);
+            ctx.fillRect(sX_m, 0, cX_m - sX_m, 40); 
+            ctx.strokeRect(sX_m, 0, cX_m - sX_m, 40); 
             ctx.setLineDash([]);
         }
 
@@ -1031,11 +1037,12 @@ window.drawTimeline = function() {
 
                     ctx.fillStyle = m.selected ? '#facc15' : '#d946ef';
                     ctx.beginPath();
-                    ctx.roundRect(mx - 15, 0, 30, 20, [0, 0, 4, 4]);
+                    // 🎯 FIX: Marcadores un 25% más altos para fácil clicleo
+                    ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
                     ctx.fill();
 
                     ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText(`M${idx + 1}`, mx, 14); 
+                    ctx.fillText(`M${idx + 1}`, mx, 16); 
                     ctx.textAlign = 'left';
                     ctx.globalAlpha = 1.0;
                 }
@@ -1266,76 +1273,6 @@ window.drawTimeline = function() {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
-
-        // 🎯 FIX: Restauración de Paneo visual animado (Scroll Momentum)
-        if (window.scrollMomentum) {
-            if (Math.abs(window.scrollMomentum) > 0.1) {
-                window.scrollMomentum *= 0.92;
-            } else {
-                window.scrollMomentum = 0;
-            }
-
-            if (window.scrollMomentum !== 0) {
-                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
-                const isForward = window.scrollMomentum > 0;
-                
-                ctx.save();
-                ctx.globalAlpha = intensity * 0.6; 
-
-                const gradWidth = 200;
-                const centerY = canvas.height / 2;
-
-                if (isForward) {
-                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
-                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
-                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
-
-                    let offset = (performance.now() / 15) % 30;
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                    
-                    for(let i = 0; i < 3; i++) {
-                        let cx = canvas.width - 60 + offset - (i * 20);
-                        let alpha = 1 - (i * 0.2) - (offset / 30);
-                        ctx.globalAlpha = Math.max(0, intensity * alpha);
-                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
-                    }
-
-                    ctx.globalAlpha = intensity * 0.9;
-                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
-                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
-                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
-
-                } else {
-                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
-                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
-                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(30, 0, gradWidth, canvas.height);
-
-                    let offset = (performance.now() / 15) % 30;
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-                    for(let i = 0; i < 3; i++) {
-                        let cx = 80 - offset + (i * 20);
-                        let alpha = 1 - (i * 0.2) - (offset / 30);
-                        ctx.globalAlpha = Math.max(0, intensity * alpha);
-                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
-                    }
-
-                    ctx.globalAlpha = intensity * 0.9;
-                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
-                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
-                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
-                }
-                ctx.restore();
-            }
-        }
         
         window.updateGhostThumb();
 
@@ -1420,10 +1357,9 @@ canvas?.addEventListener('mousedown', (e) => {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                if (Math.abs(clickX - mx) <= 15 && clickY <= 25) { 
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 40) { 
                     clickedMarker = true;
-                    // 🎯 FIX: Respetar Ctrl para no deseleccionar, pero JAMÁS arrastrar si Ctrl está pisado
-                    if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mk !== m ? mk.selected = false : null);
+                    if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mx !== m ? mk.selected = false : null);
                     m.selected = e.ctrlKey ? !m.selected : true;
                     
                     if (m.selected && !e.ctrlKey) {
@@ -1436,11 +1372,11 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        // 🎯 FIX: Iniciar selección de arrastre en zona superior (solo marcadores)
-        if (clickY <= 25 && !clickedMarker) {
+        // 🎯 FIX: Activar Caja Mágica en todo el Header Superior de la línea de tiempo (Altura 40px)
+        if (clickY <= 40 && !clickedMarker) {
             isSelectingMarkers = true;
-            selStartMarkerX = clickX;
-            selCurrMarkerX = clickX;
+            selStartMarkerT = xToTime(clickX);
+            selCurrMarkerT = selStartMarkerT;
             markerSelectionInitialStates = window.timelineMarkers.map(m => m.selected);
             if (!e.ctrlKey) window.timelineMarkers.forEach(m => m.selected = false);
             return; 
@@ -1482,7 +1418,7 @@ canvas?.addEventListener('mousedown', (e) => {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                if (Math.abs(clickX - mx) <= 15 && clickY <= 25) {
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 40) {
                     const now = performance.now();
                     if (window.lastMarkerRightClickIdx === i && (now - window.lastMarkerRightClickTime < 350)) {
                         if (videoNode) {
@@ -1562,14 +1498,14 @@ canvas?.addEventListener('mousemove', (e) => {
     window.lastMouseX = mouseX;
     window.lastMouseY = mouseY;
     
-    // 🎯 FIX: Lógica de arrastre de selección de marcadores (Caja Mágica)
+    // 🎯 FIX: Caja Mágica basada 100% en el tiempo para que no falle al hacer scroll con el mouse
     if (isSelectingMarkers) {
-        selCurrMarkerX = mouseX;
-        const minX = Math.min(selStartMarkerX, selCurrMarkerX);
-        const maxX = Math.max(selStartMarkerX, selCurrMarkerX);
+        selCurrMarkerT = xToTime(mouseX);
+        const minT = Math.min(selStartMarkerT, selCurrMarkerT);
+        const maxT = Math.max(selStartMarkerT, selCurrMarkerT);
+        
         window.timelineMarkers.forEach((m, i) => {
-            const mx = timeToX(m.at);
-            if (mx >= minX && mx <= maxX) {
+            if (m.at >= minT && m.at <= maxT) {
                 m.selected = true;
             } else {
                 m.selected = e.ctrlKey ? markerSelectionInitialStates[i] : false;
@@ -1664,7 +1600,7 @@ canvas?.addEventListener('mousemove', (e) => {
         hwMin = device.overclock.min;
     }
 
-    if (!isDraggingNode && !isSelecting && !isDraggingMarker) {
+    if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers) {
         for (let i = 0; i < actions.length - 1; i++) {
             let act1 = actions[i]; let act2 = actions[i+1];
             let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
