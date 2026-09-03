@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.10">
+    <link rel="stylesheet" href="styles.css?v=1.1.9">
 </head>
 <body>
 
@@ -15,7 +15,13 @@
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
                     <a href="#" id="menu-controls-btn">⌨️ Controles</a>
-                    <label class="oc-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b;"><input type="checkbox" id="menu-snap-toggle" class="oc-toggle" checked> <span class="oc-text">Bloqueo de 5%</span></label>
+                    
+                    <!-- 🎯 FIX: Botón de Bloqueo 5% independiente con persistencia de memoria -->
+                    <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
+                        <input type="checkbox" id="menu-snap-toggle" class="snap-toggle" checked>
+                        <span class="snap-text">Bloqueo de 5%</span>
+                    </label>
+
                     <a href="#" style="pointer-events: none; color: #64748b;">Notas (Próximamente)</a>
                     <a href="#" id="menu-theme-btn">☀️ Modo claro</a>
                     <a href="#" id="menu-cache-btn">🗑️ Borrar Caché</a>
@@ -43,7 +49,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.10 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.9 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -114,6 +120,7 @@
         </div>
     </div>
 
+    <!-- 🎯 FIX: Atajos Y y U inyectados en la guía visual de los marcadores -->
     <div id="controls-modal" class="modal-overlay">
         <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
@@ -190,7 +197,6 @@
                     </div>
                     <div class="video-info-bar">
                         <div class="video-info-left">
-                            <!-- 🎯 FIX: Icono de Video 🎥 -->
                             <span id="v-name" class="info-text-white" style="max-width: 600px;">Sin video</span>
                         </div>
                         <div class="video-info-right">
@@ -275,12 +281,12 @@
 
     </div>
 
-    <script src="workspace.js?v=1.1.10"></script>
-    <script src="handy.js?v=1.1.10"></script> 
-    <script src="funscript.js?v=1.1.10"></script>
-    <script src="player.js?v=1.1.10"></script>
-    <script src="tracking.js?v=1.1.10"></script>
-    <script src="presets.js?v=1.1.10"></script>
-    <script src="timeline.js?v=1.1.10"></script>
+    <script src="workspace.js?v=1.1.9"></script>
+    <script src="handy.js?v=1.1.9"></script> 
+    <script src="funscript.js?v=1.1.9"></script>
+    <script src="player.js?v=1.1.9"></script>
+    <script src="tracking.js?v=1.1.9"></script>
+    <script src="presets.js?v=1.1.9"></script>
+    <script src="timeline.js?v=1.1.9"></script>
 </body>
 </html>
