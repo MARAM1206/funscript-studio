@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.5 (CORRECCIÓN DE ATAJOS DE TECLADO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.7 (RESTAURACIÓN DE FLECHAS DIRECCIONALES)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -363,7 +363,6 @@ window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
     if (event.key === 'Escape' || event.key === 'Esc') {
-        
         if (controlsModal && controlsModal.style.display === 'flex') {
             controlsModal.style.display = 'none';
             return;
@@ -412,7 +411,6 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar";
 
             togglePanicCamouflage(true);
-            
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
             
         } else {
@@ -430,7 +428,6 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
             
             togglePanicCamouflage(false);
-
             preloadPanicImage(); 
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
         }
@@ -449,7 +446,6 @@ window.addEventListener('keydown', (event) => {
 
     if (window.isDraggingPreset || window.isPastingMode) {
         const selectedMarkers = (window.timelineMarkers || []).filter(m => m.selected);
-        
         if (selectedMarkers.length > 2) {
             if (event.code === 'Space' || key === 'arrowleft' || key === 'arrowright') {
                 event.preventDefault(); 
@@ -512,7 +508,7 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    // 🎯 FIX 3: Teclas Separadas. Arriba/Abajo mueven la bola, Izq/Der mueven el tiempo
+    // 🎯 FIX: Restauración inteligente de Flechas (Izquierda/Derecha para mover en el tiempo, Arriba/Abajo para Posición)
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
@@ -534,11 +530,22 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
-    if (key === 'arrowup' || key === 'arrowdown') {
+    if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
-        const dir = (key === 'arrowup') ? 'up' : 'down';
-        window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: dir } }));
+        
+        if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
+        } 
+        else if (!isPlaying && hasSelection && (key === 'arrowleft' || key === 'arrowright')) {
+            window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
+        } 
+        else if (!isPlaying && hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
+            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
+        } 
+        else if (!isPlaying && !hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
+            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
+        }
         return; 
     }
 
