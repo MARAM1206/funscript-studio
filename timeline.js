@@ -1,12 +1,15 @@
 // ==========================================================================
-// TIMELINE V1.1.2: BLOQUEO DE PÁNICO Y EXTENSIONES .FUNSCRIPT FORZADAS
+// TIMELINE V1.2.0: MOTOR DE MARCADORES INTERACTIVOS Y PRESETS DINÁMICOS
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
 window.activeSuggestion = null; 
 
-window.presetMorphMode = 'stretch'; 
+// 🎯 FIX: Variables Maestras para el nuevo motor de Presets por Marcador
+window.presetFillMode = 'repeat'; 
+window.presetFillReps = 1;
+window.presetFillInitialized = false;
 
 window.hardwareDB = {
     "handy_std": {
@@ -83,97 +86,6 @@ function pDistance(x, y, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor, act0 = null, act3 = null) {
-    let dt_ms = act2.at - act1.at;
-    if (dt_ms <= 0) return null;
-    let dt_s = dt_ms / 1000.0;
-    let dp = Math.abs(act2.pos - act1.pos);
-    let speed = (dp * factor) / dt_s;
-
-    if (speed <= hwMax && (speed >= hwMin || dp === 0)) return null;
-
-    let isTooFast = speed > hwMax;
-    let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
-    let options = [];
-
-    let target_dp = (safe_speed * dt_s) / factor;
-    let dir = act2.pos >= act1.pos ? 1 : -1;
-    if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
-
-    let snap2_pos = Math.max(0, Math.min(100, Math.round(act1.pos + dir * target_dp)));
-    if (Math.abs(snap2_pos - act1.pos) > 0) options.push({ modIdx: 2, key: 'pos', val: snap2_pos, diff: Math.abs(snap2_pos - act2.pos) });
-
-    let snap1_pos = Math.max(0, Math.min(100, Math.round(act2.pos - dir * target_dp)));
-    if (Math.abs(act2.pos - snap1_pos) > 0) options.push({ modIdx: 1, key: 'pos', val: snap1_pos, diff: Math.abs(snap1_pos - act1.pos) });
-
-    let target_dt_ms = Math.round(((dp * factor) / safe_speed) * 1000);
-
-    let snap2_at = act1.at + target_dt_ms;
-    if (!act3 || snap2_at < act3.at - 10) options.push({ modIdx: 2, key: 'at', val: snap2_at, diff: Math.abs(snap2_at - act2.at) / 10 }); 
-
-    let snap1_at = act2.at - target_dt_ms;
-    if (snap1_at >= 0 && (!act0 || snap1_at > act0.at + 10)) options.push({ modIdx: 1, key: 'at', val: snap1_at, diff: Math.abs(snap1_at - act1.at) / 10 });
-
-    let validOptions = options.filter(opt => {
-        let test_dt = opt.key === 'at' ? (opt.modIdx === 2 ? opt.val - act1.at : act2.at - opt.val) : dt_ms;
-        let test_dp = opt.key === 'pos' ? (opt.modIdx === 2 ? Math.abs(opt.val - act1.pos) : Math.abs(act2.pos - opt.val)) : dp;
-        let test_s = (test_dp * factor) / (test_dt / 1000);
-        return test_s <= hwMax && (test_s >= hwMin || test_dp === 0);
-    });
-
-    if (validOptions.length === 0) return null;
-
-    validOptions.sort((a, b) => a.diff - b.diff);
-    return validOptions[0]; 
-}
-
-function massCorrectSelection(actions, hwMax, hwMin, factor) {
-    let changed = false;
-    for(let pass = 0; pass < 30; pass++) {
-        let passChanged = false;
-        for(let i = 0; i < actions.length - 1; i++) {
-            if (!actions[i].selected && !actions[i+1].selected) continue;
-
-            let act1 = actions[i]; let act2 = actions[i+1];
-            let dt_s = (act2.at - act1.at) / 1000.0;
-            if(dt_s <= 0) continue;
-
-            let dp = Math.abs(act2.pos - act1.pos);
-            let speed = (dp * factor) / dt_s;
-
-            if (speed > hwMax || (speed < hwMin && dp > 0)) {
-                let isTooFast = speed > hwMax;
-                let safe_speed = isTooFast ? hwMax - 1 : hwMin + 1;
-                let target_dp = (safe_speed * dt_s) / factor;
-                let dir = act2.pos >= act1.pos ? 1 : -1;
-                if (dp === 0) dir = act1.pos > 50 ? -1 : 1;
-
-                let ideal1 = act2.pos - dir * target_dp;
-                let ideal2 = act1.pos + dir * target_dp;
-
-                if (act1.selected && act2.selected) {
-                    let mid = (act1.pos + act2.pos) / 2;
-                    let new_dp_half = target_dp / 2;
-                    let new1 = Math.max(0, Math.min(100, Math.round(mid - dir * new_dp_half)));
-                    let new2 = Math.max(0, Math.min(100, Math.round(mid + dir * new_dp_half)));
-                    if(act1.pos !== new1 || act2.pos !== new2) {
-                        act1.pos = new1; act2.pos = new2;
-                        passChanged = true; changed = true;
-                    }
-                } else if (act2.selected) {
-                    let new2 = Math.max(0, Math.min(100, Math.round(ideal2)));
-                    if(act2.pos !== new2) { act2.pos = new2; passChanged = true; changed = true; }
-                } else if (act1.selected) {
-                    let new1 = Math.max(0, Math.min(100, Math.round(ideal1)));
-                    if(act1.pos !== new1) { act1.pos = new1; passChanged = true; changed = true; }
-                }
-            }
-        }
-        if (!passChanged) break; 
-    }
-    return changed;
-}
-
 function updateFpsInput(change) {
     if (!fpsInput) return;
     let val = parseInt(fpsInput.value, 10);
@@ -235,137 +147,38 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-window.getMorphedPreset = function(preset, selectedActions) {
-    if (!selectedActions || selectedActions.length === 0 || !preset || preset.length === 0) return null;
-    selectedActions.sort((a, b) => a.at - b.at);
+// 🎯 FIX: Nuevo Motor Matemático de Presets guiado estrictamente por Marcadores (Reemplaza Modo Adaptativo)
+window.getMorphedPreset = function(preset, t_start, t_end) {
+    if (!preset || preset.length === 0) return null;
+    const targetDuration = t_end - t_start;
+    if (targetDuration <= 0) return null;
+
+    const p_dur = preset[preset.length - 1].at;
+    if (p_dur <= 0) return null;
+
+    let result = [];
     
-    let useAnchorModifier = window.isRightClickDrag === true;
-    
-    if (window.presetMorphMode === 'raw') {
-        const t_min = selectedActions[0].at;
-        return preset.map(act => ({
-            at: Math.round(t_min + act.at),
+    if (window.presetFillMode === 'stretch') {
+        result = preset.map(act => ({
+            at: Math.round(t_start + (act.at / p_dur) * targetDuration),
             pos: act.pos
         }));
-    }
-    
-    if (selectedActions.length < 2) return null; 
-    
-    if (window.presetMorphMode === 'repeat' && selectedActions.length >= 3) {
-        let results = [];
-        let anchors = [0];
-        
-        const y_min = Math.min(...selectedActions.map(a => a.pos));
-        const y_max = Math.max(...selectedActions.map(a => a.pos));
-        const amplitude = y_max - y_min;
-        
-        if (amplitude > 5) {
-            const startsAtBottom = Math.abs(selectedActions[0].pos - y_min) <= Math.abs(selectedActions[0].pos - y_max);
-            let maxDeviation = 0;
-
-            for (let i = 1; i < selectedActions.length - 1; i++) {
-                let curr = selectedActions[i].pos;
-                if (startsAtBottom) {
-                    let deviation = curr - y_min;
-                    if (deviation > maxDeviation) maxDeviation = deviation;
-                    let isValley = curr <= (y_min + amplitude * 0.35);
-                    if (isValley && maxDeviation >= amplitude * 0.50) { anchors.push(i); maxDeviation = 0; }
-                } else {
-                    let deviation = y_max - curr;
-                    if (deviation > maxDeviation) maxDeviation = deviation;
-                    let isPeak = curr >= (y_max - amplitude * 0.35);
-                    if (isPeak && maxDeviation >= amplitude * 0.50) { anchors.push(i); maxDeviation = 0; }
-                }
-            }
-        }
-
-        if (anchors[anchors.length - 1] !== selectedActions.length - 1) anchors.push(selectedActions.length - 1);
-        if (anchors.length < 2) return window.getMorphedPresetChunk(preset, selectedActions, useAnchorModifier);
-
-        for (let k = 0; k < anchors.length - 1; k++) {
-            const chunk = selectedActions.slice(anchors[k], anchors[k+1] + 1);
-            if (chunk.length < 2) continue; 
-            const subPreset = window.getMorphedPresetChunk(preset, chunk, useAnchorModifier);
-            if (k > 0) subPreset.shift(); 
-            results.push(...subPreset);
-        }
-        return results;
     } else {
-        return window.getMorphedPresetChunk(preset, selectedActions, useAnchorModifier);
-    }
-};
-
-window.getMorphedPresetChunk = function(preset, selectedActions, useAnchor) {
-    const t_min = selectedActions[0].at;
-    const t_max = selectedActions[selectedActions.length - 1].at;
-    const targetDuration = t_max - t_min;
-    
-    const origStartPos = selectedActions[0].pos;
-    const origEndPos = selectedActions[selectedActions.length - 1].pos;
-    
-    const y_min = Math.min(...selectedActions.map(a => a.pos));
-    const y_max = Math.max(...selectedActions.map(a => a.pos));
-    
-    const preset_t_max = preset[preset.length - 1].at;
-    const preset_y_min = Math.min(...preset.map(a => a.pos));
-    const preset_y_max = Math.max(...preset.map(a => a.pos));
-
-    let origPeakT = t_min + targetDuration / 2;
-    let presetPeakT = preset_t_max / 2;
-
-    if (useAnchor) {
-        let maxDevOrig = -1;
-        for (let i = 0; i < selectedActions.length; i++) {
-            let dev = Math.max(Math.abs(selectedActions[i].pos - origStartPos), Math.abs(selectedActions[i].pos - origEndPos));
-            if (dev > maxDevOrig) { maxDevOrig = dev; origPeakT = selectedActions[i].at; }
-        }
-        let maxDevPreset = -1;
-        for (let i = 0; i < preset.length; i++) {
-            let dev = Math.max(Math.abs(preset[i].pos - preset[0].pos), Math.abs(preset[i].pos - preset[preset.length-1].pos));
-            if (dev > maxDevPreset) { maxDevPreset = dev; presetPeakT = preset[i].at; }
-        }
-    }
-    
-    return preset.map((act, index) => {
-        let newT;
-
-        if (useAnchor && presetPeakT > 0 && presetPeakT < preset_t_max && origPeakT > t_min && origPeakT < t_max) {
-            if (act.at <= presetPeakT) {
-                let progress = presetPeakT === 0 ? 0 : act.at / presetPeakT;
-                newT = t_min + progress * (origPeakT - t_min);
-            } else {
-                let progress = (act.at - presetPeakT) / (preset_t_max - presetPeakT);
-                newT = origPeakT + progress * (t_max - origPeakT);
-            }
-        } else {
-            let progress = preset_t_max === 0 ? 0 : (act.at / preset_t_max);
-            newT = t_min + progress * targetDuration;
-        }
+        const reps = window.presetFillReps || 1;
+        const repDuration = targetDuration / reps;
         
-        let newPos;
-        
-        if (index === 0) {
-            newPos = origStartPos;
-        } 
-        else if (index === preset.length - 1) {
-            newPos = origEndPos;
-        } 
-        else {
-            if (preset_y_max !== preset_y_min) {
-                let normalizedY = (act.pos - preset_y_min) / (preset_y_max - preset_y_min);
-                newPos = y_min + (normalizedY * (y_max - y_min));
-            } else {
-                newPos = y_min + (y_max - y_min) / 2;
+        for (let r = 0; r < reps; r++) {
+            const offset = t_start + (r * repDuration);
+            for (let i = 0; i < preset.length; i++) {
+                if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
+                result.push({
+                    at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
+                    pos: preset[i].pos
+                });
             }
         }
-        
-        let snappedPos = Math.round(newPos / 5) * 5;
-        
-        return { 
-            at: Math.round(newT), 
-            pos: Math.max(0, Math.min(100, snappedPos)) 
-        };
-    });
+    }
+    return result;
 };
 
 window.updateHeatmapAndStats = function() {
@@ -393,26 +206,18 @@ window.updateHeatmapAndStats = function() {
             if (validSegments > 0) {
                 const fapTapSpeed = Math.round(totalSegmentSpeed / validSegments);
                 if (fapTapSpeed >= 501) { 
-                    speedText = `Very Fast (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#dc2626" : "#ef4444"; 
-                } 
-                else if (fapTapSpeed >= 301) { 
-                    speedText = `Fast (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#ea580c" : "#f97316"; 
-                } 
-                else if (fapTapSpeed >= 151) { 
-                    speedText = `Medium (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#ca8a04" : "#facc15"; 
-                } 
-                else { 
-                    speedText = `Slow (${fapTapSpeed})`; 
-                    colorHtml = isLight ? "#059669" : "#10b981"; 
+                    speedText = `Very Fast (${fapTapSpeed})`; colorHtml = isLight ? "#dc2626" : "#ef4444"; 
+                } else if (fapTapSpeed >= 301) { 
+                    speedText = `Fast (${fapTapSpeed})`; colorHtml = isLight ? "#ea580c" : "#f97316"; 
+                } else if (fapTapSpeed >= 151) { 
+                    speedText = `Medium (${fapTapSpeed})`; colorHtml = isLight ? "#ca8a04" : "#facc15"; 
+                } else { 
+                    speedText = `Slow (${fapTapSpeed})`; colorHtml = isLight ? "#059669" : "#10b981"; 
                 } 
             }
         } else if (actions.length === 1) {
             const isLight = document.body.classList.contains('light-theme');
-            speedText = "Slow (0)"; 
-            colorHtml = isLight ? "#059669" : "#10b981";
+            speedText = "Slow (0)"; colorHtml = isLight ? "#059669" : "#10b981";
         }
         statsSpan.innerHTML = `Puntos: <strong style="color:var(--text-main, #e2e8f0);">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88; white-space: nowrap;">${speedText}</strong>`;
     }
@@ -475,7 +280,6 @@ window.updateHeatmapAndStats = function() {
         }
     }
 
-    // 🎯 FIX: Obliga a mostrar .funscript en los nombres de archivo si faltan
     if (!document.body.classList.contains('panic-mode-active')) {
         document.querySelectorAll('.file-manager-script .track-name').forEach(el => {
             let txt = el.innerText.trim();
@@ -495,6 +299,8 @@ window.updateHeatmapAndStats = function() {
             }
         });
     }
+    
+    if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
 };
 
 const originalUpdateActionsLog = window.updateActionsLog;
@@ -504,7 +310,6 @@ window.updateActionsLog = function() {
 };
 
 canvas?.addEventListener('wheel', (e) => {
-    // 🎯 FIX: Bloqueo de rueda en Pánico
     if (document.body.classList.contains('panic-mode-active')) return;
 
     e.preventDefault();
@@ -599,33 +404,53 @@ window.addEventListener('presetCustomDragOver', (e) => {
         window.timelineGhostMouseX = pos.x;
         window.timelineGhostMouseY = pos.y;
         
-        const actions = getSafeActions();
-        const snapDistMs = 350; 
-        const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+        // 🎯 FIX: Sistema de Anclaje a Marcadores Múltiples (Reemplaza adaptativo)
+        const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
         
-        const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
-        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-        const presetMid = presetDuration / 2; 
+        if (selectedMarkers.length >= 2) {
+            const t_start = selectedMarkers[0].at;
+            const t_end = selectedMarkers[selectedMarkers.length - 1].at;
 
-        let bestSnapTime = hoverTimeMs;
-        let minDistance = snapDistMs;
+            window.timelineGhostTimeMs = t_start; 
+            window.timelineGhostTargetEnd = t_end;
 
-        snapTargets.forEach(target => {
-            let distStart = Math.abs(hoverTimeMs - target);
-            if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
-            let distMid = Math.abs((hoverTimeMs + presetMid) - target);
-            if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
-            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
-            if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
-        });
+            if (!window.presetFillInitialized) {
+                const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+                window.presetFillMode = 'repeat';
+                window.presetFillReps = Math.max(1, Math.round((t_end - t_start) / pDur));
+                window.presetFillInitialized = true;
+            }
+        } else {
+            window.timelineGhostTargetEnd = null;
+            window.presetFillInitialized = false;
 
-        if (bestSnapTime < 0) bestSnapTime = 0;
-        window.timelineGhostTimeMs = bestSnapTime;
-        
-        let hoverPos = Math.round(hoverPosRaw / 5) * 5;
-        const basePos = window.timelineGhostPreset[0].pos;
-        window.timelineGhostDeltaPos = hoverPos - basePos;
-        window.timelineGhostTimeMs = hoverTimeMs;
+            const actions = getSafeActions();
+            const snapDistMs = 350; 
+            const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+            
+            const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
+            const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+            const presetMid = presetDuration / 2; 
+
+            let bestSnapTime = hoverTimeMs;
+            let minDistance = snapDistMs;
+
+            snapTargets.forEach(target => {
+                let distStart = Math.abs(hoverTimeMs - target);
+                if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
+                let distMid = Math.abs((hoverTimeMs + presetMid) - target);
+                if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
+                let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
+                if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
+            });
+
+            if (bestSnapTime < 0) bestSnapTime = 0;
+            window.timelineGhostTimeMs = bestSnapTime;
+            
+            let hoverPos = Math.round(hoverPosRaw / 5) * 5;
+            const basePos = window.timelineGhostPreset[0].pos;
+            window.timelineGhostDeltaPos = hoverPos - basePos;
+        }
     }
 });
 
@@ -634,26 +459,22 @@ window.addEventListener('presetCustomDrop', (e) => {
     if (window.isDraggingPreset && window.timelineGhostPreset) {
         ensureTrackExists();
         let actions = getSafeActions();
-        const selected = actions.filter(a => a.selected);
 
-        if (window.presetMorphMode === 'raw' || (window.isAdaptiveModeActive && selected.length >= 2)) {
-            const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.presetMorphMode === 'raw' ? [{at: window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x))}] : selected);
+        // 🎯 FIX: Inyección del Preset usando el Motor de Marcadores
+        if (window.timelineGhostTargetEnd) {
+            const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
             if (morphed) {
                 saveHistoryState();
-                
-                if (window.presetMorphMode === 'raw') {
-                    const newTimes = new Set(morphed.map(a => a.at));
-                    window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
-                    window.funscriptActions.forEach(a => a.selected = false);
-                    window.funscriptActions.push(...morphed);
-                } else {
-                    window.funscriptActions = actions.filter(a => !newTimes.has(a.at)); 
-                    morphed.forEach(m => m.selected = true);
-                    window.funscriptActions.push(...morphed);
-                }
+                const newTimes = new Set(morphed.map(a => a.at));
+                window.funscriptActions = actions.filter(a => !newTimes.has(a.at));
+                window.funscriptActions.forEach(a => a.selected = false);
+                morphed.forEach(m => m.selected = true);
+                window.funscriptActions.push(...morphed);
                 
                 cleanDuplicates();
-                window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+                window.isDraggingPreset = false; window.timelineGhostPreset = null;
+                window.presetFillInitialized = false; window.timelineGhostTargetEnd = null;
+                
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
                 notifyCloud(); window.updateHeatmapAndStats();
                 return;
@@ -711,7 +532,7 @@ sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('cha
 sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
 
 window.addEventListener('injectPoint', function(e) {
-    if (document.body.classList.contains('panic-mode-active')) return; // 🎯 FIX: Bloqueo de pánico
+    if (document.body.classList.contains('panic-mode-active')) return;
     ensureTrackExists(); 
     const actions = getSafeActions();
 
@@ -801,25 +622,28 @@ window.addEventListener('magnetPoint', function() {
 });
 
 window.addEventListener('deletePoints', () => {
-    if (document.body.classList.contains('panic-mode-active')) return; // 🎯 FIX: Bloqueo de pánico
+    if (document.body.classList.contains('panic-mode-active')) return; 
+
+    // 🎯 FIX: Eliminación de Marcadores Activos con Suprimir
+    let deletedMarker = false;
+    const initialMarkerCount = window.timelineMarkers.length;
+    window.timelineMarkers = window.timelineMarkers.filter(m => !m.selected);
+    if (window.timelineMarkers.length !== initialMarkerCount) {
+        deletedMarker = true;
+    }
+
     const actions = getSafeActions();
     let hasSelection = actions.some(a => a.selected);
-    if (!hasSelection) {
+    if (!hasSelection && !deletedMarker) {
         const closest = getPointUnderPlayhead(actions);
         if (closest) closest.selected = true; 
     }
     
-    if (actions.some(a => a.selected)) {
+    if (actions.some(a => a.selected) || deletedMarker) {
         saveHistoryState();
         window.funscriptActions = actions.filter(a => !a.selected);
         notifyCloud(); window.updateHeatmapAndStats();
-    }
-    
-    if (isDraggingMarker && draggedMarkerIndex !== -1) {
-        window.timelineMarkers.splice(draggedMarkerIndex, 1);
-        isDraggingMarker = false;
-        draggedMarkerIndex = -1;
-        window.drawTimeline();
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 });
 
@@ -1059,6 +883,35 @@ window.drawTimeline = function() {
             });
         }
 
+        // 🎯 FIX: DIBUJADO DEL SISTEMA DE MARCADORES
+        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+            window.timelineMarkers.forEach((m, idx) => {
+                const mx = timeToX(m.at);
+                if (mx >= 30) {
+                    let alpha = 1.0;
+                    if (m.selected) {
+                        alpha = 0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 150));
+                    }
+                    
+                    ctx.globalAlpha = alpha;
+                    ctx.strokeStyle = m.selected ? '#facc15' : '#d946ef'; 
+                    ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+                    ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ctx.fillStyle = m.selected ? '#facc15' : '#d946ef';
+                    ctx.beginPath();
+                    ctx.roundRect(mx - 15, 0, 30, 20, [0, 0, 4, 4]);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText(`M${idx + 1}`, mx, 14); 
+                    ctx.textAlign = 'left';
+                    ctx.globalAlpha = 1.0;
+                }
+            });
+        }
+
         if (actions.length > 0) {
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
@@ -1066,11 +919,7 @@ window.drawTimeline = function() {
             const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
             let hwMax = device.standard.max;
             let hwMin = device.standard.min;
-            if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
-                hwMax = device.overclock.max;
-                hwMin = device.overclock.min;
-            }
-
+            
             for (let i = 0; i < actions.length - 1; i++) {
                 const act1 = actions[i]; const act2 = actions[i+1];
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
@@ -1079,9 +928,7 @@ window.drawTimeline = function() {
                 let dt_ms = act2.at - act1.at;
                 let dp = Math.abs(act2.pos - act1.pos);
                 let speed_mms = 0;
-                if (dt_ms > 0) {
-                    speed_mms = (dp * device.factor) / (dt_ms / 1000);
-                }
+                if (dt_ms > 0) speed_mms = (dp * device.factor) / (dt_ms / 1000);
 
                 let colorNormal = isLight ? '#0284c7' : '#38bdf8'; 
                 let lineColor = colorNormal; 
@@ -1094,19 +941,10 @@ window.drawTimeline = function() {
                 } else if (speed_mms < hwMin && dp > 0) {
                     lineColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
                 }
-
-                let isMorphLine = act1.selected && act2.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
                 
                 ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-                
-                if (isMorphLine) {
-                    const pulse = 0.3 + 0.7 * (Math.sin(performance.now() / 250) * 0.5 + 0.5);
-                    ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
-                    ctx.lineWidth = 4;
-                } else {
-                    ctx.strokeStyle = lineColor;
-                    ctx.lineWidth = 3;
-                }
+                ctx.strokeStyle = lineColor;
+                ctx.lineWidth = 3;
                 ctx.stroke();
             }
 
@@ -1129,62 +967,18 @@ window.drawTimeline = function() {
                     }
                     if (act.selected) dotColor = isLight ? '#d97706' : '#f59e0b'; 
 
-                    let isTargetForMorph = act.selected && window.isAdaptiveModeActive && window.isDraggingPreset && window.presetMorphMode !== 'raw';
-                    
-                    if (isTargetForMorph) {
-                        const pulse = 0.3 + 0.7 * (Math.sin(performance.now() / 250) * 0.5 + 0.5);
-                        ctx.fillStyle = `rgba(239, 68, 68, ${pulse})`;
-                        ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
-                    } else {
-                        ctx.fillStyle = dotColor;
-                        ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
-                    }
+                    ctx.fillStyle = dotColor;
+                    ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                 }
             });
         }
 
-        if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
-            const act1 = actions[window.activeSuggestion.idx1];
-            const act2 = actions[window.activeSuggestion.idx2];
-
-            let simAct1 = {at: act1.at, pos: act1.pos};
-            let simAct2 = {at: act2.at, pos: act2.pos};
-
-            if (window.activeSuggestion.modIdx === 1) simAct1[window.activeSuggestion.key] = window.activeSuggestion.val;
-            else simAct2[window.activeSuggestion.key] = window.activeSuggestion.val;
-
-            let sx1 = timeToX(simAct1.at); let sy1 = posToY(simAct1.pos);
-            let sx2 = timeToX(simAct2.at); let sy2 = posToY(simAct2.pos);
-
-            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
-            ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
-
-            let targetX = window.activeSuggestion.modIdx === 1 ? sx1 : sx2;
-            let targetY = window.activeSuggestion.modIdx === 1 ? sy1 : sy2;
-
-            ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
-            ctx.fillStyle = '#10b981'; ctx.fill();
-            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
-            
-            const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
-            
-            let hasMultiselect = actions.filter(a => a.selected).length > 1;
-            let tooltipText = hasMultiselect ? "Clic Der: Auto-Corregir Masivo" : "Clic Derecho para Auto-Corregir";
-            let boxWidth = hasMultiselect ? 245 : 240;
-
-            ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
-            ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
-            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
-            ctx.font = 'bold 11px monospace';
-            ctx.fillText(tooltipText, mx + 25, my + 32);
-        }
-
+        // 🎯 FIX: Renderizado Fantasma con Info de Marcadores
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
-            const selected = actions.filter(a => a.selected);
-            if (window.isDraggingPreset && window.isAdaptiveModeActive && selected.length >= 2 && window.presetMorphMode !== 'raw') {
-                const morphed = window.getMorphedPreset(window.timelineGhostPreset, selected);
+            
+            if (window.timelineGhostTargetEnd) {
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
                 if (morphed) {
                     const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
                     ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
@@ -1199,26 +993,14 @@ window.drawTimeline = function() {
                         ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
                     });
                     
-                    const cursorX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(morphed[0].at);
-                    const cursorY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(morphed[0].pos);
+                    const cursorX = timeToX(window.timelineGhostTimeMs);
+                    const cursorY = posToY(50);
                     
-                    if (window.isRightClickDrag) {
-                        ctx.fillStyle = '#f43f5e'; 
-                        ctx.font = 'bold 12px monospace';
-                        let modeText = window.presetMorphMode === 'stretch' ? "Estirar" : "Repetir";
-                        ctx.fillText(`Modo: ${modeText} + ANCLAR PICO`, cursorX + 15, cursorY + 30);
-                        ctx.fillStyle = '#fda4af'; 
-                        ctx.font = 'bold 10px monospace';
-                        ctx.fillText("(Arrastre Especial Activado)", cursorX + 15, cursorY + 45);
-                    } else {
-                        ctx.fillStyle = '#10b981'; 
-                        ctx.font = 'bold 12px monospace';
-                        let modeText = window.presetMorphMode === 'stretch' ? "Estirar (Lineal)" : "Repetir (Ciclos)";
-                        ctx.fillText(`Modo Adaptativo: ${modeText}`, cursorX + 15, cursorY + 30);
-                        ctx.fillStyle = '#f59e0b'; 
-                        ctx.font = 'bold 10px monospace';
-                        ctx.fillText("(Presiona ESPACIO para alternar)", cursorX + 15, cursorY + 45);
-                    }
+                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                    let modeText = window.presetFillMode === 'stretch' ? "Modo: Estirar (1x)" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
+                    ctx.fillText(modeText, cursorX + 15, cursorY + 30);
+                    ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
+                    ctx.fillText("(Espacio = Cambiar | Flechas ⬅ ➡ = Ajustar)", cursorX + 15, cursorY + 45);
                 }
             } else {
                 const deltaY = window.timelineGhostDeltaPos || 0;
@@ -1240,13 +1022,8 @@ window.drawTimeline = function() {
                 const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(window.timelineGhostPreset[0].pos + deltaY);
                 
                 ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                
-                if (window.presetMorphMode === 'raw' && window.isDraggingPreset) {
-                    ctx.fillText("Modo Adaptativo: ESCALA PURA (Clon)", pasteX + 15, pasteY + 30);
-                    ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
-                    ctx.fillText("(Presiona ESPACIO para alternar)", pasteX + 15, pasteY + 45);
-                } else if (window.isPastingMode) {
-                    ctx.fillText("📋 PEGAR (Click para soltar o ESC para cancelar)", pasteX + 15, pasteY + 30);
+                if (window.isPastingMode) {
+                    ctx.fillText("📋 PEGAR LIBRE (Click para soltar)", pasteX + 15, pasteY + 30);
                 }
             }
         }
@@ -1261,44 +1038,6 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
-            window.timelineMarkers.forEach((m, index) => {
-                const mx = timeToX(m.at);
-                const my = posToY(m.pos);
-                if (mx >= 30) {
-                    ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
-                    ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
-                    ctx.setLineDash([]);
-                    
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
-                    ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
-
-                    ctx.fillStyle = (isDraggingMarker && draggedMarkerIndex === index) ? '#ffffff' : '#d946ef';
-                    ctx.beginPath();
-                    ctx.moveTo(mx - 15, 0);
-                    ctx.lineTo(mx + 15, 0);
-                    ctx.lineTo(mx + 15, 14);
-                    ctx.lineTo(mx, 22);
-                    ctx.lineTo(mx - 15, 14);
-                    ctx.closePath();
-                    ctx.fill();
-                    
-                    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText("TAG", mx, 10);
-                    ctx.textAlign = 'left';
-                }
-            });
-        }
-
-        if (window.magneticSnapPoint && !isSelecting && !isDraggingNode && !isDraggingMarker) {
-            const px = timeToX(window.magneticSnapPoint.at);
-            const py = posToY(window.magneticSnapPoint.pos);
-            ctx.lineWidth = 2; ctx.strokeStyle = '#10b981'; 
-            ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.stroke();
-            ctx.fillStyle = 'rgba(16, 185, 129, 0.3)'; ctx.fill();
-        }
-
         ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
         ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
 
@@ -1311,20 +1050,6 @@ window.drawTimeline = function() {
         if (playheadX >= 30) {
             ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
             ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
-        }
-
-        if (videoNode && videoNode.paused) {
-            actions.forEach(act => {
-                const px = timeToX(act.at);
-                if (px >= 30 && Math.abs(px - playheadX) <= 4) {
-                    const py = posToY(act.pos);
-                    let tooltipX = px + 8; let tooltipY = py - 18;
-                    if (tooltipY < 5) tooltipY = py + 8;
-                    ctx.fillStyle = 'rgba(11, 15, 23, 0.85)'; ctx.fillRect(tooltipX, tooltipY, 34, 16);
-                    ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1; ctx.strokeRect(tooltipX, tooltipY, 34, 16);
-                    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 10px monospace'; ctx.fillText(`${act.pos}%`, tooltipX + 4, tooltipY + 12);
-                }
-            });
         }
 
         if (document.fullscreenElement) {
@@ -1368,75 +1093,6 @@ window.drawTimeline = function() {
         } else {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) fsCanvas.style.display = 'none';
-        }
-
-        if (window.scrollMomentum) {
-            if (Math.abs(window.scrollMomentum) > 0.1) {
-                window.scrollMomentum *= 0.92;
-            } else {
-                window.scrollMomentum = 0;
-            }
-
-            if (window.scrollMomentum !== 0) {
-                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
-                const isForward = window.scrollMomentum > 0;
-                
-                ctx.save();
-                ctx.globalAlpha = intensity * 0.6; 
-
-                const gradWidth = 200;
-                const centerY = canvas.height / 2;
-
-                if (isForward) {
-                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
-                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
-                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
-
-                    let offset = (performance.now() / 15) % 30;
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                    
-                    for(let i = 0; i < 3; i++) {
-                        let cx = canvas.width - 60 + offset - (i * 20);
-                        let alpha = 1 - (i * 0.2) - (offset / 30);
-                        ctx.globalAlpha = Math.max(0, intensity * alpha);
-                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
-                    }
-
-                    ctx.globalAlpha = intensity * 0.9;
-                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
-                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
-                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
-
-                } else {
-                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
-                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
-                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(30, 0, gradWidth, canvas.height);
-
-                    let offset = (performance.now() / 15) % 30;
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-                    for(let i = 0; i < 3; i++) {
-                        let cx = 80 - offset + (i * 20);
-                        let alpha = 1 - (i * 0.2) - (offset / 30);
-                        ctx.globalAlpha = Math.max(0, intensity * alpha);
-                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
-                    }
-
-                    ctx.globalAlpha = intensity * 0.9;
-                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
-                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
-                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
-                }
-                ctx.restore();
-            }
         }
         
         window.updateGhostThumb();
@@ -1519,17 +1175,28 @@ canvas?.addEventListener('mousedown', (e) => {
     const clickX = pos.x; const clickY = pos.y;
 
     if (e.button === 0) { 
+        // 🎯 FIX: Detección y arrastre de Marcadores Superiores (M1, M2...)
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
                 const mx = timeToX(m.at);
-                if (Math.abs(clickX - mx) <= 15 && clickY <= 30) { 
-                    isDraggingMarker = true;
-                    draggedMarkerIndex = i;
-                    saveHistoryState();
+                if (Math.abs(clickX - mx) <= 15 && clickY <= 25) { 
+                    if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mx !== m ? mk.selected = false : null);
+                    m.selected = !m.selected;
+                    
+                    if (m.selected) {
+                        isDraggingMarker = true;
+                        draggedMarkerIndex = i;
+                    }
+                    if (typeof window.drawTimeline === 'function') window.drawTimeline();
                     return; 
                 }
             }
+        }
+
+        // Si se hizo click fuera de los marcadores (y sin ctrl), deseleccionarlos todos
+        if (!e.ctrlKey && clickY > 25) {
+            window.timelineMarkers.forEach(m => m.selected = false);
         }
 
         let clickedNode = null;
@@ -1561,53 +1228,14 @@ canvas?.addEventListener('mousedown', (e) => {
             selCurrT = selStartT;
             selCurrY = clickY;
             
-            window.startMagneticSnapPoint = window.magneticSnapPoint ? { ...window.magneticSnapPoint } : null;
         }
     } else if (e.button === 2) { 
-        
-        let selectedCount = actions.filter(a => a.selected).length;
-        
-        if (selectedCount > 1 || window.activeSuggestion) {
-            e.preventDefault();
-            saveHistoryState();
-            
-            let wasFixed = false;
-            
-            if (selectedCount > 1) {
-                const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
-                let hwMax = device.standard.max;
-                let hwMin = device.standard.min;
-                if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
-                    hwMax = device.overclock.max;
-                    hwMin = device.overclock.min;
-                }
-                wasFixed = massCorrectSelection(actions, hwMax, hwMin, device.factor);
-            } else if (window.activeSuggestion) {
-                if (window.activeSuggestion.modIdx === 1) {
-                    actions[window.activeSuggestion.idx1][window.activeSuggestion.key] = window.activeSuggestion.val;
-                } else {
-                    actions[window.activeSuggestion.idx2][window.activeSuggestion.key] = window.activeSuggestion.val;
-                }
-                wasFixed = true;
-            }
-
-            if (wasFixed) {
-                window.activeSuggestion = null;
-                cleanDuplicates();
-                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-                notifyCloud(); window.updateHeatmapAndStats();
-                if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                return;
-            }
-        }
-
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
             if (videoNode) {
                 let clickedTimeMs = xToTime(clickX);
                 videoNode.currentTime = Math.max(0, clickedTimeMs / 1000);
-                
                 window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: clickedTimeMs } }));
             }
             lastRightClickTime = 0;
@@ -1630,30 +1258,20 @@ canvas?.addEventListener('mousemove', (e) => {
     window.lastMouseX = mouseX;
     window.lastMouseY = mouseY;
     
+    // 🎯 FIX: Lógica para arrastrar Marcadores y su dibujo en Video
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         const m = window.timelineMarkers[draggedMarkerIndex];
         let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
-        let newPos = Math.max(0, Math.min(100, Math.round(yToPos(mouseY) / 5) * 5)); 
 
         const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
-        if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = actualTimeMs;
-
-        let minPxDist = 15;
-        const actions = getSafeActions();
-        actions.forEach(act => {
-            const px = timeToX(act.at);
-            const py = posToY(act.pos);
-            const mPx = timeToX(newAt);
-            const mPy = posToY(newPos);
-            if (Math.hypot(mPx - px, mPy - py) < minPxDist) {
-                newAt = act.at;
-                newPos = act.pos;
-            }
-        });
+        if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = Math.round(actualTimeMs);
 
         m.at = Math.max(0, newAt);
-        m.pos = newPos;
+        window.timelineMarkers.sort((a, b) => a.at - b.at);
+        draggedMarkerIndex = window.timelineMarkers.indexOf(m); 
+        
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
         return;
     }
 
@@ -1664,112 +1282,70 @@ canvas?.addEventListener('mousemove', (e) => {
         window.timelineGhostMouseX = mouseX;
         window.timelineGhostMouseY = mouseY;
         
-        const snapDistMs = 350; 
-        const actions = getSafeActions();
-        const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+        const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
         
-        const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
-        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-        const presetMid = presetDuration / 2; 
+        if (selectedMarkers.length >= 2) {
+            const t_start = selectedMarkers[0].at;
+            const t_end = selectedMarkers[selectedMarkers.length - 1].at;
 
-        let bestSnapTime = hoverTimeMs;
-        let minDistance = snapDistMs;
+            window.timelineGhostTimeMs = t_start; 
+            window.timelineGhostTargetEnd = t_end;
 
-        snapTargets.forEach(target => {
-            let distStart = Math.abs(hoverTimeMs - target);
-            if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
-            let distMid = Math.abs((hoverTimeMs + presetMid) - target);
-            if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
-            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
-            if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
-        });
+            if (!window.presetFillInitialized) {
+                const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+                window.presetFillMode = 'repeat';
+                window.presetFillReps = Math.max(1, Math.round((t_end - t_start) / pDur));
+                window.presetFillInitialized = true;
+            }
+        } else {
+            window.timelineGhostTargetEnd = null;
+            window.presetFillInitialized = false;
 
-        if (bestSnapTime < 0) bestSnapTime = 0;
-        window.timelineGhostTimeMs = bestSnapTime;
-        
-        let hoverPos = Math.round(hoverPosRaw / 5) * 5;
-        const basePos = window.timelineGhostPreset[0].pos;
-        window.timelineGhostDeltaPos = hoverPos - basePos;
-        return; 
+            const actions = getSafeActions();
+            const snapDistMs = 350; 
+            const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+            
+            const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
+            const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+            const presetMid = presetDuration / 2; 
+
+            let bestSnapTime = hoverTimeMs;
+            let minDistance = snapDistMs;
+
+            snapTargets.forEach(target => {
+                let distStart = Math.abs(hoverTimeMs - target);
+                if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
+                let distMid = Math.abs((hoverTimeMs + presetMid) - target);
+                if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
+                let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
+                if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
+            });
+
+            if (bestSnapTime < 0) bestSnapTime = 0;
+            window.timelineGhostTimeMs = bestSnapTime;
+            
+            let hoverPos = Math.round(hoverPosRaw / 5) * 5;
+            const basePos = window.timelineGhostPreset[0].pos;
+            window.timelineGhostDeltaPos = hoverPos - basePos;
+        }
     }
 
     const actions = getSafeActions();
 
-    window.activeSuggestion = null;
-    const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
-    let hwMax = device.standard.max;
-    let hwMin = device.standard.min;
-    if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
-        hwMax = device.overclock.max;
-        hwMin = device.overclock.min;
-    }
-
-    if (!isDraggingNode && !isSelecting && !isDraggingMarker) {
-        for (let i = 0; i < actions.length - 1; i++) {
-            let act1 = actions[i]; let act2 = actions[i+1];
-            let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
-            let px2 = timeToX(act2.at); let py2 = posToY(act2.pos);
-            
-            if (mouseX >= Math.min(px1, px2) - 20 && mouseX <= Math.max(px1, px2) + 20) {
-                let dist = pDistance(mouseX, mouseY, px1, py1, px2, py2);
-                if (dist <= 15) { 
-                    let act0 = i > 0 ? actions[i-1] : null;
-                    let act3 = i < actions.length - 2 ? actions[i+2] : null;
-                    let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor, act0, act3);
-                    if (suggestion) {
-                        window.activeSuggestion = { ...suggestion, idx1: i, idx2: i+1 };
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    window.magneticSnapPoint = null;
-    if (!isSelecting) {
-        let minDistance = 15; 
-        if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
-            window.loadedFunscriptTracks.forEach(track => {
-                if (!track.isPrimary && track.visible && track.actions) {
-                    track.actions.forEach(act => {
-                        const px = timeToX(act.at); const py = posToY(act.pos);
-                        const dist = Math.hypot(mouseX - px, mouseY - py);
-                        if (dist < minDistance) {
-                            minDistance = dist;
-                            window.magneticSnapPoint = { at: act.at, pos: act.pos };
-                        }
-                    });
-                }
-            });
-        }
-    }
-
     if (isDraggingNode && dragSelectionInitialStates.length > 0) {
         let snappedTimeDelta = 0;
         let snappedPosDelta = 0;
-        let useMagnet = false;
 
-        if (window.magneticSnapPoint && draggedNodeIndex !== -1) {
-            const initialDragged = dragSelectionInitialStates[draggedNodeIndex];
-            snappedTimeDelta = window.magneticSnapPoint.at - initialDragged.at;
-            snappedPosDelta = window.magneticSnapPoint.pos - initialDragged.pos;
-            useMagnet = true;
-        } else {
-            const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
-            const rawPosDelta = yToPos(mouseY) - dragStartYPos;
-            snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
-            snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
-        }
+        const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
+        const rawPosDelta = yToPos(mouseY) - dragStartYPos;
+        snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
+        snappedPosDelta = Math.round(rawPosDelta / 5) * 5;
 
         actions.forEach((act, i) => {
             if (dragSelectionInitialStates[i].selected) {
                 act.at = Math.max(0, dragSelectionInitialStates[i].at + snappedTimeDelta);
-                if (useMagnet) {
-                    act.pos = Math.max(0, Math.min(100, dragSelectionInitialStates[i].pos + snappedPosDelta));
-                } else {
-                    const rawP = dragSelectionInitialStates[i].pos + snappedPosDelta;
-                    act.pos = Math.max(0, Math.min(100, Math.round(rawP / 5) * 5));
-                }
+                const rawP = dragSelectionInitialStates[i].pos + snappedPosDelta;
+                act.pos = Math.max(0, Math.min(100, Math.round(rawP / 5) * 5));
             }
         });
         
@@ -1810,11 +1386,6 @@ window.addEventListener('mouseup', (e) => {
 
             let clickTime = Math.max(0, Math.round(selStartT / 50) * 50);
             let clickPos = Math.round(yToPos(selStartY) / 5) * 5; 
-            
-            if (window.startMagneticSnapPoint) {
-                clickTime = window.startMagneticSnapPoint.at;
-                clickPos = window.startMagneticSnapPoint.pos;
-            }
 
             saveHistoryState();
             
