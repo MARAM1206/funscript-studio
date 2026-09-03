@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.11 (Y/U, CTRL+X, AUTO-DESELECCIÓN)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.16 (ANIMACIÓN TEMA V2, DISPOSITIVOS, CACHÉ)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -22,7 +22,7 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🎯 FIX: Restauración de TEMA CLARO con Observador Pasivo
+// 🎯 FIX: Recuperar Tema con Animación Restaurada
 const savedTheme = localStorage.getItem('funscript_theme');
 if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
@@ -30,15 +30,49 @@ if (savedTheme === 'light') {
     if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
 }
 
-const themeObserver = new MutationObserver(() => {
-    const isLight = document.body.classList.contains('light-theme');
-    localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-    const tBtn = document.getElementById('menu-theme-btn');
-    if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
-});
-themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+document.getElementById('menu-theme-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const toggleTheme = () => {
+        const isLight = document.body.classList.toggle('light-theme');
+        localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+        const tBtn = document.getElementById('menu-theme-btn');
+        if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
+    };
 
-// 🎯 FIX: SNAP (BLOQUEO DE 5%) INDEPENDIENTE
+    // La animación espectacular de la Gota
+    if (document.startViewTransition) {
+        document.documentElement.style.setProperty('--ripple-x', e.clientX + 'px');
+        document.documentElement.style.setProperty('--ripple-y', e.clientY + 'px');
+        document.startViewTransition(toggleTheme);
+    } else {
+        toggleTheme();
+    }
+});
+
+// 🎯 FIX: Selección Activa de Juguetes
+document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.querySelectorAll('#device-dropdown-list a').forEach(el => el.classList.remove('selected-device'));
+        link.classList.add('selected-device');
+        window.activeDevice = link.dataset.device;
+        
+        const btn = document.getElementById('device-menu-btn');
+        if (btn) btn.innerText = `📱 ${link.innerText}`;
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    });
+});
+
+const ocToggle = document.querySelector('.oc-toggle');
+if (ocToggle) {
+    ocToggle.addEventListener('change', (e) => {
+        window.isOverclockEnabled = e.target.checked;
+        const ocText = document.querySelector('.oc-text');
+        if (ocText) ocText.innerText = e.target.checked ? "Overclock On" : "Overclock Off";
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    });
+}
+
 const snapToggle = document.getElementById('menu-snap-toggle');
 let savedSnap = localStorage.getItem('funscript_snap');
 if(savedSnap !== null) { snapToggle.checked = (savedSnap === 'true'); }
@@ -54,6 +88,54 @@ snapToggle.addEventListener('change', (e) => {
 document.getElementById('point-slider').step = window.snapValue;
 document.getElementById('min-slider').step = window.snapValue;
 document.getElementById('max-slider').step = window.snapValue;
+
+
+let draggingPresetEl = null;
+let dropIndicator = document.createElement('div');
+dropIndicator.className = 'preset-drop-indicator';
+
+document.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.preset-card');
+    if (card && card.parentNode.id.includes('presets')) {
+        draggingPresetEl = card;
+        card.classList.add('dragging-preset-item');
+        if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.id || ''); }
+    }
+});
+document.addEventListener('dragend', (e) => {
+    if (draggingPresetEl) {
+        draggingPresetEl.classList.remove('dragging-preset-item');
+        if (dropIndicator.parentNode) dropIndicator.parentNode.replaceChild(draggingPresetEl, dropIndicator);
+        draggingPresetEl = null;
+        window.dispatchEvent(new Event('presetsReordered')); 
+    }
+});
+document.addEventListener('dragover', (e) => {
+    if (draggingPresetEl) {
+        const container = e.target.closest('.presets-list-container, #modal-presets-library-list');
+        if (container) {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) {
+                container.appendChild(dropIndicator);
+            } else {
+                container.insertBefore(dropIndicator, afterElement);
+            }
+        }
+    }
+});
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.preset-card:not(.dragging-preset-item)')];
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
 
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
@@ -80,6 +162,17 @@ document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
 document.getElementById('close-controls-btn')?.addEventListener('click', () => {
     if (controlsModal) controlsModal.style.display = 'none';
 });
+
+// 🎯 FIX: Botón de Caché Seguro
+const cacheBtn = document.getElementById('menu-cache-btn');
+if (cacheBtn) {
+    cacheBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (confirm('¿Borrar caché temporal y recargar? (Tus presets y el acomodo de pestañas NO se perderán)')) {
+            location.reload(true);
+        }
+    });
+}
 
 const videoVolume = document.getElementById('video-volume');
 const volumeTooltip = document.getElementById('volume-tooltip');
@@ -231,7 +324,6 @@ videoProgress?.addEventListener('input', () => {
     }
 });
 
-// 🎯 FIX: Auto-deselección de Marcadores al reproducir o cambiar el tiempo activamente
 videoPlayer?.addEventListener('timeupdate', () => {
     if (!isSeeking && videoPlayer.duration && videoProgress) {
         videoProgress.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
@@ -443,6 +535,7 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar";
 
             togglePanicCamouflage(true);
+            
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
             
         } else {
@@ -460,6 +553,7 @@ window.addEventListener('keydown', (event) => {
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
             
             togglePanicCamouflage(false);
+
             preloadPanicImage(); 
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
         }
@@ -549,7 +643,7 @@ window.addEventListener('keydown', (event) => {
             if (nextMarkers.length > 0) {
                 const targetMarker = nextMarkers[0];
                 videoPlayer.currentTime = targetMarker.at / 1000;
-                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: targetMarker.at } }));
+                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: nextMarkers[0].at } }));
                 
                 window.timelineMarkers.forEach(m => m.selected = false);
                 targetMarker.selected = true;
