@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.1.12 (DISEÑO 90/10, EDITOR INFINITO, AUTO-ESCALA)
+// PRESETS MANAGER V1.1.16 (CUADRÍCULA 10%, LÓGICA SOBRESCRIBIR, ESCALA AUTO)
 // ==========================================================================
 
 window.presetsLibrary = JSON.parse(localStorage.getItem('funscript_presets')) || [
@@ -13,7 +13,6 @@ function savePresets() {
     updatePresetsUI();
 }
 
-// 🎯 FIX: Auto-escala matemática para presets sin desbordamientos
 window.renderPresetMiniCanvas = function(canvas, presetData) {
     if (!canvas || !presetData || presetData.length === 0) return;
     const ctx = canvas.getContext('2d');
@@ -53,7 +52,6 @@ window.renderPresetMiniCanvas = function(canvas, presetData) {
     });
 };
 
-// 🎯 FIX: Arquitectura V2 de tarjetas (Canvas 90% y superposición de Título)
 function createPresetCard(preset, isModal = false) {
     const card = document.createElement('div');
     card.className = 'preset-card';
@@ -218,7 +216,7 @@ document.getElementById('save-preset-btn')?.addEventListener('click', () => {
 });
 
 // ==========================================================================
-// 🎯 FIX: EDITOR DE PRESETS (LÍNEA DE TIEMPO INFINITA NATIVA)
+// 🎯 FIX: EDITOR DE PRESETS (CUADRÍCULA 10% Y LÓGICA DE BOTONES INTELIGENTE)
 // ==========================================================================
 
 const modal = document.getElementById('preset-editor-modal');
@@ -247,6 +245,16 @@ function openPresetEditor(preset) {
     currentEditId = preset.id;
     nameInput.value = preset.name;
     editData = JSON.parse(JSON.stringify(preset.data)); 
+
+    // 🎯 FIX: Lógica condicional de botones para crear o sobreescribir
+    if (preset.id === 'new') {
+        saveNewBtn.style.display = 'none';
+        saveBtn.innerText = 'Guardar';
+    } else {
+        saveNewBtn.style.display = 'block';
+        saveBtn.innerText = 'Sobrescribir';
+    }
+
     mScrollMs = -200; mZoom = 1.0;
     if(modal) modal.style.display = 'flex';
     resizeModalCanvas();
@@ -301,8 +309,14 @@ window.drawModalCanvas = function() {
     const w = canvasModal.width; const h = canvasModal.height;
     modalCtx.clearRect(0, 0, w, h);
     
-    modalCtx.strokeStyle = 'rgba(255,255,255,0.05)'; modalCtx.lineWidth = 1;
-    [0, 25, 50, 75, 100].forEach(p => {
+    if (editData.length === 0) return;
+    
+    const maxTime = editData[editData.length - 1].at > 0 ? editData[editData.length - 1].at : 1000;
+    
+    // 🎯 FIX: Grid de Porcentajes del 10% en 10%
+    modalCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+    modalCtx.lineWidth = 1;
+    [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
         const y = mPosToY(p);
         modalCtx.beginPath(); modalCtx.moveTo(40, y); modalCtx.lineTo(w, y); modalCtx.stroke();
     });
@@ -335,8 +349,6 @@ window.drawModalCanvas = function() {
             modalCtx.beginPath(); modalCtx.arc(x, y, pt.selected ? 6 : 4.5, 0, Math.PI*2);
             modalCtx.fillStyle = pt.selected ? '#f97316' : '#38bdf8'; modalCtx.fill();
             modalCtx.strokeStyle = '#0f172a'; modalCtx.lineWidth = 1.5; modalCtx.stroke();
-            
-            modalCtx.fillStyle = '#e2e8f0'; modalCtx.fillText(`${pt.pos}%`, x - 10, y - 10);
         });
     }
 
@@ -359,7 +371,9 @@ window.drawModalCanvas = function() {
 
     modalCtx.fillStyle = '#0f172a'; modalCtx.fillRect(0, 0, 40, h);
     modalCtx.strokeStyle = '#1e293b'; modalCtx.beginPath(); modalCtx.moveTo(40, 0); modalCtx.lineTo(40, h); modalCtx.stroke();
-    [0, 25, 50, 75, 100].forEach(p => {
+    
+    // Textos del 10% en 10% en el eje Y lateral
+    [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
         const y = mPosToY(p); 
         modalCtx.fillStyle = '#94a3b8'; modalCtx.font = 'bold 10px monospace'; modalCtx.fillText(`${p}%`, 4, y + 3);
     });
