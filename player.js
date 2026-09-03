@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.4 (LÓGICA TECLADO PÁNICO Y MARCADORES MULTIPLES)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.5 (CORRECCIÓN DE ATAJOS DE TECLADO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -12,7 +12,6 @@ window.audioPeaks = null;
 window.clipboardFunscript = null; 
 window.isPastingMode = false; 
 
-window.isAdaptiveModeActive = false;
 window.fsTimelineVisible = true; 
 
 const vName = document.getElementById('v-name');
@@ -109,80 +108,14 @@ function parseSRTtoVTT(srtText) {
     return "WEBVTT\n\n" + srtText.replace(/\r\n|\r|\n/g, '\n').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
 }
 
-async function loadSubtitleFile(file) {
-    const text = await file.text();
-    let vttText = text;
-    
-    if (file.name.toLowerCase().endsWith('.srt')) {
-        vttText = parseSRTtoVTT(text);
-    } else if (!vttText.startsWith("WEBVTT")) {
-        vttText = "WEBVTT\n\n" + vttText;
-    }
-
-    const blob = new Blob([vttText], { type: 'text/vtt' });
-    const url = URL.createObjectURL(blob);
-
-    let track = document.getElementById('custom-subtitles');
-    if (!track) {
-        track = document.createElement('track');
-        track.id = 'custom-subtitles';
-        track.kind = 'subtitles';
-        track.srclang = 'es';
-        track.label = 'Español';
-        videoPlayer.appendChild(track);
-    }
-    
-    track.src = url;
-    track.default = true;
-    
-    if (videoPlayer.textTracks && videoPlayer.textTracks.length > 0) {
-        videoPlayer.textTracks[0].mode = 'showing';
-    }
-
-    const tracksList = document.getElementById('tracks-list');
-    if (tracksList) {
-        const emptyMsg = tracksList.querySelector('.empty-tracks-msg');
-        if (emptyMsg) emptyMsg.style.display = 'none';
-
-        const oldSub = document.getElementById('ui-sub-track');
-        if (oldSub) oldSub.remove();
-
-        const subDiv = document.createElement('div');
-        subDiv.id = 'ui-sub-track';
-        subDiv.className = 'file-manager-script';
-        subDiv.style.borderLeftColor = '#f59e0b';
-        subDiv.innerHTML = `
-            <div class="track-info">
-                <span class="track-name" title="${file.name}">💬 ${file.name}</span>
-            </div>
-            <div class="track-actions">
-                <button class="track-btn delete-sub-btn" title="Eliminar Subtítulos">🗑️</button>
-            </div>
-        `;
-        tracksList.appendChild(subDiv);
-    }
-}
-
-document.getElementById('tracks-list')?.addEventListener('click', (e) => {
-    if (e.target.closest('.delete-sub-btn')) {
-        const track = document.getElementById('custom-subtitles');
-        if (track) track.remove();
-        const uiTrack = document.getElementById('ui-sub-track');
-        if (uiTrack) uiTrack.remove();
-        window.checkEmptyState();
-    }
-});
-
 universalInput?.addEventListener('change', function(event) {
     const files = Array.from(event.target.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-    const subtitleFiles = files.filter(f => f.name.toLowerCase().endsWith('.srt') || f.name.toLowerCase().endsWith('.vtt'));
 
     const hasFunscripts = funscriptFiles.length > 0;
     if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
-    if (subtitleFiles.length > 0) loadSubtitleFile(subtitleFiles[0]);
     
     event.target.value = '';
     window.checkEmptyState();
@@ -196,12 +129,10 @@ window.addEventListener('drop', (e) => {
     const files = Array.from(e.dataTransfer.files);
     const videoFiles = files.filter(f => f.type.startsWith('video/'));
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-    const subtitleFiles = files.filter(f => f.name.toLowerCase().endsWith('.srt') || f.name.toLowerCase().endsWith('.vtt'));
 
     const hasFunscripts = funscriptFiles.length > 0;
     if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
-    if (subtitleFiles.length > 0) loadSubtitleFile(subtitleFiles[0]);
 });
 
 window.addEventListener('dragover', (e) => { 
@@ -289,7 +220,6 @@ videoPlayer?.addEventListener('timeupdate', () => {
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
 });
 
-// 🎯 FIX: Integración del Fake Audio en el reproductor si estás en pánico
 videoPlayer?.addEventListener('play', () => {
     if (isPanicMode) {
         fakeAudio.play();
@@ -307,7 +237,6 @@ videoPlayer?.addEventListener('seeked', () => {
     if (!videoPlayer.paused && typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
-// 🎯 FIX: Dibujar Marcadores finos en la barra de progreso general
 window.drawProgressMarkers = function() {
     const c = document.getElementById('progress-markers-canvas');
     if(!c || !videoPlayer || !videoPlayer.duration || !window.timelineMarkers) return;
@@ -518,12 +447,10 @@ window.addEventListener('keydown', (event) => {
 
     const key = event.key.toLowerCase();
 
-    // 🎯 FIX: Intercepción de teclado para modo de Múltiples Marcadores
     if (window.isDraggingPreset || window.isPastingMode) {
         const selectedMarkers = (window.timelineMarkers || []).filter(m => m.selected);
         
         if (selectedMarkers.length > 2) {
-            // Bloqueamos las teclas de adaptación y flechas porque la malla multi-marcador no se puede repetir
             if (event.code === 'Space' || key === 'arrowleft' || key === 'arrowright') {
                 event.preventDefault(); 
                 return; 
@@ -558,7 +485,6 @@ window.addEventListener('keydown', (event) => {
         }
     }
 
-    // 🎯 FIX: Inyección de Marcadores con la tecla T
     if (key === 't' && !event.ctrlKey) {
         event.preventDefault();
         const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
@@ -586,15 +512,7 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
-    if (key === 'p' && !event.ctrlKey) {
-        event.preventDefault(); 
-        window.isAdaptiveModeActive = !window.isAdaptiveModeActive; 
-        if (typeof window.syncAdaptiveButtons === 'function') window.syncAdaptiveButtons(window.isAdaptiveModeActive);
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        if (typeof window.drawModalCanvas === 'function') window.drawModalCanvas();
-        return;
-    }
-
+    // 🎯 FIX 3: Teclas Separadas. Arriba/Abajo mueven la bola, Izq/Der mueven el tiempo
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
@@ -603,7 +521,11 @@ window.addEventListener('keydown', (event) => {
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
         if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
             event.preventDefault(); event.stopPropagation();
-            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
+            if (key === 'arrowleft' || key === 'arrowright') {
+                window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
+            } else {
+                window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
+            }
         }
         return; 
     }
