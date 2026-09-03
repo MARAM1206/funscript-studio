@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.8 (NAVEGACIÓN MARCADORES Y AUTO-LIMPIEZA)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.9 (NAVEGACIÓN CON Y/U)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -494,6 +494,39 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
+    // 🎯 FIX: Teclas Y y U para navegación entre marcadores
+    if (key === 'y' && !event.ctrlKey) {
+        event.preventDefault();
+        const currentTimeMs = videoPlayer.currentTime * 1000;
+        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+            const prevMarkers = window.timelineMarkers.filter(m => m.at < currentTimeMs - 15);
+            if (prevMarkers.length > 0) {
+                videoPlayer.currentTime = prevMarkers[prevMarkers.length - 1].at / 1000;
+                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: prevMarkers[prevMarkers.length - 1].at } }));
+            }
+        }
+        return;
+    }
+
+    if (key === 'u' && !event.ctrlKey) {
+        event.preventDefault();
+        const currentTimeMs = videoPlayer.currentTime * 1000;
+        if (window.timelineMarkers && window.timelineMarkers.length > 0) {
+            const nextMarkers = window.timelineMarkers.filter(m => m.at > currentTimeMs + 15);
+            if (nextMarkers.length > 0) {
+                videoPlayer.currentTime = nextMarkers[0].at / 1000;
+                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: nextMarkers[0].at } }));
+            } else {
+                const lastMarker = window.timelineMarkers[window.timelineMarkers.length - 1];
+                if (currentTimeMs >= lastMarker.at + 15) {
+                    videoPlayer.currentTime = lastMarker.at / 1000;
+                    window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: lastMarker.at } }));
+                }
+            }
+        }
+        return;
+    }
+
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = !videoPlayer.paused;
 
@@ -517,39 +550,6 @@ window.addEventListener('keydown', (event) => {
         if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
-        
-        // 🎯 FIX: Teclas Ctrl + B y Ctrl + N para saltar entre Marcadores
-        if (key === 'b') {
-            event.preventDefault();
-            const currentTimeMs = videoPlayer.currentTime * 1000;
-            if (window.timelineMarkers && window.timelineMarkers.length > 0) {
-                const prevMarkers = window.timelineMarkers.filter(m => m.at < currentTimeMs - 15);
-                if (prevMarkers.length > 0) {
-                    videoPlayer.currentTime = prevMarkers[prevMarkers.length - 1].at / 1000;
-                    window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: prevMarkers[prevMarkers.length - 1].at } }));
-                }
-            }
-            return;
-        }
-        if (key === 'n') {
-            event.preventDefault();
-            const currentTimeMs = videoPlayer.currentTime * 1000;
-            if (window.timelineMarkers && window.timelineMarkers.length > 0) {
-                const nextMarkers = window.timelineMarkers.filter(m => m.at > currentTimeMs + 15);
-                if (nextMarkers.length > 0) {
-                    videoPlayer.currentTime = nextMarkers[0].at / 1000;
-                    window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: nextMarkers[0].at } }));
-                } else {
-                    const lastMarker = window.timelineMarkers[window.timelineMarkers.length - 1];
-                    if (currentTimeMs >= lastMarker.at + 15) {
-                        videoPlayer.currentTime = lastMarker.at / 1000;
-                        window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: lastMarker.at } }));
-                    }
-                }
-            }
-            return;
-        }
-
         if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
             event.preventDefault(); event.stopPropagation();
             if (key === 'arrowleft' || key === 'arrowright') {
