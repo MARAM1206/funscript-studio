@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.13">
+    <link rel="stylesheet" href="styles.css?v=1.1.15">
 </head>
 <body>
 
@@ -14,7 +14,6 @@
                 <button class="menu-btn dark-btn">⚙️ Configuración</button>
                 <div class="dropdown-content">
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
-                    <!-- 🎯 FIX: Controles desactivados temporalmente -->
                     <a href="#" id="menu-controls-btn" style="display: none;">⌨️ Controles</a>
                     <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
                         <input type="checkbox" id="menu-snap-toggle" class="snap-toggle" checked>
@@ -44,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.13 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.15 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -122,6 +121,10 @@
 
     <div class="workspace-container">
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
+            <!-- 🎯 FIX: Header minimalista restaurado para recuperar el poder de arrastre -->
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎬 Reproductor</span>
+            </div>
             <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column;">
                 <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
@@ -174,7 +177,6 @@
             </div>
         </div>
 
-        <!-- 🎯 FIX: Panel Ajuste individualizado en CSS -->
         <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎚️ Ajuste</span>
@@ -237,13 +239,12 @@
 
     </div>
 
-    <!-- Handles para redimensionar los paneles (Inyectados dinámicamente) -->
-    <script src="workspace.js?v=1.1.13"></script>
-    <script src="handy.js?v=1.1.13"></script> 
-    <script src="funscript.js?v=1.1.13"></script>
-    <script src="player.js?v=1.1.13"></script>
-    <script src="tracking.js?v=1.1.13"></script>
-    <script src="presets.js?v=1.1.13"></script>
-    <script src="timeline.js?v=1.1.13"></script>
+    <script src="workspace.js?v=1.1.15"></script>
+    <script src="handy.js?v=1.1.15"></script> 
+    <script src="funscript.js?v=1.1.15"></script>
+    <script src="player.js?v=1.1.15"></script>
+    <script src="tracking.js?v=1.1.15"></script>
+    <script src="presets.js?v=1.1.15"></script>
+    <script src="timeline.js?v=1.1.15"></script>
 </body>
 </html>
