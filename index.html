@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.2.0">
+    <link rel="stylesheet" href="styles.css?v=1.2.1">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.1 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -106,6 +106,16 @@
                 <p class="modal-hint" style="font-size: 0.7rem; text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
                 <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
+        </div>
+    </div>
+
+    <div id="controls-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
+                <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
+                <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
+            </div>
+            <div class="controls-grid"></div>
         </div>
     </div>
 
@@ -201,7 +211,6 @@
             </div>
         </div>
 
-        <!-- 🎯 FIX: Nueva Pestaña Digital Twin 3D -->
         <div id="panel-twin" class="workspace-panel" data-title="🤖 Digital Twin">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🤖 Digital Twin 3D</span>
@@ -209,8 +218,30 @@
             </div>
             <div class="panel-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 35px); background: #020617; position: relative;">
                 <canvas id="twin-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
-                <!-- Piso luminoso de base -->
                 <div style="position: absolute; bottom: 0; width: 100%; height: 30px; background: linear-gradient(to top, rgba(56, 189, 248, 0.15), transparent); pointer-events: none;"></div>
+            </div>
+        </div>
+
+        <!-- 🎯 FIX: Nueva Pestaña Modular: Filtro Humanizador -->
+        <div id="panel-humanizer" class="workspace-panel" data-title="🎭 Humanizador">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎭 Humanizador</span>
+            </div>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
+                <p style="font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 10px;">Añade micro-variaciones orgánicas a la selección.</p>
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span>Desfase de Tiempo:</span> <span id="hum-time-val" style="color: #38bdf8; font-weight: bold;">±15 ms</span>
+                    </div>
+                    <input type="range" id="hum-time-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="0" max="50" step="1" value="15">
+                </div>
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span>Desfase de Posición:</span> <span id="hum-pos-val" style="color: #f97316; font-weight: bold;">±3%</span>
+                    </div>
+                    <input type="range" id="hum-pos-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="0" max="15" step="1" value="3">
+                </div>
+                <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%;">🎲 Aplicar a Selección</button>
             </div>
         </div>
 
@@ -237,15 +268,16 @@
 
     </div>
 
-    <script src="workspace.js?v=1.2.0"></script>
-    <script src="handy.js?v=1.2.0"></script> 
-    <script src="funscript.js?v=1.2.0"></script>
-    <script src="player.js?v=1.2.0"></script>
-    <script src="tracking.js?v=1.2.0"></script>
-    <script src="presets.js?v=1.2.0"></script>
-    <script src="timeline.js?v=1.2.0"></script>
+    <script src="workspace.js?v=1.2.1"></script>
+    <script src="handy.js?v=1.2.1"></script> 
+    <script src="funscript.js?v=1.2.1"></script>
+    <script src="player.js?v=1.2.1"></script>
+    <script src="tracking.js?v=1.2.1"></script>
+    <script src="presets.js?v=1.2.1"></script>
+    <script src="timeline.js?v=1.2.1"></script>
+    <script src="twin.js?v=1.2.1"></script>
     
-    <!-- 🎯 FIX: El nuevo motor gráfico 3D -->
-    <script src="twin.js?v=1.2.0"></script>
+    <!-- 🎯 FIX: El nuevo motor matemático del Humanizador -->
+    <script src="humanizer.js?v=1.2.1"></script>
 </body>
 </html>
