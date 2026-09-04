@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.1.17 (LÍMITES DE REDIMENSIONAMIENTO ABSOLUTOS)
+// WORKSPACE MANAGER V1.2.0 (INTEGRACIÓN DE DIGITAL TWIN Y REDIMENSIÓN)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,16 +10,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const SNAP_DIST = 15; 
     const GAP = 10; 
 
+    // 🎯 FIX: Panel 'panel-twin' agregado a la memoria default
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
         'panel-tracks': { left: 620, top: 10, width: 320, height: 250, visible: true },
         'panel-slider': { left: 620, top: 270, width: 80, height: 300, visible: true },
         'panel-quick': { left: 710, top: 270, width: 250, height: 140, visible: true },
         'panel-presets': { left: 710, top: 420, width: 250, height: 200, visible: true },
+        'panel-twin': { left: 970, top: 270, width: 200, height: 350, visible: true },
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
-    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v2'));
+    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v3'));
     if (!layoutState) layoutState = defaultLayout;
 
     function saveLayout() {
@@ -32,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 visible: panel.style.display !== 'none'
             };
         });
-        localStorage.setItem('funscript_workspace_v2', JSON.stringify(layoutState));
+        localStorage.setItem('funscript_workspace_v3', JSON.stringify(layoutState));
     }
 
     panels.forEach(panel => {
@@ -91,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const header = panel.querySelector('.panel-header');
         if (header) {
             header.addEventListener('mousedown', (e) => {
-                // El Drag se bloquea si tocas la barra de video interactiva
                 if (e.target.closest('.video-info-right') || e.target.tagName === 'BUTTON') return;
                 
                 e.preventDefault();
@@ -152,9 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // --------------------------------------------------------
-        // 🎯 FIX: REDIMENSIONAMIENTO CON ESCUDOS DE PERÍMETRO
-        // --------------------------------------------------------
         const handles = panel.querySelectorAll('.resize-handle');
         handles.forEach(handle => {
             handle.addEventListener('mousedown', (e) => {
@@ -171,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const startL = panel.offsetLeft;
                 const startT = panel.offsetTop;
 
-                const minW = parseInt(window.getComputedStyle(panel).minWidth) || 200;
+                const minW = parseInt(window.getComputedStyle(panel).minWidth) || 150;
                 const minH = parseInt(window.getComputedStyle(panel).minHeight) || 150;
                 const container = panel.parentElement;
 
