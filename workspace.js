@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.2.0 (INTEGRACIÓN DE DIGITAL TWIN Y REDIMENSIÓN)
+// WORKSPACE MANAGER V1.2.1 (INTEGRACIÓN DEL PANEL DE HUMANIZACIÓN)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SNAP_DIST = 15; 
     const GAP = 10; 
 
-    // 🎯 FIX: Panel 'panel-twin' agregado a la memoria default
+    // 🎯 FIX: Nueva pestaña 'panel-humanizer' en la memoria inicial
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
         'panel-tracks': { left: 620, top: 10, width: 320, height: 250, visible: true },
@@ -18,10 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-quick': { left: 710, top: 270, width: 250, height: 140, visible: true },
         'panel-presets': { left: 710, top: 420, width: 250, height: 200, visible: true },
         'panel-twin': { left: 970, top: 270, width: 200, height: 350, visible: true },
+        'panel-humanizer': { left: 970, top: 10, width: 250, height: 240, visible: true },
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
-    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v3'));
+    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v4'));
     if (!layoutState) layoutState = defaultLayout;
 
     function saveLayout() {
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 visible: panel.style.display !== 'none'
             };
         });
-        localStorage.setItem('funscript_workspace_v3', JSON.stringify(layoutState));
+        localStorage.setItem('funscript_workspace_v4', JSON.stringify(layoutState));
     }
 
     panels.forEach(panel => {
