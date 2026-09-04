@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.2.2 (INTEGRACIÓN DEL PANEL DE BPM)
+// WORKSPACE MANAGER V1.2.3 (INTEGRACIÓN DEL MODIFICADOR DE MASAS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SNAP_DIST = 15; 
     const GAP = 10; 
 
+    // 🎯 FIX: Nueva memoria V6 para acomodar la nueva pestaña sin bugs
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
         'panel-tracks': { left: 620, top: 10, width: 320, height: 250, visible: true },
@@ -19,10 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-twin': { left: 970, top: 270, width: 200, height: 350, visible: true },
         'panel-humanizer': { left: 970, top: 10, width: 250, height: 240, visible: true },
         'panel-bpm': { left: 350, top: 10, width: 250, height: 200, visible: true },
+        'panel-mass': { left: 350, top: 220, width: 250, height: 260, visible: true }, // Nueva Pestaña
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
-    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v5'));
+    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v6'));
     if (!layoutState) layoutState = defaultLayout;
 
     function saveLayout() {
@@ -35,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 visible: panel.style.display !== 'none'
             };
         });
-        localStorage.setItem('funscript_workspace_v5', JSON.stringify(layoutState));
+        localStorage.setItem('funscript_workspace_v6', JSON.stringify(layoutState));
     }
 
     panels.forEach(panel => {
