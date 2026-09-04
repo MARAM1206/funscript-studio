@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.2.4 (DOM ISOLATION Y CACHÉ SEGURO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.3.0 (CTRL+A INTELIGENTE PARA MARCADORES)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -40,7 +40,6 @@ function preloadPanicImage() {
 }
 preloadPanicImage(); 
 
-// 🎯 FIX: Aislar eventos de interfaz gráfica en el DOMContentLoaded para asegurar que nada los mate
 document.addEventListener('DOMContentLoaded', () => {
 
     const savedTheme = localStorage.getItem('funscript_theme');
@@ -102,9 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
     snapToggle.addEventListener('change', (e) => {
         window.snapValue = e.target.checked ? 5 : 1;
         localStorage.setItem('funscript_snap', e.target.checked);
-        document.getElementById('point-slider').step = window.snapValue;
-        document.getElementById('min-slider').step = window.snapValue;
-        document.getElementById('max-slider').step = window.snapValue;
+        if (document.getElementById('point-slider')) document.getElementById('point-slider').step = window.snapValue;
+        if (document.getElementById('min-slider')) document.getElementById('min-slider').step = window.snapValue;
+        if (document.getElementById('max-slider')) document.getElementById('max-slider').step = window.snapValue;
     });
     
     if (document.getElementById('point-slider')) document.getElementById('point-slider').step = window.snapValue;
@@ -643,7 +642,20 @@ window.addEventListener('keydown', (event) => {
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
-        if (key === 'a') { event.preventDefault(); window.dispatchEvent(new Event('selectAllPoints')); return; }
+        
+        // 🎯 FIX: Inteligencia de Ctrl+A. Si hay marcadores en uso, selecciona todos los marcadores y deja los puntos en paz.
+        if (key === 'a') { 
+            event.preventDefault(); 
+            const hasMarkerSelected = window.timelineMarkers && window.timelineMarkers.some(m => m.selected);
+            if (hasMarkerSelected) {
+                window.timelineMarkers.forEach(m => m.selected = true);
+                if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
+            } else {
+                window.dispatchEvent(new Event('selectAllPoints')); 
+            }
+            return; 
+        }
         
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
