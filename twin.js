@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.4 (HANDY REALISTA, MANGA CRISTAL Y ANATOMÍA BRONCEADA)
+// DIGITAL TWIN 3D V1.3.4 (HANDY REALISTA, MANGA CRISTAL Y ANATOMÍA CORREGIDA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -51,86 +51,86 @@ document.addEventListener('DOMContentLoaded', () => {
         return a1.pos + (a2.pos - a1.pos) * progress;
     }
 
-    // Renderizador Anatómico Realista y Bronceado
-    function drawExplicitAnatomy(penisCx, topY, bottomY, pWidth) {
-        const totalH = bottomY - topY;
-        const y100 = topY;
-        const y70 = topY + totalH * 0.3;  
-        const y20 = topY + totalH * 0.8;  
-        const y0 = bottomY;               
+    // Renderizador Anatómico Proporcional y Realista
+    function drawExplicitAnatomy(penisCx, y100, y0, pWidth) {
+        const totalH = y0 - y100;
+        const y70 = y100 + totalH * 0.3;  
+        const y20 = y100 + totalH * 0.8;  
 
         const isLight = document.body.classList.contains('light-theme');
-        const strokeColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
+        const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
         
-        // 1. ESCROTO (Debajo de 0%)
-        let scrotGrad = ctx.createRadialGradient(penisCx, y0 + 30, 5, penisCx, y0 + 30, pWidth);
+        // 1. ESCROTO (Debajo de y0, tamaño proporcional al ancho del eje)
+        let scrotGrad = ctx.createRadialGradient(penisCx, y0 + 15, 5, penisCx, y0 + 15, pWidth * 0.8);
         scrotGrad.addColorStop(0, '#c48b6b');
         scrotGrad.addColorStop(1, '#8c593f');
 
         ctx.fillStyle = scrotGrad;
-        ctx.strokeStyle = strokeColor;
+        ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 1.5;
         
         ctx.beginPath();
-        ctx.moveTo(penisCx - pWidth * 0.4, y20);
-        // Saco redondeado y continuo (sin líneas extrañas)
-        ctx.bezierCurveTo(penisCx - pWidth * 1.1, y20 + 10, penisCx - pWidth * 0.2, y0 + 50, penisCx, y0 + 35);
-        ctx.bezierCurveTo(penisCx + pWidth * 0.2, y0 + 50, penisCx + pWidth * 1.1, y20 + 10, penisCx + pWidth * 0.4, y20);
+        const tr = pWidth * 0.45; // Radio del testículo
+        ctx.arc(penisCx - tr*0.8, y0 + tr*0.8, tr, 0, Math.PI * 2);
+        ctx.arc(penisCx + tr*0.8, y0 + tr*0.8, tr, 0, Math.PI * 2);
         ctx.fill(); ctx.stroke();
         
-        // Marca sutil divisoria
+        // Rafe sutil
         ctx.beginPath();
-        ctx.moveTo(penisCx, y0 + 10);
-        ctx.quadraticCurveTo(penisCx + 2, y0 + 25, penisCx, y0 + 35);
+        ctx.moveTo(penisCx, y0 + 5);
+        ctx.lineTo(penisCx, y0 + tr*1.5);
         ctx.strokeStyle = 'rgba(70, 40, 20, 0.15)';
         ctx.stroke();
 
-        // 2. CUERPO (EJE) (20% al 70%)
+        // 2. CUERPO (EJE) (y0 a y70) - Líneas rectas y paralelas
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
-        shaftGrad.addColorStop(0, '#a66d4c');   // Sombra izquierda
-        shaftGrad.addColorStop(0.2, '#d6a385'); // Brillo
-        shaftGrad.addColorStop(0.5, '#e3b599'); // Centro iluminado
-        shaftGrad.addColorStop(0.8, '#b88160'); // Sombra derecha
-        shaftGrad.addColorStop(1, '#7a4b31');   // Borde oscuro
+        shaftGrad.addColorStop(0, '#a66d4c');   
+        shaftGrad.addColorStop(0.2, '#d6a385'); 
+        shaftGrad.addColorStop(0.5, '#e3b599'); 
+        shaftGrad.addColorStop(0.8, '#b88160'); 
+        shaftGrad.addColorStop(1, '#7a4b31');   
 
         ctx.fillStyle = shaftGrad;
+        ctx.strokeStyle = outlineColor;
+        
         ctx.beginPath();
-        ctx.moveTo(penisCx - pWidth * 0.38, y20 + 5);
-        ctx.bezierCurveTo(penisCx - pWidth * 0.35, (y20+y70)/2, penisCx - pWidth * 0.35, y70, penisCx - pWidth * 0.35, y70);
-        ctx.lineTo(penisCx + pWidth * 0.35, y70);
-        ctx.bezierCurveTo(penisCx + pWidth * 0.35, (y20+y70)/2, penisCx + pWidth * 0.38, y20 + 5, penisCx + pWidth * 0.38, y20 + 5);
+        ctx.rect(penisCx - pWidth/2, y70, pWidth, y0 - y70);
         ctx.fill();
         
-        ctx.strokeStyle = strokeColor;
-        ctx.beginPath(); ctx.moveTo(penisCx - pWidth * 0.38, y20 + 5); ctx.bezierCurveTo(penisCx - pWidth * 0.35, (y20+y70)/2, penisCx - pWidth * 0.35, y70, penisCx - pWidth * 0.35, y70); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(penisCx + pWidth * 0.38, y20 + 5); ctx.bezierCurveTo(penisCx + pWidth * 0.35, (y20+y70)/2, penisCx + pWidth * 0.35, y70, penisCx + pWidth * 0.35, y70); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(penisCx - pWidth/2, y70); ctx.lineTo(penisCx - pWidth/2, y0);
+        ctx.moveTo(penisCx + pWidth/2, y70); ctx.lineTo(penisCx + pWidth/2, y0);
+        ctx.stroke();
 
-        // 3. GLANDE (70% al 100%)
-        const flare = pWidth * 0.15; 
-        let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
+        // 3. GLANDE (y70 a y100) - Forma de campana detallada
+        const flare = pWidth * 0.18; 
+        let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2 - flare, 0, penisCx + pWidth/2 + flare, 0);
         glansGrad.addColorStop(0, '#c77873');
         glansGrad.addColorStop(0.3, '#eba7a2');
         glansGrad.addColorStop(0.7, '#d68b85');
         glansGrad.addColorStop(1, '#a8504a');
 
         ctx.fillStyle = glansGrad;
+
         ctx.beginPath();
-        ctx.moveTo(penisCx - pWidth * 0.35, y70);
-        ctx.quadraticCurveTo(penisCx - pWidth * 0.35 - flare, y70 - 2, penisCx - pWidth * 0.35 - flare, y70 - 10);
-        ctx.bezierCurveTo(penisCx - pWidth * 0.35 - flare, y100 - 5, penisCx - pWidth * 0.1, y100, penisCx, y100);
-        ctx.bezierCurveTo(penisCx + pWidth * 0.1, y100, penisCx + pWidth * 0.35 + flare, y100 - 5, penisCx + pWidth * 0.35 + flare, y70 - 10);
-        ctx.quadraticCurveTo(penisCx + pWidth * 0.35 + flare, y70 - 2, penisCx + pWidth * 0.35, y70);
-        ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth * 0.35, y70);
+        ctx.moveTo(penisCx - pWidth/2, y70);
+        ctx.lineTo(penisCx - pWidth/2 - flare, y70 - 4);
+        ctx.bezierCurveTo(penisCx - pWidth/2 - flare, y100 + 10, penisCx - pWidth*0.2, y100, penisCx, y100);
+        ctx.bezierCurveTo(penisCx + pWidth*0.2, y100, penisCx + pWidth/2 + flare, y100 + 10, penisCx + pWidth/2 + flare, y70 - 4);
+        ctx.lineTo(penisCx + pWidth/2, y70);
+        ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth/2, y70);
         ctx.fill(); 
         
         ctx.strokeStyle = 'rgba(100, 30, 30, 0.4)';
         ctx.stroke();
 
-        // Meato (Abertura superior)
+        // Meato
         ctx.beginPath();
-        ctx.ellipse(penisCx, y100 + 4, 1.5, 5, 0, 0, Math.PI*2);
-        ctx.fillStyle = 'rgba(100, 30, 30, 0.5)';
-        ctx.fill();
+        ctx.moveTo(penisCx, y100 + 2);
+        ctx.lineTo(penisCx, y100 + 12);
+        ctx.strokeStyle = isLight ? 'rgba(100, 30, 30, 0.3)' : 'rgba(100, 30, 30, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
 
         // 4. LÍNEAS TOPOGRÁFICAS (100%, 70%, 20%, 0%)
         ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(148, 163, 184, 0.5)';
@@ -141,10 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const drawLine = (y, label) => {
             ctx.beginPath(); 
-            ctx.moveTo(penisCx - pWidth - 35, y); 
-            ctx.lineTo(penisCx + pWidth + 35, y); 
+            ctx.moveTo(penisCx - pWidth - 25, y); 
+            ctx.lineTo(penisCx + pWidth + 25, y); 
             ctx.stroke();
-            ctx.fillText(label, penisCx + pWidth + 40, y + 4);
+            ctx.fillText(label, penisCx + pWidth + 30, y + 4);
         };
 
         drawLine(y100, '100%');
@@ -163,135 +163,113 @@ document.addEventListener('DOMContentLoaded', () => {
         const cy = canvas.height / 2;
         const isLight = document.body.classList.contains('light-theme');
 
-        // Geometría del Renderizado
-        const baseH = canvas.height * 0.75;
-        const baseY = cy - (baseH / 2);
-        
-        const hw = 75; 
-        const hx = cx - 70; // Handy posicionado a la Izquierda
-        
         // ==========================================
         // 1. RECREACIÓN REALISTA DEL HANDY (CHASIS)
         // ==========================================
+        const baseH = canvas.height * 0.85; 
+        const baseY = cy - (baseH / 2);
         
-        // Cuerpo Negro Mate con Tapa Superior
-        ctx.fillStyle = isLight ? '#cbd5e1' : '#141414'; 
+        const hw = 75; 
+        const hx = cx - 65; 
+        
+        let bodyGrad = ctx.createLinearGradient(hx - hw/2, 0, hx + hw/2, 0);
+        bodyGrad.addColorStop(0, isLight ? '#cbd5e1' : '#111');
+        bodyGrad.addColorStop(0.3, isLight ? '#f1f5f9' : '#333');
+        bodyGrad.addColorStop(0.7, isLight ? '#e2e8f0' : '#222');
+        bodyGrad.addColorStop(1, isLight ? '#94a3b8' : '#0a0a0a');
+        
+        ctx.fillStyle = bodyGrad;
         ctx.beginPath();
-        ctx.moveTo(hx - hw/2 + 5, baseY); 
-        ctx.lineTo(hx + hw/2 - 5, baseY);
-        ctx.quadraticCurveTo(hx + hw/2, baseY, hx + hw/2, baseY + 10);
-        // Cara Frontal Recta
-        ctx.lineTo(hx + hw/2, baseY + baseH - 15);
-        ctx.quadraticCurveTo(hx + hw/2, baseY + baseH, hx + hw/2 - 10, baseY + baseH);
-        ctx.lineTo(hx - hw/2 + 10, baseY + baseH);
-        // Espalda Ergonómica Curva
-        ctx.quadraticCurveTo(hx - hw/2, baseY + baseH, hx - hw/2, baseY + baseH - 20);
-        ctx.bezierCurveTo(hx - hw/2 - 10, baseY + baseH * 0.6, hx - hw/2 + 10, baseY + baseH * 0.3, hx - hw/2, baseY + 10);
-        ctx.quadraticCurveTo(hx - hw/2, baseY, hx - hw/2 + 5, baseY);
+        ctx.roundRect(hx - hw/2, baseY, hw, baseH, 20);
         ctx.fill();
 
-        // Línea divisoria de la Tapa Superior
+        ctx.fillStyle = isLight ? '#64748b' : '#1f2224'; 
         ctx.beginPath();
-        ctx.moveTo(hx - hw/2 + 4, baseY + 35);
-        ctx.quadraticCurveTo(hx, baseY + 42, hx + hw/2, baseY + 35);
-        ctx.strokeStyle = isLight ? '#94a3b8' : '#080808';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Panel de Control Frontal (Grip)
-        ctx.fillStyle = isLight ? '#94a3b8' : '#1f1f1f';
-        ctx.beginPath();
-        ctx.moveTo(hx + hw/2, baseY + 45);
-        ctx.bezierCurveTo(hx - 5, baseY + 45, hx - 15, baseY + 100, hx - 5, baseY + 170);
-        ctx.bezierCurveTo(hx + 10, baseY + 200, hx + hw/2, baseY + 200, hx + hw/2, baseY + 200);
+        ctx.moveTo(hx - hw/2, baseY + 40);
+        ctx.quadraticCurveTo(hx, baseY + 80, hx + 10, baseY + 150);
+        ctx.lineTo(hx + 10, baseY + baseH - 50);
+        ctx.quadraticCurveTo(hx, baseY + baseH - 20, hx - hw/2, baseY + baseH - 20);
         ctx.fill();
 
-        // D-Pad (Botones de control en cruz)
-        ctx.fillStyle = isLight ? '#475569' : '#0a0a0a';
-        const dpx = hx + 10;
-        const dpy = baseY + 110;
-        ctx.fillRect(dpx - 9, dpy - 3, 18, 6);
-        ctx.fillRect(dpx - 3, dpy - 9, 6, 18);
-
-        // LED indicador
+        // D-Pad
+        ctx.fillStyle = isLight ? '#334155' : '#111';
+        const bx = hx - 5;
+        const by = baseY + 120;
+        ctx.beginPath(); ctx.roundRect(bx - 12, by - 4, 24, 8, 3); ctx.fill(); 
+        ctx.beginPath(); ctx.roundRect(bx - 4, by - 12, 8, 24, 3); ctx.fill(); 
+        
+        // LED Cyan
         ctx.fillStyle = '#38bdf8'; 
         ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.arc(hx + 10, baseY + 155, 2.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(hx - 5, baseY + 160, 3, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0; 
         
         // ==========================================
         // 2. SISTEMA MECÁNICO Y ANATOMÍA
         // ==========================================
-
-        const strokeTopY = baseY + 40;
-        const strokeBotY = baseY + baseH - 40;
-        const sh = 130; 
+        const sh = 110; 
+        const sw = 55; 
         
-        // Riel Metálico / Canal
+        const strokeTopY = baseY + 60;
+        const strokeBotY = baseY + baseH - 60;
+
         const rx = hx + hw/2 - 6; 
         ctx.fillStyle = isLight ? '#475569' : '#050505';
         ctx.beginPath();
         ctx.roundRect(rx - 6, strokeTopY - 20, 10, (strokeBotY - strokeTopY) + 40, 5);
         ctx.fill();
 
-        const y100 = strokeTopY + 20; 
-        const y0 = strokeBotY - sh + 20; 
-
         let targetPos = getInterpolatedPosition();
         
-        // Movimiento Invertido: 100% (Abajo, manga sube), 0% (Arriba, manga baja)
         const armY = strokeBotY - (targetPos / 100) * (strokeBotY - strokeTopY);
         
-        const sx = hx + hw/2 + 60; // Separación del chasis a la anatomía
-        const pWidth = 55; // Grosor del modelo
+        const sx = hx + hw/2 + 65; 
+        const pWidth = 42; 
+
+        // Sincronización Matemática de la Manga y la Anatomía
+        const y0 = strokeBotY + sh/2 - 10; 
+        const y100 = strokeTopY - sh/2 + 10;
         
         if (showAnatomy) {
             drawExplicitAnatomy(sx, y100, y0, pWidth); 
         }
 
-        // Brazo de conexión del riel a la manga
         ctx.fillStyle = isLight ? '#0ea5e9' : '#0284c7';
         ctx.beginPath();
-        ctx.roundRect(rx, armY - 12, (sx - rx - 20), 24, 4);
+        ctx.roundRect(rx, armY - 10, (sx - rx - sw/2 + 5), 20, 4);
         ctx.fill();
         
         // ==========================================
         // 3. MANGA DE CRISTAL TRANSLÚCIDA
         // ==========================================
+        const sleeveY = armY - sh/2; 
         
-        const sw = 65; 
-        const sleeveY = armY + 20 - sh; // Anclaje inferior
-        
-        ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(240, 245, 255, 0.25)';
-        ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.5)' : 'rgba(230, 240, 255, 0.15)';
+        ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.8)' : 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.roundRect(sx - sw/2, sleeveY, sw, sh, 10);
+        ctx.roundRect(sx - sw/2, sleeveY, sw, sh, 12);
         ctx.fill(); ctx.stroke();
 
-        ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.15)';
-        ctx.beginPath();
+        ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)';
         for(let i=15; i<sh-15; i+=15) {
-            ctx.moveTo(sx - sw/2 + 5, sleeveY + i);
-            ctx.lineTo(sx, sleeveY + i + 5);
-            ctx.lineTo(sx + sw/2 - 5, sleeveY + i);
+            ctx.beginPath();
+            ctx.moveTo(sx - sw/2, sleeveY + i);
+            ctx.quadraticCurveTo(sx, sleeveY + i + 10, sx + sw/2, sleeveY + i);
+            ctx.stroke();
         }
-        ctx.stroke();
         
         // ==========================================
         // 4. BANDA TRUEGRIP (VELCRO) NEGRA
         // ==========================================
+        const strapH = 26;
+        const strapY = armY - strapH/2;
         
-        const strapH = 28;
-        const strapY = armY - 14;
-        
-        // Tela del velcro
         ctx.fillStyle = '#111';
         ctx.beginPath();
         ctx.roundRect(sx - sw/2 - 2, strapY, sw + 4, strapH, 3);
         ctx.fill();
         
-        // Textura corrugada del velcro
         ctx.strokeStyle = '#222';
         ctx.beginPath();
         for(let i = sx - sw/2 + 2; i < sx + sw/2; i += 4) {
@@ -300,13 +278,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.stroke();
         
-        // Remache / Seguro central de plástico
         ctx.fillStyle = '#0a0a0a';
         ctx.beginPath(); 
-        ctx.roundRect(sx - 10, strapY - 2, 20, strapH + 4, 3); 
+        ctx.roundRect(sx - 8, strapY - 2, 16, strapH + 4, 3); 
         ctx.fill();
 
-        // 5. TEXTO INFERIOR
         ctx.fillStyle = isLight ? '#334155' : '#94a3b8';
         ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'center';
