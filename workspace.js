@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.1.16 (CACHÉ SEGURO PARA PESTAÑAS)
+// WORKSPACE MANAGER V1.1.17 (LÍMITES DE REDIMENSIONAMIENTO ABSOLUTOS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -91,7 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const header = panel.querySelector('.panel-header');
         if (header) {
             header.addEventListener('mousedown', (e) => {
-                if (e.target.tagName === 'BUTTON') return;
+                // El Drag se bloquea si tocas la barra de video interactiva
+                if (e.target.closest('.video-info-right') || e.target.tagName === 'BUTTON') return;
+                
                 e.preventDefault();
                 panel.style.zIndex = ++highestZIndex;
 
@@ -150,6 +152,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // --------------------------------------------------------
+        // 🎯 FIX: REDIMENSIONAMIENTO CON ESCUDOS DE PERÍMETRO
+        // --------------------------------------------------------
         const handles = panel.querySelectorAll('.resize-handle');
         handles.forEach(handle => {
             handle.addEventListener('mousedown', (e) => {
@@ -168,19 +173,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const minW = parseInt(window.getComputedStyle(panel).minWidth) || 200;
                 const minH = parseInt(window.getComputedStyle(panel).minHeight) || 150;
+                const container = panel.parentElement;
 
                 const onMouseMove = (ev) => {
                     let nw = startW, nh = startH, nl = startL, nt = startT;
 
-                    if (type.includes('e')) nw = startW + (ev.clientX - startX);
-                    if (type.includes('s')) nh = startH + (ev.clientY - startY);
+                    if (type.includes('e')) {
+                        nw = Math.min(startW + (ev.clientX - startX), container.clientWidth - startL - GAP);
+                    }
+                    if (type.includes('s')) {
+                        nh = Math.min(startH + (ev.clientY - startY), container.clientHeight - startT - GAP);
+                    }
                     if (type.includes('w')) {
-                        nw = startW - (ev.clientX - startX);
-                        if (nw >= minW) nl = startL + (ev.clientX - startX);
+                        let proposedL = startL + (ev.clientX - startX);
+                        if (proposedL < GAP) proposedL = GAP; 
+                        let proposedW = startW + (startL - proposedL);
+                        if (proposedW >= minW) { nw = proposedW; nl = proposedL; }
                     }
                     if (type.includes('n')) {
-                        nh = startH - (ev.clientY - startY);
-                        if (nh >= minH) nt = startT + (ev.clientY - startY);
+                        let proposedT = startT + (ev.clientY - startY);
+                        if (proposedT < GAP) proposedT = GAP; 
+                        let proposedH = startH + (startT - proposedT);
+                        if (proposedH >= minH) { nh = proposedH; nt = proposedT; }
                     }
 
                     if (nw >= minW) { panel.style.width = nw + 'px'; panel.style.left = nl + 'px'; }
@@ -201,6 +215,4 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
-
-    // Removido el comportamiento destructivo del botón caché
 });
