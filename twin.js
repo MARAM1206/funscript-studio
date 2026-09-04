@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.6 (ANATOMÍA CORREGIDA Y GLANDE REDONDEADO)
+// DIGITAL TWIN 3D V1.3.6 (ANATOMÍA CORREGIDA - GROSOR Y PROPORCIONES)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLight = document.body.classList.contains('light-theme');
         const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
 
-        // 1. CUERPO / EJE (y0 a y70)
+        // 1. CUERPO / EJE (y0 a y70) - Ensanchado
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
         shaftGrad.addColorStop(0, '#a66d4c');   
         shaftGrad.addColorStop(0.2, '#d6a385'); 
@@ -73,12 +73,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.beginPath();
         ctx.moveTo(penisCx - pWidth/2, y70);
         ctx.lineTo(penisCx - pWidth/2, y0);
-        ctx.quadraticCurveTo(penisCx, y0 + 10, penisCx + pWidth/2, y0); // Base redondeada limpia
+        ctx.quadraticCurveTo(penisCx, y0 + 12, penisCx + pWidth/2, y0); 
         ctx.lineTo(penisCx + pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // 2. GLANDE (y70 a y100) - Cúpula redondeada
-        const flare = pWidth * 0.20; 
+        // 2. GLANDE (y70 a y100) - Cúpula ancha y natural
+        const flare = pWidth * 0.18; 
         let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2 - flare, 0, penisCx + pWidth/2 + flare, 0);
         glansGrad.addColorStop(0, '#c77873');
         glansGrad.addColorStop(0.3, '#eba7a2');
@@ -90,20 +90,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.beginPath();
         ctx.moveTo(penisCx - pWidth/2, y70);
         
-        // Ensanchamiento de la corona
         ctx.quadraticCurveTo(penisCx - pWidth/2 - flare, y70 - 2, penisCx - pWidth/2 - flare, y70 - 10);
         
-        // Cúpula redondeada izquierda
+        // Ajuste de los puntos de control para achatamiento
         ctx.bezierCurveTo(
-            penisCx - pWidth/2 - flare, y100 + 15, 
-            penisCx - pWidth*0.25, y100, 
+            penisCx - pWidth/2 - flare, y100 + 20, 
+            penisCx - pWidth*0.3, y100, 
             penisCx, y100
         );
-        
-        // Cúpula redondeada derecha
         ctx.bezierCurveTo(
-            penisCx + pWidth*0.25, y100, 
-            penisCx + pWidth/2 + flare, y100 + 15, 
+            penisCx + pWidth*0.3, y100, 
+            penisCx + pWidth/2 + flare, y100 + 20, 
             penisCx + pWidth/2 + flare, y70 - 10
         );
         
@@ -111,7 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // Meato
         ctx.beginPath();
         ctx.moveTo(penisCx, y100 + 4);
         ctx.lineTo(penisCx, y100 + 14);
@@ -154,9 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const baseY = cy - (baseH / 2);
         
         const hw = 75; 
-        const hx = cx - 65; 
+        const hx = cx - 75; 
         
-        // Carcasa de la máquina
         let bodyGrad = ctx.createLinearGradient(hx - hw/2, 0, hx + hw/2, 0);
         bodyGrad.addColorStop(0, isLight ? '#cbd5e1' : '#111');
         bodyGrad.addColorStop(0.3, isLight ? '#f1f5f9' : '#333');
@@ -176,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.quadraticCurveTo(hx, baseY + baseH - 20, hx - hw/2, baseY + baseH - 20);
         ctx.fill();
 
-        // Botones D-Pad
         ctx.fillStyle = isLight ? '#334155' : '#111';
         const bx = hx - 5;
         const by = baseY + 120;
@@ -202,8 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let targetPos = getInterpolatedPosition();
         const armY = strokeBotY - (targetPos / 100) * (strokeBotY - strokeTopY);
         
-        const sx = hx + hw/2 + 70; 
-        const pWidth = 50; 
+        const sx = hx + hw/2 + 80; 
+        
+        // 🎯 Grosor anatómico incrementado y equilibrado
+        const pWidth = 65; 
 
         const y0 = strokeBotY + sh/2 - 10; 
         const y100 = strokeTopY - sh/2 + 10;
@@ -212,14 +208,13 @@ document.addEventListener('DOMContentLoaded', () => {
             drawExplicitAnatomy(sx, y100, y0, pWidth); 
         }
 
-        // Brazo conector
         ctx.fillStyle = isLight ? '#0ea5e9' : '#0284c7';
         ctx.beginPath();
         ctx.roundRect(rx, armY - 10, (sx - rx - 20), 20, 4);
         ctx.fill();
         
-        // Manga Translúcida (Glass Sleeve)
-        const sw = 65; 
+        // 🎯 Manga ensanchada para rodear el nuevo grosor sin colisiones
+        const sw = 95; 
         const sleeveY = armY - sh/2; 
         
         ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.5)' : 'rgba(230, 240, 255, 0.2)';
@@ -237,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
         }
         
-        // Banda TrueGrip (Velcro)
         const strapH = 26;
         const strapY = armY - strapH/2;
         
