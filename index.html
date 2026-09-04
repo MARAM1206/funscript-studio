@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.2.2">
+    <link rel="stylesheet" href="styles.css?v=1.2.3">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.2 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.3 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -140,9 +140,7 @@
                 <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
                     <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
-                    
                     <div id="panic-overlay" class="panic-overlay"></div>
-
                     <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
                     <div id="fs-mini-btn" class="fs-mini-icon" title="Pantalla Completa (F)">⤢</div>
                     <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
@@ -189,7 +187,7 @@
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">⚡ Inyector Rápido</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta los topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
+                <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
                 <div class="dual-slider-labels">
                     <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 70%</span>
                 </div>
@@ -244,7 +242,6 @@
             </div>
         </div>
 
-        <!-- 🎯 FIX: Nueva Pestaña Modular: BPM Extractor -->
         <div id="panel-bpm" class="workspace-panel" data-title="🥁 BPM Extractor">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🥁 BPM Extractor</span>
@@ -265,6 +262,35 @@
                     <input type="range" id="bpm-freq-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="50" max="300" step="10" value="120">
                 </div>
                 <button id="analyze-bpm-btn" class="menu-btn blue-btn" style="width: 100%;">🔎 Analizar Audio</button>
+            </div>
+        </div>
+
+        <!-- 🎯 FIX: Nueva Pestaña Modular: Modificador de Masas -->
+        <div id="panel-mass" class="workspace-panel" data-title="🎛️ Modificador">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎛️ Modificador de Masas</span>
+            </div>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
+                <p style="font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 10px;">Escala, desplaza o invierte puntos masivamente.</p>
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span>Amplitud (Intensidad):</span> <span id="mass-scale-val" style="color: #38bdf8; font-weight: bold;">100%</span>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
+                        <input type="range" id="mass-scale-slider" class="volume-slider" style="flex-grow:1;" min="10" max="200" step="10" value="100">
+                        <button id="apply-scale-btn" class="menu-btn blue-btn" style="font-size:0.7rem; padding: 4px 8px;">Aplicar</button>
+                    </div>
+                </div>
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span>Desplazamiento Vertical:</span> <span id="mass-offset-val" style="color: #f97316; font-weight: bold;">0%</span>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
+                        <input type="range" id="mass-offset-slider" class="volume-slider" style="flex-grow:1;" min="-50" max="50" step="5" value="0">
+                        <button id="apply-offset-btn" class="menu-btn orange-btn" style="font-size:0.7rem; padding: 4px 8px;">Mover</button>
+                    </div>
+                </div>
+                <button id="invert-btn" class="menu-btn purple-btn" style="width: 100%;">↕️ Invertir Selección</button>
             </div>
         </div>
 
@@ -291,17 +317,18 @@
 
     </div>
 
-    <script src="workspace.js?v=1.2.2"></script>
-    <script src="handy.js?v=1.2.2"></script> 
-    <script src="funscript.js?v=1.2.2"></script>
-    <script src="player.js?v=1.2.2"></script>
-    <script src="tracking.js?v=1.2.2"></script>
-    <script src="presets.js?v=1.2.2"></script>
-    <script src="timeline.js?v=1.2.2"></script>
-    <script src="twin.js?v=1.2.2"></script>
-    <script src="humanizer.js?v=1.2.2"></script>
+    <script src="workspace.js?v=1.2.3"></script>
+    <script src="handy.js?v=1.2.3"></script> 
+    <script src="funscript.js?v=1.2.3"></script>
+    <script src="player.js?v=1.2.3"></script>
+    <script src="tracking.js?v=1.2.3"></script>
+    <script src="presets.js?v=1.2.3"></script>
+    <script src="timeline.js?v=1.2.3"></script>
+    <script src="twin.js?v=1.2.3"></script>
+    <script src="humanizer.js?v=1.2.3"></script>
+    <script src="bpm.js?v=1.2.3"></script>
     
-    <!-- 🎯 FIX: El nuevo motor de Extracción de Audio -->
-    <script src="bpm.js?v=1.2.2"></script>
+    <!-- 🎯 FIX: El nuevo motor de Modificación de Masas -->
+    <script src="mass.js?v=1.2.3"></script>
 </body>
 </html>
