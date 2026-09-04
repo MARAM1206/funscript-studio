@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.3.0 (CTRL+A INTELIGENTE PARA MARCADORES)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.3.3 (CTRL+A INTELIGENTE)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -643,12 +643,14 @@ window.addEventListener('keydown', (event) => {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         
-        // 🎯 FIX: Inteligencia de Ctrl+A. Si hay marcadores en uso, selecciona todos los marcadores y deja los puntos en paz.
+        // 🎯 FIX: Inteligencia Malla de Marcadores (Ctrl + A)
         if (key === 'a') { 
             event.preventDefault(); 
             const hasMarkerSelected = window.timelineMarkers && window.timelineMarkers.some(m => m.selected);
             if (hasMarkerSelected) {
+                // Si tienes un marcador, se atrapan TODOS los marcadores y se sueltan los puntos
                 window.timelineMarkers.forEach(m => m.selected = true);
+                if (window.funscriptActions) window.funscriptActions.forEach(p => p.selected = false);
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
                 if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
             } else {
