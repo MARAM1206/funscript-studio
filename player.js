@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.17 (ANTI-PULSO Y REAJUSTE DE HEADER)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.2.2 (SOPORTE PARA AUDIO BUFFER GLOBAL)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -11,6 +11,9 @@ window.currentVideoName = null;
 window.audioPeaks = null; 
 window.clipboardFunscript = null; 
 window.isPastingMode = false; 
+
+// 🎯 FIX: Variable global para el escáner de BPM
+window.currentAudioBuffer = null;
 
 window.fsTimelineVisible = true; 
 
@@ -29,50 +32,13 @@ if (savedTheme === 'light') {
     if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
 }
 
-document.getElementById('menu-theme-btn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    const toggleTheme = () => {
-        const isLight = document.body.classList.toggle('light-theme');
-        localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-        const tBtn = document.getElementById('menu-theme-btn');
-        if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
-    };
-
-    if (document.startViewTransition) {
-        document.documentElement.style.setProperty('--ripple-x', e.clientX + 'px');
-        document.documentElement.style.setProperty('--ripple-y', e.clientY + 'px');
-        document.startViewTransition(toggleTheme);
-    } else {
-        toggleTheme();
-    }
+const themeObserver = new MutationObserver(() => {
+    const isLight = document.body.classList.contains('light-theme');
+    localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+    const tBtn = document.getElementById('menu-theme-btn');
+    if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
 });
-
-// 🎯 FIX: Neutralización del parpadeo del botón al seleccionar Dispositivo
-document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link => {
-    link.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('#device-dropdown-list a').forEach(el => el.classList.remove('selected-device'));
-        link.classList.add('selected-device');
-        window.activeDevice = link.dataset.device;
-        
-        const btn = document.getElementById('device-menu-btn');
-        if (btn) {
-            btn.innerText = `📱 ${link.innerText}`;
-            btn.classList.remove('device-alert-pulse'); // Mata la animación
-        }
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    });
-});
-
-const ocToggle = document.querySelector('.oc-toggle');
-if (ocToggle) {
-    ocToggle.addEventListener('change', (e) => {
-        window.isOverclockEnabled = e.target.checked;
-        const ocText = document.querySelector('.oc-text');
-        if (ocText) ocText.innerText = e.target.checked ? "Overclock On" : "Overclock Off";
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    });
-}
+themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
 const snapToggle = document.getElementById('menu-snap-toggle');
 let savedSnap = localStorage.getItem('funscript_snap');
@@ -89,53 +55,6 @@ snapToggle.addEventListener('change', (e) => {
 document.getElementById('point-slider').step = window.snapValue;
 document.getElementById('min-slider').step = window.snapValue;
 document.getElementById('max-slider').step = window.snapValue;
-
-let draggingPresetEl = null;
-let dropIndicator = document.createElement('div');
-dropIndicator.className = 'preset-drop-indicator';
-
-document.addEventListener('dragstart', (e) => {
-    const card = e.target.closest('.preset-card');
-    if (card && card.parentNode.id.includes('presets')) {
-        draggingPresetEl = card;
-        card.classList.add('dragging-preset-item');
-        if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.id || ''); }
-    }
-});
-document.addEventListener('dragend', (e) => {
-    if (draggingPresetEl) {
-        draggingPresetEl.classList.remove('dragging-preset-item');
-        if (dropIndicator.parentNode) dropIndicator.parentNode.replaceChild(draggingPresetEl, dropIndicator);
-        draggingPresetEl = null;
-        window.dispatchEvent(new Event('presetsReordered')); 
-    }
-});
-document.addEventListener('dragover', (e) => {
-    if (draggingPresetEl) {
-        const container = e.target.closest('.presets-list-container, #modal-presets-library-list');
-        if (container) {
-            e.preventDefault();
-            const afterElement = getDragAfterElement(container, e.clientY);
-            if (afterElement == null) {
-                container.appendChild(dropIndicator);
-            } else {
-                container.insertBefore(dropIndicator, afterElement);
-            }
-        }
-    }
-});
-function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.preset-card:not(.dragging-preset-item)')];
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
 
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
@@ -275,8 +194,11 @@ async function loadVideoFile(file, hasFunscripts = false) {
         const arrayBuffer = await file.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); 
         const audioData = await audioCtx.decodeAudioData(arrayBuffer);
-        const channelData = audioData.getChannelData(0); 
         
+        // 🎯 FIX: Guardamos el búfer global para poder filtrar sus bajos después en el bpm.js
+        window.currentAudioBuffer = audioData; 
+        
+        const channelData = audioData.getChannelData(0); 
         const samplesPerSec = 100; 
         const step = Math.floor(audioData.sampleRate / samplesPerSec);
         const peaks = new Float32Array(Math.floor(channelData.length / step));
@@ -368,8 +290,9 @@ window.drawProgressMarkers = function() {
     const totalMs = videoPlayer.duration * 1000;
     if(totalMs <= 0) return;
     
-    ctx.fillStyle = '#facc15'; 
     window.timelineMarkers.forEach(m => {
+        // 🎯 FIX: Los BPM en azul cyan, los manuales en amarillo dorado
+        ctx.fillStyle = m.isBPM ? '#0ea5e9' : '#facc15'; 
         const px = (m.at / totalMs) * c.width;
         ctx.fillRect(px - 1, 0, 2, c.height);
     });
@@ -609,7 +532,7 @@ window.addEventListener('keydown', (event) => {
     if (key === 't' && !event.ctrlKey) {
         event.preventDefault();
         const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
-        window.timelineMarkers.push({ at: timeMs, selected: false });
+        window.timelineMarkers.push({ at: timeMs, selected: false, isBPM: false });
         window.timelineMarkers.sort((a, b) => a.at - b.at);
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         window.drawProgressMarkers();
