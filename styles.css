@@ -94,7 +94,7 @@ body.panic-mode-active #panel-twin .panel-content { filter: blur(20px); opacity:
 
 .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); overflow: hidden; }
 
-/* 🎯 FIX: Ajuste esbelto y límites de seguridad para el panel Humanizador */
+/* 🎯 FIX: Ajuste esbelto y límites de seguridad para el panel Modificador */
 .workspace-panel { position: absolute; background: #0f131a; border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #1e293b; overflow: hidden; }
 #panel-presets, #panel-quick { min-width: 280px; min-height: 180px; }
 #panel-slider { min-width: 70px !important; min-height: 200px; } 
@@ -102,7 +102,7 @@ body.panic-mode-active #panel-twin .panel-content { filter: blur(20px); opacity:
 #panel-timeline { min-width: 500px; min-height: 200px; }
 #panel-video { min-width: 400px; min-height: 300px; }
 #panel-twin { min-width: 150px; min-height: 250px; }
-#panel-humanizer { min-width: 220px; min-height: 220px; }
+#panel-humanizer, #panel-bpm, #panel-mass { min-width: 250px; min-height: 240px; }
 
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
 
@@ -233,9 +233,6 @@ body.panic-mode-active #panel-twin .panel-content { filter: blur(20px); opacity:
 .fs-mini-icon { position: absolute; bottom: 15px; right: 15px; font-size: 1.1rem; color: #ffffff; cursor: pointer; user-select: none; transition: all 0.2s; z-index: 10; font-weight: bold; background: rgba(15, 23, 42, 0.45); padding: 4px 9px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); }
 .fs-mini-icon:hover { transform: scale(1.1); color: #38bdf8; background: rgba(15, 23, 42, 0.75); }
 :fullscreen .fs-mini-icon { display: none; } :-webkit-full-screen .fs-mini-icon { display: none; }
-
-.fs-timeline { position: absolute; bottom: 30px; left: 5%; width: 90%; height: 120px; background: rgba(11, 15, 23, 0.75); border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(8px); z-index: 2147483647; pointer-events: none; display: none; }
-:fullscreen .fs-timeline { display: block; } :-webkit-full-screen .fs-timeline { display: block; }
 
 /* ==========================================================================
    ☀️ TEMA CLARO (SLATE THEME PROFESIONAL)
