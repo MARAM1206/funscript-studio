@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.0 (RENDERIZADOR DEL DISPOSITIVO FÍSICO "HANDY")
+// DIGITAL TWIN 3D V1.3.1 (VISTA LATERAL 90° Y SOPORTE DE TEMA CLARO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,43 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return a1.pos + (a2.pos - a1.pos) * progress;
     }
 
-    function drawCylinder(x, y, w, h, fill, stroke) {
-        const ovalH = w * 0.25; 
-        
-        ctx.fillStyle = fill;
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = 2;
-
-        ctx.beginPath();
-        ctx.ellipse(x, y + h, w / 2, ovalH / 2, 0, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(x - w / 2, y);
-        ctx.lineTo(x - w / 2, y + h);
-        ctx.lineTo(x + w / 2, y + h);
-        ctx.lineTo(x + w / 2, y);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(x - w / 2, y); ctx.lineTo(x - w / 2, y + h); ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h); ctx.stroke();
-
-        ctx.beginPath();
-        ctx.ellipse(x, y, w / 2, ovalH / 2, 0, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
-        
-        // Reflejo
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.beginPath();
-        ctx.moveTo(x - w * 0.2, y + ovalH/4);
-        ctx.lineTo(x - w * 0.2, y + h + ovalH/4);
-        ctx.lineTo(x + w * 0.05, y + h + ovalH/4);
-        ctx.lineTo(x + w * 0.05, y + ovalH/4);
-        ctx.fill();
-    }
-
     function renderLoop() {
         requestAnimationFrame(renderLoop);
         if (document.body.classList.contains('panic-mode-active')) return;
@@ -84,41 +47,89 @@ document.addEventListener('DOMContentLoaded', () => {
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
 
-        // Eje fijo (El motor del Handy atrás)
-        const baseW = 55;
+        const isLight = document.body.classList.contains('light-theme');
+        
+        // 🎯 FIX: Paleta de colores adaptable al Modo Claro/Oscuro
+        const colors = {
+            housingBase: isLight ? '#cbd5e1' : '#0f172a',
+            rail: isLight ? '#94a3b8' : '#020617',
+            sleeve: 'rgba(244, 114, 182, 0.85)',
+            sleeveStroke: '#db2777',
+            sleeveHighlight: 'rgba(255,255,255,0.4)',
+            arm: isLight ? '#0ea5e9' : '#0284c7',
+            armDark: isLight ? '#0284c7' : '#0369a1',
+            text: isLight ? '#334155' : '#94a3b8'
+        };
+
         const baseH = canvas.height * 0.65;
         const baseY = cy - (baseH / 2);
 
-        // Handy Motor Housing (Columna oscura ergonómica)
-        ctx.fillStyle = '#0f172a';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(cx - baseW/2, baseY, baseW, baseH, 12);
-        ctx.fill(); ctx.stroke();
+        // 🎯 FIX: Dibujado en Vista Lateral (90 Grados)
+        const hw = 40; 
+        const hh = baseH; 
+        const hx = cx + 15; 
         
-        // Riel del Slider (El canal central por donde corre la banda)
-        ctx.fillStyle = '#020617';
+        // Columna principal
+        ctx.fillStyle = colors.housingBase;
         ctx.beginPath();
-        ctx.roundRect(cx - 6, baseY + 15, 12, baseH - 30, 4);
+        ctx.roundRect(hx, baseY, hw, hh, 8);
+        ctx.fill();
+
+        // Riel mecánico
+        const rw = 12;
+        const rh = hh - 20;
+        const rx = hx - rw - 5;
+        const ry = baseY + 10;
+        
+        ctx.fillStyle = colors.rail;
+        ctx.beginPath();
+        ctx.roundRect(rx, ry, rw, rh, 4);
         ctx.fill();
 
         let targetPos = getInterpolatedPosition();
+        const slideRange = rh - 40; 
+        const armY = ry + slideRange - (targetPos / 100) * slideRange;
+
+        // Brazo conector
+        ctx.fillStyle = colors.arm;
+        ctx.beginPath();
+        ctx.roundRect(rx - 10, armY, rw + 20, 30, 4);
+        ctx.fill();
         
-        // The Stroker (Manga principal simulada en rosa/traslúcido)
-        const sleeveW = 75;
-        const sleeveH = baseH * 0.35;
-        const slideRange = baseH - sleeveH - 20; 
-        const sleeveY = baseY + 10 + slideRange - (targetPos / 100) * slideRange;
+        // Manga Translúcida
+        const sw = 50;
+        const sh = 100;
+        const sx = rx - sw - 15;
+        const sy = armY + 15 - sh/2;
 
-        drawCylinder(cx, sleeveY, sleeveW, sleeveH, 'rgba(244, 114, 182, 0.85)', '#db2777');
+        let sFill = colors.sleeve;
+        let sStroke = colors.sleeveStroke;
 
-        // La Banda tensora del Handy (Azul/Negro que abraza a la manga)
-        const strapH = 22;
-        const strapY = sleeveY + sleeveH/2 - strapH/2;
-        drawCylinder(cx, strapY, sleeveW + 8, strapH, '#0284c7', '#0369a1');
+        if (targetPos > 90 || targetPos < 10) {
+            sFill = 'rgba(249, 115, 22, 0.85)';
+            sStroke = '#ea580c';
+        }
 
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = sFill;
+        ctx.strokeStyle = sStroke;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(sx, sy, sw, sh, 15);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = colors.sleeveHighlight;
+        ctx.beginPath();
+        ctx.roundRect(sx + 5, sy + 5, 10, sh - 10, 5);
+        ctx.fill();
+
+        // Remache del brazo
+        ctx.fillStyle = colors.armDark;
+        ctx.beginPath();
+        ctx.fillRect(rx - 15, armY + 5, 20, 20);
+
+        // Texto informativo
+        ctx.fillStyle = colors.text;
         ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'center';
         ctx.fillText(`Pos: ${Math.round(targetPos)}%`, cx, canvas.height - 10);
