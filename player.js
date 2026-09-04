@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.16 (ANIMACIÓN TEMA V2, DISPOSITIVOS, CACHÉ)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.1.17 (ANTI-PULSO Y REAJUSTE DE HEADER)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -22,7 +22,6 @@ const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
 
-// 🎯 FIX: Recuperar Tema con Animación Restaurada
 const savedTheme = localStorage.getItem('funscript_theme');
 if (savedTheme === 'light') {
     document.body.classList.add('light-theme');
@@ -39,7 +38,6 @@ document.getElementById('menu-theme-btn')?.addEventListener('click', (e) => {
         if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
     };
 
-    // La animación espectacular de la Gota
     if (document.startViewTransition) {
         document.documentElement.style.setProperty('--ripple-x', e.clientX + 'px');
         document.documentElement.style.setProperty('--ripple-y', e.clientY + 'px');
@@ -49,7 +47,7 @@ document.getElementById('menu-theme-btn')?.addEventListener('click', (e) => {
     }
 });
 
-// 🎯 FIX: Selección Activa de Juguetes
+// 🎯 FIX: Neutralización del parpadeo del botón al seleccionar Dispositivo
 document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link => {
     link.addEventListener('click', (e) => {
         e.preventDefault();
@@ -58,7 +56,10 @@ document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link =
         window.activeDevice = link.dataset.device;
         
         const btn = document.getElementById('device-menu-btn');
-        if (btn) btn.innerText = `📱 ${link.innerText}`;
+        if (btn) {
+            btn.innerText = `📱 ${link.innerText}`;
+            btn.classList.remove('device-alert-pulse'); // Mata la animación
+        }
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
     });
 });
@@ -88,7 +89,6 @@ snapToggle.addEventListener('change', (e) => {
 document.getElementById('point-slider').step = window.snapValue;
 document.getElementById('min-slider').step = window.snapValue;
 document.getElementById('max-slider').step = window.snapValue;
-
 
 let draggingPresetEl = null;
 let dropIndicator = document.createElement('div');
@@ -163,7 +163,6 @@ document.getElementById('close-controls-btn')?.addEventListener('click', () => {
     if (controlsModal) controlsModal.style.display = 'none';
 });
 
-// 🎯 FIX: Botón de Caché Seguro
 const cacheBtn = document.getElementById('menu-cache-btn');
 if (cacheBtn) {
     cacheBtn.addEventListener('click', (e) => {
