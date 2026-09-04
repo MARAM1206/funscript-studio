@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.6 (ANATOMÍA CORREGIDA - GROSOR Y PROPORCIONES)
+// DIGITAL TWIN 3D V1.3.7 (HANDY ROBUSTO Y FÍSICA DE MANGA CORREGIDA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLight = document.body.classList.contains('light-theme');
         const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
 
-        // 1. CUERPO / EJE (y0 a y70) - Ensanchado
+        // 1. CUERPO / EJE (y0 a y70)
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
         shaftGrad.addColorStop(0, '#a66d4c');   
         shaftGrad.addColorStop(0.2, '#d6a385'); 
@@ -73,12 +73,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.beginPath();
         ctx.moveTo(penisCx - pWidth/2, y70);
         ctx.lineTo(penisCx - pWidth/2, y0);
-        ctx.quadraticCurveTo(penisCx, y0 + 12, penisCx + pWidth/2, y0); 
+        ctx.quadraticCurveTo(penisCx, y0 + 10, penisCx + pWidth/2, y0); 
         ctx.lineTo(penisCx + pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // 2. GLANDE (y70 a y100) - Cúpula ancha y natural
-        const flare = pWidth * 0.18; 
+        // 2. GLANDE (y70 a y100)
+        const flare = pWidth * 0.20; 
         let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2 - flare, 0, penisCx + pWidth/2 + flare, 0);
         glansGrad.addColorStop(0, '#c77873');
         glansGrad.addColorStop(0.3, '#eba7a2');
@@ -92,15 +92,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         ctx.quadraticCurveTo(penisCx - pWidth/2 - flare, y70 - 2, penisCx - pWidth/2 - flare, y70 - 10);
         
-        // Ajuste de los puntos de control para achatamiento
         ctx.bezierCurveTo(
-            penisCx - pWidth/2 - flare, y100 + 20, 
-            penisCx - pWidth*0.3, y100, 
+            penisCx - pWidth/2 - flare, y100 + 15, 
+            penisCx - pWidth*0.25, y100, 
             penisCx, y100
         );
+        
         ctx.bezierCurveTo(
-            penisCx + pWidth*0.3, y100, 
-            penisCx + pWidth/2 + flare, y100 + 20, 
+            penisCx + pWidth*0.25, y100, 
+            penisCx + pWidth/2 + flare, y100 + 15, 
             penisCx + pWidth/2 + flare, y70 - 10
         );
         
@@ -149,9 +149,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const baseH = canvas.height * 0.85; 
         const baseY = cy - (baseH / 2);
         
-        const hw = 75; 
-        const hx = cx - 75; 
+        // 🎯 FIX: Handy Ensanchado a 105px
+        const hw = 105; 
+        const hx = cx - 80; 
         
+        // Carcasa de la máquina
         let bodyGrad = ctx.createLinearGradient(hx - hw/2, 0, hx + hw/2, 0);
         bodyGrad.addColorStop(0, isLight ? '#cbd5e1' : '#111');
         bodyGrad.addColorStop(0.3, isLight ? '#f1f5f9' : '#333');
@@ -163,75 +165,83 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.roundRect(hx - hw/2, baseY, hw, baseH, 20);
         ctx.fill();
 
+        // Grip ergonómico re-escalado
         ctx.fillStyle = isLight ? '#64748b' : '#1f2224'; 
         ctx.beginPath();
         ctx.moveTo(hx - hw/2, baseY + 40);
-        ctx.quadraticCurveTo(hx, baseY + 80, hx + 10, baseY + 150);
-        ctx.lineTo(hx + 10, baseY + baseH - 50);
-        ctx.quadraticCurveTo(hx, baseY + baseH - 20, hx - hw/2, baseY + baseH - 20);
+        ctx.quadraticCurveTo(hx - 15, baseY + 80, hx - 5, baseY + 150);
+        ctx.lineTo(hx - 5, baseY + baseH - 60);
+        ctx.quadraticCurveTo(hx - 15, baseY + baseH - 20, hx - hw/2, baseY + baseH - 20);
         ctx.fill();
 
+        // Botones D-Pad
         ctx.fillStyle = isLight ? '#334155' : '#111';
-        const bx = hx - 5;
-        const by = baseY + 120;
+        const bx = hx - 15;
+        const by = baseY + 140;
         ctx.beginPath(); ctx.roundRect(bx - 12, by - 4, 24, 8, 3); ctx.fill(); 
         ctx.beginPath(); ctx.roundRect(bx - 4, by - 12, 8, 24, 3); ctx.fill(); 
         
+        // LED Cyan
         ctx.fillStyle = '#38bdf8'; 
         ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.arc(hx - 5, baseY + 160, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(bx, by + 45, 3, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0; 
         
-        const sh = 110; 
+        // ==========================================
+        // 🎯 FIX: FÍSICA INVERTIDA Y ANCLAJE INFERIOR
+        // ==========================================
         
-        const strokeTopY = baseY + 60;
-        const strokeBotY = baseY + baseH - 60;
-
-        const rx = hx + hw/2 - 6; 
+        const y100 = baseY + 70;  // Tope de carrera (Glande)
+        const y0 = baseY + baseH - 50; // Fin de carrera (Base)
+        
+        // El Riel cubre el área del recorrido mecánico
+        const rx = hx + hw/2 - 8; 
         ctx.fillStyle = isLight ? '#475569' : '#050505';
         ctx.beginPath();
-        ctx.roundRect(rx - 6, strokeTopY - 20, 10, (strokeBotY - strokeTopY) + 40, 5);
+        ctx.roundRect(rx - 6, y100 - 40, 12, (y0 - y100) + 70, 5);
         ctx.fill();
 
         let targetPos = getInterpolatedPosition();
-        const armY = strokeBotY - (targetPos / 100) * (strokeBotY - strokeTopY);
+        
+        // 1. Calculamos dónde debe estar el FONDO de la manga basado en el %
+        const sleeveBottomY = y0 - (targetPos / 100) * (y0 - y100);
+        const sh = 120; // Altura total de la manga
+        const sleeveTopY = sleeveBottomY - sh;
+        
+        // 2. La Abrazadera (y el brazo) sujetan la manga cerca de su base
+        const armY = sleeveBottomY - 25; 
         
         const sx = hx + hw/2 + 80; 
-        
-        // 🎯 Grosor anatómico incrementado y equilibrado
         const pWidth = 65; 
 
-        const y0 = strokeBotY + sh/2 - 10; 
-        const y100 = strokeTopY - sh/2 + 10;
-        
         if (showAnatomy) {
             drawExplicitAnatomy(sx, y100, y0, pWidth); 
         }
 
+        // Brazo conector
         ctx.fillStyle = isLight ? '#0ea5e9' : '#0284c7';
         ctx.beginPath();
-        ctx.roundRect(rx, armY - 10, (sx - rx - 20), 20, 4);
+        ctx.roundRect(rx, armY - 10, (sx - rx - 35), 20, 4);
         ctx.fill();
         
-        // 🎯 Manga ensanchada para rodear el nuevo grosor sin colisiones
+        // Manga Translúcida
         const sw = 95; 
-        const sleeveY = armY - sh/2; 
-        
         ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.5)' : 'rgba(230, 240, 255, 0.2)';
         ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(255, 255, 255, 0.3)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.roundRect(sx - sw/2, sleeveY, sw, sh, 12);
+        ctx.roundRect(sx - sw/2, sleeveTopY, sw, sh, 12);
         ctx.fill(); ctx.stroke();
 
         ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)';
         for(let i=15; i<sh-15; i+=15) {
             ctx.beginPath();
-            ctx.moveTo(sx - sw/2, sleeveY + i);
-            ctx.quadraticCurveTo(sx, sleeveY + i + 10, sx + sw/2, sleeveY + i);
+            ctx.moveTo(sx - sw/2, sleeveTopY + i);
+            ctx.quadraticCurveTo(sx, sleeveTopY + i + 10, sx + sw/2, sleeveTopY + i);
             ctx.stroke();
         }
         
+        // Banda TrueGrip (Velcro) anclada al brazo
         const strapH = 26;
         const strapY = armY - strapH/2;
         
