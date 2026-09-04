@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.2.4">
+    <link rel="stylesheet" href="styles.css?v=1.3.0">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.4 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.3.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -123,7 +123,6 @@
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-header video-info-bar" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <div class="video-info-left" style="pointer-events: none;">
-                    <!-- 🎯 FIX: Se eliminó el font-weight: bold de todas las etiquetas informativas del video -->
                     <span id="v-name" class="info-text-white" style="max-width: 400px; font-weight: normal; font-size: 0.8rem; color:#e2e8f0; text-shadow:none;">🎥 Sin video</span>
                 </div>
                 <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal;">
@@ -210,7 +209,6 @@
             </div>
         </div>
 
-        <!-- 🎯 FIX: Headers alineados estrictamente a la izquierda -->
         <div id="panel-twin" class="workspace-panel" data-title="🤖 Digital Twin">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🤖 Digital Twin 3D</span>
@@ -222,60 +220,72 @@
             </div>
         </div>
 
+        <!-- 🎯 FIX: Humanizador V2 con Menú Automático/Manual Desplegable -->
         <div id="panel-humanizer" class="workspace-panel" data-title="🎭 Humanizador">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: flex-start; align-items: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎭 Humanizador</span>
             </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
-                <p style="font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 10px;">Añade micro-variaciones orgánicas a la selección.</p>
-                <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Desfase de Tiempo:</span> <span id="hum-time-val" style="color: #38bdf8; font-weight: bold;">±15 ms</span>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 15px; overflow-y: auto;">
+                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Rompe la sensación robótica añadiendo micro-errores humanos al patrón.</p>
+                
+                <label class="oc-label" style="background: rgba(15, 23, 42, 0.5); border-radius: 6px; padding: 8px 10px; width: 100%; display: flex; justify-content: center; margin-bottom: 15px; border: 1px solid #1e293b; transition: all 0.2s;">
+                    <input type="checkbox" id="hum-auto-toggle" class="oc-toggle" checked> 
+                    <span class="oc-text" style="font-weight:bold; color:#10b981;">Modo 100% Automático</span>
+                </label>
+
+                <div id="hum-manual-controls" style="width: 100%; display: none; opacity: 0; transition: opacity 0.3s; margin-bottom: 10px;">
+                    <div style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                            <span title="Cuántos milisegundos máximo puede adelantarse o atrasarse un punto.">Límite de Tiempo:</span> <span id="hum-time-val" style="color: #38bdf8; font-weight: bold;">±15 ms</span>
+                        </div>
+                        <input type="range" id="hum-time-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="50" step="1" value="15">
                     </div>
-                    <input type="range" id="hum-time-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="0" max="50" step="1" value="15">
-                </div>
-                <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Desfase de Posición:</span> <span id="hum-pos-val" style="color: #f97316; font-weight: bold;">±3%</span>
+                    <div style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                            <span title="Cuánto porcentaje extra puede subir o bajar un punto aleatoriamente.">Límite de Posición:</span> <span id="hum-pos-val" style="color: #f97316; font-weight: bold;">±3%</span>
+                        </div>
+                        <input type="range" id="hum-pos-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="15" step="1" value="3">
                     </div>
-                    <input type="range" id="hum-pos-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="0" max="15" step="1" value="3">
                 </div>
-                <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%;">🎲 Aplicar a Selección</button>
+
+                <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%; margin-top: auto;">🎲 Aplicar a Selección</button>
             </div>
         </div>
 
-        <div id="panel-bpm" class="workspace-panel" data-title="🥁 BPM Extractor">
+        <!-- 🎯 FIX: BPM Extractor V2 con textos humanos y entendibles -->
+        <div id="panel-bpm" class="workspace-panel" data-title="🥁 Auto-Ritmo">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🥁 BPM Extractor</span>
-                <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:1rem; padding:0 5px;" title="Borrar BPMs">🗑️</button>
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🥁 Auto-Ritmo (BPM)</span>
+                <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:1rem; padding:0 5px;" title="Borrar Marcadores">🗑️</button>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
-                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px;">Analiza el audio y detecta graves para anclar marcadores.</p>
+                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Detecta los golpes de la música y coloca marcadores azules (B1, B2) automáticamente.</p>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Sensibilidad (Picos):</span> <span id="bpm-sens-val" style="color: #0ea5e9; font-weight: bold;">75%</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span title="Si te salen muchos marcadores falsos, súbelo al 100%. Si no detecta nada, bájalo.">Fuerza del Golpe:</span> <span id="bpm-sens-val" style="color: #0ea5e9; font-weight: bold;">75%</span>
                     </div>
                     <input type="range" id="bpm-sens-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="10" max="100" step="1" value="75">
                 </div>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Filtro Pasa-Bajos:</span> <span id="bpm-freq-val" style="color: #8b5cf6; font-weight: bold;">120 Hz</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span title="50Hz = Solo subgraves vibrantes. 300Hz = Tambores, golpes y algo de voces.">Tipo de Sonido (Filtro):</span> <span id="bpm-freq-val" style="color: #8b5cf6; font-weight: bold;">120 Hz</span>
                     </div>
                     <input type="range" id="bpm-freq-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="50" max="300" step="10" value="120">
                 </div>
-                <button id="analyze-bpm-btn" class="menu-btn blue-btn" style="width: 100%;">🔎 Analizar Audio</button>
+                <button id="analyze-bpm-btn" class="menu-btn blue-btn" style="width: 100%;">🔎 Escanear Video</button>
             </div>
         </div>
 
-        <div id="panel-mass" class="workspace-panel" data-title="🎛️ Modificador">
+        <!-- 🎯 FIX: Modificador de Masas V2 con Textos claros -->
+        <div id="panel-mass" class="workspace-panel" data-title="🎛️ Moldeador">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: flex-start; align-items: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎛️ Modificador de Masas</span>
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎛️ Moldeador de Patrones</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
-                <p style="font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 10px;">Escala, desplaza o invierte puntos masivamente.</p>
+                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Ajusta el tamaño o la altura de muchos puntos a la vez sin arruinar su ritmo.</p>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Amplitud (Intensidad):</span> <span id="mass-scale-val" style="color: #38bdf8; font-weight: bold;">100%</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span title="Comprime o expande el recorrido. 100% = Normal. 50% = Movimientos suaves a la mitad.">Tamaño del Movimiento:</span> <span id="mass-scale-val" style="color: #38bdf8; font-weight: bold;">100%</span>
                     </div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
                         <input type="range" id="mass-scale-slider" class="volume-slider" style="flex-grow:1;" min="10" max="200" step="10" value="100">
@@ -283,15 +293,15 @@
                     </div>
                 </div>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Desplazamiento Vertical:</span> <span id="mass-offset-val" style="color: #f97316; font-weight: bold;">0%</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span title="Sube o baja la altura de todo el bloque seleccionado de golpe.">Altura Base (Subir/Bajar):</span> <span id="mass-offset-val" style="color: #f97316; font-weight: bold;">0%</span>
                     </div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
                         <input type="range" id="mass-offset-slider" class="volume-slider" style="flex-grow:1;" min="-50" max="50" step="5" value="0">
                         <button id="apply-offset-btn" class="menu-btn orange-btn" style="font-size:0.7rem; padding: 4px 8px;">Mover</button>
                     </div>
                 </div>
-                <button id="invert-btn" class="menu-btn purple-btn" style="width: 100%;">↕️ Invertir Selección</button>
+                <button id="invert-btn" class="menu-btn purple-btn" style="width: 100%;">↕️ Voltear al Revés (Invertir)</button>
             </div>
         </div>
 
@@ -318,16 +328,16 @@
 
     </div>
 
-    <script src="workspace.js?v=1.2.4"></script>
-    <script src="handy.js?v=1.2.4"></script> 
-    <script src="funscript.js?v=1.2.4"></script>
-    <script src="player.js?v=1.2.4"></script>
-    <script src="tracking.js?v=1.2.4"></script>
-    <script src="presets.js?v=1.2.4"></script>
-    <script src="timeline.js?v=1.2.4"></script>
-    <script src="twin.js?v=1.2.4"></script>
-    <script src="humanizer.js?v=1.2.4"></script>
-    <script src="bpm.js?v=1.2.4"></script>
-    <script src="mass.js?v=1.2.4"></script>
+    <script src="workspace.js?v=1.3.0"></script>
+    <script src="handy.js?v=1.3.0"></script> 
+    <script src="funscript.js?v=1.3.0"></script>
+    <script src="player.js?v=1.3.0"></script>
+    <script src="tracking.js?v=1.3.0"></script>
+    <script src="presets.js?v=1.3.0"></script>
+    <script src="timeline.js?v=1.3.0"></script>
+    <script src="twin.js?v=1.3.0"></script>
+    <script src="humanizer.js?v=1.3.0"></script>
+    <script src="bpm.js?v=1.3.0"></script>
+    <script src="mass.js?v=1.3.0"></script>
 </body>
 </html>
