@@ -1,5 +1,5 @@
 // ==========================================================================
-// HUMANIZATION FILTER V1.3.0 (MODO AUTOMÁTICO Y SEMI-MANUAL)
+// HUMANIZATION FILTER V1.3.3 (LIMITES AUTOMÁTICOS Y MANUALES ESTRICTOS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const posValDisplay = document.getElementById('hum-pos-val');
     const applyBtn = document.getElementById('apply-humanizer-btn');
     
-    // 🎯 FIX: Componentes del Toggle Automático
     const autoToggle = document.getElementById('hum-auto-toggle');
     const manualControls = document.getElementById('hum-manual-controls');
 
@@ -45,13 +44,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let maxTimeOffset, maxPosOffset;
         
-        // 🎯 FIX: Lógica de Límites dependiendo del Toggle
+        // 🎯 FIX: Modo Inteligente vs Manual Estricto
         if (autoToggle.checked) {
-            // Genera límites seguros y óptimos al azar (El rango dulce que te sugerí)
-            maxTimeOffset = Math.floor(Math.random() * (15 - 8 + 1)) + 8; // Entre 8 y 15ms
-            maxPosOffset = Math.floor(Math.random() * (4 - 1 + 1)) + 1; // Entre 1 y 4%
+            maxTimeOffset = 15; // Límite seguro óptimo
+            maxPosOffset = 3;   // Límite seguro óptimo
         } else {
-            // Respeta estrictamente los límites del slider del usuario
             maxTimeOffset = parseInt(timeSlider.value, 10);
             maxPosOffset = parseInt(posSlider.value, 10);
         }
@@ -62,18 +59,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!actions[i].selected) continue;
 
             if (maxPosOffset > 0) {
-                let pOffset = (Math.random() * 2 - 1) * maxPosOffset;
-                let newPos = actions[i].pos + pOffset;
+                // Selecciona una magnitud entre el 20% y el 100% de tu límite (nunca 0)
+                let pMag = maxPosOffset * (0.2 + Math.random() * 0.8);
+                let pSign = Math.random() < 0.5 ? -1 : 1;
+                let newPos = actions[i].pos + (pMag * pSign);
                 actions[i].pos = Math.max(0, Math.min(100, Math.round(newPos / snap) * snap));
             }
 
             if (maxTimeOffset > 0) {
-                // Escudo cronológico: Evita matemáticamente que el punto humano invada el ms de sus vecinos
                 let minTime = (i > 0) ? actions[i-1].at + 15 : 0; 
                 let maxTime = (i < actions.length - 1) ? actions[i+1].at - 15 : actions[i].at + maxTimeOffset;
 
-                let tOffset = (Math.random() * 2 - 1) * maxTimeOffset;
-                let newTime = Math.round(actions[i].at + tOffset);
+                let tMag = maxTimeOffset * (0.2 + Math.random() * 0.8);
+                let tSign = Math.random() < 0.5 ? -1 : 1;
+                let newTime = Math.round(actions[i].at + (tMag * tSign));
 
                 newTime = Math.max(minTime, Math.min(maxTime, newTime));
                 actions[i].at = newTime;
