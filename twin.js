@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.5 (ANATOMÍA VECTORIAL ESTILIZADA Y PROPORCIONAL)
+// DIGITAL TWIN 3D V1.3.6 (ANATOMÍA CORREGIDA Y GLANDE REDONDEADO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -50,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return a1.pos + (a2.pos - a1.pos) * progress;
     }
 
-    // Renderizador Anatómico Estilizado
     function drawExplicitAnatomy(penisCx, y100, y0, pWidth) {
         const totalH = y0 - y100;
         const y70 = y100 + totalH * 0.3;  
@@ -58,32 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isLight = document.body.classList.contains('light-theme');
         const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
-        
-        // 1. ESCROTO (Bolsa continua y unificada debajo de la línea 0%)
-        let scrotGrad = ctx.createRadialGradient(penisCx, y0 + 20, 10, penisCx, y0 + 20, pWidth * 1.5);
-        scrotGrad.addColorStop(0, '#c48b6b');
-        scrotGrad.addColorStop(1, '#8c593f');
 
-        ctx.fillStyle = scrotGrad;
-        ctx.strokeStyle = outlineColor;
-        ctx.lineWidth = 1.5;
-        
-        ctx.beginPath();
-        ctx.moveTo(penisCx - pWidth/2, y20);
-        // Curva de caída del saco izquierdo al centro
-        ctx.bezierCurveTo(penisCx - pWidth * 1.4, y20 + 10, penisCx - pWidth * 0.8, y0 + 55, penisCx, y0 + 55);
-        // Curva de subida del saco derecho
-        ctx.bezierCurveTo(penisCx + pWidth * 0.8, y0 + 55, penisCx + pWidth * 1.4, y20 + 10, penisCx + pWidth/2, y20);
-        ctx.fill(); ctx.stroke();
-        
-        // Detalle del rafe (línea sutil central)
-        ctx.beginPath();
-        ctx.moveTo(penisCx, y0 - 10);
-        ctx.quadraticCurveTo(penisCx + 3, y0 + 20, penisCx, y0 + 50);
-        ctx.strokeStyle = 'rgba(70, 40, 20, 0.15)';
-        ctx.stroke();
-
-        // 2. CUERPO / EJE (Líneas rectas del 20% al 70%)
+        // 1. CUERPO / EJE (y0 a y70)
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
         shaftGrad.addColorStop(0, '#a66d4c');   
         shaftGrad.addColorStop(0.2, '#d6a385'); 
@@ -93,17 +68,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.fillStyle = shaftGrad;
         ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 1.5;
         
         ctx.beginPath();
-        ctx.moveTo(penisCx - pWidth/2 - 2, y20);
-        ctx.lineTo(penisCx - pWidth/2, y70);
+        ctx.moveTo(penisCx - pWidth/2, y70);
+        ctx.lineTo(penisCx - pWidth/2, y0);
+        ctx.quadraticCurveTo(penisCx, y0 + 10, penisCx + pWidth/2, y0); // Base redondeada limpia
         ctx.lineTo(penisCx + pWidth/2, y70);
-        ctx.lineTo(penisCx + pWidth/2 + 2, y20);
-        ctx.quadraticCurveTo(penisCx, y20 + 8, penisCx - pWidth/2 - 2, y20);
         ctx.fill(); ctx.stroke();
 
-        // 3. GLANDE (Forma redondeada, no piramidal, del 70% al 100%)
-        const flare = pWidth * 0.22; // Ensanchamiento de la corona
+        // 2. GLANDE (y70 a y100) - Cúpula redondeada
+        const flare = pWidth * 0.20; 
         let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2 - flare, 0, penisCx + pWidth/2 + flare, 0);
         glansGrad.addColorStop(0, '#c77873');
         glansGrad.addColorStop(0.3, '#eba7a2');
@@ -114,29 +89,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.beginPath();
         ctx.moveTo(penisCx - pWidth/2, y70);
-        // Ensanchar a los lados
-        ctx.lineTo(penisCx - pWidth/2 - flare, y70 - 4);
-        // Curva cóncava suave hasta la punta (evita el pico)
+        
+        // Ensanchamiento de la corona
+        ctx.quadraticCurveTo(penisCx - pWidth/2 - flare, y70 - 2, penisCx - pWidth/2 - flare, y70 - 10);
+        
+        // Cúpula redondeada izquierda
         ctx.bezierCurveTo(
-            penisCx - pWidth/2 - flare, y100 + (totalH * 0.08), 
-            penisCx - pWidth*0.15, y100, 
+            penisCx - pWidth/2 - flare, y100 + 15, 
+            penisCx - pWidth*0.25, y100, 
             penisCx, y100
         );
-        ctx.bezierCurveTo(
-            penisCx + pWidth*0.15, y100, 
-            penisCx + pWidth/2 + flare, y100 + (totalH * 0.08), 
-            penisCx + pWidth/2 + flare, y70 - 4
-        );
-        // Regreso al centro
-        ctx.lineTo(penisCx + pWidth/2, y70);
-        // Curva inferior de la corona
-        ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth/2, y70);
-        ctx.fill(); 
         
-        ctx.strokeStyle = 'rgba(100, 30, 30, 0.4)';
-        ctx.stroke();
+        // Cúpula redondeada derecha
+        ctx.bezierCurveTo(
+            penisCx + pWidth*0.25, y100, 
+            penisCx + pWidth/2 + flare, y100 + 15, 
+            penisCx + pWidth/2 + flare, y70 - 10
+        );
+        
+        ctx.quadraticCurveTo(penisCx + pWidth/2 + flare, y70 - 2, penisCx + pWidth/2, y70);
+        ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth/2, y70);
+        ctx.fill(); ctx.stroke();
 
-        // Meato (abertura superior)
+        // Meato
         ctx.beginPath();
         ctx.moveTo(penisCx, y100 + 4);
         ctx.lineTo(penisCx, y100 + 14);
@@ -144,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // 4. LÍNEAS TOPOGRÁFICAS (100%, 70%, 20%, 0%)
+        // 3. LÍNEAS TOPOGRÁFICAS
         ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(148, 163, 184, 0.5)';
         ctx.fillStyle = isLight ? '#334155' : '#94a3b8';
         ctx.font = 'bold 10px monospace';
@@ -227,10 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let targetPos = getInterpolatedPosition();
         const armY = strokeBotY - (targetPos / 100) * (strokeBotY - strokeTopY);
         
-        const sx = hx + hw/2 + 70; // Centro anatómico
-        const pWidth = 55; // Grosor óptimo ajustado para no verse como fideo
+        const sx = hx + hw/2 + 70; 
+        const pWidth = 50; 
 
-        // Ajuste exacto de los topes Y para el renderizado anatómico
         const y0 = strokeBotY + sh/2 - 10; 
         const y100 = strokeTopY - sh/2 + 10;
         
@@ -285,7 +259,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.roundRect(sx - 8, strapY - 2, 16, strapH + 4, 3); 
         ctx.fill();
 
-        // Texto Inferior
         ctx.fillStyle = isLight ? '#334155' : '#94a3b8';
         ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'center';
