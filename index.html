@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.1.17">
+    <link rel="stylesheet" href="styles.css?v=1.2.0">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.1.17 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -109,18 +109,7 @@
         </div>
     </div>
 
-    <div id="controls-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
-                <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
-                <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
-            </div>
-            <div class="controls-grid"></div>
-        </div>
-    </div>
-
     <div class="workspace-container">
-        <!-- 🎯 FIX: Header del reproductor fusionado con la Info Bar. Minimizado, limpio y arrastrable. -->
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-header video-info-bar" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <div class="video-info-left" style="pointer-events: none;">
@@ -133,7 +122,6 @@
                     <div style="display: flex; align-items: center; gap: 6px; position: relative;">
                         <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute" style="display:inline-block; width: 18px; text-align: center;">🔊</span></span>
                         <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.01" value="1" title="Volumen">
-                        <div id="volume-tooltip" style="position: absolute; top: -25px; left: 0; transform: translateX(-50%); background: #0f172a; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.2s;">100%</div>
                     </div>
                 </div>
             </div>
@@ -213,6 +201,19 @@
             </div>
         </div>
 
+        <!-- 🎯 FIX: Nueva Pestaña Digital Twin 3D -->
+        <div id="panel-twin" class="workspace-panel" data-title="🤖 Digital Twin">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🤖 Digital Twin 3D</span>
+                <span id="twin-status-txt" style="font-family:monospace; font-size:0.6rem; color:#10b981;">EN LÍNEA</span>
+            </div>
+            <div class="panel-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 35px); background: #020617; position: relative;">
+                <canvas id="twin-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                <!-- Piso luminoso de base -->
+                <div style="position: absolute; bottom: 0; width: 100%; height: 30px; background: linear-gradient(to top, rgba(56, 189, 248, 0.15), transparent); pointer-events: none;"></div>
+            </div>
+        </div>
+
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
             <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
                 <span style="font-weight: bold; width: 150px;">📈 Línea de Tiempo</span>
@@ -236,12 +237,15 @@
 
     </div>
 
-    <script src="workspace.js?v=1.1.17"></script>
-    <script src="handy.js?v=1.1.17"></script> 
-    <script src="funscript.js?v=1.1.17"></script>
-    <script src="player.js?v=1.1.17"></script>
-    <script src="tracking.js?v=1.1.17"></script>
-    <script src="presets.js?v=1.1.17"></script>
-    <script src="timeline.js?v=1.1.17"></script>
+    <script src="workspace.js?v=1.2.0"></script>
+    <script src="handy.js?v=1.2.0"></script> 
+    <script src="funscript.js?v=1.2.0"></script>
+    <script src="player.js?v=1.2.0"></script>
+    <script src="tracking.js?v=1.2.0"></script>
+    <script src="presets.js?v=1.2.0"></script>
+    <script src="timeline.js?v=1.2.0"></script>
+    
+    <!-- 🎯 FIX: El nuevo motor gráfico 3D -->
+    <script src="twin.js?v=1.2.0"></script>
 </body>
 </html>
