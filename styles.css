@@ -94,14 +94,15 @@ body.panic-mode-active #panel-twin .panel-content { filter: blur(20px); opacity:
 
 .workspace-container { position: relative; width: 100vw; height: calc(100vh - 44px); overflow: hidden; }
 
-/* 🎯 FIX: Ajuste esbelto y límites de seguridad para paneles */
+/* 🎯 FIX: Ajuste esbelto y límites de seguridad para el panel Humanizador */
 .workspace-panel { position: absolute; background: #0f131a; border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #1e293b; overflow: hidden; }
 #panel-presets, #panel-quick { min-width: 280px; min-height: 180px; }
 #panel-slider { min-width: 70px !important; min-height: 200px; } 
 #panel-tracks { min-width: 300px; min-height: 200px; }
 #panel-timeline { min-width: 500px; min-height: 200px; }
 #panel-video { min-width: 400px; min-height: 300px; }
-#panel-twin { min-width: 150px; min-height: 250px; } /* Nuevo límite para el Twin */
+#panel-twin { min-width: 150px; min-height: 250px; }
+#panel-humanizer { min-width: 220px; min-height: 220px; }
 
 .panel-header { background: #141b26; color: #94a3b8; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: move; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
 
