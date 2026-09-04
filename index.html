@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.2.1">
+    <link rel="stylesheet" href="styles.css?v=1.2.2">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.1 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.2 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -222,7 +222,6 @@
             </div>
         </div>
 
-        <!-- 🎯 FIX: Nueva Pestaña Modular: Filtro Humanizador -->
         <div id="panel-humanizer" class="workspace-panel" data-title="🎭 Humanizador">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎭 Humanizador</span>
@@ -242,6 +241,30 @@
                     <input type="range" id="hum-pos-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="0" max="15" step="1" value="3">
                 </div>
                 <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%;">🎲 Aplicar a Selección</button>
+            </div>
+        </div>
+
+        <!-- 🎯 FIX: Nueva Pestaña Modular: BPM Extractor -->
+        <div id="panel-bpm" class="workspace-panel" data-title="🥁 BPM Extractor">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🥁 BPM Extractor</span>
+                <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:1rem; padding:0 5px;" title="Borrar BPMs">🗑️</button>
+            </div>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
+                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px;">Analiza el audio y detecta graves para anclar marcadores.</p>
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span>Sensibilidad (Picos):</span> <span id="bpm-sens-val" style="color: #0ea5e9; font-weight: bold;">75%</span>
+                    </div>
+                    <input type="range" id="bpm-sens-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="10" max="100" step="1" value="75">
+                </div>
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span>Filtro Pasa-Bajos:</span> <span id="bpm-freq-val" style="color: #8b5cf6; font-weight: bold;">120 Hz</span>
+                    </div>
+                    <input type="range" id="bpm-freq-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="50" max="300" step="10" value="120">
+                </div>
+                <button id="analyze-bpm-btn" class="menu-btn blue-btn" style="width: 100%;">🔎 Analizar Audio</button>
             </div>
         </div>
 
@@ -268,16 +291,17 @@
 
     </div>
 
-    <script src="workspace.js?v=1.2.1"></script>
-    <script src="handy.js?v=1.2.1"></script> 
-    <script src="funscript.js?v=1.2.1"></script>
-    <script src="player.js?v=1.2.1"></script>
-    <script src="tracking.js?v=1.2.1"></script>
-    <script src="presets.js?v=1.2.1"></script>
-    <script src="timeline.js?v=1.2.1"></script>
-    <script src="twin.js?v=1.2.1"></script>
+    <script src="workspace.js?v=1.2.2"></script>
+    <script src="handy.js?v=1.2.2"></script> 
+    <script src="funscript.js?v=1.2.2"></script>
+    <script src="player.js?v=1.2.2"></script>
+    <script src="tracking.js?v=1.2.2"></script>
+    <script src="presets.js?v=1.2.2"></script>
+    <script src="timeline.js?v=1.2.2"></script>
+    <script src="twin.js?v=1.2.2"></script>
+    <script src="humanizer.js?v=1.2.2"></script>
     
-    <!-- 🎯 FIX: El nuevo motor matemático del Humanizador -->
-    <script src="humanizer.js?v=1.2.1"></script>
+    <!-- 🎯 FIX: El nuevo motor de Extracción de Audio -->
+    <script src="bpm.js?v=1.2.2"></script>
 </body>
 </html>
