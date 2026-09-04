@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.4.0 (ESCALA DEFINITIVA Y TOPOGRAFÍA PERMANENTE)
+// DIGITAL TWIN 3D V1.4.1 (ESCALA CORREGIDA Y TOPOGRAFÍA PERMANENTE)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLight = document.body.classList.contains('light-theme');
         const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
 
-        // 1. CUERPO / EJE (y0 a y70) - Líneas rectas limpias
+        // CUERPO / EJE (y0 a y70)
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
         shaftGrad.addColorStop(0, '#a66d4c');   
         shaftGrad.addColorStop(0.2, '#d6a385'); 
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(penisCx + pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // 2. GLANDE (y70 a y100) - Cúpula redondeada
+        // GLANDE (y70 a y100)
         const flare = pWidth * 0.18; 
         let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2 - flare, 0, penisCx + pWidth/2 + flare, 0);
         glansGrad.addColorStop(0, '#c77873');
@@ -91,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.moveTo(penisCx - pWidth/2, y70);
         ctx.quadraticCurveTo(penisCx - pWidth/2 - flare, y70 - 2, penisCx - pWidth/2 - flare, y70 - 10);
         
-        // Cúpulas amplias y naturales
         ctx.bezierCurveTo(
             penisCx - pWidth/2 - flare, y100 + 15, 
             penisCx - pWidth*0.25, y100, 
@@ -107,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // Meato (abertura superior)
+        // Meato
         ctx.beginPath();
         ctx.moveTo(penisCx, y100 + 4);
         ctx.lineTo(penisCx, y100 + 14);
@@ -131,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hw = 105; 
         const hx = cx - 80; 
         
-        // Carcasa robusta de la máquina
+        // Carcasa de la máquina
         let bodyGrad = ctx.createLinearGradient(hx - hw/2, 0, hx + hw/2, 0);
         bodyGrad.addColorStop(0, isLight ? '#cbd5e1' : '#111');
         bodyGrad.addColorStop(0.3, isLight ? '#f1f5f9' : '#333');
@@ -162,10 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.beginPath(); ctx.arc(bx, by + 45, 3, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0; 
         
-        // ==========================================
-        // SISTEMA MECÁNICO: FÍSICA PERFECTA
-        // ==========================================
-        
+        // Riel mecánico
         const strokeTopY = baseY + 50;
         const strokeBotY = baseY + baseH - 40;
 
@@ -180,25 +176,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sx = hx + hw/2 + 80; 
         const pWidth = 65; 
-
         const sh = 145; 
         const sleeveBottomOffset = 30; 
         
         const sleeveBottomY = armY + sleeveBottomOffset; 
         const sleeveTopY = sleeveBottomY - sh;
 
-        // Anclaje Matemático de las Referencias
+        // Anclaje Matemático de las Referencias (CORREGIDO)
         const y0 = strokeBotY + sleeveBottomOffset; 
-        const y100 = strokeTopY + sleeveBottomOffset - sh;
+        const y100 = strokeTopY + sleeveBottomOffset; 
         
-        // Renderizado Anatómico (Opcional)
         if (showAnatomy) {
             drawExplicitAnatomy(sx, y100, y0, pWidth); 
         }
 
-        // ==========================================
         // LÍNEAS TOPOGRÁFICAS (Siempre Visibles)
-        // ==========================================
         const totalH_anat = y0 - y100;
         const y70 = y100 + totalH_anat * 0.3;  
         const y20 = y100 + totalH_anat * 0.8;  
@@ -211,10 +203,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const drawLine = (y, label) => {
             ctx.beginPath(); 
-            ctx.moveTo(sx - pWidth - 30, y); 
-            ctx.lineTo(sx + pWidth + 30, y); 
+            ctx.moveTo(rx + 15, y); 
+            ctx.lineTo(sx + pWidth + 25, y); 
             ctx.stroke();
-            ctx.fillText(label, sx + pWidth + 35, y + 4);
+            ctx.fillText(label, sx + pWidth + 30, y + 4);
         };
 
         drawLine(y100, '100%');
@@ -223,10 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawLine(y0, '0%');
         ctx.setLineDash([]);
 
-        // ==========================================
-        // RENDERIZADO MECÁNICO Y MANGA
-        // ==========================================
-
+        // Brazo conector
         ctx.fillStyle = isLight ? '#0ea5e9' : '#0284c7';
         ctx.beginPath();
         ctx.roundRect(rx, armY - 10, (sx - rx - 35), 20, 4);
