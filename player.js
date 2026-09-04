@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.2.2 (SOPORTE PARA AUDIO BUFFER GLOBAL)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.2.4 (DOM ISOLATION Y CACHÉ SEGURO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -12,9 +12,7 @@ window.audioPeaks = null;
 window.clipboardFunscript = null; 
 window.isPastingMode = false; 
 
-// 🎯 FIX: Variable global para el escáner de BPM
 window.currentAudioBuffer = null;
-
 window.fsTimelineVisible = true; 
 
 const vName = document.getElementById('v-name');
@@ -24,37 +22,6 @@ const vSpeed = document.getElementById('v-speed');
 const vMute = document.getElementById('v-mute');
 const vTimeCurrent = document.getElementById('v-time-current');
 const vTimeTotal = document.getElementById('v-time-total');
-
-const savedTheme = localStorage.getItem('funscript_theme');
-if (savedTheme === 'light') {
-    document.body.classList.add('light-theme');
-    const tBtn = document.getElementById('menu-theme-btn');
-    if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
-}
-
-const themeObserver = new MutationObserver(() => {
-    const isLight = document.body.classList.contains('light-theme');
-    localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
-    const tBtn = document.getElementById('menu-theme-btn');
-    if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
-});
-themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-const snapToggle = document.getElementById('menu-snap-toggle');
-let savedSnap = localStorage.getItem('funscript_snap');
-if(savedSnap !== null) { snapToggle.checked = (savedSnap === 'true'); }
-window.snapValue = snapToggle.checked ? 5 : 1;
-
-snapToggle.addEventListener('change', (e) => {
-    window.snapValue = e.target.checked ? 5 : 1;
-    localStorage.setItem('funscript_snap', e.target.checked);
-    document.getElementById('point-slider').step = window.snapValue;
-    document.getElementById('min-slider').step = window.snapValue;
-    document.getElementById('max-slider').step = window.snapValue;
-});
-document.getElementById('point-slider').step = window.snapValue;
-document.getElementById('min-slider').step = window.snapValue;
-document.getElementById('max-slider').step = window.snapValue;
 
 let isPanicMode = false;
 const panicOverlay = document.getElementById('panic-overlay');
@@ -73,27 +40,96 @@ function preloadPanicImage() {
 }
 preloadPanicImage(); 
 
-const controlsModal = document.getElementById('controls-modal');
-document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (controlsModal) controlsModal.style.display = 'flex';
-});
-document.getElementById('close-controls-btn')?.addEventListener('click', () => {
-    if (controlsModal) controlsModal.style.display = 'none';
-});
+// 🎯 FIX: Aislar eventos de interfaz gráfica en el DOMContentLoaded para asegurar que nada los mate
+document.addEventListener('DOMContentLoaded', () => {
 
-const cacheBtn = document.getElementById('menu-cache-btn');
-if (cacheBtn) {
-    cacheBtn.addEventListener('click', (e) => {
+    const savedTheme = localStorage.getItem('funscript_theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        const tBtn = document.getElementById('menu-theme-btn');
+        if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
+    }
+
+    document.getElementById('menu-theme-btn')?.addEventListener('click', (e) => {
         e.preventDefault();
-        if (confirm('¿Borrar caché temporal y recargar? (Tus presets y el acomodo de pestañas NO se perderán)')) {
-            location.reload(true);
+        const toggleTheme = () => {
+            const isLight = document.body.classList.toggle('light-theme');
+            localStorage.setItem('funscript_theme', isLight ? 'light' : 'dark');
+            const tBtn = document.getElementById('menu-theme-btn');
+            if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
+        };
+
+        if (document.startViewTransition) {
+            document.documentElement.style.setProperty('--ripple-x', e.clientX + 'px');
+            document.documentElement.style.setProperty('--ripple-y', e.clientY + 'px');
+            document.startViewTransition(toggleTheme);
+        } else {
+            toggleTheme();
         }
     });
-}
 
-const videoVolume = document.getElementById('video-volume');
-const volumeTooltip = document.getElementById('volume-tooltip');
+    document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('#device-dropdown-list a').forEach(el => el.classList.remove('selected-device'));
+            link.classList.add('selected-device');
+            window.activeDevice = link.dataset.device;
+            
+            const btn = document.getElementById('device-menu-btn');
+            if (btn) {
+                btn.innerText = `📱 ${link.innerText}`;
+                btn.classList.remove('device-alert-pulse'); 
+            }
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        });
+    });
+
+    const ocToggle = document.querySelector('.oc-toggle');
+    if (ocToggle) {
+        ocToggle.addEventListener('change', (e) => {
+            window.isOverclockEnabled = e.target.checked;
+            const ocText = document.querySelector('.oc-text');
+            if (ocText) ocText.innerText = e.target.checked ? "Overclock On" : "Overclock Off";
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        });
+    }
+
+    const snapToggle = document.getElementById('menu-snap-toggle');
+    let savedSnap = localStorage.getItem('funscript_snap');
+    if(savedSnap !== null) { snapToggle.checked = (savedSnap === 'true'); }
+    window.snapValue = snapToggle.checked ? 5 : 1;
+
+    snapToggle.addEventListener('change', (e) => {
+        window.snapValue = e.target.checked ? 5 : 1;
+        localStorage.setItem('funscript_snap', e.target.checked);
+        document.getElementById('point-slider').step = window.snapValue;
+        document.getElementById('min-slider').step = window.snapValue;
+        document.getElementById('max-slider').step = window.snapValue;
+    });
+    
+    if (document.getElementById('point-slider')) document.getElementById('point-slider').step = window.snapValue;
+    if (document.getElementById('min-slider')) document.getElementById('min-slider').step = window.snapValue;
+    if (document.getElementById('max-slider')) document.getElementById('max-slider').step = window.snapValue;
+
+    const cacheBtn = document.getElementById('menu-cache-btn');
+    if (cacheBtn) {
+        cacheBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (confirm('¿Borrar caché temporal y recargar? (Tus presets y el acomodo de pestañas NO se perderán)')) {
+                location.reload(true);
+            }
+        });
+    }
+
+    const controlsModal = document.getElementById('controls-modal');
+    document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (controlsModal) controlsModal.style.display = 'flex';
+    });
+    document.getElementById('close-controls-btn')?.addEventListener('click', () => {
+        if (controlsModal) controlsModal.style.display = 'none';
+    });
+});
 
 let currentSpeed = 1.0; 
 window.videoFPS = 30; 
@@ -175,6 +211,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
     videoPlayer.src = videoURL;
     videoPlayer.load();
     videoPlayer.playbackRate = currentSpeed;
+    const videoVolume = document.getElementById('video-volume');
     if (videoVolume) videoPlayer.volume = videoVolume.value;
     window.currentVideoName = file.name;
     
@@ -195,7 +232,6 @@ async function loadVideoFile(file, hasFunscripts = false) {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); 
         const audioData = await audioCtx.decodeAudioData(arrayBuffer);
         
-        // 🎯 FIX: Guardamos el búfer global para poder filtrar sus bajos después en el bpm.js
         window.currentAudioBuffer = audioData; 
         
         const channelData = audioData.getChannelData(0); 
@@ -291,7 +327,6 @@ window.drawProgressMarkers = function() {
     if(totalMs <= 0) return;
     
     window.timelineMarkers.forEach(m => {
-        // 🎯 FIX: Los BPM en azul cyan, los manuales en amarillo dorado
         ctx.fillStyle = m.isBPM ? '#0ea5e9' : '#facc15'; 
         const px = (m.at / totalMs) * c.width;
         ctx.fillRect(px - 1, 0, 2, c.height);
@@ -316,6 +351,9 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
 });
 
 function updateVolumeUI(vol) {
+    const videoVolume = document.getElementById('video-volume');
+    const volumeTooltip = document.getElementById('volume-tooltip');
+
     let volPercent = Math.round(vol * 100);
     
     if (volumeTooltip && videoVolume) {
@@ -352,7 +390,7 @@ function updateVolumeUI(vol) {
     }
 }
 
-videoVolume?.addEventListener('input', (e) => {
+document.getElementById('video-volume')?.addEventListener('input', (e) => {
     let vol = parseFloat(e.target.value);
     if (isPanicMode) {
         fakeAudio.volume = vol;
@@ -369,6 +407,7 @@ videoVolume?.addEventListener('input', (e) => {
 videoPlayer?.addEventListener('volumechange', () => {
     if (isPanicMode) return; 
     let vol = videoPlayer.muted ? 0 : videoPlayer.volume;
+    const videoVolume = document.getElementById('video-volume');
     if (videoVolume) videoVolume.value = vol;
     updateVolumeUI(vol);
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -409,6 +448,7 @@ window.addEventListener('keydown', (event) => {
 
     if (event.key === 'Escape' || event.key === 'Esc') {
         
+        const controlsModal = document.getElementById('controls-modal');
         if (controlsModal && controlsModal.style.display === 'flex') {
             controlsModal.style.display = 'none';
             return;
@@ -431,6 +471,8 @@ window.addEventListener('keydown', (event) => {
         }
 
         isPanicMode = !isPanicMode;
+        const videoVolume = document.getElementById('video-volume');
+
         if (isPanicMode) {
             wasMutedBeforePanic = videoPlayer ? videoPlayer.muted : false;
             let currentVol = videoVolume ? parseFloat(videoVolume.value) : 1;
