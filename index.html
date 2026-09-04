@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.2.3">
+    <link rel="stylesheet" href="styles.css?v=1.2.4">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.3 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.2.4 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -123,12 +123,13 @@
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-header video-info-bar" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <div class="video-info-left" style="pointer-events: none;">
-                    <span id="v-name" class="info-text-white" style="max-width: 400px; font-weight: bold; font-size: 0.8rem; color:#e2e8f0; text-shadow:none;">🎥 Sin video</span>
+                    <!-- 🎯 FIX: Se eliminó el font-weight: bold de todas las etiquetas informativas del video -->
+                    <span id="v-name" class="info-text-white" style="max-width: 400px; font-weight: normal; font-size: 0.8rem; color:#e2e8f0; text-shadow:none;">🎥 Sin video</span>
                 </div>
-                <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default;">
-                    <span id="v-res" class="fixed-info" style="color:#38bdf8;">--x--</span> <span class="divider">|</span> 
-                    <span id="v-fps" class="fixed-info" style="color:#38bdf8;">-- fps</span> <span class="divider">|</span> 
-                    <span id="v-speed" class="fixed-info" style="color:#38bdf8;">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
+                <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal;">
+                    <span id="v-res" class="fixed-info" style="color:#38bdf8; font-weight: normal;">--x--</span> <span class="divider">|</span> 
+                    <span id="v-fps" class="fixed-info" style="color:#38bdf8; font-weight: normal;">-- fps</span> <span class="divider">|</span> 
+                    <span id="v-speed" class="fixed-info" style="color:#38bdf8; font-weight: normal;">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
                     <div style="display: flex; align-items: center; gap: 6px; position: relative;">
                         <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute" style="display:inline-block; width: 18px; text-align: center;">🔊</span></span>
                         <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.01" value="1" title="Volumen">
@@ -209,6 +210,7 @@
             </div>
         </div>
 
+        <!-- 🎯 FIX: Headers alineados estrictamente a la izquierda -->
         <div id="panel-twin" class="workspace-panel" data-title="🤖 Digital Twin">
             <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🤖 Digital Twin 3D</span>
@@ -221,7 +223,7 @@
         </div>
 
         <div id="panel-humanizer" class="workspace-panel" data-title="🎭 Humanizador">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: flex-start; align-items: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎭 Humanizador</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
@@ -265,9 +267,8 @@
             </div>
         </div>
 
-        <!-- 🎯 FIX: Nueva Pestaña Modular: Modificador de Masas -->
         <div id="panel-mass" class="workspace-panel" data-title="🎛️ Modificador">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: flex-start; align-items: center;">
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎛️ Modificador de Masas</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
@@ -317,18 +318,16 @@
 
     </div>
 
-    <script src="workspace.js?v=1.2.3"></script>
-    <script src="handy.js?v=1.2.3"></script> 
-    <script src="funscript.js?v=1.2.3"></script>
-    <script src="player.js?v=1.2.3"></script>
-    <script src="tracking.js?v=1.2.3"></script>
-    <script src="presets.js?v=1.2.3"></script>
-    <script src="timeline.js?v=1.2.3"></script>
-    <script src="twin.js?v=1.2.3"></script>
-    <script src="humanizer.js?v=1.2.3"></script>
-    <script src="bpm.js?v=1.2.3"></script>
-    
-    <!-- 🎯 FIX: El nuevo motor de Modificación de Masas -->
-    <script src="mass.js?v=1.2.3"></script>
+    <script src="workspace.js?v=1.2.4"></script>
+    <script src="handy.js?v=1.2.4"></script> 
+    <script src="funscript.js?v=1.2.4"></script>
+    <script src="player.js?v=1.2.4"></script>
+    <script src="tracking.js?v=1.2.4"></script>
+    <script src="presets.js?v=1.2.4"></script>
+    <script src="timeline.js?v=1.2.4"></script>
+    <script src="twin.js?v=1.2.4"></script>
+    <script src="humanizer.js?v=1.2.4"></script>
+    <script src="bpm.js?v=1.2.4"></script>
+    <script src="mass.js?v=1.2.4"></script>
 </body>
 </html>
