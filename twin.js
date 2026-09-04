@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.7 (HANDY ROBUSTO Y FÍSICA DE MANGA CORREGIDA)
+// DIGITAL TWIN 3D V1.3.8 (FÍSICA CORREGIDA Y ANCLAJE PERFECTO AL 0%)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLight = document.body.classList.contains('light-theme');
         const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
 
-        // 1. CUERPO / EJE (y0 a y70)
+        // 1. CUERPO / EJE (y0 a y70) - Líneas rectas limpias
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
         shaftGrad.addColorStop(0, '#a66d4c');   
         shaftGrad.addColorStop(0.2, '#d6a385'); 
@@ -77,8 +77,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(penisCx + pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // 2. GLANDE (y70 a y100)
-        const flare = pWidth * 0.20; 
+        // 2. GLANDE (y70 a y100) - Cúpula redondeada
+        const flare = pWidth * 0.18; 
         let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2 - flare, 0, penisCx + pWidth/2 + flare, 0);
         glansGrad.addColorStop(0, '#c77873');
         glansGrad.addColorStop(0.3, '#eba7a2');
@@ -89,15 +89,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.beginPath();
         ctx.moveTo(penisCx - pWidth/2, y70);
-        
         ctx.quadraticCurveTo(penisCx - pWidth/2 - flare, y70 - 2, penisCx - pWidth/2 - flare, y70 - 10);
         
+        // Cúpulas amplias y naturales (evitando el pico)
         ctx.bezierCurveTo(
             penisCx - pWidth/2 - flare, y100 + 15, 
             penisCx - pWidth*0.25, y100, 
             penisCx, y100
         );
-        
         ctx.bezierCurveTo(
             penisCx + pWidth*0.25, y100, 
             penisCx + pWidth/2 + flare, y100 + 15, 
@@ -108,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
+        // Meato (abertura superior)
         ctx.beginPath();
         ctx.moveTo(penisCx, y100 + 4);
         ctx.lineTo(penisCx, y100 + 14);
@@ -149,11 +149,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const baseH = canvas.height * 0.85; 
         const baseY = cy - (baseH / 2);
         
-        // 🎯 FIX: Handy Ensanchado a 105px
         const hw = 105; 
         const hx = cx - 80; 
         
-        // Carcasa de la máquina
+        // Carcasa robusta de la máquina
         let bodyGrad = ctx.createLinearGradient(hx - hw/2, 0, hx + hw/2, 0);
         bodyGrad.addColorStop(0, isLight ? '#cbd5e1' : '#111');
         bodyGrad.addColorStop(0.3, isLight ? '#f1f5f9' : '#333');
@@ -165,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.roundRect(hx - hw/2, baseY, hw, baseH, 20);
         ctx.fill();
 
-        // Grip ergonómico re-escalado
+        // Grip ergonómico
         ctx.fillStyle = isLight ? '#64748b' : '#1f2224'; 
         ctx.beginPath();
         ctx.moveTo(hx - hw/2, baseY + 40);
@@ -188,32 +187,36 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.shadowBlur = 0; 
         
         // ==========================================
-        // 🎯 FIX: FÍSICA INVERTIDA Y ANCLAJE INFERIOR
+        // SISTEMA MECÁNICO: LÍMITES AJUSTADOS
         // ==========================================
         
-        const y100 = baseY + 70;  // Tope de carrera (Glande)
-        const y0 = baseY + baseH - 50; // Fin de carrera (Base)
-        
-        // El Riel cubre el área del recorrido mecánico
-        const rx = hx + hw/2 - 8; 
+        // Ajustamos la carrera para que baje mucho más, eliminando el espacio vacío
+        const strokeTopY = baseY + 50;
+        const strokeBotY = baseY + baseH - 40;
+        const sh = 120; // Altura de la manga
+
+        // Riel Metálico (llega casi al fondo del dispositivo)
+        const rx = hx + hw/2 - 6; 
         ctx.fillStyle = isLight ? '#475569' : '#050505';
         ctx.beginPath();
-        ctx.roundRect(rx - 6, y100 - 40, 12, (y0 - y100) + 70, 5);
+        ctx.roundRect(rx - 6, strokeTopY - 15, 12, (strokeBotY - strokeTopY) + 30, 5);
         ctx.fill();
 
         let targetPos = getInterpolatedPosition();
-        
-        // 1. Calculamos dónde debe estar el FONDO de la manga basado en el %
-        const sleeveBottomY = y0 - (targetPos / 100) * (y0 - y100);
-        const sh = 120; // Altura total de la manga
-        const sleeveTopY = sleeveBottomY - sh;
-        
-        // 2. La Abrazadera (y el brazo) sujetan la manga cerca de su base
-        const armY = sleeveBottomY - 25; 
+        const armY = strokeBotY - (targetPos / 100) * (strokeBotY - strokeTopY);
         
         const sx = hx + hw/2 + 80; 
         const pWidth = 65; 
 
+        // Cálculo Matemático para alinear Manga y Anatomía
+        // La manga descansa 25px por debajo del brazo.
+        const sleeveBottomY = armY + 25; 
+        const sleeveTopY = sleeveBottomY - sh;
+
+        // Anclamos la topografía de la anatomía exactamente a los límites de la manga
+        const y0 = strokeBotY + 25; 
+        const y100 = strokeTopY + 25 - sh;
+        
         if (showAnatomy) {
             drawExplicitAnatomy(sx, y100, y0, pWidth); 
         }
@@ -224,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.roundRect(rx, armY - 10, (sx - rx - 35), 20, 4);
         ctx.fill();
         
-        // Manga Translúcida
+        // Manga Translúcida (Cristal)
         const sw = 95; 
         ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.5)' : 'rgba(230, 240, 255, 0.2)';
         ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(255, 255, 255, 0.3)';
@@ -241,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
         }
         
-        // Banda TrueGrip (Velcro) anclada al brazo
+        // Banda TrueGrip (Velcro)
         const strapH = 26;
         const strapY = armY - strapH/2;
         
