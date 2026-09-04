@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.8 (FÍSICA CORREGIDA Y ANCLAJE PERFECTO AL 0%)
+// DIGITAL TWIN 3D V1.3.9 (ESCALA ANATÓMICA PERFECTA Y MANGA ALARGADA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLight = document.body.classList.contains('light-theme');
         const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
 
-        // 1. CUERPO / EJE (y0 a y70) - Líneas rectas limpias
+        // 1. CUERPO / EJE (y0 a y70) - Proporción Restaurada
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
         shaftGrad.addColorStop(0, '#a66d4c');   
         shaftGrad.addColorStop(0.2, '#d6a385'); 
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.moveTo(penisCx - pWidth/2, y70);
         ctx.quadraticCurveTo(penisCx - pWidth/2 - flare, y70 - 2, penisCx - pWidth/2 - flare, y70 - 10);
         
-        // Cúpulas amplias y naturales (evitando el pico)
+        // Cúpulas amplias y naturales
         ctx.bezierCurveTo(
             penisCx - pWidth/2 - flare, y100 + 15, 
             penisCx - pWidth*0.25, y100, 
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.quadraticCurveTo(penisCx, y70 + 8, penisCx - pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // Meato (abertura superior)
+        // Meato
         ctx.beginPath();
         ctx.moveTo(penisCx, y100 + 4);
         ctx.lineTo(penisCx, y100 + 14);
@@ -164,7 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.roundRect(hx - hw/2, baseY, hw, baseH, 20);
         ctx.fill();
 
-        // Grip ergonómico
         ctx.fillStyle = isLight ? '#64748b' : '#1f2224'; 
         ctx.beginPath();
         ctx.moveTo(hx - hw/2, baseY + 40);
@@ -173,29 +172,24 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.quadraticCurveTo(hx - 15, baseY + baseH - 20, hx - hw/2, baseY + baseH - 20);
         ctx.fill();
 
-        // Botones D-Pad
         ctx.fillStyle = isLight ? '#334155' : '#111';
         const bx = hx - 15;
         const by = baseY + 140;
         ctx.beginPath(); ctx.roundRect(bx - 12, by - 4, 24, 8, 3); ctx.fill(); 
         ctx.beginPath(); ctx.roundRect(bx - 4, by - 12, 8, 24, 3); ctx.fill(); 
         
-        // LED Cyan
         ctx.fillStyle = '#38bdf8'; 
         ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 8;
         ctx.beginPath(); ctx.arc(bx, by + 45, 3, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0; 
         
         // ==========================================
-        // SISTEMA MECÁNICO: LÍMITES AJUSTADOS
+        // SISTEMA MECÁNICO: FÍSICA PERFECTA
         // ==========================================
         
-        // Ajustamos la carrera para que baje mucho más, eliminando el espacio vacío
         const strokeTopY = baseY + 50;
         const strokeBotY = baseY + baseH - 40;
-        const sh = 120; // Altura de la manga
 
-        // Riel Metálico (llega casi al fondo del dispositivo)
         const rx = hx + hw/2 - 6; 
         ctx.fillStyle = isLight ? '#475569' : '#050505';
         ctx.beginPath();
@@ -208,20 +202,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const sx = hx + hw/2 + 80; 
         const pWidth = 65; 
 
-        // Cálculo Matemático para alinear Manga y Anatomía
-        // La manga descansa 25px por debajo del brazo.
-        const sleeveBottomY = armY + 25; 
+        // 🎯 FIX: Manga alargada y Anclaje Dinámico
+        const sh = 145; // Manga alargada a petición
+        const sleeveBottomOffset = 30; // La manga cuelga 30px por debajo del brazo mecánico
+        
+        const sleeveBottomY = armY + sleeveBottomOffset; 
         const sleeveTopY = sleeveBottomY - sh;
 
-        // Anclamos la topografía de la anatomía exactamente a los límites de la manga
-        const y0 = strokeBotY + 25; 
-        const y100 = strokeTopY + 25 - sh;
+        // La topografía se ancla de forma exacta al recorrido físico de la manga
+        const y0 = strokeBotY + sleeveBottomOffset; 
+        const y100 = strokeTopY + sleeveBottomOffset;
         
         if (showAnatomy) {
             drawExplicitAnatomy(sx, y100, y0, pWidth); 
         }
 
-        // Brazo conector
         ctx.fillStyle = isLight ? '#0ea5e9' : '#0284c7';
         ctx.beginPath();
         ctx.roundRect(rx, armY - 10, (sx - rx - 35), 20, 4);
@@ -244,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
         }
         
-        // Banda TrueGrip (Velcro)
+        // Banda TrueGrip (Velcro) centrada con el brazo
         const strapH = 26;
         const strapY = armY - strapH/2;
         
