@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.9 (ESCALA ANATÓMICA PERFECTA Y MANGA ALARGADA)
+// DIGITAL TWIN 3D V1.4.0 (VERSIÓN DEFINITIVA: TOPOGRAFÍA PERMANENTE)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -50,6 +50,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return a1.pos + (a2.pos - a1.pos) * progress;
     }
 
+    // 🎯 NUEVO: Motor independiente para las líneas topográficas (siempre visibles)
+    function drawTopographicLines(penisCx, y100, y0, pWidth) {
+        const totalH = y0 - y100;
+        const y70 = y100 + totalH * 0.3;  
+        const y20 = y100 + totalH * 0.8;  
+
+        const isLight = document.body.classList.contains('light-theme');
+        
+        ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(148, 163, 184, 0.5)';
+        ctx.fillStyle = isLight ? '#334155' : '#94a3b8';
+        ctx.font = 'bold 10px monospace';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1;
+
+        const drawLine = (y, label) => {
+            ctx.beginPath(); 
+            ctx.moveTo(penisCx - pWidth - 30, y); 
+            ctx.lineTo(penisCx + pWidth + 30, y); 
+            ctx.stroke();
+            ctx.fillText(label, penisCx + pWidth + 35, y + 4);
+        };
+
+        drawLine(y100, '100%');
+        drawLine(y70, '70%');
+        drawLine(y20, '20%');
+        drawLine(y0, '0%');
+        ctx.setLineDash([]);
+    }
+
+    // Renderizador Anatómico Exclusivo
     function drawExplicitAnatomy(penisCx, y100, y0, pWidth) {
         const totalH = y0 - y100;
         const y70 = y100 + totalH * 0.3;  
@@ -58,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLight = document.body.classList.contains('light-theme');
         const outlineColor = isLight ? 'rgba(90, 45, 30, 0.4)' : 'rgba(40, 20, 10, 0.6)';
 
-        // 1. CUERPO / EJE (y0 a y70) - Proporción Restaurada
+        // 1. CUERPO / EJE (y0 a y70)
         let shaftGrad = ctx.createLinearGradient(penisCx - pWidth/2, 0, penisCx + pWidth/2, 0);
         shaftGrad.addColorStop(0, '#a66d4c');   
         shaftGrad.addColorStop(0.2, '#d6a385'); 
@@ -77,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(penisCx + pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // 2. GLANDE (y70 a y100) - Cúpula redondeada
+        // 2. GLANDE (y70 a y100)
         const flare = pWidth * 0.18; 
         let glansGrad = ctx.createLinearGradient(penisCx - pWidth/2 - flare, 0, penisCx + pWidth/2 + flare, 0);
         glansGrad.addColorStop(0, '#c77873');
@@ -91,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.moveTo(penisCx - pWidth/2, y70);
         ctx.quadraticCurveTo(penisCx - pWidth/2 - flare, y70 - 2, penisCx - pWidth/2 - flare, y70 - 10);
         
-        // Cúpulas amplias y naturales
         ctx.bezierCurveTo(
             penisCx - pWidth/2 - flare, y100 + 15, 
             penisCx - pWidth*0.25, y100, 
@@ -114,27 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.strokeStyle = isLight ? 'rgba(100, 30, 30, 0.3)' : 'rgba(100, 30, 30, 0.5)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
-
-        // 3. LÍNEAS TOPOGRÁFICAS
-        ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(148, 163, 184, 0.5)';
-        ctx.fillStyle = isLight ? '#334155' : '#94a3b8';
-        ctx.font = 'bold 10px monospace';
-        ctx.setLineDash([4, 4]);
-        ctx.lineWidth = 1;
-
-        const drawLine = (y, label) => {
-            ctx.beginPath(); 
-            ctx.moveTo(penisCx - pWidth - 30, y); 
-            ctx.lineTo(penisCx + pWidth + 30, y); 
-            ctx.stroke();
-            ctx.fillText(label, penisCx + pWidth + 35, y + 4);
-        };
-
-        drawLine(y100, '100%');
-        drawLine(y70, '70%');
-        drawLine(y20, '20%');
-        drawLine(y0, '0%');
-        ctx.setLineDash([]);
     }
 
     function renderLoop() {
@@ -183,13 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.beginPath(); ctx.arc(bx, by + 45, 3, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0; 
         
-        // ==========================================
-        // SISTEMA MECÁNICO: FÍSICA PERFECTA
-        // ==========================================
-        
         const strokeTopY = baseY + 50;
         const strokeBotY = baseY + baseH - 40;
+        const sh = 145; 
 
+        // Riel Metálico
         const rx = hx + hw/2 - 6; 
         ctx.fillStyle = isLight ? '#475569' : '#050505';
         ctx.beginPath();
@@ -202,21 +208,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const sx = hx + hw/2 + 80; 
         const pWidth = 65; 
 
-        // 🎯 FIX: Manga alargada y Anclaje Dinámico
-        const sh = 145; // Manga alargada a petición
-        const sleeveBottomOffset = 30; // La manga cuelga 30px por debajo del brazo mecánico
-        
+        const sleeveBottomOffset = 30; 
         const sleeveBottomY = armY + sleeveBottomOffset; 
         const sleeveTopY = sleeveBottomY - sh;
 
-        // La topografía se ancla de forma exacta al recorrido físico de la manga
         const y0 = strokeBotY + sleeveBottomOffset; 
-        const y100 = strokeTopY + sleeveBottomOffset;
+        const y100 = strokeTopY + sleeveBottomOffset - sh;
         
+        // 🎯 LÍNEAS SIEMPRE VISIBLES (se dibujan antes para que queden de fondo)
+        drawTopographicLines(sx, y100, y0, pWidth);
+        
+        // ANATOMÍA CONDICIONAL
         if (showAnatomy) {
             drawExplicitAnatomy(sx, y100, y0, pWidth); 
         }
 
+        // Brazo conector
         ctx.fillStyle = isLight ? '#0ea5e9' : '#0284c7';
         ctx.beginPath();
         ctx.roundRect(rx, armY - 10, (sx - rx - 35), 20, 4);
@@ -239,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
         }
         
-        // Banda TrueGrip (Velcro) centrada con el brazo
+        // Banda TrueGrip (Velcro)
         const strapH = 26;
         const strapY = armY - strapH/2;
         
