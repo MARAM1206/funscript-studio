@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.1.11: PISTA AISLADA (100%), MAGNETISMO Y DRAG & DROP NATIVO
+// TIMELINE V1.2.2: RENDERIZADO BI-MARCADOR (MANUAL M-MAGENTA vs BPM B-CYAN)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -525,7 +525,6 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// 🎯 FIX: Eventos nativos Drag & Drop aplicados directamente al Canvas para inyectar Presets
 canvas?.addEventListener('dragover', (e) => {
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
     e.preventDefault();
@@ -832,7 +831,6 @@ function redo() {
 function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
 function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom); }
 
-// 🎯 FIX: Se inyecta un Padding Top de 40px y Bottom de 20px para proteger los Marcadores del 100%
 function posToY(pos) { 
     const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
     return canvas.height - botPad - (pos / 100) * usableHeight; 
@@ -1054,28 +1052,39 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
+        // 🎯 FIX: Renderizado Bi-Marcador. Detecta cuáles son BPM y cuáles son Manuales para diferenciarlos
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
-            window.timelineMarkers.forEach((m, idx) => {
+            let mCount = 1;
+            let bCount = 1;
+            
+            // Asigna la etiqueta correcta independiente de si son visibles o no
+            window.timelineMarkers.forEach(m => {
+                m.labelStr = m.isBPM ? `B${bCount++}` : `M${mCount++}`;
+            });
+
+            window.timelineMarkers.forEach((m) => {
                 const mx = timeToX(m.at);
                 if (mx >= 30) {
-                    let alpha = 1.0;
-                    if (m.selected) {
-                        alpha = 0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 150));
-                    }
+                    let alpha = m.selected ? (0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 150))) : 1.0;
                     
+                    // Colores diferenciados: BPM = Cyan, Manual = Magenta
+                    let baseColor = m.isBPM ? '#0ea5e9' : '#d946ef';
+                    let selColor = '#facc15';
+                    let color = m.selected ? selColor : baseColor;
+
                     ctx.globalAlpha = alpha;
-                    ctx.strokeStyle = m.selected ? '#facc15' : '#d946ef'; 
+                    ctx.strokeStyle = color; 
                     ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
                     ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
                     ctx.setLineDash([]);
 
-                    ctx.fillStyle = m.selected ? '#facc15' : '#d946ef';
+                    ctx.fillStyle = color;
                     ctx.beginPath();
                     ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
                     ctx.fill();
 
                     ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-                    ctx.fillText(`M${idx + 1}`, mx, 16); 
+                    ctx.fillText(m.labelStr, mx, 16); 
                     ctx.textAlign = 'left';
                     ctx.globalAlpha = 1.0;
                 }
@@ -1498,23 +1507,8 @@ canvas?.addEventListener('mousedown', (e) => {
             }
         }
 
-        let clickedNode = null;
-        let cIndex = -1;
-        for (let i = 0; i < actions.length; i++) {
-            const nx = timeToX(actions[i].at); const ny = posToY(actions[i].pos);
-            if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = actions[i]; cIndex = i; break; }
-        }
-
-        // 🎯 FIX: Auto-deselección inteligente. Si tocaste al vacío y tenías marcadores, SOLO desmarca.
         if (!e.ctrlKey && clickY > 40) {
-            let hadMarkerSelected = window.timelineMarkers.some(m => m.selected);
             window.timelineMarkers.forEach(m => m.selected = false);
-            
-            if (hadMarkerSelected && !clickedNode) {
-                isSelectingMarkers = false;
-                if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                return; 
-            }
         }
 
         if (clickY <= 40 && !clickedMarker) {
@@ -1524,6 +1518,13 @@ canvas?.addEventListener('mousedown', (e) => {
             markerSelectionInitialStates = window.timelineMarkers.map(m => m.selected);
             if (!e.ctrlKey) window.timelineMarkers.forEach(m => m.selected = false);
             return; 
+        }
+
+        let clickedNode = null;
+        let cIndex = -1;
+        for (let i = 0; i < actions.length; i++) {
+            const nx = timeToX(actions[i].at); const ny = posToY(actions[i].pos);
+            if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = actions[i]; cIndex = i; break; }
         }
 
         if (clickedNode) {
@@ -1759,37 +1760,20 @@ canvas?.addEventListener('mousemove', (e) => {
     }
 
     if (isDraggingNode && dragSelectionInitialStates.length > 0) {
-        const snap = window.snapValue || 5;
-        let rawTimeDelta = xToTime(mouseX) - dragStartXTime;
-        let snappedPosDelta = Math.round((yToPos(mouseY) - dragStartYPos) / snap) * snap;
-        
         let snappedTimeDelta = 0;
-        
-        // 🎯 FIX: Sistema de Magnetismo de Punto
-        let primaryInit = dragSelectionInitialStates[draggedNodeIndex];
-        let targetTime = Math.max(0, primaryInit.at + rawTimeDelta);
-        
-        let nearestMarker = null;
-        let minMarkerDist = Infinity;
-        window.timelineMarkers.forEach(m => {
-            let dist = Math.abs(targetTime - m.at);
-            if (dist < minMarkerDist) { minMarkerDist = dist; nearestMarker = m; }
-        });
+        let snappedPosDelta = 0;
+        const snap = window.snapValue || 5;
 
-        // 🎯 FIX: Magnetismo fuerte (150ms) si arrancas verticalmente SOBRE un marcador
-        let startOnMarker = window.timelineMarkers.some(m => Math.abs(m.at - primaryInit.at) < 5);
-        let magnetPower = startOnMarker ? 150 : 35; 
-
-        if (nearestMarker && minMarkerDist < magnetPower) {
-            snappedTimeDelta = nearestMarker.at - primaryInit.at;
-        } else {
-            snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
-        }
+        const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
+        const rawPosDelta = yToPos(mouseY) - dragStartYPos;
+        snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
+        snappedPosDelta = Math.round(rawPosDelta / snap) * snap;
 
         actions.forEach((act, i) => {
             if (dragSelectionInitialStates[i].selected) {
                 act.at = Math.max(0, dragSelectionInitialStates[i].at + snappedTimeDelta);
-                act.pos = Math.max(0, Math.min(100, dragSelectionInitialStates[i].pos + snappedPosDelta));
+                const rawP = dragSelectionInitialStates[i].pos + snappedPosDelta;
+                act.pos = Math.max(0, Math.min(100, Math.round(rawP / snap) * snap));
             }
         });
         
