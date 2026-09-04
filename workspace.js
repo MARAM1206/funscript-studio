@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.2.4 (GESTOR PERMANENTE Y PANELES CERRADOS POR DEFECTO)
+// WORKSPACE MANAGER V1.3.1 (TAMAÑOS EXPANDIDOS Y PANELES ÓPTIMOS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SNAP_DIST = 15; 
     const GAP = 10; 
 
-    // 🎯 FIX: Nueva Memoria V7. BPM y Modificador vienen "visible: false" de fábrica.
+    // 🎯 FIX: Nueva Memoria V8. Los paneles nacen con altura suficiente.
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
         'panel-tracks': { left: 620, top: 10, width: 320, height: 250, visible: true },
@@ -18,13 +18,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-quick': { left: 710, top: 270, width: 250, height: 140, visible: true },
         'panel-presets': { left: 710, top: 420, width: 250, height: 200, visible: true },
         'panel-twin': { left: 970, top: 270, width: 200, height: 350, visible: true },
-        'panel-humanizer': { left: 970, top: 10, width: 250, height: 240, visible: true },
-        'panel-bpm': { left: 350, top: 10, width: 250, height: 200, visible: false }, 
-        'panel-mass': { left: 350, top: 220, width: 250, height: 260, visible: false }, 
+        'panel-humanizer': { left: 970, top: 10, width: 250, height: 300, visible: true },
+        'panel-bpm': { left: 350, top: 10, width: 250, height: 260, visible: false }, 
+        'panel-mass': { left: 350, top: 220, width: 250, height: 320, visible: false }, 
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
-    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v7'));
+    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v8'));
     if (!layoutState) layoutState = defaultLayout;
 
     function saveLayout() {
@@ -37,10 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 visible: panel.style.display !== 'none'
             };
         });
-        localStorage.setItem('funscript_workspace_v7', JSON.stringify(layoutState));
+        localStorage.setItem('funscript_workspace_v8', JSON.stringify(layoutState));
     }
 
-    // 🎯 FIX: El Gestor de Archivos se vuelve intocable (permanente)
     const permanentPanels = ['panel-video', 'panel-timeline', 'panel-tracks'];
 
     panels.forEach(panel => {
