@@ -1,5 +1,5 @@
 // ==========================================================================
-// DIGITAL TWIN 3D V1.3.3 (ORIENTACIÓN DERECHA Y ANATOMÍA EXPLÍCITA V2)
+// DIGITAL TWIN 3D V1.3.4 (ANATOMÍA CORREGIDA Y PROPORCIONAL)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // 🎯 FIX: Sistema del Botón Toggle para el modelo anatómico
     let showAnatomy = false;
     const anatomyBtn = document.getElementById('twin-anatomy-btn');
     if(anatomyBtn) {
@@ -51,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return a1.pos + (a2.pos - a1.pos) * progress;
     }
 
-    // 🎯 FIX: Renderizador Anatómico Vectorial Proporcional
+    // 🎯 FIX: Función reconstruida para recibir solo los 4 parámetros correctos y no mutar
     function drawExplicitAnatomy(penisCx, topY, bottomY, pWidth) {
         const totalH = bottomY - topY;
         const y100 = topY;
@@ -64,18 +63,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const outlineColor = isLight ? '#8c5c56' : '#2a1a18';
         const scrotumColor = isLight ? '#d49a94' : '#6b433e';
 
-        // 1. ESCROTO (< 0%)
+        // 1. ESCROTO (Proporcional al ancho, debajo del 0%)
         ctx.fillStyle = scrotumColor;
         ctx.strokeStyle = outlineColor;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(penisCx - pWidth * 0.45, y0 + 25, pWidth * 0.6, 0, Math.PI * 2);
-        ctx.arc(penisCx + pWidth * 0.45, y0 + 25, pWidth * 0.6, 0, Math.PI * 2);
+        
+        const testisR = pWidth * 0.6; // Radio calculado matemáticamente
+        ctx.arc(penisCx - pWidth * 0.45, y0 + testisR, testisR, 0, Math.PI * 2);
+        ctx.arc(penisCx + pWidth * 0.45, y0 + testisR, testisR, 0, Math.PI * 2);
         ctx.fill(); ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(penisCx, y0 + 5);
-        ctx.quadraticCurveTo(penisCx + 3, y0 + 30, penisCx, y0 + 55);
+        ctx.quadraticCurveTo(penisCx + 3, y0 + 30, penisCx, y0 + testisR * 1.5);
         ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.4)';
         ctx.stroke();
 
@@ -138,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.quadraticCurveTo(penisCx, y70 + 6, penisCx - pWidth/2, y70);
         ctx.fill(); ctx.stroke();
 
-        // Meato
         ctx.beginPath();
         ctx.moveTo(penisCx, y100 + 2);
         ctx.lineTo(penisCx, y100 + 12);
@@ -184,14 +184,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const cy = canvas.height / 2;
         const isLight = document.body.classList.contains('light-theme');
         
-        // 🎯 FIX: Geometría Lateral Realista del Handy
+        const colors = {
+            housingBase: isLight ? '#cbd5e1' : '#0f172a',
+            rail: isLight ? '#94a3b8' : '#020617',
+            arm: isLight ? '#0ea5e9' : '#0284c7',
+            text: isLight ? '#334155' : '#94a3b8'
+        };
+
         const baseH = canvas.height * 0.75;
         const baseY = cy - (baseH / 2);
         
         const hw = 75; 
-        const hx = cx - 60; // Cuerpo base a la izquierda
+        const hx = cx - 60; 
         
-        // Carcasa curva de la máquina
         let bodyGrad = ctx.createLinearGradient(hx - hw/2, 0, hx + hw/2, 0);
         bodyGrad.addColorStop(0, isLight ? '#cbd5e1' : '#111');
         bodyGrad.addColorStop(0.3, isLight ? '#f1f5f9' : '#333');
@@ -203,7 +208,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.roundRect(hx - hw/2, baseY, hw, baseH, 20);
         ctx.fill();
 
-        // Grip frontal de goma
         ctx.fillStyle = isLight ? '#64748b' : '#1f2224'; 
         ctx.beginPath();
         ctx.moveTo(hx - hw/2, baseY + 30);
@@ -212,32 +216,24 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(hx - hw/2, baseY + baseH - 20);
         ctx.fill();
 
-        // Botones
         ctx.fillStyle = isLight ? '#334155' : '#111';
         const bx = hx - 5;
         const by = baseY + 120;
         ctx.beginPath(); ctx.roundRect(bx - 12, by - 4, 24, 8, 3); ctx.fill(); 
         ctx.beginPath(); ctx.roundRect(bx - 4, by - 12, 8, 24, 3); ctx.fill(); 
         
-        // LED de estatus
         ctx.fillStyle = '#38bdf8'; 
         ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 10;
         ctx.beginPath(); ctx.arc(bx, by + 60, 3, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0; 
         
-        // 🎯 FIX: Cálculo de Recorrido Matemático Exacto (Riel)
         const strokeTopY = baseY + 40;
         const strokeBotY = baseY + baseH - 40;
-        const sh = 130; // Altura de la manga
+        const sh = 130; 
         
-        // Las líneas anatómicas (El glande al 100% y la base al 0%)
         const y100 = strokeTopY + 20; 
         const y0 = strokeBotY - sh + 20; 
-        const totalH = y0 - y100;
-        const y70 = y100 + totalH * 0.3; 
-        const y20 = y100 + totalH * 0.8; 
 
-        // Riel
         const rx = hx + hw/2 - 6; 
         ctx.fillStyle = isLight ? '#475569' : '#020617';
         ctx.beginPath();
@@ -246,49 +242,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let targetPos = getInterpolatedPosition();
         
-        // El Brazo en Y
         const armY = strokeBotY - (targetPos / 100) * (strokeBotY - strokeTopY);
-        const sx = hx + hw/2 + 55; // Posición horizontal del centro de la manga
+        const sx = hx + hw/2 + 55; 
+        const sw = 50; // Ancho anatómico fijo
         
-        // 1. DIBUJAR ANATOMÍA 
         if (showAnatomy) {
-            drawExplicitAnatomy(sx, y100, y70, y20, y0, 50); 
+            // 🎯 FIX: Llamada a la función con sus 4 parámetros intactos (Centro, Arriba, Abajo, Ancho)
+            drawExplicitAnatomy(sx, y100, y0, sw); 
         }
 
-        // 2. DIBUJAR BRAZO CONECTOR
-        ctx.fillStyle = isLight ? '#0ea5e9' : '#0284c7';
+        ctx.fillStyle = colors.arm;
         ctx.beginPath();
         ctx.roundRect(rx, armY - 12, (sx - rx), 24, 4);
         ctx.fill();
         
-        // 3. MANGA BLANCA CRISTALINA
-        const sw = 60; // Ancho
-        const sleeveY = armY + 20 - sh; // La abrazadera va casi hasta abajo
+        const sleeveW = 60; 
+        const sleeveY = armY + 20 - sh; 
         
         ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.65)' : 'rgba(230, 240, 255, 0.35)';
         ctx.strokeStyle = isLight ? 'rgba(148, 163, 184, 0.9)' : 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(sx - sw/2, sleeveY, sw, sh, 10);
+        ctx.roundRect(sx - sleeveW/2, sleeveY, sleeveW, sh, 10);
         ctx.fill(); ctx.stroke();
 
-        // Textura interna del cristal
         ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.15)';
         ctx.beginPath();
         for(let i=15; i<sh-15; i+=15) {
-            ctx.moveTo(sx - sw/2 + 5, sleeveY + i);
+            ctx.moveTo(sx - sleeveW/2 + 5, sleeveY + i);
             ctx.lineTo(sx, sleeveY + i + 5);
-            ctx.lineTo(sx + sw/2 - 5, sleeveY + i);
+            ctx.lineTo(sx + sleeveW/2 - 5, sleeveY + i);
         }
         ctx.stroke();
         
-        // 4. BANDA VELCRO (La abrazadera negra)
         ctx.fillStyle = isLight ? '#334155' : '#111';
-        ctx.fillRect(sx - sw/2 - 2, armY - 15, sw + 4, 30);
+        ctx.fillRect(sx - sleeveW/2 - 2, armY - 15, sleeveW + 4, 30);
         ctx.fillStyle = isLight ? '#1e293b' : '#222';
         ctx.beginPath(); ctx.arc(sx, armY, 10, 0, Math.PI*2); ctx.fill();
 
-        ctx.fillStyle = isLight ? '#334155' : '#94a3b8';
+        ctx.fillStyle = colors.text;
         ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'center';
         ctx.fillText(`Posición Actual: ${Math.round(targetPos)}%`, cx, canvas.height - 10);
