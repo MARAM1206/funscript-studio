@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.6.1">
+    <link rel="stylesheet" href="styles.css?v=1.6.2">
 </head>
 <body>
 
@@ -44,7 +44,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.6.1 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.6.2 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -174,7 +174,7 @@
             </div>
         </div>
 
-        <!-- ⭐ Presets (PERMANENTE) -->
+        <!-- ⭐ Presets -->
         <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
                 <span style="font-weight: bold;">⭐ Presets</span>
@@ -331,12 +331,13 @@
                 <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 15px;">
                     <div style="flex-grow: 1;">
                         <label style="font-size: 0.7rem; font-weight: bold; color:#e2e8f0; display:block; margin-bottom: 4px;">Intensidad Global:</label>
+                        <!-- 🎯 FIX: Velocidades exactas de FapTap integradas -->
                         <select id="director-speed-select" style="width: 100%; padding: 4px; background: #0f172a; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; outline: none; font-size: 0.75rem;">
                             <option value="random">🎲 Aleatorio</option>
-                            <option value="slow">🟢 Lento</option>
-                            <option value="medium">🟡 Medio</option>
-                            <option value="fast">🟠 Rápido</option>
-                            <option value="very_fast">🔴 Muy Ráp.</option>
+                            <option value="slow">🟢 Lento (0 - 150)</option>
+                            <option value="medium">🟡 Medio (151 - 300)</option>
+                            <option value="fast">🟠 Rápido (301 - 500)</option>
+                            <option value="very_fast">🔴 Muy Rápido (501+)</option>
                         </select>
                     </div>
                     <div style="flex-grow: 1;">
@@ -385,17 +386,17 @@
 
     </div>
 
-    <script src="workspace.js?v=1.6.1"></script>
-    <script src="handy.js?v=1.6.1"></script> 
-    <script src="funscript.js?v=1.6.1"></script>
-    <script src="player.js?v=1.6.1"></script>
-    <script src="tracking.js?v=1.6.1"></script>
-    <script src="presets.js?v=1.6.1"></script>
-    <script src="timeline.js?v=1.6.1"></script>
-    <script src="twin.js?v=1.6.1"></script>
-    <script src="humanizer.js?v=1.6.1"></script>
-    <script src="bpm.js?v=1.6.1"></script>
-    <script src="mass.js?v=1.6.1"></script>
-    <script src="director.js?v=1.6.1"></script>
+    <script src="workspace.js?v=1.6.2"></script>
+    <script src="handy.js?v=1.6.2"></script> 
+    <script src="funscript.js?v=1.6.2"></script>
+    <script src="player.js?v=1.6.2"></script>
+    <script src="tracking.js?v=1.6.2"></script>
+    <script src="presets.js?v=1.6.2"></script>
+    <script src="timeline.js?v=1.6.2"></script>
+    <script src="twin.js?v=1.6.2"></script>
+    <script src="humanizer.js?v=1.6.2"></script>
+    <script src="bpm.js?v=1.6.2"></script>
+    <script src="mass.js?v=1.6.2"></script>
+    <script src="director.js?v=1.6.2"></script>
 </body>
 </html>
