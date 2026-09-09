@@ -1,12 +1,12 @@
 // ==========================================================================
-// TIMELINE V1.2.2: RENDERIZADO BI-MARCADOR (MANUAL M-MAGENTA vs BPM B-CYAN)
+// TIMELINE V1.4.2: (PUNTOS 0:00 COMPLETOS, VIRTUAL TIME Y STRETCH DEFAULT)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
 window.activeSuggestion = null; 
 
-window.presetFillMode = 'repeat'; 
+window.presetFillMode = 'stretch'; 
 window.presetFillReps = 1;
 window.presetFillInitialized = false;
 
@@ -235,7 +235,7 @@ function ensureTrackExists() {
 }
 
 function getPointUnderPlayhead(actions) {
-    const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    const timeMs = Math.round(window.getActualTimeMs());
     let closest = null; 
     let minDiff = 50; 
     actions.forEach(act => {
@@ -437,7 +437,7 @@ canvas?.addEventListener('wheel', (e) => {
         scrollLeftMs = timeAtMouse - (mouseX - 30) / (basePixelsPerMs * zoom);
         if (scrollLeftMs < 0) scrollLeftMs = 0; 
     } else {
-        if (videoNode && videoNode.paused) {
+        if ((videoNode && videoNode.paused) || window.isPlayingVirtual) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             const panStep = visibleMs * 0.10; 
             
@@ -450,7 +450,7 @@ canvas?.addEventListener('wheel', (e) => {
             }
             
             if (scrollLeftMs < 0) scrollLeftMs = 0;
-            if (videoNode.duration) {
+            if (videoNode && videoNode.duration) {
                 const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
                 if (scrollLeftMs > maxScroll && maxScroll > 0) scrollLeftMs = maxScroll;
             }
@@ -480,7 +480,7 @@ canvas?.addEventListener('wheel', (e) => {
 window.addEventListener('videoPlay', () => { drawTimeline(); });
 
 window.addEventListener('forceTimelinePan', (e) => {
-    let actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+    let actualTime = window.getActualTimeMs();
     if (e && e.detail && e.detail.timeMs !== undefined) {
         actualTime = e.detail.timeMs;
     }
@@ -549,12 +549,8 @@ canvas?.addEventListener('dragover', (e) => {
 
         if (!window.presetFillInitialized) {
             const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-            if (selectedMarkers.length > 2) {
-                window.presetFillMode = 'stretch';
-            } else {
-                window.presetFillMode = 'repeat';
-                window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
-            }
+            window.presetFillMode = 'stretch'; // 🎯 FIX: STRETCH ES EL MODO POR DEFECTO
+            window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
             window.presetFillInitialized = true;
         }
     } else {
@@ -564,7 +560,7 @@ canvas?.addEventListener('dragover', (e) => {
 
         const actions = getSafeActions();
         const snapDistMs = 350; 
-        const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+        const actualTimeMs = window.getActualTimeMs();
         
         const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
@@ -678,7 +674,7 @@ window.addEventListener('injectPoint', function(e) {
     ensureTrackExists(); 
     const actions = getSafeActions();
 
-    const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    const timeMs = Math.round(window.getActualTimeMs());
     
     const valA = parseInt(sliderA?.value || '20', 10); const valB = parseInt(sliderB?.value || '70', 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
@@ -757,7 +753,7 @@ window.addEventListener('nudgePoints', function(e) {
 window.addEventListener('magnetPoint', function() {
     if (document.body.classList.contains('panic-mode-active')) return;
     const actions = getSafeActions();
-    const timeMs = (videoNode && videoNode.currentTime) ? Math.round(videoNode.currentTime * 1000) : 0;
+    const timeMs = Math.round(window.getActualTimeMs());
     let moved = false; saveHistoryState();
     actions.forEach(act => { if (act.selected) { act.at = timeMs; moved = true; } });
     if (moved) {
@@ -843,11 +839,12 @@ function yToPos(y) {
 
 window.updateGhostThumb = function() {
     const ghostThumb = document.getElementById('ghost-thumb');
-    if (!ghostThumb || !videoNode || !videoNode.duration) return;
+    if (!ghostThumb) return;
+    if (!videoNode || !videoNode.duration) { ghostThumb.style.display = 'none'; return; }
 
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     const centerTimeMs = scrollLeftMs + (visibleMs / 2);
-    const actualTimeMs = videoNode.currentTime * 1000;
+    const actualTimeMs = window.getActualTimeMs();
 
     if (Math.abs(centerTimeMs - actualTimeMs) > visibleMs * 0.05) {
         ghostThumb.style.display = 'block';
@@ -868,8 +865,9 @@ window.drawTimeline = function() {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
         
-        let actualTime = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
-        if (videoNode && !videoNode.paused) {
+        let actualTime = window.getActualTimeMs();
+        
+        if ((videoNode && !videoNode.paused) || window.isPlayingVirtual) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             scrollLeftMs = actualTime - (visibleMs / 2);
             if (scrollLeftMs < 0) scrollLeftMs = 0;
@@ -1027,7 +1025,23 @@ window.drawTimeline = function() {
             t += stepMs;
         }
 
+        // 🎯 FIX: Dibujar la columna gris IZQUIERDA ANTES de los puntos y recortar su invasión
+        ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
+        ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
+
+        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
+            const y = posToY(p); 
+            ctx.fillStyle = textDimColor; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
+        });
+
         const actions = getSafeActions();
+
+        // 🎯 FIX: Escudo de Clipping para que los puntos no invadan la columna gris a menos que estén exactamente en 0:00
+        ctx.save();
+        let clipX = scrollLeftMs <= 0 ? 15 : 30; // 15 permite a los marcadores y puntos en el 0:00 dibujar su lado izquierdo
+        ctx.beginPath();
+        ctx.rect(clipX, 0, canvas.width - clipX, canvas.height);
+        ctx.clip();
 
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
@@ -1052,22 +1066,18 @@ window.drawTimeline = function() {
             ctx.setLineDash([]);
         }
 
-        // 🎯 FIX: Renderizado Bi-Marcador. Detecta cuáles son BPM y cuáles son Manuales para diferenciarlos
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             let mCount = 1;
             let bCount = 1;
             
-            // Asigna la etiqueta correcta independiente de si son visibles o no
             window.timelineMarkers.forEach(m => {
                 m.labelStr = m.isBPM ? `B${bCount++}` : `M${mCount++}`;
             });
 
             window.timelineMarkers.forEach((m) => {
                 const mx = timeToX(m.at);
-                if (mx >= 30) {
+                if (mx >= 15) { // Visible en el rango
                     let alpha = m.selected ? (0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 150))) : 1.0;
-                    
-                    // Colores diferenciados: BPM = Cyan, Manual = Magenta
                     let baseColor = m.isBPM ? '#0ea5e9' : '#d946ef';
                     let selColor = '#facc15';
                     let color = m.selected ? selColor : baseColor;
@@ -1129,7 +1139,7 @@ window.drawTimeline = function() {
 
             actions.forEach((act, i) => {
                 const x = timeToX(act.at);
-                if (x >= -20 && x <= canvas.width + 20) {
+                if (x >= 20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
                     let dotColor = isLight ? '#0284c7' : '#38bdf8';
@@ -1278,13 +1288,7 @@ window.drawTimeline = function() {
             ctx.fillText(tooltipText, mx + 25, my + 32);
         }
 
-        ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
-        ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
-
-        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
-            const y = posToY(p); 
-            ctx.fillStyle = textDimColor; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
-        });
+        ctx.restore(); // 🎯 FINAL DEL ESCUDO DE CLIPPING
 
         const playheadX = timeToX(actualTime);
         if (playheadX >= 30) {
@@ -1335,75 +1339,6 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        if (window.scrollMomentum) {
-            if (Math.abs(window.scrollMomentum) > 0.1) {
-                window.scrollMomentum *= 0.92;
-            } else {
-                window.scrollMomentum = 0;
-            }
-
-            if (window.scrollMomentum !== 0) {
-                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
-                const isForward = window.scrollMomentum > 0;
-                
-                ctx.save();
-                ctx.globalAlpha = intensity * 0.6; 
-
-                const gradWidth = 200;
-                const centerY = canvas.height / 2;
-
-                if (isForward) {
-                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
-                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
-                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
-
-                    let offset = (performance.now() / 15) % 30;
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                    
-                    for(let i = 0; i < 3; i++) {
-                        let cx = canvas.width - 60 + offset - (i * 20);
-                        let alpha = 1 - (i * 0.2) - (offset / 30);
-                        ctx.globalAlpha = Math.max(0, intensity * alpha);
-                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
-                    }
-
-                    ctx.globalAlpha = intensity * 0.9;
-                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
-                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
-                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
-
-                } else {
-                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
-                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
-                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(30, 0, gradWidth, canvas.height);
-
-                    let offset = (performance.now() / 15) % 30;
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
-                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-                    for(let i = 0; i < 3; i++) {
-                        let cx = 80 - offset + (i * 20);
-                        let alpha = 1 - (i * 0.2) - (offset / 30);
-                        ctx.globalAlpha = Math.max(0, intensity * alpha);
-                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
-                    }
-
-                    ctx.globalAlpha = intensity * 0.9;
-                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
-                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
-                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
-                }
-                ctx.restore();
-            }
-        }
-        
         window.updateGhostThumb();
 
     } catch (err) {}
@@ -1548,7 +1483,6 @@ canvas?.addEventListener('mousedown', (e) => {
             selStartY = clickY;
             selCurrT = selStartT;
             selCurrY = clickY;
-            
         }
     } else if (e.button === 2) { 
         
@@ -1559,12 +1493,10 @@ canvas?.addEventListener('mousedown', (e) => {
                 if (Math.abs(clickX - mx) <= 15 && clickY <= 40) {
                     const now = performance.now();
                     if (window.lastMarkerRightClickIdx === i && (now - window.lastMarkerRightClickTime < 350)) {
-                        if (videoNode) {
-                            videoNode.currentTime = m.at / 1000;
-                            window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: m.at } }));
-                            if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                            if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
-                        }
+                        window.setActualTimeMs(m.at);
+                        window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: m.at } }));
+                        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                        if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
                         window.lastMarkerRightClickIdx = -1;
                     } else {
                         window.lastMarkerRightClickIdx = i;
@@ -1611,11 +1543,9 @@ canvas?.addEventListener('mousedown', (e) => {
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
-            if (videoNode) {
-                let clickedTimeMs = xToTime(clickX);
-                videoNode.currentTime = Math.max(0, clickedTimeMs / 1000);
-                window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: clickedTimeMs } }));
-            }
+            let clickedTimeMs = xToTime(clickX);
+            window.setActualTimeMs(clickedTimeMs);
+            window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: clickedTimeMs } }));
             lastRightClickTime = 0;
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
@@ -1656,7 +1586,7 @@ canvas?.addEventListener('mousemove', (e) => {
         const m = window.timelineMarkers[draggedMarkerIndex];
         let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
 
-        const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+        const actualTimeMs = window.getActualTimeMs();
         if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = Math.round(actualTimeMs);
 
         m.at = Math.max(0, newAt);
@@ -1684,12 +1614,8 @@ canvas?.addEventListener('mousemove', (e) => {
 
             if (!window.presetFillInitialized) {
                 const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-                if (selectedMarkers.length > 2) {
-                    window.presetFillMode = 'stretch';
-                } else {
-                    window.presetFillMode = 'repeat';
-                    window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
-                }
+                window.presetFillMode = 'stretch';
+                window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
                 window.presetFillInitialized = true;
             }
         } else {
@@ -1699,7 +1625,7 @@ canvas?.addEventListener('mousemove', (e) => {
 
             const actions = getSafeActions();
             const snapDistMs = 350; 
-            const actualTimeMs = (videoNode && videoNode.currentTime) ? videoNode.currentTime * 1000 : 0;
+            const actualTimeMs = window.getActualTimeMs();
             
             const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
             const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
