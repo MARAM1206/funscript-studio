@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.4.2: (PUNTOS 0:00 COMPLETOS, VIRTUAL TIME Y STRETCH DEFAULT)
+// TIMELINE V1.4.3 (RESTAURADA ANIMACIÓN DE MOMENTUM AL NAVEGAR)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -549,7 +549,7 @@ canvas?.addEventListener('dragover', (e) => {
 
         if (!window.presetFillInitialized) {
             const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-            window.presetFillMode = 'stretch'; // 🎯 FIX: STRETCH ES EL MODO POR DEFECTO
+            window.presetFillMode = 'stretch';
             window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
             window.presetFillInitialized = true;
         }
@@ -1025,7 +1025,6 @@ window.drawTimeline = function() {
             t += stepMs;
         }
 
-        // 🎯 FIX: Dibujar la columna gris IZQUIERDA ANTES de los puntos y recortar su invasión
         ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
         ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
 
@@ -1036,9 +1035,8 @@ window.drawTimeline = function() {
 
         const actions = getSafeActions();
 
-        // 🎯 FIX: Escudo de Clipping para que los puntos no invadan la columna gris a menos que estén exactamente en 0:00
         ctx.save();
-        let clipX = scrollLeftMs <= 0 ? 15 : 30; // 15 permite a los marcadores y puntos en el 0:00 dibujar su lado izquierdo
+        let clipX = scrollLeftMs <= 0 ? 15 : 30; 
         ctx.beginPath();
         ctx.rect(clipX, 0, canvas.width - clipX, canvas.height);
         ctx.clip();
@@ -1076,7 +1074,7 @@ window.drawTimeline = function() {
 
             window.timelineMarkers.forEach((m) => {
                 const mx = timeToX(m.at);
-                if (mx >= 15) { // Visible en el rango
+                if (mx >= 15) { 
                     let alpha = m.selected ? (0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 150))) : 1.0;
                     let baseColor = m.isBPM ? '#0ea5e9' : '#d946ef';
                     let selColor = '#facc15';
@@ -1160,7 +1158,7 @@ window.drawTimeline = function() {
                     ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
                     ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                     
-                    if (videoNode && videoNode.paused && !document.body.classList.contains('panic-mode-active')) {
+                    if ((videoNode && videoNode.paused && !window.isPlayingVirtual) && !document.body.classList.contains('panic-mode-active')) {
                         ctx.textAlign = 'center';
                         ctx.font = 'bold 9px monospace';
                         ctx.fillStyle = isLight ? 'rgba(255,255,255,0.75)' : 'rgba(15,23,42,0.75)';
@@ -1288,7 +1286,7 @@ window.drawTimeline = function() {
             ctx.fillText(tooltipText, mx + 25, my + 32);
         }
 
-        ctx.restore(); // 🎯 FINAL DEL ESCUDO DE CLIPPING
+        ctx.restore(); 
 
         const playheadX = timeToX(actualTime);
         if (playheadX >= 30) {
@@ -1337,6 +1335,76 @@ window.drawTimeline = function() {
         } else {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) fsCanvas.style.display = 'none';
+        }
+
+        // 🎯 FIX: Restaurada la animación direccional de inercia
+        if (window.scrollMomentum) {
+            if (Math.abs(window.scrollMomentum) > 0.1) {
+                window.scrollMomentum *= 0.92;
+            } else {
+                window.scrollMomentum = 0;
+            }
+
+            if (window.scrollMomentum !== 0) {
+                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
+                const isForward = window.scrollMomentum > 0;
+                
+                ctx.save();
+                ctx.globalAlpha = intensity * 0.6; 
+
+                const gradWidth = 200;
+                const centerY = canvas.height / 2;
+
+                if (isForward) {
+                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
+                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
+                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    
+                    for(let i = 0; i < 3; i++) {
+                        let cx = canvas.width - 60 + offset - (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
+                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
+
+                } else {
+                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
+                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
+                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(30, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+                    for(let i = 0; i < 3; i++) {
+                        let cx = 80 - offset + (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
+                }
+                ctx.restore();
+            }
         }
 
         window.updateGhostThumb();
