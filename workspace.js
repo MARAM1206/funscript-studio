@@ -1,16 +1,18 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.5.0 (PRESETS PERMANENTES E IA DIRECTOR)
+// WORKSPACE MANAGER V1.5.1 (MOTOR MAGNÉTICO DE ALINEACIÓN AVANZADA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
     const panels = document.querySelectorAll('.workspace-panel');
     const togglesContainer = document.getElementById('top-center-toggles');
+    const resetBtn = document.getElementById('menu-reset-layout-btn');
     let highestZIndex = 100;
     
-    const SNAP_DIST = 15; 
-    const GAP = 10; 
+    // 🎯 FIX: Física Cuántica de Alineación
+    const SNAP_DIST = 12; // Distancia de atracción magnética
+    const GAP = 10;       // Margen elegante entre ventanas
+    const VERSION = 'funscript_workspace_v10'; // Memoria limpia
 
-    // Memoria V9 para acomodar el panel Director
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
         'panel-tracks': { left: 620, top: 10, width: 320, height: 250, visible: true },
@@ -21,12 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-humanizer': { left: 970, top: 10, width: 250, height: 240, visible: true },
         'panel-bpm': { left: 350, top: 10, width: 250, height: 260, visible: false }, 
         'panel-mass': { left: 350, top: 220, width: 250, height: 320, visible: false }, 
-        'panel-director': { left: 350, top: 100, width: 300, height: 320, visible: false }, // IA Nace Apagada
+        'panel-director': { left: 350, top: 100, width: 300, height: 320, visible: false }, 
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
-    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v9'));
-    if (!layoutState) layoutState = defaultLayout;
+    let layoutState = JSON.parse(localStorage.getItem(VERSION));
+    if (!layoutState) layoutState = JSON.parse(JSON.stringify(defaultLayout));
 
     function saveLayout() {
         panels.forEach(panel => {
@@ -38,10 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 visible: panel.style.display !== 'none'
             };
         });
-        localStorage.setItem('funscript_workspace_v9', JSON.stringify(layoutState));
+        localStorage.setItem(VERSION, JSON.stringify(layoutState));
     }
 
-    // 🎯 FIX: 'panel-presets' ahora es intocable/permanente.
+    // 🎯 FIX: Botón "Restaurar Pestañas" de emergencia
+    if (resetBtn) {
+        resetBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            layoutState = JSON.parse(JSON.stringify(defaultLayout));
+            localStorage.setItem(VERSION, JSON.stringify(layoutState));
+            location.reload(); 
+            // Nota: El recargo no borra localStorage de presets, solo reinicia la UI.
+        });
+    }
+
     const permanentPanels = ['panel-video', 'panel-timeline', 'panel-tracks', 'panel-presets'];
 
     panels.forEach(panel => {
@@ -54,11 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const state = layoutState[id] || defaultLayout[id] || { left: 10, top: 10, width: 300, height: 200, visible: true };
         
-        if (state.visible) {
-            panel.style.display = 'flex';
-        } else {
-            panel.style.display = 'none';
-        }
+        if (state.visible) panel.style.display = 'flex';
+        else panel.style.display = 'none';
 
         if (!permanentPanels.includes(id)) {
             const btn = document.createElement('button');
@@ -109,39 +118,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 let startY = e.clientY;
                 let startLeft = panel.offsetLeft;
                 let startTop = panel.offsetTop;
+                let container = panel.parentElement;
                 
                 document.body.style.userSelect = 'none';
 
                 const onMouseMove = (ev) => {
                     let newL = startLeft + (ev.clientX - startX);
                     let newT = startTop + (ev.clientY - startY);
+                    let newR = newL + panel.offsetWidth;
+                    let newB = newT + panel.offsetHeight;
 
-                    const container = panel.parentElement;
-                    
-                    if (newL < SNAP_DIST) newL = GAP;
-                    if (newT < SNAP_DIST) newT = GAP;
-                    if (newL + panel.offsetWidth > container.clientWidth - SNAP_DIST) {
-                        newL = container.clientWidth - panel.offsetWidth - GAP;
-                    }
-                    if (newT + panel.offsetHeight > container.clientHeight - SNAP_DIST) {
-                        newT = container.clientHeight - panel.offsetHeight - GAP;
-                    }
+                    // 1. Alineación a los bordes de la pantalla
+                    if (Math.abs(newL) < SNAP_DIST) newL = GAP;
+                    if (Math.abs(newT) < SNAP_DIST) newT = GAP;
+                    if (Math.abs(container.clientWidth - newR) < SNAP_DIST) newL = container.clientWidth - panel.offsetWidth - GAP;
+                    if (Math.abs(container.clientHeight - newB) < SNAP_DIST) newT = container.clientHeight - panel.offsetHeight - GAP;
 
+                    // 2. Alineación Magnética contra otras pestañas (Mover)
                     panels.forEach(other => {
                         if (other === panel || other.style.display === 'none') return;
+                        let oL = other.offsetLeft, oT = other.offsetTop;
+                        let oR = oL + other.offsetWidth, oB = oT + other.offsetHeight;
 
-                        if (Math.abs(newL + panel.offsetWidth - (other.offsetLeft - GAP)) < SNAP_DIST) 
-                            newL = other.offsetLeft - panel.offsetWidth - GAP;
-                        if (Math.abs(newL - (other.offsetLeft + other.offsetWidth + GAP)) < SNAP_DIST) 
-                            newL = other.offsetLeft + other.offsetWidth + GAP;
-                        
-                        if (Math.abs(newT + panel.offsetHeight - (other.offsetTop - GAP)) < SNAP_DIST) 
-                            newT = other.offsetTop - panel.offsetHeight - GAP;
-                        if (Math.abs(newT - (other.offsetTop + other.offsetHeight + GAP)) < SNAP_DIST) 
-                            newT = other.offsetTop + other.offsetHeight + GAP;
-                        
-                        if (Math.abs(newL - other.offsetLeft) < SNAP_DIST) newL = other.offsetLeft;
-                        if (Math.abs(newT - other.offsetTop) < SNAP_DIST) newT = other.offsetTop;
+                        // Imán en el Eje X (Izquierda/Derecha)
+                        if (Math.abs(newR - (oL - GAP)) < SNAP_DIST) newL = oL - panel.offsetWidth - GAP; // Pega a la izquierda de otro
+                        else if (Math.abs(newL - (oR + GAP)) < SNAP_DIST) newL = oR + GAP;                // Pega a la derecha de otro
+                        else if (Math.abs(newL - oL) < SNAP_DIST) newL = oL;                              // Iguala el borde izquierdo
+                        else if (Math.abs(newR - oR) < SNAP_DIST) newL = oR - panel.offsetWidth;          // Iguala el borde derecho
+
+                        // Imán en el Eje Y (Arriba/Abajo)
+                        if (Math.abs(newB - (oT - GAP)) < SNAP_DIST) newT = oT - panel.offsetHeight - GAP; // Pega arriba de otro
+                        else if (Math.abs(newT - (oB + GAP)) < SNAP_DIST) newT = oB + GAP;                 // Pega debajo de otro
+                        else if (Math.abs(newT - oT) < SNAP_DIST) newT = oT;                               // Iguala el techo
+                        else if (Math.abs(newB - oB) < SNAP_DIST) newT = oB - panel.offsetHeight;          // Iguala el suelo
                     });
 
                     panel.style.left = newL + 'px';
@@ -183,23 +192,73 @@ document.addEventListener('DOMContentLoaded', () => {
                 const onMouseMove = (ev) => {
                     let nw = startW, nh = startH, nl = startL, nt = startT;
 
+                    // 🎯 FIX: Alineación Magnética Inteligente al Redimensionar
                     if (type.includes('e')) {
-                        nw = Math.min(startW + (ev.clientX - startX), container.clientWidth - startL - GAP);
+                        let proposedR = startL + startW + (ev.clientX - startX);
+                        let snappedR = proposedR;
+                        
+                        if (Math.abs(container.clientWidth - proposedR) < SNAP_DIST) snappedR = container.clientWidth - GAP;
+                        
+                        panels.forEach(other => {
+                            if (other === panel || other.style.display === 'none') return;
+                            let oL = other.offsetLeft, oR = oL + other.offsetWidth;
+                            if (Math.abs(proposedR - (oL - GAP)) < SNAP_DIST) snappedR = oL - GAP; 
+                            if (Math.abs(proposedR - oR) < SNAP_DIST) snappedR = oR;               
+                        });
+                        
+                        let proposedW = snappedR - startL;
+                        if (proposedW >= minW) nw = proposedW;
                     }
+                    
                     if (type.includes('s')) {
-                        nh = Math.min(startH + (ev.clientY - startY), container.clientHeight - startT - GAP);
+                        let proposedB = startT + startH + (ev.clientY - startY);
+                        let snappedB = proposedB;
+                        
+                        if (Math.abs(container.clientHeight - proposedB) < SNAP_DIST) snappedB = container.clientHeight - GAP;
+                        
+                        panels.forEach(other => {
+                            if (other === panel || other.style.display === 'none') return;
+                            let oT = other.offsetTop, oB = oT + other.offsetHeight;
+                            if (Math.abs(proposedB - (oT - GAP)) < SNAP_DIST) snappedB = oT - GAP; 
+                            if (Math.abs(proposedB - oB) < SNAP_DIST) snappedB = oB;               
+                        });
+                        
+                        let proposedH = snappedB - startT;
+                        if (proposedH >= minH) nh = proposedH;
                     }
+                    
                     if (type.includes('w')) {
                         let proposedL = startL + (ev.clientX - startX);
-                        if (proposedL < GAP) proposedL = GAP; 
-                        let proposedW = startW + (startL - proposedL);
-                        if (proposedW >= minW) { nw = proposedW; nl = proposedL; }
+                        let snappedL = proposedL;
+                        
+                        if (Math.abs(proposedL) < SNAP_DIST) snappedL = GAP;
+                        
+                        panels.forEach(other => {
+                            if (other === panel || other.style.display === 'none') return;
+                            let oL = other.offsetLeft, oR = oL + other.offsetWidth;
+                            if (Math.abs(proposedL - (oR + GAP)) < SNAP_DIST) snappedL = oR + GAP; 
+                            if (Math.abs(proposedL - oL) < SNAP_DIST) snappedL = oL;               
+                        });
+                        
+                        let proposedW = startW + (startL - snappedL);
+                        if (proposedW >= minW) { nw = proposedW; nl = snappedL; }
                     }
+                    
                     if (type.includes('n')) {
                         let proposedT = startT + (ev.clientY - startY);
-                        if (proposedT < GAP) proposedT = GAP; 
-                        let proposedH = startH + (startT - proposedT);
-                        if (proposedH >= minH) { nh = proposedH; nt = proposedT; }
+                        let snappedT = proposedT;
+                        
+                        if (Math.abs(proposedT) < SNAP_DIST) snappedT = GAP;
+                        
+                        panels.forEach(other => {
+                            if (other === panel || other.style.display === 'none') return;
+                            let oT = other.offsetTop, oB = oT + other.offsetHeight;
+                            if (Math.abs(proposedT - (oB + GAP)) < SNAP_DIST) snappedT = oB + GAP; 
+                            if (Math.abs(proposedT - oT) < SNAP_DIST) snappedT = oT;               
+                        });
+                        
+                        let proposedH = startH + (startT - snappedT);
+                        if (proposedH >= minH) { nh = proposedH; nt = snappedT; }
                     }
 
                     if (nw >= minW) { panel.style.width = nw + 'px'; panel.style.left = nl + 'px'; }
