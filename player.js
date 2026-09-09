@@ -1,5 +1,6 @@
+
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.3.3 (CTRL+A INTELIGENTE)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.4.2 (VIRTUAL PLAYBACK & SMART PRESETS)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -11,7 +12,6 @@ window.currentVideoName = null;
 window.audioPeaks = null; 
 window.clipboardFunscript = null; 
 window.isPastingMode = false; 
-
 window.currentAudioBuffer = null;
 window.fsTimelineVisible = true; 
 
@@ -39,6 +39,64 @@ function preloadPanicImage() {
     img.src = preloadedPanicUrl; 
 }
 preloadPanicImage(); 
+
+// 🎯 FIX: Reloj Fantasma (Virtual Playback)
+window.virtualTimeMs = 0;
+window.isPlayingVirtual = false;
+let virtualLastTime = 0;
+
+window.getActualTimeMs = function() {
+    return window.currentVideoName ? (videoPlayer.currentTime * 1000) : window.virtualTimeMs;
+};
+
+window.setActualTimeMs = function(ms) {
+    if (window.currentVideoName) {
+        if(videoPlayer.duration) videoPlayer.currentTime = Math.min(videoPlayer.duration, Math.max(0, ms / 1000));
+    } else {
+        window.virtualTimeMs = Math.max(0, ms);
+        if (vTimeCurrent) vTimeCurrent.innerText = formatTime(window.virtualTimeMs / 1000);
+    }
+};
+
+function togglePlayback() {
+    if (window.currentVideoName) {
+        if (videoPlayer.paused) videoPlayer.play();
+        else videoPlayer.pause();
+    } else {
+        window.isPlayingVirtual = !window.isPlayingVirtual;
+        if (window.isPlayingVirtual) {
+            virtualLastTime = performance.now();
+            requestAnimationFrame(virtualPlayLoop);
+            window.dispatchEvent(new Event('videoPlay'));
+            if (typeof window.playHandy === 'function') window.playHandy(window.virtualTimeMs);
+        } else {
+            if (typeof window.stopHandy === 'function') window.stopHandy();
+        }
+    }
+}
+
+function virtualPlayLoop() {
+    if (!window.isPlayingVirtual || window.currentVideoName) return;
+    let now = performance.now();
+    let dt = now - virtualLastTime;
+    virtualLastTime = now;
+    window.virtualTimeMs += dt * currentSpeed;
+    
+    if (vTimeCurrent) vTimeCurrent.innerText = formatTime(window.virtualTimeMs / 1000);
+    
+    if (window.timelineMarkers) {
+        let changed = false;
+        window.timelineMarkers.forEach(m => {
+            if (m.selected && Math.abs(m.at - window.virtualTimeMs) > 25) {
+                m.selected = false; changed = true;
+            }
+        });
+        if (changed && typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+    
+    if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    requestAnimationFrame(virtualPlayLoop);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -164,8 +222,7 @@ document.getElementById('v-mute-container')?.addEventListener('click', () => {
 });
 
 videoPlayer?.addEventListener('click', () => {
-    if (videoPlayer.paused) videoPlayer.play();
-    else videoPlayer.pause();
+    togglePlayback();
 });
 
 function parseSRTtoVTT(srtText) {
@@ -300,9 +357,7 @@ videoPlayer?.addEventListener('timeupdate', () => {
 });
 
 videoPlayer?.addEventListener('play', () => {
-    if (isPanicMode) {
-        fakeAudio.play();
-    }
+    if (isPanicMode) fakeAudio.play();
     window.dispatchEvent(new Event('videoPlay'));
     if (typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
@@ -533,29 +588,22 @@ window.addEventListener('keydown', (event) => {
 
     const key = event.key.toLowerCase();
 
+    // 🎯 FIX: Permite intercambiar de modo (Stretch/Repeat) con la barra espaciadora
     if (window.isDraggingPreset || window.isPastingMode) {
-        const selectedMarkers = (window.timelineMarkers || []).filter(m => m.selected);
-        if (selectedMarkers.length > 2) {
-            if (event.code === 'Space' || key === 'arrowleft' || key === 'arrowright') {
-                event.preventDefault(); 
-                return; 
-            }
-        } else {
-            if (event.code === 'Space') {
-                event.preventDefault();
-                window.presetFillMode = window.presetFillMode === 'repeat' ? 'stretch' : 'repeat';
+        if (event.code === 'Space') {
+            event.preventDefault();
+            window.presetFillMode = window.presetFillMode === 'stretch' ? 'repeat' : 'stretch';
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            return;
+        }
+        if (key === 'arrowleft' || key === 'arrowright') {
+            event.preventDefault();
+            if (window.presetFillMode === 'repeat') {
+                if (key === 'arrowleft') window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
+                if (key === 'arrowright') window.presetFillReps = (window.presetFillReps || 1) + 1;
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                return;
             }
-            if (key === 'arrowleft' || key === 'arrowright') {
-                event.preventDefault();
-                if (window.presetFillMode === 'repeat') {
-                    if (key === 'arrowleft') window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
-                    if (key === 'arrowright') window.presetFillReps = (window.presetFillReps || 1) + 1;
-                    if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                }
-                return;
-            }
+            return;
         }
     }
 
@@ -565,14 +613,14 @@ window.addEventListener('keydown', (event) => {
         }
         if (!window.isDraggingPreset && !window.isPastingMode) {
             event.preventDefault();
-            if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
+            togglePlayback();
             return;
         }
     }
 
     if (key === 't' && !event.ctrlKey) {
         event.preventDefault();
-        const timeMs = (videoPlayer && videoPlayer.currentTime) ? Math.round(videoPlayer.currentTime * 1000) : 0;
+        const timeMs = Math.round(window.getActualTimeMs());
         window.timelineMarkers.push({ at: timeMs, selected: false, isBPM: false });
         window.timelineMarkers.sort((a, b) => a.at - b.at);
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -582,12 +630,12 @@ window.addEventListener('keydown', (event) => {
 
     if (key === 'y' && !event.ctrlKey) {
         event.preventDefault();
-        const currentTimeMs = videoPlayer.currentTime * 1000;
+        const currentTimeMs = window.getActualTimeMs();
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             const prevMarkers = window.timelineMarkers.filter(m => m.at < currentTimeMs - 15);
             if (prevMarkers.length > 0) {
                 const targetMarker = prevMarkers[prevMarkers.length - 1];
-                videoPlayer.currentTime = targetMarker.at / 1000;
+                window.setActualTimeMs(targetMarker.at);
                 window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: targetMarker.at } }));
                 
                 window.timelineMarkers.forEach(m => m.selected = false);
@@ -600,12 +648,12 @@ window.addEventListener('keydown', (event) => {
 
     if (key === 'u' && !event.ctrlKey) {
         event.preventDefault();
-        const currentTimeMs = videoPlayer.currentTime * 1000;
+        const currentTimeMs = window.getActualTimeMs();
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             const nextMarkers = window.timelineMarkers.filter(m => m.at > currentTimeMs + 15);
             if (nextMarkers.length > 0) {
                 const targetMarker = nextMarkers[0];
-                videoPlayer.currentTime = targetMarker.at / 1000;
+                window.setActualTimeMs(targetMarker.at);
                 window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: nextMarkers[0].at } }));
                 
                 window.timelineMarkers.forEach(m => m.selected = false);
@@ -614,7 +662,7 @@ window.addEventListener('keydown', (event) => {
             } else {
                 const lastMarker = window.timelineMarkers[window.timelineMarkers.length - 1];
                 if (currentTimeMs >= lastMarker.at + 15) {
-                    videoPlayer.currentTime = lastMarker.at / 1000;
+                    window.setActualTimeMs(lastMarker.at);
                     window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: lastMarker.at } }));
                 }
             }
@@ -623,7 +671,7 @@ window.addEventListener('keydown', (event) => {
     }
 
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
-    const isPlaying = !videoPlayer.paused;
+    const isPlaying = window.currentVideoName ? !videoPlayer.paused : window.isPlayingVirtual;
 
     if (key === 's' && event.ctrlKey) {
         event.preventDefault();
@@ -643,12 +691,10 @@ window.addEventListener('keydown', (event) => {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
         
-        // 🎯 FIX: Inteligencia Malla de Marcadores (Ctrl + A)
         if (key === 'a') { 
             event.preventDefault(); 
             const hasMarkerSelected = window.timelineMarkers && window.timelineMarkers.some(m => m.selected);
             if (hasMarkerSelected) {
-                // Si tienes un marcador, se atrapan TODOS los marcadores y se sueltan los puntos
                 window.timelineMarkers.forEach(m => m.selected = true);
                 if (window.funscriptActions) window.funscriptActions.forEach(p => p.selected = false);
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -718,28 +764,28 @@ window.addEventListener('keydown', (event) => {
 
     if (key === 'q' && !event.ctrlKey) { 
         event.preventDefault(); 
-        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - stepTimePrecision); 
+        window.setActualTimeMs(window.getActualTimeMs() - stepTimePrecision * 1000); 
         forcePan(); 
     }
     if (key === 'w' && !event.ctrlKey) { 
         event.preventDefault(); 
-        videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + stepTimePrecision); 
+        window.setActualTimeMs(window.getActualTimeMs() + stepTimePrecision * 1000); 
         forcePan(); 
     }
     
-    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5); forcePan(); }
-    if (key === 's' && !event.ctrlKey) { event.preventDefault(); videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5); forcePan(); }
+    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() - 5000); forcePan(); }
+    if (key === 's' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() + 5000); forcePan(); }
 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
     if (key === 'b' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
-            const currentTimeMs = videoPlayer.currentTime * 1000;
+            const currentTimeMs = window.getActualTimeMs();
             const prevPoints = window.funscriptActions.filter(act => act.at < currentTimeMs - 15);
             if (prevPoints.length > 0) {
                 const target = prevPoints[prevPoints.length - 1];
-                videoPlayer.currentTime = target.at / 1000;
+                window.setActualTimeMs(target.at);
                 window.funscriptActions.forEach(a => a.selected = false);
                 target.selected = true; syncSlider(); forcePan(target.at);
             }
@@ -748,17 +794,17 @@ window.addEventListener('keydown', (event) => {
     if (key === 'n' && !event.ctrlKey) {
         event.preventDefault();
         if (window.funscriptActions && window.funscriptActions.length > 0) {
-            const currentTimeMs = videoPlayer.currentTime * 1000;
+            const currentTimeMs = window.getActualTimeMs();
             const nextPoints = window.funscriptActions.filter(act => act.at > currentTimeMs + 15);
             if (nextPoints.length > 0) {
                 const target = nextPoints[0];
-                videoPlayer.currentTime = target.at / 1000;
+                window.setActualTimeMs(target.at);
                 window.funscriptActions.forEach(a => a.selected = false);
                 target.selected = true; syncSlider(); forcePan(target.at);
             } else {
                 const lastTarget = window.funscriptActions[window.funscriptActions.length - 1];
                 if (currentTimeMs >= lastTarget.at + 15) {
-                    videoPlayer.currentTime = lastTarget.at / 1000;
+                    window.setActualTimeMs(lastTarget.at);
                     window.funscriptActions.forEach(a => a.selected = false);
                     lastTarget.selected = true; syncSlider(); forcePan(lastTarget.at);
                 }
