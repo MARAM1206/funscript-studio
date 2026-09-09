@@ -1,5 +1,5 @@
 // ==========================================================================
-// IA DIRECTOR V1.6.2 (ESCUDOS ANTI-CRASH MATEMÁTICO)
+// IA DIRECTOR V1.6.3 (HARDWARE ENFORCEMENT & GROOVE ORGÁNICO HUMANO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,37 +32,93 @@ document.addEventListener('DOMContentLoaded', () => {
         return tags;
     }
 
-    // 🎯 FIX: Blindaje Matemático contra Arrays vacíos
+    // 🎯 FIX: Filtro de Física. Elimina ROJOS y AMARILLOS según el hardware activo
+    function enforceHardwareLimits(actions, hwMax, hwMin, factor) {
+        let snap = window.snapValue || 5;
+        for (let pass = 0; pass < 3; pass++) {
+            let shifted = 0;
+            let modifications = 0;
+            for (let i = 1; i < actions.length; i++) {
+                actions[i].at += shifted; // Arrastramos los cambios de tiempo de los puntos anteriores
+                
+                let act1 = actions[i-1];
+                let act2 = actions[i];
+                let dt_ms = act2.at - act1.at;
+                
+                // Límite de colisión de tiempo (Mínimo 15ms entre puntos)
+                if (dt_ms < 15) { 
+                    let fix = 15 - dt_ms;
+                    act2.at += fix;
+                    shifted += fix;
+                    dt_ms = 15;
+                    modifications++;
+                }
+                
+                let dt_s = dt_ms / 1000.0;
+                let dp = Math.abs(act2.pos - act1.pos);
+                let speed = (dp * factor) / dt_s;
+                
+                // ROJO: Muy rápido -> Alargamos el tiempo para salvar la máquina
+                if (speed > hwMax) {
+                    let required_dt_s = (dp * factor) / (hwMax * 0.95); 
+                    let addedTime = Math.round((required_dt_s - dt_s) * 1000);
+                    act2.at += addedTime;
+                    shifted += addedTime;
+                    modifications++;
+                } 
+                // AMARILLO: Muy lento -> Aplanamos a pausa o robamos tiempo para acelerar
+                else if (speed < hwMin && dp > 0) {
+                    if (dp < 15) {
+                        act2.pos = act1.pos; // Lo convertimos en una pausa limpia
+                        modifications++;
+                    } else {
+                        let required_dt_s = (dp * factor) / (hwMin * 1.05);
+                        let subtractedTime = Math.round((dt_s - required_dt_s) * 1000);
+                        if (act2.at - subtractedTime > act1.at + 15) {
+                            act2.at -= subtractedTime;
+                            shifted -= subtractedTime;
+                            modifications++;
+                        }
+                    }
+                }
+                // Ajustamos a la grilla
+                act2.pos = Math.max(0, Math.min(100, Math.round(act2.pos / snap) * snap));
+            }
+            if (modifications === 0) break;
+        }
+        return actions;
+    }
+
+    // 🎯 FIX: Mutación Orgánica ("Groove" y Oscilación Perlin simulada)
     function mutatePreset(presetActions, mode) {
         if (!presetActions || !Array.isArray(presetActions) || presetActions.length < 2) return [];
         let mutated = [];
         
-        let scale = 1.0; 
+        let baseScale = 1.0; 
         let offset = 0;
 
-        if (mode === 'oral') {
-            scale = 0.4 + Math.random() * 0.3; 
-            offset = Math.random() > 0.5 ? (100 - scale*100) : 0; 
-        } else if (mode === 'ride') {
-            scale = 0.9 + Math.random() * 0.1; 
-            offset = 0; 
-        } else if (mode === 'tease') {
-            scale = 0.15 + Math.random() * 0.2; 
-            offset = Math.random() * 60; 
-        }
+        if (mode === 'oral') { baseScale = 0.5; offset = Math.random() > 0.5 ? 40 : 0; }
+        else if (mode === 'ride') { baseScale = 0.95; offset = 0; }
+        else if (mode === 'tease') { baseScale = 0.2; offset = Math.random() * 50; }
 
         for (let i = 0; i < presetActions.length; i++) {
             let act = presetActions[i];
-            let humanPos = (Math.random() * 2 - 1) * 3; 
-            let humanTime = (Math.random() * 2 - 1) * 8; 
             
-            let rawPos = (act.pos * scale) + offset + humanPos;
+            // Variación fluida en lugar de caos estático
+            let scaleWander = Math.sin(i * 0.7) * 0.15; // Respira +/- 15%
+            let humanPos = (Math.random() * 2 - 1) * 4; 
+            let humanTime = (Math.random() * 2 - 1) * 10; 
+            
+            let currentScale = Math.max(0.1, baseScale + scaleWander);
+            let rawPos = (act.pos * currentScale) + offset + humanPos;
+            
             let finalPos = Math.max(0, Math.min(100, Math.round(rawPos / 5) * 5));
             let finalTime = Math.max(0, Math.round(act.at + humanTime));
 
-            if (mode === 'ride' && finalPos <= 10 && Math.random() > 0.7 && i > 0 && mutated.length > 0) {
+            // Micro-rebotes naturales
+            if (mode === 'ride' && finalPos <= 10 && Math.random() > 0.6 && i > 0 && mutated.length > 0) {
                 let midTime = mutated[mutated.length-1].at + (finalTime - mutated[mutated.length-1].at) / 2;
-                mutated.push({ at: Math.round(midTime), pos: 25 }); 
+                mutated.push({ at: Math.round(midTime), pos: 20 + Math.random()*10 }); 
             }
 
             mutated.push({ at: finalTime, pos: finalPos });
@@ -79,30 +135,39 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (speedCat === 'fast') reps = Math.max(2, Math.floor(durationMs / 220));
         else reps = Math.max(2, Math.floor(durationMs / 120)); 
 
-        let stepMs = Math.max(50, durationMs / reps); // Seguro contra división por cero
+        let baseStepMs = Math.max(50, durationMs / reps); 
+        let t = 0;
 
         for (let i = 0; i <= reps; i++) {
             let isPeak = (i % 2 === 0);
+            
+            // 🎯 FIX: El ritmo humano nunca es matemático, tiene "Swing"
+            let rhythmJitter = 0.75 + Math.random() * 0.5; // +/- 25% de variación rítmica
+            let currentStepMs = baseStepMs * rhythmJitter;
+            t += currentStepMs;
+
+            // Profundidad de penetración fluida
+            let strokeDepth = 0.6 + Math.random() * 0.4; // 60% al 100% de la fuerza
             let y = 0;
             
-            if (mode === 'oral') y = isPeak ? 100 : (70 + Math.random()*15);
-            else if (mode === 'ride') y = isPeak ? (90 + Math.random()*10) : (0 + Math.random()*10);
-            else if (mode === 'tease') y = isPeak ? (40 + Math.random()*20) : (20 + Math.random()*15);
-            else y = isPeak ? (80 + Math.random()*20) : (0 + Math.random()*20); 
+            if (mode === 'oral') y = isPeak ? 100 : (100 - (35 * strokeDepth));
+            else if (mode === 'ride') y = isPeak ? (100 * strokeDepth) : (100 * (1 - strokeDepth));
+            else if (mode === 'tease') y = isPeak ? (40 + 20 * strokeDepth) : (20 + 15 * strokeDepth);
+            else y = isPeak ? (80 * strokeDepth + 20) : (20 * (1 - strokeDepth)); 
 
             if (mode === 'edging') {
                 let progress = i / reps;
-                let currentStep = Math.max(50, stepMs * (1 - (progress * 0.8))); 
-                let t = actions.length > 0 ? actions[actions.length-1].at + currentStep : 0;
+                let edgeStep = Math.max(50, baseStepMs * (1 - (progress * 0.85))); // Acelera
+                t = actions.length > 0 ? actions[actions.length-1].at + edgeStep : currentStepMs;
                 
                 if (i === reps) {
                     actions.push({ at: Math.round(t), pos: 100 });
-                    actions.push({ at: Math.round(t + 200), pos: 0 }); 
+                    actions.push({ at: Math.round(t + 250), pos: 0 }); // Frenazo en seco
                 } else {
                     actions.push({ at: Math.round(t), pos: Math.round(y) });
                 }
             } else {
-                actions.push({ at: Math.round(i * stepMs), pos: Math.round(y) });
+                actions.push({ at: Math.round(t), pos: Math.round(y) });
             }
         }
         return actions;
@@ -112,13 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.body.classList.contains('panic-mode-active')) return;
         
         let targetDurationMs = parseInt(durSlider.value, 10) * 60 * 1000;
-        
-        // 🎯 FIX: Rescate Matemático de la duración
         if (isNaN(targetDurationMs) || targetDurationMs <= 0) {
             if (window.videoPlayer && window.videoPlayer.duration && !isNaN(window.videoPlayer.duration)) {
                 targetDurationMs = window.videoPlayer.duration * 1000;
             } else {
-                targetDurationMs = 3 * 60 * 1000; // 3 Minutos por defecto si falla todo
+                targetDurationMs = 3 * 60 * 1000; 
             }
         }
 
@@ -130,6 +193,15 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (typeof window.saveHistoryState === 'function') window.saveHistoryState();
                 
+                // Extraer base de hardware para el filtro de seguridad
+                const device = window.hardwareDB[window.activeDevice || 'handy_std'];
+                let hwMax = device.standard.max;
+                let hwMin = device.standard.min;
+                if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
+                    hwMax = device.overclock.max;
+                    hwMin = device.overclock.min;
+                }
+
                 let newActions = [];
                 let currentTimeMs = 0;
                 
@@ -158,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     let blockActions = [];
                     
-                    // 🎯 FIX: Extracción Super Segura de Presets (Evita Arrays vacíos o corruptos)
                     try {
                         let presetList = window.presetsLibrary || window.customPresets || [];
                         if (presetList.length > 0 && Math.random() > 0.4) {
@@ -169,16 +240,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                     } catch (e) {
-                        console.warn("Fallo al mutar el preset guardado, usando generación procedural.", e);
+                        console.warn("Fallo procedural, generando desde cero.");
                     }
 
-                    // Si el preset falló o estaba vacío, entra el motor procedural al rescate
                     if (!blockActions || blockActions.length < 2) {
                         blockActions = generateProceduralBlock(blockAction, blockDurationMs, blockSpeed);
                     }
 
                     let pDur = blockActions[blockActions.length - 1].at;
-                    if (isNaN(pDur) || pDur <= 0) pDur = 1000; // 🎯 FIX: Anti-división por cero
+                    if (isNaN(pDur) || pDur <= 0) pDur = 1000; 
                     
                     let timeMultiplier = blockDurationMs / pDur; 
 
@@ -186,15 +256,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         let lastPos = newActions[newActions.length - 1].pos;
                         let firstNewPos = blockActions[0].pos;
                         if (Math.abs(lastPos - firstNewPos) > 15) {
-                            currentTimeMs += 500; 
+                            currentTimeMs += 400 + Math.random() * 300; // Transición orgánica de pausa
                             newActions.push({ at: Math.round(currentTimeMs), pos: firstNewPos });
                         }
                     }
 
                     for (let act of blockActions) {
-                        let humanTime = (Math.random() * 2 - 1) * 8; 
                         let injPos = Math.max(0, Math.min(100, Math.round(act.pos / 5) * 5));
-                        let injAt = Math.round(currentTimeMs + (act.at * timeMultiplier) + humanTime);
+                        let injAt = Math.round(currentTimeMs + (act.at * timeMultiplier));
                         
                         if (newActions.length > 0 && injAt <= newActions[newActions.length-1].at) continue; 
                         
@@ -206,12 +275,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentTimeMs += blockDurationMs;
 
                     if (blockAction === 'edging') {
-                        currentTimeMs += 4000;
+                        currentTimeMs += 3500 + Math.random() * 2000; // Descanso post-edging aleatorio
                         newActions.push({ at: Math.round(currentTimeMs), pos: 0 }); 
                     }
                 }
 
                 if (newActions.length > 0) {
+                    // 🎯 FIX: Pasar el guion por el Escudo de Hardware antes de inyectarlo
+                    newActions = enforceHardwareLimits(newActions, hwMax, hwMin, device.factor);
+
                     if (!window.funscriptActions) window.funscriptActions = [];
                     window.funscriptActions.splice(0, window.funscriptActions.length, ...newActions);
                     
@@ -223,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 console.error("Error fatal en el núcleo de la IA:", error);
-                alert("La IA encontró un script corrupto y activó el protocolo de emergencia. Limpia tu línea de tiempo e inténtalo de nuevo.");
+                alert("La IA encontró un script corrupto. Limpia tu línea de tiempo e inténtalo de nuevo.");
             } finally {
                 generateBtn.innerText = originalText;
                 generateBtn.disabled = false;
