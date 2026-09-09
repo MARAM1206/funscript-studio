@@ -1,5 +1,5 @@
 // ==========================================================================
-// HUMANIZATION FILTER V1.3.3 (LIMITES AUTOMÁTICOS Y MANUALES ESTRICTOS)
+// HUMANIZATION FILTER V1.4.2 (SMART DYNAMIC AUTONOMY)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -36,19 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedCount = actions.filter(a => a.selected).length;
 
         if (selectedCount < 2) {
-            alert("Selecciona al menos 2 puntos en la línea de tiempo con la caja de arrastre para aplicar la humanización.");
+            alert("Selecciona al menos 2 puntos en la línea de tiempo para aplicar la humanización.");
             return;
         }
 
         if (typeof window.saveHistoryState === 'function') window.saveHistoryState();
 
-        let maxTimeOffset, maxPosOffset;
+        let maxTimeOffset = 0;
+        let maxPosOffset = 0;
         
-        // 🎯 FIX: Modo Inteligente vs Manual Estricto
-        if (autoToggle.checked) {
-            maxTimeOffset = 15; // Límite seguro óptimo
-            maxPosOffset = 3;   // Límite seguro óptimo
-        } else {
+        if (!autoToggle.checked) {
             maxTimeOffset = parseInt(timeSlider.value, 10);
             maxPosOffset = parseInt(posSlider.value, 10);
         }
@@ -58,19 +55,38 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < actions.length; i++) {
             if (!actions[i].selected) continue;
 
-            if (maxPosOffset > 0) {
-                // Selecciona una magnitud entre el 20% y el 100% de tu límite (nunca 0)
-                let pMag = maxPosOffset * (0.2 + Math.random() * 0.8);
+            let currentMaxT = maxTimeOffset;
+            let currentMaxP = maxPosOffset;
+
+            // 🎯 FIX: Inteligencia Autónoma (Calcula límites basados en velocidad y distancia)
+            if (autoToggle.checked) {
+                let dt1 = i > 0 ? actions[i].at - actions[i-1].at : 500;
+                let dt2 = i < actions.length - 1 ? actions[i+1].at - actions[i].at : 500;
+                let minDt = Math.min(dt1, dt2);
+                
+                // Tiempo: 15% del espacio disponible, con tope de seguridad de 30ms.
+                currentMaxT = Math.min(30, Math.max(5, minDt * 0.15));
+
+                let dp1 = i > 0 ? Math.abs(actions[i].pos - actions[i-1].pos) : 50;
+                let dp2 = i < actions.length - 1 ? Math.abs(actions[i+1].pos - actions[i].pos) : 50;
+                let maxDp = Math.max(dp1, dp2);
+                
+                // Posición: 10% de la distancia de carrera, con tope de 8%.
+                currentMaxP = Math.min(8, Math.max(1, maxDp * 0.10));
+            }
+
+            if (currentMaxP > 0) {
+                let pMag = currentMaxP * (0.2 + Math.random() * 0.8);
                 let pSign = Math.random() < 0.5 ? -1 : 1;
                 let newPos = actions[i].pos + (pMag * pSign);
                 actions[i].pos = Math.max(0, Math.min(100, Math.round(newPos / snap) * snap));
             }
 
-            if (maxTimeOffset > 0) {
+            if (currentMaxT > 0) {
                 let minTime = (i > 0) ? actions[i-1].at + 15 : 0; 
-                let maxTime = (i < actions.length - 1) ? actions[i+1].at - 15 : actions[i].at + maxTimeOffset;
+                let maxTime = (i < actions.length - 1) ? actions[i+1].at - 15 : actions[i].at + currentMaxT;
 
-                let tMag = maxTimeOffset * (0.2 + Math.random() * 0.8);
+                let tMag = currentMaxT * (0.2 + Math.random() * 0.8);
                 let tSign = Math.random() < 0.5 ? -1 : 1;
                 let newTime = Math.round(actions[i].at + (tMag * tSign));
 
