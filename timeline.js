@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.11.0 (ADAPTACIÓN Y-SCALING Y EXTERMINIO DE PUNTOS INTERMEDIOS)
+// TIMELINE V1.11.1 (FIX: ESCUDO CONTRA APLASTAMIENTO DE PRESETS EN ZONAS PLANAS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -245,7 +245,7 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: Adaptación perfecta de Bounding Box conservando la escala original
+// 🎯 FIX: Escudo Anti-Aplastamiento. Si el área es plana (<= 10% rango), ignora la escala y pega el preset original.
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
     let result = [];
@@ -276,11 +276,10 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                 if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
                 
                 let mappedPos = preset[j].pos;
-                if (hasExisting && oMax > oMin) { 
+                // Si la zona original tiene rango amplio, adaptamos el preset. Si es plana, lo dejamos natural.
+                if (hasExisting && (oMax - oMin) > 10) { 
                     let norm = (preset[j].pos - presetMin) / pRange;
                     mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
-                } else if (hasExisting && oMax === oMin) {
-                    mappedPos = oMin;
                 }
 
                 result.push({
@@ -306,11 +305,9 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
         if (window.presetFillMode === 'stretch') {
             result = preset.map(act => {
                 let mappedPos = act.pos;
-                if (hasExisting && oMax > oMin) {
+                if (hasExisting && (oMax - oMin) > 10) {
                     let norm = (act.pos - presetMin) / pRange;
                     mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
-                } else if (hasExisting && oMax === oMin) {
-                    mappedPos = oMin;
                 }
                 return {
                     at: Math.round(t_start + (act.at / p_dur) * targetDuration),
@@ -326,11 +323,9 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                     if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
                     
                     let mappedPos = preset[i].pos;
-                    if (hasExisting && oMax > oMin) {
+                    if (hasExisting && (oMax - oMin) > 10) {
                         let norm = (preset[i].pos - presetMin) / pRange;
                         mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
-                    } else if (hasExisting && oMax === oMin) {
-                        mappedPos = oMin;
                     }
 
                     result.push({
@@ -649,11 +644,9 @@ canvas?.addEventListener('drop', (e) => {
         if (morphed) {
             saveHistoryState();
             
-            // 🎯 FIX: EXTERMINIO ABSOLUTO DE PUNTOS INTERMEDIOS
             let tStart = window.timelineGhostTimeMs;
             let tEnd = window.timelineGhostTargetEnd;
             
-            // Conservamos solo los puntos que están estrictamente fuera de la zona de pegado
             actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
 
             actions.forEach(a => a.selected = false);
@@ -686,7 +679,6 @@ canvas?.addEventListener('drop', (e) => {
         selected: true 
     }));
     
-    // 🎯 FIX: EXTERMINIO ABSOLUTO EN ZONA LIBRE
     let tStart = newActions[0].at;
     let tEnd = newActions[newActions.length - 1].at;
     
