@@ -1,5 +1,5 @@
 // ==========================================================================
-// IA DIRECTOR V1.6.3 (HARDWARE ENFORCEMENT & GROOVE ORGÁNICO HUMANO)
+// IA DIRECTOR V1.7.0 (MOTOR BIOMECÁNICO, CERO ROJOS Y SWING HUMANO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,145 +32,185 @@ document.addEventListener('DOMContentLoaded', () => {
         return tags;
     }
 
-    // 🎯 FIX: Filtro de Física. Elimina ROJOS y AMARILLOS según el hardware activo
+    // 🎯 ESCUDO ABSOLUTO DE HARDWARE: Fuerza el patrón a los límites matemáticos del dispositivo
     function enforceHardwareLimits(actions, hwMax, hwMin, factor) {
         let snap = window.snapValue || 5;
-        for (let pass = 0; pass < 3; pass++) {
-            let shifted = 0;
-            let modifications = 0;
-            for (let i = 1; i < actions.length; i++) {
-                actions[i].at += shifted; // Arrastramos los cambios de tiempo de los puntos anteriores
-                
-                let act1 = actions[i-1];
-                let act2 = actions[i];
-                let dt_ms = act2.at - act1.at;
-                
-                // Límite de colisión de tiempo (Mínimo 15ms entre puntos)
-                if (dt_ms < 15) { 
-                    let fix = 15 - dt_ms;
-                    act2.at += fix;
-                    shifted += fix;
-                    dt_ms = 15;
-                    modifications++;
-                }
-                
-                let dt_s = dt_ms / 1000.0;
-                let dp = Math.abs(act2.pos - act1.pos);
-                let speed = (dp * factor) / dt_s;
-                
-                // ROJO: Muy rápido -> Alargamos el tiempo para salvar la máquina
-                if (speed > hwMax) {
-                    let required_dt_s = (dp * factor) / (hwMax * 0.95); 
-                    let addedTime = Math.round((required_dt_s - dt_s) * 1000);
-                    act2.at += addedTime;
-                    shifted += addedTime;
-                    modifications++;
-                } 
-                // AMARILLO: Muy lento -> Aplanamos a pausa o robamos tiempo para acelerar
-                else if (speed < hwMin && dp > 0) {
-                    if (dp < 15) {
-                        act2.pos = act1.pos; // Lo convertimos en una pausa limpia
-                        modifications++;
+        let shiftAccumulator = 0;
+        
+        for (let i = 1; i < actions.length; i++) {
+            actions[i].at += shiftAccumulator;
+            
+            let act1 = actions[i-1];
+            let act2 = actions[i];
+            
+            let dt_ms = act2.at - act1.at;
+            if (dt_ms < 15) { 
+                let fix = 15 - dt_ms;
+                act2.at += fix;
+                shiftAccumulator += fix;
+                dt_ms = 15; 
+            }
+            
+            let dp = Math.abs(act2.pos - act1.pos);
+            let speed = dt_ms > 0 ? ((dp * factor) / (dt_ms / 1000.0)) : 9999;
+            
+            // Si es ROJO (Excede capacidad) -> Retrasa el tiempo forzosamente
+            if (speed > hwMax) {
+                let required_dt_s = (dp * factor) / (hwMax * 0.92); // 92% para dejar un margen verde seguro
+                let needed_dt_ms = Math.round(required_dt_s * 1000);
+                let fix = needed_dt_ms - dt_ms;
+                act2.at += fix;
+                shiftAccumulator += fix;
+            } 
+            // Si es AMARILLO (Muy lento para el motor) -> Aplana el movimiento o roba tiempo
+            else if (speed < hwMin && dp > 0) {
+                if (dp <= 10) {
+                    act2.pos = act1.pos; // Se aplana a un "Hold" natural
+                } else {
+                    let required_dt_s = (dp * factor) / (hwMin * 1.05);
+                    let needed_dt_ms = Math.round(required_dt_s * 1000);
+                    if (needed_dt_ms >= 15) {
+                        let fix = dt_ms - needed_dt_ms;
+                        act2.at -= fix; // Acelera el punto tirando hacia atrás
+                        shiftAccumulator -= fix;
                     } else {
-                        let required_dt_s = (dp * factor) / (hwMin * 1.05);
-                        let subtractedTime = Math.round((dt_s - required_dt_s) * 1000);
-                        if (act2.at - subtractedTime > act1.at + 15) {
-                            act2.at -= subtractedTime;
-                            shifted -= subtractedTime;
-                            modifications++;
-                        }
+                        act2.pos = act1.pos;
                     }
                 }
-                // Ajustamos a la grilla
-                act2.pos = Math.max(0, Math.min(100, Math.round(act2.pos / snap) * snap));
             }
-            if (modifications === 0) break;
+            act2.pos = Math.max(0, Math.min(100, Math.round(act2.pos / snap) * snap));
         }
         return actions;
     }
 
-    // 🎯 FIX: Mutación Orgánica ("Groove" y Oscilación Perlin simulada)
-    function mutatePreset(presetActions, mode) {
+    function calculatePresetSpeed(actions) {
+        if (!actions || actions.length < 2) return 0;
+        let totalSpeed = 0; let validSegments = 0;
+        for (let i = 1; i < actions.length; i++) {
+            let dt = (actions[i].at - actions[i-1].at) / 1000.0;
+            let dp = Math.abs(actions[i].pos - actions[i-1].pos);
+            if (dt > 0) { totalSpeed += (dp / dt); validSegments++; }
+        }
+        return validSegments > 0 ? (totalSpeed / validSegments) : 0;
+    }
+
+    // 🎯 MOTOR PROCEDURAL "GROOVE": Simula coreografías humanas
+    function generateOrganicBlock(mode, durationMs, targetFapTap, hwMaxFapTap, hwMinFapTap) {
+        let actions = [];
+        let t = 0;
+        let isPeak = true;
+        let lastPos = 0;
+        
+        actions.push({ at: 0, pos: 0 });
+
+        let strokeCount = 0;
+        const subPatterns = ['steady', 'stutter', 'wave'];
+        let currentPattern = subPatterns[0];
+        let patternStrokesLeft = 0;
+
+        while (t < durationMs) {
+            strokeCount++;
+            
+            // Cambiar de estilo de movimiento cada ciertos trazos
+            if (patternStrokesLeft <= 0) {
+                currentPattern = subPatterns[Math.floor(Math.random() * subPatterns.length)];
+                patternStrokesLeft = 3 + Math.floor(Math.random() * 5); // Dura entre 3 y 7 trazos
+            }
+            patternStrokesLeft--;
+
+            // Ajuste de velocidad según la intensidad elegida y el hardware
+            let currentFapTap = targetFapTap;
+            let speedMod = 1.0;
+            let depthMod = 1.0;
+
+            if (currentPattern === 'wave') {
+                // Oscila arriba y abajo como el mar
+                speedMod = 0.7 + Math.sin(strokeCount * 0.8) * 0.4;
+                depthMod = 0.5 + Math.abs(Math.sin(strokeCount * 0.8)) * 0.5;
+            } else if (currentPattern === 'stutter') {
+                // Combos de 2 cortos rápidos y 1 profundo
+                if (strokeCount % 3 === 0) { speedMod = 0.7; depthMod = 1.0; } // Profundo
+                else { speedMod = 1.3; depthMod = 0.3; } // Cortos
+            } else {
+                // Movimiento firme con micro-variaciones
+                speedMod = 0.9 + Math.random() * 0.2;
+                depthMod = 0.8 + Math.random() * 0.2;
+            }
+
+            currentFapTap *= speedMod;
+            // ¡Clave! Bloquea la velocidad al límite del hardware para evitar ROJOS
+            currentFapTap = Math.max(hwMinFapTap * 1.2, Math.min(currentFapTap, hwMaxFapTap * 0.90));
+
+            // Profundidad según el estilo del prompt
+            if (mode === 'tease') depthMod *= 0.3;
+            else if (mode === 'oral') depthMod = Math.max(0.4, depthMod * 0.8);
+            
+            let y = 0;
+            if (mode === 'oral') y = isPeak ? 100 : (100 - (100 * depthMod)); 
+            else if (mode === 'ride') y = isPeak ? (100 * depthMod) : 0; 
+            else if (mode === 'tease') y = isPeak ? (30 + 30 * depthMod) : (30 - 20 * depthMod);
+            else y = isPeak ? (80 * depthMod + 20) : (20 * (1 - depthMod)); 
+
+            // Patrón Edging: Sube la velocidad drásticamente y luego pausa
+            if (mode === 'edging') {
+                let progress = t / durationMs;
+                currentFapTap = targetFapTap * (1 + progress * 1.5); 
+                currentFapTap = Math.max(hwMinFapTap * 1.2, Math.min(currentFapTap, hwMaxFapTap * 0.95));
+                y = isPeak ? 100 : 0;
+            }
+
+            let dp = Math.abs(y - lastPos);
+            
+            // Convertir la distancia y la velocidad FapTap en Milisegundos reales
+            let dt_ms = 250; 
+            if (currentFapTap > 0 && dp > 0) {
+                dt_ms = (dp / currentFapTap) * 1000;
+            }
+
+            t += dt_ms;
+            
+            if (mode === 'edging' && t >= durationMs - 1500) {
+                actions.push({ at: Math.round(t), pos: 100 });
+                actions.push({ at: Math.round(t + 2500), pos: 0 }); // Frenazo dramático
+                break;
+            } else if (t < durationMs) {
+                actions.push({ at: Math.round(t), pos: Math.round(y) });
+            }
+
+            lastPos = y;
+            isPeak = !isPeak;
+        }
+
+        return actions;
+    }
+
+    // Mutador orgánico para presets guardados (Ajusta el tiempo al FapTap objetivo)
+    function mutatePreset(presetActions, mode, targetFapTap, hwMaxFapTap, hwMinFapTap) {
         if (!presetActions || !Array.isArray(presetActions) || presetActions.length < 2) return [];
         let mutated = [];
         
-        let baseScale = 1.0; 
-        let offset = 0;
+        let originalFapTap = calculatePresetSpeed(presetActions);
+        let timeRatio = 1.0;
+        if (originalFapTap > 0 && targetFapTap > 0) {
+            timeRatio = originalFapTap / targetFapTap; 
+        }
 
-        if (mode === 'oral') { baseScale = 0.5; offset = Math.random() > 0.5 ? 40 : 0; }
-        else if (mode === 'ride') { baseScale = 0.95; offset = 0; }
-        else if (mode === 'tease') { baseScale = 0.2; offset = Math.random() * 50; }
+        let scale = 1.0; let offset = 0;
+        if (mode === 'oral') { scale = 0.5 + Math.random() * 0.3; offset = Math.random() > 0.5 ? (100 - scale*100) : 0; } 
+        else if (mode === 'ride') { scale = 0.9 + Math.random() * 0.1; offset = 0; } 
+        else if (mode === 'tease') { scale = 0.2 + Math.random() * 0.1; offset = Math.random() * 60; }
 
         for (let i = 0; i < presetActions.length; i++) {
             let act = presetActions[i];
             
-            // Variación fluida en lugar de caos estático
-            let scaleWander = Math.sin(i * 0.7) * 0.15; // Respira +/- 15%
-            let humanPos = (Math.random() * 2 - 1) * 4; 
-            let humanTime = (Math.random() * 2 - 1) * 10; 
-            
-            let currentScale = Math.max(0.1, baseScale + scaleWander);
-            let rawPos = (act.pos * currentScale) + offset + humanPos;
-            
+            let humanPos = (Math.random() * 2 - 1) * 3; 
+            let rawPos = (act.pos * scale) + offset + humanPos;
             let finalPos = Math.max(0, Math.min(100, Math.round(rawPos / 5) * 5));
-            let finalTime = Math.max(0, Math.round(act.at + humanTime));
-
-            // Micro-rebotes naturales
-            if (mode === 'ride' && finalPos <= 10 && Math.random() > 0.6 && i > 0 && mutated.length > 0) {
-                let midTime = mutated[mutated.length-1].at + (finalTime - mutated[mutated.length-1].at) / 2;
-                mutated.push({ at: Math.round(midTime), pos: 20 + Math.random()*10 }); 
-            }
-
+            
+            let finalTime = Math.max(0, Math.round(act.at * timeRatio));
             mutated.push({ at: finalTime, pos: finalPos });
         }
         return mutated;
-    }
-
-    function generateProceduralBlock(mode, durationMs, speedCat) {
-        let actions = [];
-        let reps;
-        
-        if (speedCat === 'slow') reps = Math.max(2, Math.floor(durationMs / 900));
-        else if (speedCat === 'medium') reps = Math.max(2, Math.floor(durationMs / 450));
-        else if (speedCat === 'fast') reps = Math.max(2, Math.floor(durationMs / 220));
-        else reps = Math.max(2, Math.floor(durationMs / 120)); 
-
-        let baseStepMs = Math.max(50, durationMs / reps); 
-        let t = 0;
-
-        for (let i = 0; i <= reps; i++) {
-            let isPeak = (i % 2 === 0);
-            
-            // 🎯 FIX: El ritmo humano nunca es matemático, tiene "Swing"
-            let rhythmJitter = 0.75 + Math.random() * 0.5; // +/- 25% de variación rítmica
-            let currentStepMs = baseStepMs * rhythmJitter;
-            t += currentStepMs;
-
-            // Profundidad de penetración fluida
-            let strokeDepth = 0.6 + Math.random() * 0.4; // 60% al 100% de la fuerza
-            let y = 0;
-            
-            if (mode === 'oral') y = isPeak ? 100 : (100 - (35 * strokeDepth));
-            else if (mode === 'ride') y = isPeak ? (100 * strokeDepth) : (100 * (1 - strokeDepth));
-            else if (mode === 'tease') y = isPeak ? (40 + 20 * strokeDepth) : (20 + 15 * strokeDepth);
-            else y = isPeak ? (80 * strokeDepth + 20) : (20 * (1 - strokeDepth)); 
-
-            if (mode === 'edging') {
-                let progress = i / reps;
-                let edgeStep = Math.max(50, baseStepMs * (1 - (progress * 0.85))); // Acelera
-                t = actions.length > 0 ? actions[actions.length-1].at + edgeStep : currentStepMs;
-                
-                if (i === reps) {
-                    actions.push({ at: Math.round(t), pos: 100 });
-                    actions.push({ at: Math.round(t + 250), pos: 0 }); // Frenazo en seco
-                } else {
-                    actions.push({ at: Math.round(t), pos: Math.round(y) });
-                }
-            } else {
-                actions.push({ at: Math.round(t), pos: Math.round(y) });
-            }
-        }
-        return actions;
     }
 
     generateBtn.addEventListener('click', () => {
@@ -193,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (typeof window.saveHistoryState === 'function') window.saveHistoryState();
                 
-                // Extraer base de hardware para el filtro de seguridad
+                // Mapeo de Hardware
                 const device = window.hardwareDB[window.activeDevice || 'handy_std'];
                 let hwMax = device.standard.max;
                 let hwMin = device.standard.min;
@@ -201,6 +241,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     hwMax = device.overclock.max;
                     hwMin = device.overclock.min;
                 }
+                
+                let hwMaxFapTap = hwMax / device.factor;
+                let hwMinFapTap = hwMin / device.factor;
 
                 let newActions = [];
                 let currentTimeMs = 0;
@@ -210,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const promptTags = parsePromptTags(promptInput.value);
                 
                 let failSafe = 0; 
-                let intenseRatio = staminaPref === 'high' ? 0.8 : (staminaPref === 'low' ? 0.3 : 0.6);
+                let intenseRatio = staminaPref === 'high' ? 0.8 : (staminaPref === 'low' ? 0.35 : 0.6);
 
                 while (currentTimeMs < targetDurationMs && failSafe < 1000) {
                     failSafe++;
@@ -222,11 +265,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         blockSpeed = isIntensePhase ? speeds[Math.floor(Math.random()*2) + 2] : speeds[Math.floor(Math.random()*2)];
                     }
 
+                    // Definimos el Target FapTap Matemático (Clave para conectar intensidad y hardware)
+                    let targetFapTap = 100;
+                    if (blockSpeed === 'slow') targetFapTap = 80 + Math.random() * 40;
+                    else if (blockSpeed === 'medium') targetFapTap = 170 + Math.random() * 80;
+                    else if (blockSpeed === 'fast') targetFapTap = 320 + Math.random() * 80;
+                    else targetFapTap = 500 + Math.random() * 150; 
+                    
+                    // Bloqueamos la petición humana a la realidad de la máquina
+                    targetFapTap = Math.max(hwMinFapTap * 1.15, Math.min(targetFapTap, hwMaxFapTap * 0.90));
+
                     let blockAction = promptTags[Math.floor(Math.random() * promptTags.length)];
                     if (!isIntensePhase && staminaPref === 'low') blockAction = 'tease';
                     
-                    let blockDurationMs = 10000 + Math.random() * 15000;
-                    if (blockAction === 'edging') blockDurationMs = 8000; 
+                    let blockDurationMs = 12000 + Math.random() * 20000;
+                    if (blockAction === 'edging') blockDurationMs = 9000; 
                     
                     let blockActions = [];
                     
@@ -236,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             let randPreset = presetList[Math.floor(Math.random() * presetList.length)];
                             let pActions = randPreset.actions || randPreset.points || randPreset.data || randPreset;
                             if (Array.isArray(pActions) && pActions.length > 1) {
-                                blockActions = mutatePreset(pActions, blockAction);
+                                blockActions = mutatePreset(pActions, blockAction, targetFapTap, hwMaxFapTap, hwMinFapTap);
                             }
                         }
                     } catch (e) {
@@ -244,44 +297,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (!blockActions || blockActions.length < 2) {
-                        blockActions = generateProceduralBlock(blockAction, blockDurationMs, blockSpeed);
+                        blockActions = generateOrganicBlock(blockAction, blockDurationMs, targetFapTap, hwMaxFapTap, hwMinFapTap);
                     }
 
                     let pDur = blockActions[blockActions.length - 1].at;
                     if (isNaN(pDur) || pDur <= 0) pDur = 1000; 
                     
-                    let timeMultiplier = blockDurationMs / pDur; 
+                    // Solo multiplicamos si usamos un preset mutado, los orgánicos ya vienen con duración correcta
+                    let timeMultiplier = (blockActions === arguments[0] /*si es preset*/) ? (blockDurationMs / pDur) : 1.0; 
 
                     if (newActions.length > 0) {
                         let lastPos = newActions[newActions.length - 1].pos;
                         let firstNewPos = blockActions[0].pos;
-                        if (Math.abs(lastPos - firstNewPos) > 15) {
-                            currentTimeMs += 400 + Math.random() * 300; // Transición orgánica de pausa
+                        if (Math.abs(lastPos - firstNewPos) > 10) {
+                            currentTimeMs += 600 + Math.random() * 400; // Transición humana entre posturas
                             newActions.push({ at: Math.round(currentTimeMs), pos: firstNewPos });
                         }
                     }
 
                     for (let act of blockActions) {
-                        let injPos = Math.max(0, Math.min(100, Math.round(act.pos / 5) * 5));
                         let injAt = Math.round(currentTimeMs + (act.at * timeMultiplier));
-                        
                         if (newActions.length > 0 && injAt <= newActions[newActions.length-1].at) continue; 
-                        
                         if (injAt <= targetDurationMs) {
-                            newActions.push({ at: injAt, pos: injPos, selected: false });
+                            newActions.push({ at: injAt, pos: act.pos, selected: false });
                         }
                     }
                     
-                    currentTimeMs += blockDurationMs;
+                    currentTimeMs += (blockActions === arguments[0]) ? blockDurationMs : pDur;
 
                     if (blockAction === 'edging') {
-                        currentTimeMs += 3500 + Math.random() * 2000; // Descanso post-edging aleatorio
+                        currentTimeMs += 4000 + Math.random() * 3000; // Descanso de aguante
                         newActions.push({ at: Math.round(currentTimeMs), pos: 0 }); 
                     }
                 }
 
                 if (newActions.length > 0) {
-                    // 🎯 FIX: Pasar el guion por el Escudo de Hardware antes de inyectarlo
+                    // 🎯 FILTRO FINAL ABSOLUTO
                     newActions = enforceHardwareLimits(newActions, hwMax, hwMin, device.factor);
 
                     if (!window.funscriptActions) window.funscriptActions = [];
