@@ -1,5 +1,5 @@
 // ==========================================================================
-// IA DIRECTOR V1.8.1 (NPL BILINGÜE Y FIX DE REFERENCE ERROR)
+// IA DIRECTOR V1.8.2 (ADIÓS DEFINITIVO AL INFINITE LOOP Y REFERENCE ERROR)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (blockAction === 'edging') blockDurationMs = 9000; 
                     
                     let blockActions = [];
-                    let isPreset = false; // 🎯 FIX: Nueva bandera en lugar de arguments
+                    let isPreset = false; // 🎯 FIX DEFINITIVO (Bandera en lugar de variables raras)
                     
                     try {
                         let presetList = window.presetsLibrary || window.customPresets || [];
@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             let pActions = randPreset.actions || randPreset.points || randPreset.data || randPreset;
                             if (Array.isArray(pActions) && pActions.length > 1) {
                                 blockActions = mutatePreset(pActions, blockAction, targetFapTap, hwMaxFapTap, hwMinFapTap);
-                                isPreset = true; // 🎯 FIX: Marcamos que se usó un preset
+                                isPreset = true; 
                             }
                         }
                     } catch (e) {
@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let pDur = blockActions[blockActions.length - 1].at;
                     if (isNaN(pDur) || pDur <= 0) pDur = 1000; 
                     
-                    // 🎯 FIX: Usar la bandera en lugar de arguments[0]
+                    // 🎯 FIX: Uso de la bandera booleana para calcular el tiempo
                     let timeMultiplier = isPreset ? (blockDurationMs / pDur) : 1.0; 
 
                     if (newActions.length > 0) {
@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     
-                    // 🎯 FIX: Sumar el tiempo usando la bandera
+                    // 🎯 FIX: Se suma el tiempo usando la bandera limpia
                     currentTimeMs += isPreset ? blockDurationMs : pDur;
 
                     if (blockAction === 'edging') {
