@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.3.1 (TAMAÑOS EXPANDIDOS Y PANELES ÓPTIMOS)
+// WORKSPACE MANAGER V1.5.0 (PRESETS PERMANENTES E IA DIRECTOR)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SNAP_DIST = 15; 
     const GAP = 10; 
 
-    // 🎯 FIX: Nueva Memoria V8. Los paneles nacen con altura suficiente.
+    // Memoria V9 para acomodar el panel Director
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
         'panel-tracks': { left: 620, top: 10, width: 320, height: 250, visible: true },
@@ -18,13 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-quick': { left: 710, top: 270, width: 250, height: 140, visible: true },
         'panel-presets': { left: 710, top: 420, width: 250, height: 200, visible: true },
         'panel-twin': { left: 970, top: 270, width: 200, height: 350, visible: true },
-        'panel-humanizer': { left: 970, top: 10, width: 250, height: 300, visible: true },
+        'panel-humanizer': { left: 970, top: 10, width: 250, height: 240, visible: true },
         'panel-bpm': { left: 350, top: 10, width: 250, height: 260, visible: false }, 
         'panel-mass': { left: 350, top: 220, width: 250, height: 320, visible: false }, 
+        'panel-director': { left: 350, top: 100, width: 300, height: 320, visible: false }, // IA Nace Apagada
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
-    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v8'));
+    let layoutState = JSON.parse(localStorage.getItem('funscript_workspace_v9'));
     if (!layoutState) layoutState = defaultLayout;
 
     function saveLayout() {
@@ -37,10 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 visible: panel.style.display !== 'none'
             };
         });
-        localStorage.setItem('funscript_workspace_v8', JSON.stringify(layoutState));
+        localStorage.setItem('funscript_workspace_v9', JSON.stringify(layoutState));
     }
 
-    const permanentPanels = ['panel-video', 'panel-timeline', 'panel-tracks'];
+    // 🎯 FIX: 'panel-presets' ahora es intocable/permanente.
+    const permanentPanels = ['panel-video', 'panel-timeline', 'panel-tracks', 'panel-presets'];
 
     panels.forEach(panel => {
         const id = panel.id;
@@ -98,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const header = panel.querySelector('.panel-header');
         if (header) {
             header.addEventListener('mousedown', (e) => {
-                if (e.target.closest('.video-info-right') || e.target.tagName === 'BUTTON') return;
+                if (e.target.closest('.video-info-right') || e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
                 
                 e.preventDefault();
                 panel.style.zIndex = ++highestZIndex;
