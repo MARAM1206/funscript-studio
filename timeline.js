@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.10.0 (ADAPTACIÓN MAGNÉTICA DE ALTURA/Y-SCALING EN PRESETS)
+// TIMELINE V1.11.0 (ADAPTACIÓN Y-SCALING Y EXTERMINIO DE PUNTOS INTERMEDIOS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -245,7 +245,7 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: El motor de interpolación ahora hereda la altura de los puntos originales.
+// 🎯 FIX: Adaptación perfecta de Bounding Box conservando la escala original
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
     let result = [];
@@ -264,7 +264,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
             let targetDuration = t2 - t1;
             if (targetDuration <= 0) continue;
 
-            // Escaneo de puntos existentes en este bloque para extraer Alturas Originales
             let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
             let oMin = 0, oMax = 100;
             let hasExisting = existing.length > 0;
@@ -277,7 +276,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                 if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
                 
                 let mappedPos = preset[j].pos;
-                // Aplica el Bounding Box Scaling (Comprime el preset en los nuevos límites)
                 if (hasExisting && oMax > oMin) { 
                     let norm = (preset[j].pos - presetMin) / pRange;
                     mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
@@ -297,7 +295,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
         let targetDuration = t_end - t_start;
         if (targetDuration <= 0) return null;
 
-        // Escaneo de puntos existentes para un solo bloque
         let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
         let oMin = 0, oMax = 100;
         let hasExisting = existing.length > 0;
@@ -651,9 +648,14 @@ canvas?.addEventListener('drop', (e) => {
         const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
         if (morphed) {
             saveHistoryState();
-            const newTimes = new Set(morphed.map(a => Math.round(a.at)));
             
-            actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(Math.round(a.at))));
+            // 🎯 FIX: EXTERMINIO ABSOLUTO DE PUNTOS INTERMEDIOS
+            let tStart = window.timelineGhostTimeMs;
+            let tEnd = window.timelineGhostTargetEnd;
+            
+            // Conservamos solo los puntos que están estrictamente fuera de la zona de pegado
+            actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+
             actions.forEach(a => a.selected = false);
             morphed.forEach(m => m.selected = true);
             actions.push(...morphed);
@@ -684,8 +686,12 @@ canvas?.addEventListener('drop', (e) => {
         selected: true 
     }));
     
-    const newTimes = new Set(newActions.map(a => a.at));
-    actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(Math.round(a.at))));
+    // 🎯 FIX: EXTERMINIO ABSOLUTO EN ZONA LIBRE
+    let tStart = newActions[0].at;
+    let tEnd = newActions[newActions.length - 1].at;
+    
+    actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+
     actions.forEach(a => a.selected = false); 
     actions.push(...newActions);
     
