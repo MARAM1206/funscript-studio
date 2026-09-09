@@ -1,5 +1,5 @@
 // ==========================================================================
-// IA DIRECTOR V1.8.2 (ADIÓS DEFINITIVO AL INFINITE LOOP Y REFERENCE ERROR)
+// IA DIRECTOR V1.9.0 (MOTOR DE MICRO-GESTOS, STUTTERS, GRINDS Y VIBRACIONES)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -46,9 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         words.forEach(w => {
             if (w.length > 3 && !stopWords.includes(w)) {
                 let isKnown = /(blowjob|oral|garganta|boca|mamada|deepthroat|bj|chupada|head|throat|senton|sentones|cowgirl|cabalgar|ride|riding|bounc|rebot|aplastar|squat|edging|borde|paron|stop|frenar|pausa|hold|negar|denial|ruin|tease|roce|suave|lento|frot|rub|estimular|caricia|duro|jackhammer|pound|martillo|destrozar|romper|fuerte|hard|destroy|misionero|missionary|normal|vanilla|empuje|thrust)/.test(w);
-                if(!isKnown) {
-                    tags.push('custom_' + w);
-                }
+                if(!isKnown) tags.push('custom_' + w);
             }
         });
 
@@ -85,7 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 shiftAccumulator += fix;
             } 
             else if (speed < hwMin && dp > 0) {
-                if (dp <= 10) {
+                // 🎯 FIX: Cambiamos 10 por 4. Esto permite que las micro-vibraciones sobrevivan sin ser borradas.
+                if (dp <= 4) {
                     act2.pos = act1.pos; 
                 } else {
                     let required_dt_s = (dp * factor) / (hwMin * 1.05);
@@ -115,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return validSegments > 0 ? (totalSpeed / validSegments) : 0;
     }
 
+    // 🎯 FIX: Inyección de Micro-Gestos a los presets que ya tienes guardados
     function mutatePreset(presetActions, mode, targetFapTap, hwMaxFapTap, hwMinFapTap) {
         if (!presetActions || !Array.isArray(presetActions) || presetActions.length < 2) return [];
         let mutated = [];
@@ -142,11 +142,26 @@ document.addEventListener('DOMContentLoaded', () => {
             let rawPos = (act.pos * scale) + offset + humanPos;
             let finalPos = Math.max(0, Math.min(100, Math.round(rawPos / 5) * 5));
             let finalTime = Math.max(0, Math.round(act.at * timeRatio));
+
+            // Si el trazo es lo suficientemente largo, inyectamos un tartamudeo natural
+            if (i > 0 && Math.random() > 0.65) {
+                let prevT = mutated[mutated.length - 1].at;
+                let prevP = mutated[mutated.length - 1].pos;
+                let dt = finalTime - prevT;
+                let dp = Math.abs(finalPos - prevP);
+                if (dt > 160 && dp > 25) {
+                    let dir = finalPos >= prevP ? 1 : -1;
+                    mutated.push({ at: Math.round(prevT + dt * 0.6), pos: Math.round(prevP + dir * dp * 0.7) });
+                    mutated.push({ at: Math.round(prevT + dt * 0.8), pos: Math.round(prevP + dir * dp * 0.5) });
+                }
+            }
+
             mutated.push({ at: finalTime, pos: finalPos });
         }
         return mutated;
     }
 
+    // 🎯 FIX: GENERADOR PROCEDURAL BASADO EN GESTOS COMPLEJOS, NO EN TRIÁNGULOS
     function generateOrganicBlock(mode, durationMs, targetFapTap, hwMaxFapTap, hwMinFapTap) {
         let actions = [];
         let t = 0;
@@ -156,7 +171,13 @@ document.addEventListener('DOMContentLoaded', () => {
         actions.push({ at: 0, pos: 0 });
 
         let strokeCount = 0;
-        const subPatterns = ['steady', 'stutter', 'wave'];
+        
+        // Seleccionamos los estilos permitidos según la acción pedida
+        let subPatterns = ['steady', 'stutter', 'wave', 'vibrate', 'grind'];
+        if (mode === 'oral') subPatterns = ['steady', 'vibrate', 'vibrate', 'grind', 'stutter'];
+        else if (mode === 'tease') subPatterns = ['vibrate', 'grind', 'steady'];
+        else if (mode === 'pound' || mode === 'ride') subPatterns = ['steady', 'steady', 'grind', 'stutter'];
+
         let currentPattern = subPatterns[0];
         let patternStrokesLeft = 0;
 
@@ -168,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (patternStrokesLeft <= 0) {
                 currentPattern = subPatterns[Math.floor(Math.random() * subPatterns.length)];
-                patternStrokesLeft = 3 + Math.floor(Math.random() * 5); 
+                patternStrokesLeft = 2 + Math.floor(Math.random() * 4); 
             }
             patternStrokesLeft--;
 
@@ -178,9 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentPattern === 'wave') {
                 speedMod = 0.7 + Math.sin(strokeCount * 0.8) * 0.4;
                 depthMod = 0.5 + Math.abs(Math.sin(strokeCount * 0.8)) * 0.5;
-            } else if (currentPattern === 'stutter') {
-                if (strokeCount % 3 === 0) { speedMod = 0.7; depthMod = 1.0; } 
-                else { speedMod = 1.3; depthMod = 0.3; } 
+            } else if (currentPattern === 'stutter' || currentPattern === 'vibrate') {
+                speedMod = 0.8; depthMod = 1.0; 
             } else {
                 speedMod = 0.9 + Math.random() * 0.2;
                 depthMod = 0.8 + Math.random() * 0.2;
@@ -190,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
             currentFapTap = Math.max(hwMinFapTap * 1.2, Math.min(currentFapTap, hwMaxFapTap * 0.90));
 
             let y = 0;
-            
             if (mode === 'tease') depthMod *= 0.25;
             else if (mode === 'oral') depthMod = Math.max(0.4, depthMod * 0.8);
             else if (mode === 'pound') depthMod = Math.max(0.8, depthMod);
@@ -207,27 +226,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else y = isPeak ? (80 * depthMod + 20) : (20 * (1 - depthMod)); 
 
-            if (mode === 'edging') {
-                let progress = t / durationMs;
-                currentFapTap = targetFapTap * (1 + progress * 1.5); 
-                currentFapTap = Math.max(hwMinFapTap * 1.2, Math.min(currentFapTap, hwMaxFapTap * 0.95));
-                y = isPeak ? 100 : 0;
-            }
-
             let dp = Math.abs(y - lastPos);
             let dt_ms = 250; 
-            if (currentFapTap > 0 && dp > 0) {
-                dt_ms = (dp / currentFapTap) * 1000;
-            }
+            if (currentFapTap > 0 && dp > 0) dt_ms = (dp / currentFapTap) * 1000;
 
+            // 🎯 INYECCIÓN DE GESTOS COMPLEJOS EN LUGAR DE TRIÁNGULOS
+            let lastTime = t;
             t += dt_ms;
-            
+            let strokeDur = t - lastTime;
+            let dir = y >= lastPos ? 1 : -1;
+
             if (mode === 'edging' && t >= durationMs - 1500) {
                 actions.push({ at: Math.round(t), pos: 100 });
                 actions.push({ at: Math.round(t + 2500), pos: 0 }); 
                 break;
-            } else if (t < durationMs) {
-                actions.push({ at: Math.round(t), pos: Math.round(y) });
+            } 
+            else if (t < durationMs) {
+                // Gesto: Tartamudeo (Doble Empuje)
+                if (currentPattern === 'stutter' && dp > 25 && strokeDur > 150) {
+                    actions.push({ at: Math.round(lastTime + strokeDur * 0.4), pos: Math.round(lastPos + dir * dp * 0.7) });
+                    actions.push({ at: Math.round(lastTime + strokeDur * 0.6), pos: Math.round(lastPos + dir * dp * 0.5) });
+                    actions.push({ at: Math.round(t), pos: Math.round(y) });
+                } 
+                // Gesto: Vibración Rápida
+                else if (currentPattern === 'vibrate' && dp > 15 && strokeDur > 200) {
+                    actions.push({ at: Math.round(lastTime + strokeDur * 0.3), pos: Math.round(lastPos + dir * dp * 0.8) });
+                    actions.push({ at: Math.round(lastTime + strokeDur * 0.5), pos: Math.round(lastPos + dir * dp * 0.6) });
+                    actions.push({ at: Math.round(lastTime + strokeDur * 0.75), pos: Math.round(y + dir * 5) });
+                    actions.push({ at: Math.round(t), pos: Math.round(y) });
+                } 
+                // Gesto: Frote / Grind
+                else if (currentPattern === 'grind' && strokeDur > 120) {
+                    actions.push({ at: Math.round(lastTime + strokeDur * 0.6), pos: Math.round(lastPos + dir * dp * 0.9) });
+                    actions.push({ at: Math.round(lastTime + strokeDur * 0.8), pos: Math.round(lastPos + dir * dp * 0.8) });
+                    actions.push({ at: Math.round(t), pos: Math.round(y) });
+                } 
+                // Gesto: Trazo normal / Ola
+                else {
+                    actions.push({ at: Math.round(t), pos: Math.round(y) });
+                }
             }
 
             lastPos = y;
@@ -303,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (blockAction === 'edging') blockDurationMs = 9000; 
                     
                     let blockActions = [];
-                    let isPreset = false; // 🎯 FIX DEFINITIVO (Bandera en lugar de variables raras)
+                    let isPreset = false; 
                     
                     try {
                         let presetList = window.presetsLibrary || window.customPresets || [];
@@ -327,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     let pDur = blockActions[blockActions.length - 1].at;
                     if (isNaN(pDur) || pDur <= 0) pDur = 1000; 
                     
-                    // 🎯 FIX: Uso de la bandera booleana para calcular el tiempo
                     let timeMultiplier = isPreset ? (blockDurationMs / pDur) : 1.0; 
 
                     if (newActions.length > 0) {
@@ -349,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     
-                    // 🎯 FIX: Se suma el tiempo usando la bandera limpia
                     currentTimeMs += isPreset ? blockDurationMs : pDur;
 
                     if (blockAction === 'edging') {
