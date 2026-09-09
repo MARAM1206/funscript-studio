@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.4.3 (RESTAURADA ANIMACIÓN DE MOMENTUM AL NAVEGAR)
+// TIMELINE V1.10.0 (ADAPTACIÓN MAGNÉTICA DE ALTURA/Y-SCALING EN PRESETS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -245,11 +245,17 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
+// 🎯 FIX: El motor de interpolación ahora hereda la altura de los puntos originales.
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
     let result = [];
     const p_dur = preset[preset.length - 1].at;
     if (p_dur <= 0) return null;
+
+    let presetMin = Math.min(...preset.map(a => a.pos));
+    let presetMax = Math.max(...preset.map(a => a.pos));
+    let pRange = presetMax - presetMin;
+    if (pRange === 0) pRange = 1;
 
     if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
         for (let i = 0; i < startOrMarkers.length - 1; i++) {
@@ -257,11 +263,31 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
             let t2 = startOrMarkers[i+1].at;
             let targetDuration = t2 - t1;
             if (targetDuration <= 0) continue;
+
+            // Escaneo de puntos existentes en este bloque para extraer Alturas Originales
+            let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
+            let oMin = 0, oMax = 100;
+            let hasExisting = existing.length > 0;
+            if (hasExisting) {
+                oMin = Math.min(...existing.map(a => a.pos));
+                oMax = Math.max(...existing.map(a => a.pos));
+            }
+
             for (let j = 0; j < preset.length; j++) {
                 if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
+                
+                let mappedPos = preset[j].pos;
+                // Aplica el Bounding Box Scaling (Comprime el preset en los nuevos límites)
+                if (hasExisting && oMax > oMin) { 
+                    let norm = (preset[j].pos - presetMin) / pRange;
+                    mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
+                } else if (hasExisting && oMax === oMin) {
+                    mappedPos = oMin;
+                }
+
                 result.push({
                     at: Math.round(t1 + (preset[j].at / p_dur) * targetDuration),
-                    pos: preset[j].pos
+                    pos: mappedPos
                 });
             }
         }
@@ -271,11 +297,29 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
         let targetDuration = t_end - t_start;
         if (targetDuration <= 0) return null;
 
+        // Escaneo de puntos existentes para un solo bloque
+        let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
+        let oMin = 0, oMax = 100;
+        let hasExisting = existing.length > 0;
+        if (hasExisting) {
+            oMin = Math.min(...existing.map(a => a.pos));
+            oMax = Math.max(...existing.map(a => a.pos));
+        }
+
         if (window.presetFillMode === 'stretch') {
-            result = preset.map(act => ({
-                at: Math.round(t_start + (act.at / p_dur) * targetDuration),
-                pos: act.pos
-            }));
+            result = preset.map(act => {
+                let mappedPos = act.pos;
+                if (hasExisting && oMax > oMin) {
+                    let norm = (act.pos - presetMin) / pRange;
+                    mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
+                } else if (hasExisting && oMax === oMin) {
+                    mappedPos = oMin;
+                }
+                return {
+                    at: Math.round(t_start + (act.at / p_dur) * targetDuration),
+                    pos: mappedPos
+                };
+            });
         } else {
             const reps = window.presetFillReps || 1;
             const repDuration = targetDuration / reps;
@@ -283,9 +327,18 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                 const offset = t_start + (r * repDuration);
                 for (let i = 0; i < preset.length; i++) {
                     if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
+                    
+                    let mappedPos = preset[i].pos;
+                    if (hasExisting && oMax > oMin) {
+                        let norm = (preset[i].pos - presetMin) / pRange;
+                        mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
+                    } else if (hasExisting && oMax === oMin) {
+                        mappedPos = oMin;
+                    }
+
                     result.push({
                         at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
-                        pos: preset[i].pos
+                        pos: mappedPos
                     });
                 }
             }
@@ -1199,7 +1252,7 @@ window.drawTimeline = function() {
                         ctx.fillText("(Ajustado por cada marcador)", cursorX + 15, cursorY + 45);
                     } else {
                         ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Estirar (1x)" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
+                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Estirar y Adaptar Altura" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
                         ctx.fillText(modeText, cursorX + 15, cursorY + 30);
                         ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
                         ctx.fillText("(Espacio = Cambiar | Flechas ⬅ ➡ = Ajustar)", cursorX + 15, cursorY + 45);
@@ -1337,7 +1390,6 @@ window.drawTimeline = function() {
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
 
-        // 🎯 FIX: Restaurada la animación direccional de inercia
         if (window.scrollMomentum) {
             if (Math.abs(window.scrollMomentum) > 0.1) {
                 window.scrollMomentum *= 0.92;
