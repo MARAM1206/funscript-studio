@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.14.0 (SYNC POINTS CON ÍCONO DE ANCLA VISUAL)
+// TIMELINE V1.16.0 (FIX: AUTO-CORRECCIÓN LIMPIA Y ANCLA MORADO OSCURO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -64,8 +64,6 @@ let dragStartYPos = 0;
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
 
-window.magneticSnapPoint = null;
-window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
@@ -136,6 +134,61 @@ window.addEventListener('toggleSyncPoint', () => {
         notifyCloud();
     }
 });
+
+// 🎯 FIX: Corrector Masivo sin destrozar la estructura (Mínimo toque necesario)
+function massCorrectSelection(actions, hwMax, hwMin, factor) {
+    let changed = false;
+    let snap = window.snapValue || 5;
+    for(let pass = 0; pass < 5; pass++) { 
+        let passChanged = false;
+        for(let i = 0; i < actions.length - 1; i++) {
+            if (!actions[i].selected && !actions[i+1].selected) continue;
+
+            let act1 = actions[i]; let act2 = actions[i+1];
+            let dt_ms = act2.at - act1.at;
+            if(dt_ms < 15) continue;
+            let dt_s = dt_ms / 1000.0;
+            let dp = Math.abs(act2.pos - act1.pos);
+            let speed = (dp * factor) / dt_s;
+
+            if (speed > hwMax) {
+                let req_dt_ms = Math.round(((dp * factor) / (hwMax * 0.95)) * 1000);
+                let diff = req_dt_ms - dt_ms;
+                
+                if (act2.selected && (!actions[i+2] || act2.at + diff < actions[i+2].at - 15)) {
+                    act2.at += diff;
+                    passChanged = true; changed = true;
+                } else if (act1.selected && (!actions[i-1] || act1.at - diff > actions[i-1].at + 15)) {
+                    act1.at -= diff;
+                    passChanged = true; changed = true;
+                } else {
+                    let req_dp = (hwMax * 0.95 * dt_s) / factor;
+                    let dir = act2.pos >= act1.pos ? 1 : -1;
+                    if (act2.selected) {
+                        act2.pos = Math.max(0, Math.min(100, Math.round((act1.pos + dir * req_dp)/snap)*snap));
+                        passChanged = true; changed = true;
+                    }
+                }
+            } else if (speed < hwMin && dp > 0) {
+                if (dp <= 10 && act2.selected) {
+                    act2.pos = act1.pos;
+                    passChanged = true; changed = true;
+                } else if (act2.selected) {
+                    let req_dt_ms = Math.round(((dp * factor) / (hwMin * 1.05)) * 1000);
+                    if (req_dt_ms >= 15) {
+                        let diff = dt_ms - req_dt_ms;
+                        if (!actions[i-1] || act2.at - diff > act1.at + 15) {
+                            act2.at -= diff;
+                            passChanged = true; changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        if (!passChanged) break; 
+    }
+    return changed;
+}
 
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
@@ -353,7 +406,6 @@ canvas?.addEventListener('wheel', (e) => {
     if (document.body.classList.contains('panic-mode-active')) return;
     e.preventDefault();
     const mouseX = e.clientX - canvas.getBoundingClientRect().left;
-    const mouseY = e.clientY - canvas.getBoundingClientRect().top;
     
     if (e.shiftKey) {
         const timeAtMouse = xToTime(mouseX);
@@ -383,9 +435,9 @@ canvas?.addEventListener('wheel', (e) => {
     
     if (isSelecting) {
         selCurrT = xToTime(mouseX);
-        selCurrY = mouseY;
+        selCurrY = e.clientY - canvas.getBoundingClientRect().top;
         const startX_px = timeToX(selStartT);
-        if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
+        if (Math.hypot(mouseX - startX_px, selCurrY - selStartY) > 5) hasDraggedSelection = true;
         
         const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
         const topLimit = posToY(100);
@@ -572,245 +624,6 @@ canvas?.addEventListener('drop', (e) => {
     notifyCloud(); window.updateHeatmapAndStats();
 });
 
-const sliderA = document.getElementById('min-slider'); const sliderB = document.getElementById('max-slider');
-const dualFill = document.getElementById('dual-slider-fill'); const minLabel = document.getElementById('min-label'); const maxLabel = document.getElementById('max-label');
-
-function updateDualSlider() {
-    if (!sliderA || !sliderB) return;
-    const valA = parseInt(sliderA.value, 10); const valB = parseInt(sliderB.value, 10);
-    const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
-    
-    if (valA > valB) {
-        sliderA.style.setProperty('--thumb-color', '#f97316'); 
-        sliderB.style.setProperty('--thumb-color', '#38bdf8'); 
-    } else {
-        sliderA.style.setProperty('--thumb-color', '#38bdf8'); 
-        sliderB.style.setProperty('--thumb-color', '#f97316'); 
-    }
-
-    if (minLabel) minLabel.innerText = `⬇️ Mínimo: ${currentMin}%`; if (maxLabel) maxLabel.innerText = `⬆️ Máximo: ${currentMax}%`;
-    if (dualFill) { dualFill.style.left = `${currentMin}%`; dualFill.style.width = `${currentMax - currentMin}%`; }
-}
-function blurSliders() { if (sliderA) sliderA.blur(); if (sliderB) sliderB.blur(); }
-sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener('input', updateDualSlider);
-sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
-sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
-
-window.addEventListener('injectPoint', function(e) {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    ensureTrackExists(); 
-    const actions = getSafeActions();
-
-    const timeMs = Math.round(window.getActualTimeMs());
-    
-    const valA = parseInt(sliderA?.value || '20', 10); const valB = parseInt(sliderB?.value || '70', 10);
-    const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
-    let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
-
-    saveHistoryState();
-    actions.forEach(a => { a.selected = false; }); 
-    
-    const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
-    if (existingIdx !== -1) { 
-        actions[existingIdx].pos = pos; 
-        actions[existingIdx].at = timeMs;
-        actions[existingIdx].selected = true; 
-    } 
-    else { 
-        actions.push({ at: timeMs, pos: pos, selected: true }); 
-    }
-    
-    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
-
-    cleanDuplicates();
-    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    notifyCloud(); window.updateHeatmapAndStats(); 
-});
-
-window.addEventListener('nudgeTime', function(e) {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    const actions = getSafeActions(); const dir = e.detail; let moved = false;
-    saveHistoryState();
-    actions.forEach(act => {
-        if (act.selected) {
-            if (dir === 'left') act.at = Math.max(0, act.at - 50); 
-            if (dir === 'right') act.at = act.at + 50; 
-            moved = true;
-        }
-    });
-    if (moved) {
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); 
-    }
-});
-
-window.addEventListener('nudgePoints', function(e) {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    
-    const modal = document.getElementById('preset-editor-modal');
-    if (modal && modal.style.display === 'flex') {
-        if (window.presetEditorActions) {
-            const snap = window.snapValue || 5;
-            let moved = false;
-            window.presetEditorActions.forEach(act => {
-                if (act.selected) {
-                    if (e.detail === 'up') {
-                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
-                        else act.pos = Math.min(100, act.pos + snap);
-                    }
-                    if (e.detail === 'down') {
-                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
-                        else act.pos = Math.max(0, act.pos - snap);
-                    }
-                    moved = true;
-                }
-            });
-            if (moved && typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
-        }
-        return;
-    }
-
-    const actions = getSafeActions(); const dir = e.detail; let moved = false;
-    const snap = window.snapValue || 5;
-    saveHistoryState();
-    
-    let hasSelection = actions.some(a => a.selected);
-    if (!hasSelection) {
-        const closest = getPointUnderPlayhead(actions);
-        if (closest) closest.selected = true; 
-    }
-
-    actions.forEach(act => {
-        if (act.selected) {
-            if (dir === 'up') {
-                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
-                else act.pos = Math.min(100, act.pos + snap);
-            }
-            if (dir === 'down') {
-                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
-                else act.pos = Math.max(0, act.pos - snap);
-            }
-            moved = true;
-        }
-    });
-    
-    if (moved) {
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats(); 
-    }
-});
-
-window.addEventListener('magnetPoint', function() {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    const actions = getSafeActions();
-    const timeMs = Math.round(window.getActualTimeMs());
-    let moved = false; saveHistoryState();
-    actions.forEach(act => { if (act.selected) { act.at = timeMs; moved = true; } });
-    if (moved) {
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-    }
-});
-
-window.addEventListener('deletePoints', () => {
-    if (document.body.classList.contains('panic-mode-active')) return; 
-
-    let deletedMarker = false;
-    const initialMarkerCount = window.timelineMarkers.length;
-    window.timelineMarkers = window.timelineMarkers.filter(m => !m.selected);
-    if (window.timelineMarkers.length !== initialMarkerCount) {
-        deletedMarker = true;
-    }
-
-    const actions = getSafeActions();
-    let hasSelection = actions.some(a => a.selected);
-    if (!hasSelection && !deletedMarker) {
-        const closest = getPointUnderPlayhead(actions);
-        if (closest) closest.selected = true; 
-    }
-    
-    if (actions.some(a => a.selected) || deletedMarker) {
-        saveHistoryState();
-        actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
-        notifyCloud(); window.updateHeatmapAndStats();
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    }
-});
-
-window.addEventListener('undoAction', () => { undo(); });
-window.addEventListener('redoAction', () => { redo(); });
-window.addEventListener('selectAllPoints', () => {
-    getSafeActions().forEach(a => a.selected = true);
-    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-});
-
-function ensureCanvasSize() {
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (parent && (canvas.width !== parent.clientWidth || canvas.height !== parent.clientHeight)) {
-        canvas.width = parent.clientWidth; canvas.height = parent.clientHeight;
-        if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
-    }
-}
-window.calculateAdaptiveZoom = function() { basePixelsPerMs = 0.1; };
-
-function saveHistoryState() { undoStack.push(JSON.stringify(getSafeActions())); if (undoStack.length > MAX_HISTORY) undoStack.shift(); redoStack = []; }
-function undo() {
-    if (undoStack.length > 0) {
-        redoStack.push(JSON.stringify(getSafeActions())); 
-        const parsed = JSON.parse(undoStack.pop());
-        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-    }
-}
-function redo() {
-    if (redoStack.length > 0) {
-        undoStack.push(JSON.stringify(getSafeActions())); 
-        const parsed = JSON.parse(redoStack.pop());
-        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-    }
-}
-function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
-function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom); }
-
-function posToY(pos) { 
-    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
-    return canvas.height - botPad - (pos / 100) * usableHeight; 
-}
-function yToPos(y) { 
-    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
-    const rawPos = ((canvas.height - botPad - y) / usableHeight) * 100; 
-    return Math.max(0, Math.min(100, Math.round(rawPos))); 
-}
-
-window.updateGhostThumb = function() {
-    const ghostThumb = document.getElementById('ghost-thumb');
-    if (!ghostThumb) return;
-    if (!videoNode || !videoNode.duration) { ghostThumb.style.display = 'none'; return; }
-
-    const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
-    const centerTimeMs = scrollLeftMs + (visibleMs / 2);
-    const actualTimeMs = window.getActualTimeMs();
-
-    if (Math.abs(centerTimeMs - actualTimeMs) > visibleMs * 0.05) {
-        ghostThumb.style.display = 'block';
-        const percentage = (centerTimeMs / (videoNode.duration * 1000)) * 100;
-        ghostThumb.style.left = `${Math.max(0, Math.min(100, percentage))}%`;
-    } else {
-        ghostThumb.style.display = 'none';
-    }
-};
-
-function fakeRandom(seed) {
-    let x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-}
-
 window.drawTimeline = function() {
     try {
         ensureCanvasSize();
@@ -828,7 +641,7 @@ window.drawTimeline = function() {
         const bgColor = isLight ? '#f8fafc' : '#06090e';
         const gridColor = isLight ? 'rgba(100, 116, 139, 0.2)' : 'rgba(148, 163, 184, 0.15)';
         const timeLineColor = isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.04)';
-        const colBgColor = isLight ? '#e2e8f0' : '#0b0f17';
+        const colBgColor = isLight ? '#ffffff' : '#0b0f17';
         const colBorder = isLight ? '#cbd5e1' : '#1e293b';
         const textDimColor = isLight ? '#475569' : '#94a3b8';
         
@@ -1091,17 +904,19 @@ window.drawTimeline = function() {
                 if (x >= 20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    // 🎯 FIX: Renderizado visual del Ancla (Rombo gigante dorado/magenta)
+                    // 🎯 FIX: Ancla de color Morado Oscuro (#581c87)
                     if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; // Fondo dorado brillante
-                        ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                        
-                        ctx.fillStyle = '#0f172a'; // Icono interno de Ancla
-                        ctx.font = '12px monospace'; 
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        ctx.fillText('⚓', x, y+1); 
-                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                        ctx.fillStyle = act.selected ? '#ffffff' : '#581c87'; 
+                        ctx.beginPath(); 
+                        let size = act.selected ? 9 : 7;
+                        ctx.moveTo(x, y - size);
+                        ctx.lineTo(x + size, y);
+                        ctx.lineTo(x, y + size);
+                        ctx.lineTo(x - size, y);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.strokeStyle = act.selected ? '#581c87' : '#ffffff';
+                        ctx.lineWidth = 2; ctx.stroke();
                     } else {
                         let dotColor = isLight ? '#0284c7' : '#38bdf8';
                         if (i > 0) {
@@ -1150,11 +965,11 @@ window.drawTimeline = function() {
                     morphed.forEach(act => {
                         const x = timeToX(act.at); const y = posToY(act.pos);
                         if (act.isSync) {
-                            ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                            ctx.fillStyle = '#581c87'; ctx.beginPath();
+                            let size = 7;
+                            ctx.moveTo(x, y - size); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.lineTo(x - size, y);
+                            ctx.closePath(); ctx.fill();
                             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                            ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
-                            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                         } else {
                             ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
                             ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
@@ -1191,11 +1006,11 @@ window.drawTimeline = function() {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
                     if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#581c87'; ctx.beginPath();
+                        let size = 6;
+                        ctx.moveTo(x, y - size); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.lineTo(x - size, y);
+                        ctx.closePath(); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                        ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
-                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                     } else {
                         ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                         ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
