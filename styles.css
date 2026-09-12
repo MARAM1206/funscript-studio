@@ -1,5 +1,5 @@
 /* =========================================
-   SISTEMA DE VARIABLES DE TEMA (V1.15.0)
+   ESTILOS MAESTROS Y VARIABLES (V1.15.0)
    ========================================= */
 :root {
     --bg-main: #06090e;
@@ -9,25 +9,316 @@
     --text-muted: #94a3b8;
     --bg-input: #020617;
     --bg-hover: #1e293b;
+    --accent: #38bdf8;
+    --accent-hover: #0284c7;
 }
 
 body.light-theme {
-    --bg-main: #f8fafc;        /* Fondo gris súper claro */
-    --bg-panel: #ffffff;       /* Paneles blancos limpios */
-    --border-color: #cbd5e1;   /* Bordes definidos y suaves */
-    --text-main: #0f172a;      /* Texto casi negro para máxima lectura */
-    --text-muted: #64748b;     /* Textos secundarios */
-    --bg-input: #f1f5f9;       /* Cajas de texto e inputs integrados */
-    --bg-hover: #e2e8f0;
+    --bg-main: #e2e8f0;        
+    --bg-panel: #ffffff;       
+    --border-color: #cbd5e1;   
+    --text-main: #0f172a;      
+    --text-muted: #64748b;     
+    --bg-input: #f1f5f9;       
+    --bg-hover: #f8fafc;
+    --accent: #0284c7;
+    --accent-hover: #0369a1;
 }
 
-/* Reglas de Fuerza Bruta para obligar al UI a obedecer al modo */
-body { background-color: var(--bg-main) !important; color: var(--text-main) !important; }
-.workspace-panel, .top-bar-menu, .modal-content { background-color: var(--bg-panel) !important; border-color: var(--border-color) !important; }
-.dropdown-content { background-color: var(--bg-panel) !important; border-color: var(--border-color) !important; }
-.dropdown-content a { color: var(--text-main) !important; }
-.dropdown-content a:hover { background-color: var(--bg-hover) !important; }
-.handy-input, .modal-input, textarea, select { background-color: var(--bg-input) !important; color: var(--text-main) !important; border-color: var(--border-color) !important; }
-.menu-btn.dark-btn { background-color: var(--bg-input) !important; color: var(--text-main) !important; border-color: var(--border-color) !important; }
-.menu-btn.dark-btn:hover { background-color: var(--bg-hover) !important; }
-.preset-card-title { color: var(--text-main) !important; }
+/* =========================================
+   BASE Y RESET
+   ========================================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* Scrollbars Personalizados */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-main); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* =========================================
+   BARRA SUPERIOR (TOP MENU)
+   ========================================= */
+.top-bar-menu {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 15px;
+    height: 45px;
+    position: relative;
+    z-index: 9000;
+}
+
+.top-center-toggles {
+    display: flex;
+    gap: 8px;
+    flex-grow: 1;
+    justify-content: center;
+}
+
+.toggle-panel-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.toggle-panel-btn.active {
+    background: var(--border-color);
+    color: var(--text-main);
+}
+
+.toggle-panel-btn:hover:not(.active) {
+    background: var(--bg-hover);
+}
+
+/* =========================================
+   BOTONES GLOBALES
+   ========================================= */
+.menu-btn {
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: bold;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.menu-btn:active { transform: scale(0.95); }
+
+.dark-btn { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); }
+.dark-btn:hover { background: var(--bg-hover); }
+
+.orange-btn { background: #f97316; color: white; }
+.orange-btn:hover { background: #ea580c; }
+
+.success-btn { background: #10b981; color: white; }
+.success-btn:hover { background: #059669; }
+
+.purple-btn { background: #8b5cf6; color: white; }
+.purple-btn:hover { background: #7c3aed; }
+
+.blue-btn { background: #38bdf8; color: white; }
+.blue-btn:hover { background: #0284c7; }
+
+.track-btn { background: transparent; border: none; cursor: pointer; transition: transform 0.1s; }
+.track-btn:hover { transform: scale(1.2); }
+
+/* =========================================
+   MENÚS DESPLEGABLES (DROPDOWNS)
+   ========================================= */
+.dropdown { position: relative; display: inline-block; }
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: var(--bg-panel);
+    min-width: 220px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    z-index: 9500;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.dropdown:hover .dropdown-content { display: block; }
+
+.dropdown-content a {
+    color: var(--text-main);
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    font-size: 0.8rem;
+}
+
+.dropdown-content a:hover { background-color: var(--bg-hover); }
+
+.sub-dropdown { position: relative; }
+.sub-dropdown-content {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    min-width: 180px;
+    border-radius: 6px;
+}
+.sub-dropdown:hover .sub-dropdown-content { display: block; }
+.sub-arrow { float: right; font-size: 0.6rem; margin-top: 2px; }
+
+/* =========================================
+   ESPACIO DE TRABAJO Y PANELES (LAYOUT)
+   ========================================= */
+.workspace-container {
+    position: absolute;
+    top: 45px;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 45px);
+    background-color: var(--bg-main);
+    overflow: hidden;
+}
+
+.workspace-panel {
+    position: absolute;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    overflow: hidden;
+}
+
+.panel-header {
+    background-color: var(--bg-hover);
+    padding: 6px 12px;
+    cursor: move;
+    display: flex;
+    align-items: center;
+    user-select: none;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.panel-content {
+    flex-grow: 1;
+    position: relative;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+/* Bordes Magnéticos (Resize) */
+.resize-handle { position: absolute; z-index: 10; }
+.resize-handle-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: se-resize; }
+.resize-handle-s { bottom: 0; left: 12px; right: 12px; height: 6px; cursor: s-resize; }
+.resize-handle-e { top: 12px; bottom: 12px; right: 0; width: 6px; cursor: e-resize; }
+.resize-handle-n { top: 0; left: 12px; right: 12px; height: 6px; cursor: n-resize; }
+.resize-handle-w { top: 12px; bottom: 12px; left: 0; width: 6px; cursor: w-resize; }
+.resize-handle-nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; }
+.resize-handle-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
+.resize-handle-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
+
+/* =========================================
+   MODALES Y POPUPS
+   ========================================= */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.75);
+    z-index: 9999;
+    display: none; /* ESTO OCULTA LOS MODALES AL INICIO */
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.modal-input {
+    background-color: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+}
+
+/* =========================================
+   INPUTS Y SLIDERS ESPECIALES
+   ========================================= */
+.handy-input { background: var(--bg-input); color: var(--text-main); }
+.preset-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: grab;
+    margin-bottom: 8px;
+}
+
+.volume-slider { accent-color: var(--accent); cursor: pointer; }
+
+/* Slider Dual (Inyector Rápido) */
+.dual-slider-container { position: relative; width: 100%; height: 20px; margin-top: 10px; }
+.dual-slider-track {
+    position: absolute; top: 50%; left: 0; width: 100%; height: 6px; 
+    transform: translateY(-50%); background: var(--bg-input); 
+    border-radius: 3px; border: 1px solid var(--border-color);
+}
+.dual-slider-fill {
+    position: absolute; top: 50%; height: 6px; transform: translateY(-50%); 
+    background: linear-gradient(90deg, #38bdf8, #f97316); border-radius: 3px;
+}
+.dual-range {
+    position: absolute; top: 50%; left: 0; width: 100%; 
+    transform: translateY(-50%); -webkit-appearance: none; 
+    appearance: none; background: transparent; pointer-events: none; z-index: 2;
+}
+.dual-range::-webkit-slider-thumb {
+    -webkit-appearance: none; pointer-events: auto; width: 16px; height: 16px; 
+    border-radius: 50%; background: var(--thumb-color, #fff); cursor: pointer; 
+    box-shadow: 0 0 5px rgba(0,0,0,0.5); border: 1px solid var(--border-color);
+}
+
+/* Slider Vertical (Ajuste) */
+.vertical-slider-wrapper { display: flex; flex-direction: column; align-items: center; height: 100%; }
+.vertical-range-input { writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 100%; }
+.slider-badge { background: var(--accent); color: #fff; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; margin-bottom: 10px; }
+
+/* =========================================
+   ELEMENTOS DEL REPRODUCTOR
+   ========================================= */
+.video-container { background-color: #000 !important; } /* Siempre negro para videos */
+.video-bottom-unified-bar {
+    position: absolute; bottom: 0; width: 100%; height: 35px;
+    background: rgba(0,0,0,0.8); display: flex; align-items: center; padding: 0 10px; z-index: 20;
+}
+.progress-bar-container { display: flex; width: 100%; align-items: center; gap: 10px; color: white; font-family: monospace; font-size: 0.75rem; }
+.progress-slider-wrapper { flex-grow: 1; position: relative; height: 20px; display: flex; align-items: center; }
+.custom-progress { width: 100%; cursor: pointer; z-index: 5; position: relative; opacity: 0; }
+.heatmap-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 4px; pointer-events: none; }
+.ghost-thumb { position: absolute; width: 2px; height: 100%; background: white; z-index: 6; pointer-events: none; box-shadow: 0 0 5px white; }
+.fs-mini-icon { position: absolute; bottom: 45px; right: 15px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; z-index: 10; border: 1px solid rgba(255,255,255,0.2); }
+.fs-timeline { position: absolute; bottom: 45px; left: 15px; width: calc(100% - 70px); height: 60px; background: rgba(0,0,0,0.6); border-radius: 6px; pointer-events: none; z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
+
+/* Línea de Tiempo */
+#timeline-canvas { width: 100%; height: 100%; display: block; }
+.fps-control { display: flex; align-items: center; gap: 5px; background: var(--bg-input); border-radius: 4px; padding: 2px; border: 1px solid var(--border-color); }
+.fps-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
+.fps-btn:hover { color: var(--text-main); }
+.fps-input { width: 30px; background: transparent; border: none; color: var(--text-main); text-align: center; font-size: 0.75rem; outline: none; }
