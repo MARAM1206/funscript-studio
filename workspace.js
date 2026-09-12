@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.13.0 (LAYOUT PREDETERMINADO Y BARRERAS ESTRICTAS)
+// WORKSPACE MANAGER V1.14.0 (100% RESPONSIVO, BARRERAS FÍSICAS Y MEMORIA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7,31 +7,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const togglesContainer = document.getElementById('top-center-toggles');
     const saveLayoutBtn = document.getElementById('menu-save-layout-btn');
     const restoreLayoutBtn = document.getElementById('menu-restore-layout-btn');
+    const fullscreenLayoutBtn = document.getElementById('menu-fullscreen-layout-btn');
     let highestZIndex = 100;
     
     const SNAP_DIST = 12; 
     const GAP = 10;       
-    const VERSION = 'funscript_workspace_v13'; 
+    const VERSION = 'funscript_workspace_layout_v14'; 
 
-    // 🎯 FIX: Layout predeterminado basado exactamente en el Screenshot del usuario
-    const defaultLayout = {
-        'panel-tracks': { left: 10, top: 10, width: 310, height: 350, visible: true },
-        'panel-quick': { left: 10, top: 370, width: 310, height: 210, visible: true },
-        'panel-humanizer': { left: 10, top: 590, width: 310, height: 240, visible: true },
-        
-        'panel-video': { left: 330, top: 10, width: 950, height: 610, visible: true },
-        'panel-timeline': { left: 330, top: 630, width: 950, height: 200, visible: true },
-        
-        'panel-slider': { left: 1290, top: 10, width: 80, height: 450, visible: true },
-        'panel-presets': { left: 1380, top: 10, width: 300, height: 450, visible: true },
-        'panel-twin': { left: 1290, top: 470, width: 390, height: 360, visible: true },
-        
-        'panel-bpm': { left: 330, top: 10, width: 250, height: 260, visible: false }, 
-        'panel-mass': { left: 330, top: 280, width: 250, height: 320, visible: false }
-    };
+    // 🎯 FIX: Fórmula Matemática para abarcar el 100% de la pantalla del usuario
+    function getDefaultLayout() {
+        const W = window.innerWidth;
+        const topBarH = document.querySelector('.top-bar-menu')?.offsetHeight || 45;
+        const H = window.innerHeight - topBarH;
+
+        // Proporciones fluidas (18% Izq | 57% Centro | 25% Der)
+        const L_W = Math.max(260, Math.min(320, W * 0.18));
+        const R_W = Math.max(340, Math.min(420, W * 0.25));
+        const C_W = Math.max(400, W - L_W - R_W - (4 * GAP));
+
+        const L_H1 = (H - 4 * GAP) * 0.38; 
+        const L_H2 = (H - 4 * GAP) * 0.27; 
+        const L_H3 = (H - 4 * GAP) * 0.35; 
+
+        const C_H1 = (H - 3 * GAP) * 0.68; 
+        const C_H2 = (H - 3 * GAP) * 0.32; 
+
+        const R_H1 = (H - 3 * GAP) * 0.55; 
+        const R_H2 = (H - 3 * GAP) * 0.45; 
+
+        const Slider_W = 80;
+        const Presets_W = R_W - Slider_W - GAP;
+
+        const cX = GAP + L_W + GAP;
+        const rX = cX + C_W + GAP;
+
+        return {
+            'panel-tracks': { left: GAP, top: GAP, width: L_W, height: L_H1, visible: true },
+            'panel-quick': { left: GAP, top: GAP + L_H1 + GAP, width: L_W, height: L_H2, visible: true },
+            'panel-humanizer': { left: GAP, top: GAP + L_H1 + GAP + L_H2 + GAP, width: L_W, height: L_H3, visible: true },
+
+            'panel-video': { left: cX, top: GAP, width: C_W, height: C_H1, visible: true },
+            'panel-timeline': { left: cX, top: GAP + C_H1 + GAP, width: C_W, height: C_H2, visible: true },
+
+            'panel-slider': { left: rX, top: GAP, width: Slider_W, height: R_H1, visible: true },
+            'panel-presets': { left: rX + Slider_W + GAP, top: GAP, width: Presets_W, height: R_H1, visible: true },
+            'panel-twin': { left: rX, top: GAP + R_H1 + GAP, width: R_W, height: R_H2, visible: true },
+
+            'panel-bpm': { left: cX, top: GAP, width: 250, height: 260, visible: false },
+            'panel-mass': { left: cX, top: GAP + 270, width: 250, height: 320, visible: false }
+        };
+    }
 
     let layoutState = JSON.parse(localStorage.getItem(VERSION));
-    if (!layoutState) layoutState = JSON.parse(JSON.stringify(defaultLayout));
+    if (!layoutState) layoutState = getDefaultLayout();
 
     function saveLayout() {
         panels.forEach(panel => {
@@ -46,40 +74,47 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(VERSION, JSON.stringify(layoutState));
     }
 
-    // 🎯 FIX: Guardar Acomodo Personalizado
+    // 🎯 FIX: Sistema de Guardado y Restauración de Interfaz
     if (saveLayoutBtn) {
         saveLayoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
             saveLayout();
-            localStorage.setItem('funscript_layout_fallback', JSON.stringify(layoutState));
-            alert("✅ Acomodo de pestañas guardado correctamente.");
+            localStorage.setItem('funscript_layout_user_custom', JSON.stringify(layoutState));
+            alert("✅ Acomodo de pestañas guardado correctamente. Si se desacomodan, usa 'Restaurar Acomodo'.");
         });
     }
 
-    // 🎯 FIX: Restaurar Acomodo Personalizado (O de fábrica si no hay)
     if (restoreLayoutBtn) {
         restoreLayoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            let fallback = JSON.parse(localStorage.getItem('funscript_layout_fallback'));
-            if (fallback) {
-                localStorage.setItem(VERSION, JSON.stringify(fallback));
+            let custom = JSON.parse(localStorage.getItem('funscript_layout_user_custom'));
+            if (custom) {
+                localStorage.setItem(VERSION, JSON.stringify(custom));
             } else {
-                localStorage.setItem(VERSION, JSON.stringify(defaultLayout));
+                alert("Aún no has guardado un acomodo personalizado. Se restaurará al valor por defecto.");
+                localStorage.setItem(VERSION, JSON.stringify(getDefaultLayout()));
             }
             location.reload(); 
         });
     }
 
-    // 🎯 FIX: Botón de Borrar Caché ahora salva los Presets
+    if (fullscreenLayoutBtn) {
+        fullscreenLayoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.setItem(VERSION, JSON.stringify(getDefaultLayout()));
+            location.reload(); 
+        });
+    }
+
+    // El borrado de caché salva los presets y el layout custom
     const cacheBtn = document.getElementById('menu-cache-btn');
     if (cacheBtn) {
         cacheBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            if (confirm('¿Borrar caché temporal y recargar? (Tus presets NO se perderán)')) {
+            if (confirm('¿Borrar caché temporal y recargar? (Tus Presets y Acomodo NO se perderán)')) {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const key = localStorage.key(i);
-                    // Proteger presets y acomodo
-                    if (key !== 'funscript_presets' && key !== 'funscript_layout_fallback') {
+                    if (key !== 'funscript_presets' && key !== 'funscript_layout_user_custom') {
                         localStorage.removeItem(key);
                     }
                 }
@@ -98,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (layoutState[id]) layoutState[id].visible = true;
         }
 
-        const state = layoutState[id] || defaultLayout[id] || { left: 10, top: 10, width: 300, height: 200, visible: true };
+        const state = layoutState[id] || getDefaultLayout()[id];
         
         if (state.visible) panel.style.display = 'flex';
         else panel.style.display = 'none';
@@ -131,8 +166,16 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.appendChild(handle);
         });
 
-        panel.style.left = state.left + 'px';
-        panel.style.top = state.top + 'px';
+        // 🎯 FIX: Aplicación estricta de barreras físicas al cargar la página
+        const W = window.innerWidth;
+        const topBarH = document.querySelector('.top-bar-menu')?.offsetHeight || 45;
+        const H = window.innerHeight - topBarH;
+
+        let safeL = Math.max(GAP, Math.min(state.left, W - state.width - GAP));
+        let safeT = Math.max(GAP, Math.min(state.top, H - state.height - GAP));
+
+        panel.style.left = safeL + 'px';
+        panel.style.top = safeT + 'px';
         panel.style.width = state.width + 'px';
         panel.style.height = state.height + 'px';
 
@@ -152,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 let startY = e.clientY;
                 let startLeft = panel.offsetLeft;
                 let startTop = panel.offsetTop;
-                let container = document.documentElement; // 🎯 FIX: Contenedor global
                 
                 document.body.style.userSelect = 'none';
 
@@ -160,14 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     let newL = startLeft + (ev.clientX - startX);
                     let newT = startTop + (ev.clientY - startY);
                     
-                    let maxL = container.clientWidth - panel.offsetWidth - GAP;
-                    let maxT = container.clientHeight - panel.offsetHeight - GAP;
+                    const WW = window.innerWidth;
+                    const HH = window.innerHeight - topBarH;
 
-                    // 🎯 FIX: Barrera estricta del perímetro de la pantalla
-                    if (newL < GAP) newL = GAP;
-                    if (newT < GAP) newT = GAP;
-                    if (newL > maxL) newL = maxL;
-                    if (newT > maxT) newT = maxT;
+                    // 🎯 FIX: Barreras de Cristal. Imposible salirse del monitor.
+                    newL = Math.max(GAP, Math.min(newL, WW - panel.offsetWidth - GAP));
+                    newT = Math.max(GAP, Math.min(newT, HH - panel.offsetHeight - GAP));
 
                     let newR = newL + panel.offsetWidth;
                     let newB = newT + panel.offsetHeight;
@@ -188,11 +228,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         else if (Math.abs(newB - oB) < SNAP_DIST) newT = oB - panel.offsetHeight;          
                     });
 
-                    // Re-aplicar barreras tras el cálculo magnético
-                    if (newL < GAP) newL = GAP;
-                    if (newT < GAP) newT = GAP;
-                    if (newL > maxL) newL = maxL;
-                    if (newT > maxT) newT = maxT;
+                    // Re-verificar barreras tras imanes
+                    newL = Math.max(GAP, Math.min(newL, WW - panel.offsetWidth - GAP));
+                    newT = Math.max(GAP, Math.min(newT, HH - panel.offsetHeight - GAP));
 
                     panel.style.left = newL + 'px';
                     panel.style.top = newT + 'px';
@@ -228,17 +266,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const minW = parseInt(window.getComputedStyle(panel).minWidth) || 150;
                 const minH = parseInt(window.getComputedStyle(panel).minHeight) || 150;
-                const container = document.documentElement;
+                const WW = window.innerWidth;
+                const HH = window.innerHeight - topBarH;
 
                 const onMouseMove = (ev) => {
                     let nw = startW, nh = startH, nl = startL, nt = startT;
 
                     if (type.includes('e')) {
                         let proposedR = startL + startW + (ev.clientX - startX);
-                        let snappedR = proposedR;
-                        
-                        let maxR = container.clientWidth - GAP;
-                        if (snappedR > maxR) snappedR = maxR;
+                        let snappedR = Math.min(proposedR, WW - GAP);
                         
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
@@ -253,10 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (type.includes('s')) {
                         let proposedB = startT + startH + (ev.clientY - startY);
-                        let snappedB = proposedB;
-                        
-                        let maxB = container.clientHeight - GAP;
-                        if (snappedB > maxB) snappedB = maxB;
+                        let snappedB = Math.min(proposedB, HH - GAP);
                         
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
@@ -271,9 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (type.includes('w')) {
                         let proposedL = startL + (ev.clientX - startX);
-                        let snappedL = proposedL;
-                        
-                        if (snappedL < GAP) snappedL = GAP;
+                        let snappedL = Math.max(proposedL, GAP);
                         
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
@@ -288,9 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (type.includes('n')) {
                         let proposedT = startT + (ev.clientY - startY);
-                        let snappedT = proposedT;
-                        
-                        if (snappedT < GAP) snappedT = GAP;
+                        let snappedT = Math.max(proposedT, GAP);
                         
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
