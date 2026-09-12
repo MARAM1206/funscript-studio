@@ -1,6 +1,5 @@
-
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.4.2 (VIRTUAL PLAYBACK & SMART PRESETS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.12.0 (SHORTCUTS CORREGIDOS + TECLA PUNTO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -40,7 +39,6 @@ function preloadPanicImage() {
 }
 preloadPanicImage(); 
 
-// 🎯 FIX: Reloj Fantasma (Virtual Playback)
 window.virtualTimeMs = 0;
 window.isPlayingVirtual = false;
 let virtualLastTime = 0;
@@ -99,7 +97,6 @@ function virtualPlayLoop() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-
     const savedTheme = localStorage.getItem('funscript_theme');
     if (savedTheme === 'light') {
         document.body.classList.add('light-theme');
@@ -501,77 +498,46 @@ window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
     if (event.key === 'Escape' || event.key === 'Esc') {
-        
         const controlsModal = document.getElementById('controls-modal');
-        if (controlsModal && controlsModal.style.display === 'flex') {
-            controlsModal.style.display = 'none';
-            return;
-        }
-
+        if (controlsModal && controlsModal.style.display === 'flex') { controlsModal.style.display = 'none'; return; }
         if (window.isPastingMode || window.isDraggingPreset) {
-            window.isPastingMode = false;
-            window.isDraggingPreset = false;
-            window.timelineGhostPreset = null;
-            window.timelineGhostTimeMs = null;
-            window.presetFillInitialized = false; 
-            window.timelineGhostTargetEnd = null;
+            window.isPastingMode = false; window.isDraggingPreset = false; window.timelineGhostPreset = null;
+            window.timelineGhostTimeMs = null; window.presetFillInitialized = false; window.timelineGhostTargetEnd = null;
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
-
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
-            return;
-        }
+        if (document.fullscreenElement) { document.exitFullscreen(); return; }
 
         isPanicMode = !isPanicMode;
         const videoVolume = document.getElementById('video-volume');
-
         if (isPanicMode) {
             wasMutedBeforePanic = videoPlayer ? videoPlayer.muted : false;
             let currentVol = videoVolume ? parseFloat(videoVolume.value) : 1;
-            
             if (videoPlayer) videoPlayer.muted = true; 
-            fakeAudio.volume = currentVol;
-            fakeAudio.muted = (currentVol === 0);
+            fakeAudio.volume = currentVol; fakeAudio.muted = (currentVol === 0);
             updateVolumeUI(currentVol); 
-            
             if (videoPlayer && !videoPlayer.paused) fakeAudio.play();
-            
             if (panicOverlay) {
-                panicOverlay.innerHTML = `
-                    <img src="${preloadedPanicUrl}" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1;" onerror="this.style.display='none'" />
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(148, 163, 184, 0.2); font-family: monospace; font-size: 2rem; font-weight: bold; pointer-events: none; user-select: none; text-align: center; z-index: 0;">
-                        PREVIEW OFFLINE<br><span style="font-size:1rem; opacity:0.5;">No network connection for media streaming</span>
-                    </div>
-                `;
+                panicOverlay.innerHTML = `<img src="${preloadedPanicUrl}" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1;" onerror="this.style.display='none'" />
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(148, 163, 184, 0.2); font-family: monospace; font-size: 2rem; font-weight: bold; pointer-events: none; user-select: none; text-align: center; z-index: 0;">PREVIEW OFFLINE<br><span style="font-size:1rem; opacity:0.5;">No network connection for media streaming</span></div>`;
                 panicOverlay.style.display = 'block';
             }
             document.body.classList.add('panic-mode-active');
-            
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar";
-
             togglePanicCamouflage(true);
-            
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
-            
         } else {
             fakeAudio.pause();
             if (videoPlayer) videoPlayer.muted = wasMutedBeforePanic;
-            
             let realVol = videoPlayer ? (videoPlayer.muted ? 0 : videoPlayer.volume) : 1;
             if (videoVolume) videoVolume.value = realVol;
             updateVolumeUI(realVol);
-
             if (panicOverlay) panicOverlay.style.display = 'none';
             document.body.classList.remove('panic-mode-active');
-            
             const expBtn = document.getElementById('export-btn');
             if (expBtn) expBtn.innerText = "💾 Exportar FunScript";
-            
             togglePanicCamouflage(false);
-
             preloadPanicImage(); 
             if (typeof window.drawTimeline === 'function') window.drawTimeline(); 
         }
@@ -588,7 +554,13 @@ window.addEventListener('keydown', (event) => {
 
     const key = event.key.toLowerCase();
 
-    // 🎯 FIX: Permite intercambiar de modo (Stretch/Repeat) con la barra espaciadora
+    // 🎯 FIX: Nueva Tecla para Puntos de Contacto
+    if (key === '.' || key === 'period') {
+        event.preventDefault();
+        window.dispatchEvent(new Event('toggleContactPoint'));
+        return;
+    }
+
     if (window.isDraggingPreset || window.isPastingMode) {
         if (event.code === 'Space') {
             event.preventDefault();
@@ -612,9 +584,7 @@ window.addEventListener('keydown', (event) => {
             document.activeElement.blur(); 
         }
         if (!window.isDraggingPreset && !window.isPastingMode) {
-            event.preventDefault();
-            togglePlayback();
-            return;
+            event.preventDefault(); togglePlayback(); return;
         }
     }
 
@@ -637,7 +607,6 @@ window.addEventListener('keydown', (event) => {
                 const targetMarker = prevMarkers[prevMarkers.length - 1];
                 window.setActualTimeMs(targetMarker.at);
                 window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: targetMarker.at } }));
-                
                 window.timelineMarkers.forEach(m => m.selected = false);
                 targetMarker.selected = true;
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -655,7 +624,6 @@ window.addEventListener('keydown', (event) => {
                 const targetMarker = nextMarkers[0];
                 window.setActualTimeMs(targetMarker.at);
                 window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: nextMarkers[0].at } }));
-                
                 window.timelineMarkers.forEach(m => m.selected = false);
                 targetMarker.selected = true;
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
@@ -673,13 +641,7 @@ window.addEventListener('keydown', (event) => {
     const hasSelection = window.funscriptActions && window.funscriptActions.some(a => a.selected);
     const isPlaying = window.currentVideoName ? !videoPlayer.paused : window.isPlayingVirtual;
 
-    if (key === 's' && event.ctrlKey) {
-        event.preventDefault();
-        const exportBtn = document.getElementById('export-btn');
-        if (exportBtn) exportBtn.click();
-        return;
-    }
-
+    if (key === 's' && event.ctrlKey) { event.preventDefault(); document.getElementById('export-btn')?.click(); return; }
     if (key === 'f' && !event.ctrlKey) {
         event.preventDefault();
         if (!document.fullscreenElement) videoContainer.requestFullscreen().catch(err => console.error(err));
@@ -690,7 +652,6 @@ window.addEventListener('keydown', (event) => {
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
-        
         if (key === 'a') { 
             event.preventDefault(); 
             const hasMarkerSelected = window.timelineMarkers && window.timelineMarkers.some(m => m.selected);
@@ -704,51 +665,34 @@ window.addEventListener('keydown', (event) => {
             }
             return; 
         }
-        
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
-        
-        if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
-            event.preventDefault(); event.stopPropagation();
-            if (key === 'arrowleft' || key === 'arrowright') {
-                window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
-            } else {
-                window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
-            }
-        }
-        return; 
     }
 
     if (key === 'delete' || key === 'backspace') {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
+    // 🎯 FIX: Controles de Flechas Simplificados (Inyector vs Desplazamiento)
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
         
-        if (isPlaying && (key === 'arrowup' || key === 'arrowdown')) {
-            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
-        } 
-        else if (!isPlaying && hasSelection && (key === 'arrowleft' || key === 'arrowright')) {
+        if (key === 'arrowup' || key === 'arrowdown') {
+            if (event.ctrlKey) {
+                window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
+            } else {
+                window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
+            }
+        } else {
             window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
-        } 
-        else if (!isPlaying && hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
-            window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
-        } 
-        else if (!isPlaying && !hasSelection && (key === 'arrowup' || key === 'arrowdown')) {
-            window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
         }
         return; 
     }
 
     if (key === 'c' && hasSelection) { event.preventDefault(); window.dispatchEvent(new CustomEvent('magnetPoint')); }
-    
-    if (key === 'm' && !event.ctrlKey) { 
-        event.preventDefault(); 
-        if(videoPlayer) videoPlayer.muted = !videoPlayer.muted; 
-    }
+    if (key === 'm' && !event.ctrlKey) { event.preventDefault(); if(videoPlayer) videoPlayer.muted = !videoPlayer.muted; }
     if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
     
@@ -762,17 +706,8 @@ window.addEventListener('keydown', (event) => {
     const msPerFrame = 1000 / window.videoFPS;
     const stepTimePrecision = (framesToJump * msPerFrame) / 1000; 
 
-    if (key === 'q' && !event.ctrlKey) { 
-        event.preventDefault(); 
-        window.setActualTimeMs(window.getActualTimeMs() - stepTimePrecision * 1000); 
-        forcePan(); 
-    }
-    if (key === 'w' && !event.ctrlKey) { 
-        event.preventDefault(); 
-        window.setActualTimeMs(window.getActualTimeMs() + stepTimePrecision * 1000); 
-        forcePan(); 
-    }
-    
+    if (key === 'q' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() - stepTimePrecision * 1000); forcePan(); }
+    if (key === 'w' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() + stepTimePrecision * 1000); forcePan(); }
     if (key === 'a' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() - 5000); forcePan(); }
     if (key === 's' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() + 5000); forcePan(); }
 
