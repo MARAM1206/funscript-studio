@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.16.0 (FIX: BARRERAS Y REDIMENSIÓN SIN REBOTE)
+// WORKSPACE MANAGER V1.16.0 (FIX: BARRERAS FÍSICAS ABSOLUTAS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (Math.abs(proposedR - oR) < SNAP_DIST) snappedR = oR;               
                         });
                         let pW = snappedR - startL;
-                        if (pW >= minW) nw = pW; else nw = minW; // FIX DE REBOTE
+                        if (pW >= minW) nw = pW; else nw = minW; 
                     }
                     if (type.includes('s')) {
                         let proposedB = startT + startH + (ev.clientY - startY);
@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (Math.abs(proposedB - oB) < SNAP_DIST) snappedB = oB;               
                         });
                         let pH = snappedB - startT;
-                        if (pH >= minH) nh = pH; else nh = minH; // FIX DE REBOTE
+                        if (pH >= minH) nh = pH; else nh = minH; 
                     }
                     if (type.includes('w')) {
                         let proposedL = startL + (ev.clientX - startX);
