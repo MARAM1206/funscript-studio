@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.13.0 (SYNC POINTS MAGENTA DIAMOND)
+// TIMELINE V1.14.0 (SYNC POINTS CON ÍCONO DE ANCLA VISUAL)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -1091,19 +1091,17 @@ window.drawTimeline = function() {
                 if (x >= 20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    // 🎯 FIX: Renderizado visual del Ancla (Rombo Magenta)
+                    // 🎯 FIX: Renderizado visual del Ancla (Rombo gigante dorado/magenta)
                     if (act.isSync) {
-                        ctx.fillStyle = act.selected ? '#ffffff' : '#d946ef'; // Magenta o Blanco
-                        ctx.beginPath(); 
-                        let size = act.selected ? 9 : 7;
-                        ctx.moveTo(x, y - size);
-                        ctx.lineTo(x + size, y);
-                        ctx.lineTo(x, y + size);
-                        ctx.lineTo(x - size, y);
-                        ctx.closePath();
-                        ctx.fill();
-                        ctx.strokeStyle = act.selected ? '#d946ef' : '#ffffff';
-                        ctx.lineWidth = 2; ctx.stroke();
+                        ctx.fillStyle = '#facc15'; // Fondo dorado brillante
+                        ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+                        
+                        ctx.fillStyle = '#0f172a'; // Icono interno de Ancla
+                        ctx.font = '12px monospace'; 
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText('⚓', x, y+1); 
+                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                     } else {
                         let dotColor = isLight ? '#0284c7' : '#38bdf8';
                         if (i > 0) {
@@ -1152,11 +1150,11 @@ window.drawTimeline = function() {
                     morphed.forEach(act => {
                         const x = timeToX(act.at); const y = posToY(act.pos);
                         if (act.isSync) {
-                            ctx.fillStyle = '#ffffff'; ctx.beginPath();
-                            let size = 7;
-                            ctx.moveTo(x, y - size); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.lineTo(x - size, y);
-                            ctx.closePath(); ctx.fill();
-                            ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
+                            ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+                            ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
+                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
+                            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                         } else {
                             ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
                             ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
@@ -1193,11 +1191,11 @@ window.drawTimeline = function() {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
                     if (act.isSync) {
-                        ctx.fillStyle = '#ffffff'; ctx.beginPath();
-                        let size = 6;
-                        ctx.moveTo(x, y - size); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.lineTo(x - size, y);
-                        ctx.closePath(); ctx.fill();
-                        ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
+                        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+                        ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
+                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                     } else {
                         ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                         ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
