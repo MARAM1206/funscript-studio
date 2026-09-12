@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.16.1 (FIX MINI-GRÁFICA Y EVENTOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.13.0 (NUEVOS CONTROLES Y SPEED OVERLAY)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -451,6 +451,7 @@ videoPlayer?.addEventListener('volumechange', () => {
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
+// 🎯 FIX: Función para feedback de velocidad en el video
 function showSpeedOverlay(speed) {
     const overlay = document.getElementById('speed-overlay');
     if(!overlay) return;
@@ -459,15 +460,6 @@ function showSpeedOverlay(speed) {
     clearTimeout(window.speedOverlayTimeout);
     window.speedOverlayTimeout = setTimeout(() => { overlay.style.opacity = '0'; }, 800);
 }
-
-// 🎯 FIX: Vigila constantemente los cambios a pantalla completa para destruir o mostrar el Mini Canvas
-document.addEventListener('fullscreenchange', () => {
-    const fsCanvas = document.getElementById('fs-timeline-canvas');
-    if (!document.fullscreenElement) {
-        if (fsCanvas) fsCanvas.style.display = 'none'; // Se apaga si sales de pantalla completa
-    }
-    if (typeof window.drawTimeline === 'function') window.drawTimeline();
-});
 
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
@@ -546,8 +538,6 @@ window.addEventListener('keydown', (event) => {
 
     if (document.fullscreenElement && event.key.toLowerCase() === 'h') {
         window.fsTimelineVisible = !window.fsTimelineVisible;
-        const fsCanvas = document.getElementById('fs-timeline-canvas');
-        if (fsCanvas) fsCanvas.style.display = window.fsTimelineVisible ? 'block' : 'none'; // Aplica la visibilidad correctamente
         if (typeof window.drawTimeline === 'function') window.drawTimeline();
         return;
     }
@@ -666,6 +656,7 @@ window.addEventListener('keydown', (event) => {
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
         
+        // 🎯 FIX: Controles de Inyector Rápido movidos a Ctrl + Flechas
         if (key === 'arrowup' || key === 'arrowdown') {
             event.preventDefault(); event.stopPropagation();
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
@@ -684,6 +675,7 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
+    // 🎯 FIX: Las Flechas Solas ahora Mueven la Selección (Nudge Points)
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
@@ -706,6 +698,7 @@ window.addEventListener('keydown', (event) => {
         if(videoPlayer) videoPlayer.muted = !videoPlayer.muted; 
     }
     
+    // 🎯 FIX: Velocidad con feedback visual
     if (key === 'e' && !event.ctrlKey) { 
         event.preventDefault(); 
         currentSpeed = Math.max(0.1, currentSpeed - 0.1); 
