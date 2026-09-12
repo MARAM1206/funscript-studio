@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.15.0">
+    <link rel="stylesheet" href="styles.css?v=1.14.0">
 </head>
 <body>
 
@@ -16,14 +16,14 @@
                     <a href="#" id="menu-save-layout-btn" style="color: #10b981; font-weight: bold;">💾 Guardar Acomodo</a>
                     <a href="#" id="menu-restore-layout-btn" style="color: #facc15; font-weight: bold;">🔄 Restaurar Acomodo</a>
                     <a href="#" id="menu-fullscreen-layout-btn" style="color: #38bdf8; font-weight: bold;">🖥️ Acomodo de Fábrica (Llenar Pantalla)</a>
-                    <hr style="border-color: var(--border-color); margin: 5px 0;">
-                    <a href="#" style="pointer-events: none; color: var(--text-muted);">Idioma (Próximamente)</a>
+                    <hr style="border-color: #1e293b; margin: 5px 0;">
+                    <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
                     <a href="#" id="menu-controls-btn" style="display: none;">⌨️ Controles</a>
-                    <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
+                    <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
                         <input type="checkbox" id="menu-snap-toggle" class="snap-toggle" checked>
                         <span class="snap-text">Bloqueo de 5%</span>
                     </label>
-                    <a href="#" style="pointer-events: none; color: var(--text-muted);">Notas (Próximamente)</a>
+                    <a href="#" style="pointer-events: none; color: #64748b;">Notas (Próximamente)</a>
                     <a href="#" id="menu-theme-btn">☀️ Modo claro</a>
                     <a href="#" id="menu-cache-btn" style="color: #ef4444;">🗑️ Borrar Caché (Salva Presets)</a>
                 </div>
@@ -47,27 +47,27 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: var(--text-muted); font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.15.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.14.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
         
         <div class="top-right-actions" style="display: flex; align-items: center; gap: 15px;">
-            <div class="handy-container" id="handy-main-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid; border-color: var(--border-color);">
+            <div class="handy-container" id="handy-main-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid;">
                 <span id="handy-status" style="font-size:0.75rem; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
                 <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
                 
                 <div class="dropdown" style="display: flex; align-items: center;">
-                    <button class="menu-btn offset-btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
+                    <button class="menu-btn offset-btn" style="background: transparent; border: 1px solid #475569; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
                     <div class="dropdown-content" style="padding: 15px; width: 350px; left: -140px; text-align: center;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <span id="handy-connection-status" style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Desconectado</span>
+                            <span id="handy-connection-status" style="font-size: 0.8rem; font-weight: bold; color: #94a3b8;">Desconectado</span>
                             <button id="handy-disconnect-btn" class="menu-btn dark-btn" style="font-size: 0.65rem; padding: 2px 6px; display: none;">Desconectar</button>
                         </div>
-                        <label class="offset-label" style="font-size:0.8rem; font-weight: bold; display: block; margin-bottom: 10px; color: var(--text-main);">Sync Offset: <span id="handy-offset-display" style="color: #38bdf8;">0</span> ms</label>
+                        <label class="offset-label" style="font-size:0.8rem; font-weight: bold; display: block; margin-bottom: 10px;">Sync Offset: <span id="handy-offset-display" style="color: #38bdf8;">0</span> ms</label>
                         <input type="range" id="handy-offset" min="-400" max="400" step="1" value="0" style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-                            <span id="handy-latency-display" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">Red: --</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #1e293b; padding-top: 10px;">
+                            <span id="handy-latency-display" style="font-size: 0.7rem; color: #94a3b8; font-family: monospace;">Red: --</span>
                             <button id="handy-autosync-btn" class="menu-btn dark-btn" style="font-size: 0.7rem; padding: 4px 8px; transition: all 0.3s;" title="Resuelve el reloj de tu PC con los servidores para evitar desfases">🔄 Reparar Sincronía</button>
                         </div>
                     </div>
@@ -85,19 +85,19 @@
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 75vh; min-height: 600px;">
             <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 class="modal-title" style="margin: 0; font-size: 1.1rem; color: var(--text-main);">✏️ Editor de Presets</h3>
+                    <h3 class="modal-title" style="margin: 0; font-size: 1.1rem;">✏️ Editor de Presets</h3>
                 </div>
-                <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-main);">Nombre del Preset:</label>
+                <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
                 <input type="text" id="preset-editor-name" class="modal-input" style="width: 100%; padding: 10px; border-radius: 6px; border-width: 1px; border-style: solid; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
                 <div style="display: flex; justify-content: space-between; align-items:flex-end;">
-                    <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block; color: var(--text-main);">Línea de Tiempo del Preset:</label>
-                    <span class="modal-hint" style="font-size: 0.7rem; margin-bottom: 4px; color: var(--text-muted);">Atajos (Ctrl+C, V, X, Z, Y, A) | Ancla (Tecla .) | Zoom: Shift+Rueda</span>
+                    <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
+                    <span class="modal-hint" style="font-size: 0.7rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A) | Ancla (Tecla .) | Zoom: Shift+Rueda</span>
                 </div>
-                <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; border-color: var(--border-color); margin-bottom: 8px; overflow: hidden; background: var(--bg-main);">
+                <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #000;">
                     <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                    <p class="modal-hint" style="font-size: 0.75rem; margin: 0; color: var(--text-muted);">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
+                    <p class="modal-hint" style="font-size: 0.75rem; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
                     <div style="display: flex; gap: 10px;">
                         <button id="preset-editor-cancel" class="menu-btn dark-btn">Cancelar</button>
                         <button id="preset-editor-save-new" class="menu-btn blue-btn">Crear como Nuevo</button>
@@ -106,8 +106,8 @@
                 </div>
             </div>
             <div class="modal-content" style="width: 250px; display: flex; flex-direction: column; padding: 15px;">
-                <h4 class="modal-h4" style="font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom-width: 1px; border-bottom-style: solid; border-color: var(--border-color); padding-bottom: 10px; color: var(--text-main);">Tus Presets</h4>
-                <p class="modal-hint" style="font-size: 0.7rem; text-align: center; margin-bottom: 10px; color: var(--text-muted);">(Arrastra al lienzo o da doble clic)</p>
+                <h4 class="modal-h4" style="font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom-width: 1px; border-bottom-style: solid; padding-bottom: 10px;">Tus Presets</h4>
+                <p class="modal-hint" style="font-size: 0.7rem; text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
                 <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
         </div>
@@ -115,8 +115,8 @@
 
     <div id="controls-modal" class="modal-overlay">
         <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
-                <h3 class="modal-title" style="margin: 0; font-size: 1.3rem; color: var(--text-main);">⌨️ Guía de Controles</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
+                <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
                 <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
             </div>
             <div class="controls-grid"></div>
@@ -127,9 +127,9 @@
         
         <!-- 🎬 Reproductor -->
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
-            <div class="panel-header video-info-bar" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color); display:flex; justify-content: space-between; align-items: center;">
+            <div class="panel-header video-info-bar" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
                 <div class="video-info-left" style="pointer-events: none;">
-                    <span id="v-name" class="info-text-white" style="max-width: 400px; font-weight: normal; font-size: 0.8rem; color: var(--text-main); text-shadow:none;">🎥 Sin video</span>
+                    <span id="v-name" class="info-text-white" style="max-width: 400px; font-weight: normal; font-size: 0.8rem; color:#e2e8f0; text-shadow:none;">🎥 Sin video</span>
                 </div>
                 <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal;">
                     <span id="v-res" class="fixed-info" style="color:#38bdf8; font-weight: normal;">--x--</span> <span class="divider">|</span> 
@@ -143,9 +143,8 @@
             </div>
             
             <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 35px);">
-                <!-- 🎯 FIX: El video wrapper DEBE ser negro para los márgenes del video real, independientemente del modo -->
                 <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #000;">
-                    <div id="video-empty-state" style="color: #fff;">📂 Suelta tus archivos aquí</div>
+                    <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
                     <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
                     
                     <div id="speed-overlay" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); color: #38bdf8; padding: 15px 30px; border-radius: 8px; font-size: 2rem; font-weight: bold; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10; font-family: monospace; border: 2px solid #38bdf8; box-shadow: 0 0 15px rgba(56,189,248,0.5);">1.0x</div>
@@ -172,30 +171,30 @@
 
         <!-- 📂 Gestor de Archivos -->
         <div id="panel-tracks" class="workspace-panel" data-title="📂 Gestor de Archivos">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color);">
-                <span style="font-weight: bold; color: var(--text-main);">📂 Gestor de Archivos</span>
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold;">📂 Gestor de Archivos</span>
                 <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1.1rem; padding:0 5px;" title="Añadir Archivos (Video o Scripts)">➕</button>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column;">
-                <div id="tracks-list" class="tracks-list-container" style="flex-grow: 1;"><span class="empty-tracks-msg" style="color: var(--text-muted);">No hay archivos cargados.</span></div>
+                <div id="tracks-list" class="tracks-list-container" style="flex-grow: 1;"><span class="empty-tracks-msg">No hay archivos cargados.</span></div>
             </div>
         </div>
 
         <!-- ⭐ Presets -->
         <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color);">
-                <span style="font-weight: bold; color: var(--text-main);">⭐ Presets</span>
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold;">⭐ Presets</span>
             </div>
             <div class="panel-content">
                 <button id="save-preset-btn" class="menu-btn purple-btn" style="width: 100%; margin-bottom: 8px;">Guardar Selección</button>
-                <div id="presets-list" class="presets-list-container"><span class="empty-log" style="color: var(--text-muted);">No hay presets aún.</span></div>
+                <div id="presets-list" class="presets-list-container"><span class="empty-log">No hay presets aún.</span></div>
             </div>
         </div>
 
         <!-- 🎚️ Ajuste Puntos -->
         <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color); display:flex; justify-content: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">🎚️ Ajuste</span>
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎚️ Ajuste</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                 <div class="vertical-slider-wrapper">
@@ -207,11 +206,11 @@
 
         <!-- ⚡ Inyector Rápido -->
         <div id="panel-quick" class="workspace-panel" data-title="⚡ Inyector Rápido">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color);">
-                <span style="font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">⚡ Inyector Rápido</span>
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">⚡ Inyector Rápido</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-bottom: 15px;">Ajusta topes y usa <strong>Ctrl + Flechas</strong>.</p>
+                <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta topes y usa <strong>Ctrl + Flechas</strong>.</p>
                 <div class="dual-slider-labels">
                     <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 70%</span>
                 </div>
@@ -225,10 +224,10 @@
 
         <!-- 🤖 Digital Twin -->
         <div id="panel-twin" class="workspace-panel" data-title="🤖 Digital Twin">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color); display:flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">🤖 Digital Twin 3D</span>
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🤖 Digital Twin 3D</span>
                 <div style="display: flex; align-items: center; gap: 10px;" onmousedown="event.stopPropagation()">
-                    <button id="twin-anatomy-btn" class="track-btn" style="color: var(--text-muted); font-size:1.1rem; padding:0 5px;" title="Mostrar/Ocultar Referencia Anatómica">🙈</button>
+                    <button id="twin-anatomy-btn" class="track-btn" style="color:#94a3b8; font-size:1.1rem; padding:0 5px;" title="Mostrar/Ocultar Referencia Anatómica">🙈</button>
                     <span id="twin-status-txt" style="font-family:monospace; font-size:0.6rem; color:#10b981;">EN LÍNEA</span>
                 </div>
             </div>
@@ -240,26 +239,26 @@
 
         <!-- 🎭 Humanizador -->
         <div id="panel-humanizer" class="workspace-panel" data-title="🎭 Humanizador">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color); display:flex; justify-content: flex-start; align-items: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">🎭 Humanizador</span>
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: flex-start; align-items: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎭 Humanizador</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 15px; overflow-y: auto;">
-                <p style="font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-bottom: 10px; line-height: 1.3;">Añade micro-errores humanos de forma inteligente al patrón.</p>
+                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Añade micro-errores humanos de forma inteligente al patrón.</p>
                 
-                <label class="oc-label" style="background: var(--bg-input); border-radius: 6px; padding: 8px 10px; width: 100%; display: flex; justify-content: center; margin-bottom: 15px; border: 1px solid var(--border-color); transition: all 0.2s;">
+                <label class="oc-label" style="background: rgba(15, 23, 42, 0.5); border-radius: 6px; padding: 8px 10px; width: 100%; display: flex; justify-content: center; margin-bottom: 15px; border: 1px solid #1e293b; transition: all 0.2s;">
                     <input type="checkbox" id="hum-auto-toggle" class="oc-toggle" checked> 
                     <span class="oc-text" style="font-weight:bold; color:#10b981;">Modo 100% Automático</span>
                 </label>
 
                 <div id="hum-manual-controls" style="width: 100%; display: none; opacity: 0; transition: opacity 0.3s; margin-bottom: 10px;">
                     <div style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-main); margin-bottom: 5px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
                             <span>Límite de Tiempo:</span> <span id="hum-time-val" style="color: #38bdf8; font-weight: bold;">±15 ms</span>
                         </div>
                         <input type="range" id="hum-time-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="50" step="1" value="15">
                     </div>
                     <div style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-main); margin-bottom: 5px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
                             <span>Límite de Posición:</span> <span id="hum-pos-val" style="color: #f97316; font-weight: bold;">±3%</span>
                         </div>
                         <input type="range" id="hum-pos-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="15" step="1" value="3">
@@ -272,20 +271,20 @@
 
         <!-- 🥁 Auto-Ritmo -->
         <div id="panel-bpm" class="workspace-panel" data-title="🥁 Auto-Ritmo">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color); display:flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">🥁 Auto-Ritmo (BPM)</span>
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🥁 Auto-Ritmo (BPM)</span>
                 <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:1rem; padding:0 5px;" title="Borrar Marcadores">🗑️</button>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
-                <p style="font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-bottom: 10px; line-height: 1.3;">Detecta los golpes de la música y coloca marcadores azules automáticamente.</p>
+                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Detecta los golpes de la música y coloca marcadores azules automáticamente.</p>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-main); margin-bottom: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
                         <span>Fuerza del Golpe:</span> <span id="bpm-sens-val" style="color: #0ea5e9; font-weight: bold;">75%</span>
                     </div>
                     <input type="range" id="bpm-sens-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="10" max="100" step="1" value="75">
                 </div>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-main); margin-bottom: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
                         <span>Tipo de Sonido (Filtro):</span> <span id="bpm-freq-val" style="color: #8b5cf6; font-weight: bold;">120 Hz</span>
                     </div>
                     <input type="range" id="bpm-freq-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="50" max="300" step="10" value="120">
@@ -296,13 +295,13 @@
 
         <!-- 🎛️ Moldeador -->
         <div id="panel-mass" class="workspace-panel" data-title="🎛️ Moldeador">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color); display:flex; justify-content: flex-start; align-items: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color: var(--text-muted);">🎛️ Moldeador de Patrones</span>
+            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: flex-start; align-items: center;">
+                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🎛️ Moldeador de Patrones</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
-                <p style="font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-bottom: 10px; line-height: 1.3;">Ajusta el tamaño o la altura de muchos puntos a la vez sin arruinar su ritmo.</p>
+                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Ajusta el tamaño o la altura de muchos puntos a la vez sin arruinar su ritmo.</p>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-main); margin-bottom: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
                         <span>Tamaño del Movimiento:</span> <span id="mass-scale-val" style="color: #38bdf8; font-weight: bold;">100%</span>
                     </div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
@@ -311,7 +310,7 @@
                     </div>
                 </div>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-main); margin-bottom: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
                         <span>Altura Base (Subir/Bajar):</span> <span id="mass-offset-val" style="color: #f97316; font-weight: bold;">0%</span>
                     </div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
@@ -325,9 +324,9 @@
 
         <!-- 📈 Línea de Tiempo -->
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
-            <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid var(--border-color);">
-                <span style="font-weight: bold; width: 150px; color: var(--text-main);">📈 Línea de Tiempo</span>
-                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.8rem; font-family: monospace; color: var(--text-muted);">
+            <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
+                <span style="font-weight: bold; width: 150px;">📈 Línea de Tiempo</span>
+                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.8rem; font-family: monospace; color: var(--text-dim, #94a3b8);">
                      <span>Saltos:</span>
                      <div class="fps-control">
                         <button id="fps-btn-down" class="fps-btn">◀</button>
@@ -337,7 +336,7 @@
                      <span>fps</span>
                 </div>
                 <div style="width: 250px; text-align: right;">
-                    <span id="timeline-stats" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; white-space: nowrap;">Puntos: 0 | Velocidad: --</span>
+                    <span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Velocidad: --</span>
                 </div>
             </div>
             <div class="panel-content" style="position: relative; padding: 0;">
@@ -347,16 +346,16 @@
 
     </div>
 
-    <script src="workspace.js?v=1.15.0"></script>
-    <script src="handy.js?v=1.15.0"></script> 
-    <script src="funscript.js?v=1.15.0"></script>
-    <script src="player.js?v=1.15.0"></script>
-    <script src="tracking.js?v=1.15.0"></script>
-    <script src="presets.js?v=1.15.0"></script>
-    <script src="timeline.js?v=1.15.0"></script>
-    <script src="twin.js?v=1.15.0"></script>
-    <script src="humanizer.js?v=1.15.0"></script>
-    <script src="bpm.js?v=1.15.0"></script>
-    <script src="mass.js?v=1.15.0"></script>
+    <script src="workspace.js?v=1.14.0"></script>
+    <script src="handy.js?v=1.14.0"></script> 
+    <script src="funscript.js?v=1.14.0"></script>
+    <script src="player.js?v=1.14.0"></script>
+    <script src="tracking.js?v=1.14.0"></script>
+    <script src="presets.js?v=1.14.0"></script>
+    <script src="timeline.js?v=1.14.0"></script>
+    <script src="twin.js?v=1.14.0"></script>
+    <script src="humanizer.js?v=1.14.0"></script>
+    <script src="bpm.js?v=1.14.0"></script>
+    <script src="mass.js?v=1.14.0"></script>
 </body>
 </html>
