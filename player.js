@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.12.0 (NUEVOS CONTROLES E INYECTOR)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.13.0 (NUEVOS CONTROLES Y SPEED OVERLAY)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -165,16 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('point-slider')) document.getElementById('point-slider').step = window.snapValue;
     if (document.getElementById('min-slider')) document.getElementById('min-slider').step = window.snapValue;
     if (document.getElementById('max-slider')) document.getElementById('max-slider').step = window.snapValue;
-
-    const cacheBtn = document.getElementById('menu-cache-btn');
-    if (cacheBtn) {
-        cacheBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (confirm('¿Borrar caché temporal y recargar? (Tus presets y el acomodo de pestañas NO se perderán)')) {
-                location.reload(true);
-            }
-        });
-    }
 
     const controlsModal = document.getElementById('controls-modal');
     document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
@@ -461,6 +451,16 @@ videoPlayer?.addEventListener('volumechange', () => {
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
+// 🎯 FIX: Función para feedback de velocidad en el video
+function showSpeedOverlay(speed) {
+    const overlay = document.getElementById('speed-overlay');
+    if(!overlay) return;
+    overlay.innerText = speed.toFixed(1) + 'x';
+    overlay.style.opacity = '1';
+    clearTimeout(window.speedOverlayTimeout);
+    window.speedOverlayTimeout = setTimeout(() => { overlay.style.opacity = '0'; }, 800);
+}
+
 window.addEventListener('keydown', (event) => {
     if ((event.target.tagName === 'INPUT' && event.target.type === 'text') || event.target.tagName === 'TEXTAREA' || event.target.type === 'number') return;
 
@@ -544,7 +544,6 @@ window.addEventListener('keydown', (event) => {
 
     const key = event.key.toLowerCase();
 
-    // 🎯 FIX: Nueva tecla para Ancla de Sincronización
     if (key === '.') {
         event.preventDefault();
         window.dispatchEvent(new Event('toggleSyncPoint'));
@@ -657,7 +656,7 @@ window.addEventListener('keydown', (event) => {
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
         
-        // 🎯 FIX: Ctrl + Flechas Arriba/Abajo = INYECTOR RÁPIDO
+        // 🎯 FIX: Controles de Inyector Rápido movidos a Ctrl + Flechas
         if (key === 'arrowup' || key === 'arrowdown') {
             event.preventDefault(); event.stopPropagation();
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
@@ -676,7 +675,7 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
-    // 🎯 FIX: Flechas Simples (Sin Ctrl) = MOVER PUNTO (Nudge Posición)
+    // 🎯 FIX: Las Flechas Solas ahora Mueven la Selección (Nudge Points)
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
@@ -685,7 +684,6 @@ window.addEventListener('keydown', (event) => {
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
         } 
         else if (key === 'arrowleft' || key === 'arrowright') {
-            // Flecha simple Izquierda/Derecha navega o mueve el tiempo
             if (!isPlaying && hasSelection) {
                 window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
             }
@@ -699,8 +697,22 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); 
         if(videoPlayer) videoPlayer.muted = !videoPlayer.muted; 
     }
-    if (key === 'e' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.max(0.1, currentSpeed - 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
-    if (key === 'r' && !event.ctrlKey) { event.preventDefault(); currentSpeed = Math.min(5.0, currentSpeed + 0.1); videoPlayer.playbackRate = currentSpeed; if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; }
+    
+    // 🎯 FIX: Velocidad con feedback visual
+    if (key === 'e' && !event.ctrlKey) { 
+        event.preventDefault(); 
+        currentSpeed = Math.max(0.1, currentSpeed - 0.1); 
+        videoPlayer.playbackRate = currentSpeed; 
+        if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; 
+        showSpeedOverlay(currentSpeed);
+    }
+    if (key === 'r' && !event.ctrlKey) { 
+        event.preventDefault(); 
+        currentSpeed = Math.min(5.0, currentSpeed + 0.1); 
+        videoPlayer.playbackRate = currentSpeed; 
+        if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; 
+        showSpeedOverlay(currentSpeed);
+    }
     
     const forcePan = (exactTimeMs) => {
         if (exactTimeMs !== undefined) window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: exactTimeMs } }));
