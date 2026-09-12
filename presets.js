@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.14.0 (NUEVO VISUAL DE ANCLA ⚓)
+// PRESETS MANAGER V1.15.0 (COMPATIBILIDAD NATIVA CON MODO CLARO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -29,9 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!container) return;
             container.innerHTML = '';
             if (window.presetsLibrary.length === 0) {
-                container.innerHTML = '<span class="empty-log">No hay presets aún.</span>';
+                container.innerHTML = '<span class="empty-log" style="color: var(--text-muted);">No hay presets aún.</span>';
                 return;
             }
+
+            // 🎯 FIX: Leer si es modo claro para pintar los mini-canvas de los presets
+            const isLight = document.body.classList.contains('light-theme');
+            const thumbBg = isLight ? 'var(--bg-input)' : '#0f172a';
 
             window.presetsLibrary.forEach((preset, index) => {
                 const card = document.createElement('div');
@@ -80,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px;"></canvas>
+                    <canvas id="${canvasId}" width="60" height="30" style="background:${thumbBg}; border-radius:4px; margin:0 10px;"></canvas>
                     ${!isModal ? `<button class="delete-preset-btn" title="Eliminar Preset">🗑️</button>` : ''}
                 `;
                 
@@ -197,9 +201,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPresetsLibrary(); closePresetEditor();
     });
 
-    function drawPresetEditor() {
+    // 🎯 FIX: Variables dinámicas inyectadas al motor gráfico del editor
+    window.drawPresetEditor = function() {
         if (!pCtx || !pCanvas || modal.style.display !== 'flex') return;
         
+        const isLight = document.body.classList.contains('light-theme');
+        const bgColor = isLight ? '#f8fafc' : '#06090e';
+        const gridColor = isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
+        const colBgColor = isLight ? '#ffffff' : '#1e293b';
+        const textColor = isLight ? '#64748b' : '#94a3b8';
+
         const parent = pCanvas.parentElement;
         if(pCanvas.width !== parent.clientWidth) pCanvas.width = parent.clientWidth;
         if(pCanvas.height !== parent.clientHeight) pCanvas.height = parent.clientHeight;
@@ -210,13 +221,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const xToTime = (x) => pScrollX + (x - 30) / (pBasePixelsPerMs * pZoom);
         const posToY = (p) => { const pad = 30; return pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad); };
 
-        pCtx.fillStyle = '#06090e'; pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
+        pCtx.fillStyle = bgColor; pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
 
-        pCtx.strokeStyle = 'rgba(255,255,255,0.05)'; pCtx.lineWidth = 1;
+        pCtx.strokeStyle = gridColor; pCtx.lineWidth = 1;
         [0, 25, 50, 75, 100].forEach(p => { const y = posToY(p); pCtx.beginPath(); pCtx.moveTo(30, y); pCtx.lineTo(pCanvas.width, y); pCtx.stroke(); });
 
-        pCtx.fillStyle = '#1e293b'; pCtx.fillRect(0,0, 30, pCanvas.height);
-        pCtx.fillStyle = '#94a3b8'; pCtx.font = '10px monospace';
+        pCtx.fillStyle = colBgColor; pCtx.fillRect(0,0, 30, pCanvas.height);
+        pCtx.fillStyle = textColor; pCtx.font = '10px monospace';
         [0, 25, 50, 75, 100].forEach(p => { pCtx.fillText(`${p}%`, 2, posToY(p) + 4); });
 
         const visibleMs = (pCanvas.width - 30) / (pBasePixelsPerMs * pZoom);
@@ -225,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         while(t <= xToTime(pCanvas.width)) {
             if (t >= 0) {
                 const x = timeToX(t);
-                if (x >= 30) { pCtx.strokeStyle='rgba(255,255,255,0.05)'; pCtx.beginPath(); pCtx.moveTo(x,0); pCtx.lineTo(x,pCanvas.height); pCtx.stroke(); pCtx.fillText(`${t/1000}s`, x+2, 10); }
+                if (x >= 30) { pCtx.strokeStyle=gridColor; pCtx.beginPath(); pCtx.moveTo(x,0); pCtx.lineTo(x,pCanvas.height); pCtx.stroke(); pCtx.fillText(`${t/1000}s`, x+2, 10); }
             }
             t += stepMs;
         }
@@ -266,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-    }
+    };
 
     const pXToTime = (x) => pScrollX + (x - 30) / (pBasePixelsPerMs * pZoom);
     const pYToPos = (y) => { const pad=30; return Math.max(0, Math.min(100, Math.round(((pCanvas.height - pad - y) / (pCanvas.height - 2*pad)) * 100))); };
@@ -282,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pan = ((pCanvas.width-30)/(pBasePixelsPerMs*pZoom)) * 0.1;
             pScrollX = Math.max(0, pScrollX + (e.deltaY < 0 ? pan : -pan));
         }
-        drawPresetEditor();
+        if(typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
     }, {passive:false});
 
     pCanvas?.addEventListener('mousedown', (e) => {
@@ -310,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (e.button === 2) {
             window.presetEditorActions = window.presetEditorActions.filter(a => Math.hypot(mx - timeToX(a.at), my - posToY(a.pos)) > 10);
         }
-        drawPresetEditor();
+        if(typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
     });
 
     pCanvas?.addEventListener('mousemove', (e) => {
@@ -336,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 a.selected = (a.at >= minT && a.at <= maxT && ay >= minY && ay <= maxY);
             });
         }
-        if(isDraggingPNode || isSelectingP) drawPresetEditor();
+        if(isDraggingPNode || isSelectingP) if(typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
     });
 
     pCanvas?.addEventListener('mouseup', (e) => {
@@ -354,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.presetEditorActions.sort((a,b)=>a.at-b.at);
         for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
         isDraggingPNode = false; pDragSelectionInitial = []; isSelectingP = false; draggedPNodeIndex = -1;
-        drawPresetEditor();
+        if(typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
     });
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
@@ -386,8 +397,10 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
         
         window.isDraggingPreset = false; window.timelineGhostPreset = null;
-        drawPresetEditor();
+        if(typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
     });
 
     renderPresetsLibrary();
+    // Re-renderizar si cambias el tema en vivo
+    document.getElementById('menu-theme-btn')?.addEventListener('click', () => { setTimeout(() => { renderPresetsLibrary(); if(typeof window.drawPresetEditor === 'function') window.drawPresetEditor(); }, 100); });
 });
