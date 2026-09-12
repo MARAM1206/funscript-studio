@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.5.1 (MOTOR MAGNÉTICO DE ALINEACIÓN AVANZADA)
+// WORKSPACE MANAGER V1.12.0 (LIMPIEZA DE IA DIRECTOR)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -8,10 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetBtn = document.getElementById('menu-reset-layout-btn');
     let highestZIndex = 100;
     
-    // 🎯 FIX: Física Cuántica de Alineación
-    const SNAP_DIST = 12; // Distancia de atracción magnética
-    const GAP = 10;       // Margen elegante entre ventanas
-    const VERSION = 'funscript_workspace_v10'; // Memoria limpia
+    const SNAP_DIST = 12; 
+    const GAP = 10;       
+    const VERSION = 'funscript_workspace_v11'; 
 
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
@@ -23,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-humanizer': { left: 970, top: 10, width: 250, height: 240, visible: true },
         'panel-bpm': { left: 350, top: 10, width: 250, height: 260, visible: false }, 
         'panel-mass': { left: 350, top: 220, width: 250, height: 320, visible: false }, 
-        'panel-director': { left: 350, top: 100, width: 300, height: 320, visible: false }, 
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
@@ -43,14 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(VERSION, JSON.stringify(layoutState));
     }
 
-    // 🎯 FIX: Botón "Restaurar Pestañas" de emergencia
     if (resetBtn) {
         resetBtn.addEventListener('click', (e) => {
             e.preventDefault();
             layoutState = JSON.parse(JSON.stringify(defaultLayout));
             localStorage.setItem(VERSION, JSON.stringify(layoutState));
             location.reload(); 
-            // Nota: El recargo no borra localStorage de presets, solo reinicia la UI.
         });
     }
 
@@ -128,29 +124,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     let newR = newL + panel.offsetWidth;
                     let newB = newT + panel.offsetHeight;
 
-                    // 1. Alineación a los bordes de la pantalla
                     if (Math.abs(newL) < SNAP_DIST) newL = GAP;
                     if (Math.abs(newT) < SNAP_DIST) newT = GAP;
                     if (Math.abs(container.clientWidth - newR) < SNAP_DIST) newL = container.clientWidth - panel.offsetWidth - GAP;
                     if (Math.abs(container.clientHeight - newB) < SNAP_DIST) newT = container.clientHeight - panel.offsetHeight - GAP;
 
-                    // 2. Alineación Magnética contra otras pestañas (Mover)
                     panels.forEach(other => {
                         if (other === panel || other.style.display === 'none') return;
                         let oL = other.offsetLeft, oT = other.offsetTop;
                         let oR = oL + other.offsetWidth, oB = oT + other.offsetHeight;
 
-                        // Imán en el Eje X (Izquierda/Derecha)
-                        if (Math.abs(newR - (oL - GAP)) < SNAP_DIST) newL = oL - panel.offsetWidth - GAP; // Pega a la izquierda de otro
-                        else if (Math.abs(newL - (oR + GAP)) < SNAP_DIST) newL = oR + GAP;                // Pega a la derecha de otro
-                        else if (Math.abs(newL - oL) < SNAP_DIST) newL = oL;                              // Iguala el borde izquierdo
-                        else if (Math.abs(newR - oR) < SNAP_DIST) newL = oR - panel.offsetWidth;          // Iguala el borde derecho
+                        if (Math.abs(newR - (oL - GAP)) < SNAP_DIST) newL = oL - panel.offsetWidth - GAP; 
+                        else if (Math.abs(newL - (oR + GAP)) < SNAP_DIST) newL = oR + GAP;                
+                        else if (Math.abs(newL - oL) < SNAP_DIST) newL = oL;                              
+                        else if (Math.abs(newR - oR) < SNAP_DIST) newL = oR - panel.offsetWidth;          
 
-                        // Imán en el Eje Y (Arriba/Abajo)
-                        if (Math.abs(newB - (oT - GAP)) < SNAP_DIST) newT = oT - panel.offsetHeight - GAP; // Pega arriba de otro
-                        else if (Math.abs(newT - (oB + GAP)) < SNAP_DIST) newT = oB + GAP;                 // Pega debajo de otro
-                        else if (Math.abs(newT - oT) < SNAP_DIST) newT = oT;                               // Iguala el techo
-                        else if (Math.abs(newB - oB) < SNAP_DIST) newT = oB - panel.offsetHeight;          // Iguala el suelo
+                        if (Math.abs(newB - (oT - GAP)) < SNAP_DIST) newT = oT - panel.offsetHeight - GAP; 
+                        else if (Math.abs(newT - (oB + GAP)) < SNAP_DIST) newT = oB + GAP;                 
+                        else if (Math.abs(newT - oT) < SNAP_DIST) newT = oT;                               
+                        else if (Math.abs(newB - oB) < SNAP_DIST) newT = oB - panel.offsetHeight;          
                     });
 
                     panel.style.left = newL + 'px';
@@ -192,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const onMouseMove = (ev) => {
                     let nw = startW, nh = startH, nl = startL, nt = startT;
 
-                    // 🎯 FIX: Alineación Magnética Inteligente al Redimensionar
                     if (type.includes('e')) {
                         let proposedR = startL + startW + (ev.clientX - startX);
                         let snappedR = proposedR;
