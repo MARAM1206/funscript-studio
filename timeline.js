@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.12.0 (PUNTOS DE CONTACTO PARA ALINEACIÓN EXACTA DE PRESETS)
+// TIMELINE V1.12.0 (SYNC POINTS Y EXTERMINIO PERFECTO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -64,40 +64,20 @@ let dragStartYPos = 0;
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
 
-window.magneticSnapPoint = null;
-window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
-// 🎯 FIX: Escuchador del Punto de Contacto
-window.addEventListener('toggleContactPoint', () => {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    const actions = getSafeActions();
-    let moved = false;
-    actions.forEach(a => {
-        if (a.selected) {
-            a.isContact = !a.isContact;
-            moved = true;
-        }
-    });
-    if (moved) {
-        saveHistoryState();
-        notifyCloud(); window.updateHeatmapAndStats();
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    }
-});
-
-function pDistance(x, y, x1, y1, x2, y2) {
-    var A = x - x1; var B = y - y1; var C = x2 - x1; var D = y2 - y1;
-    var dot = A * C + B * D; var len_sq = C * C + D * D; var param = -1;
-    if (len_sq != 0) param = dot / len_sq;
-    var xx, yy;
-    if (param < 0) { xx = x1; yy = y1; }
-    else if (param > 1) { xx = x2; yy = y2; }
-    else { xx = x1 + param * C; yy = y1 + param * D; }
-    var dx = x - xx; var dy = y - yy;
-    return Math.sqrt(dx * dx + dy * dy);
+function formatTimelineLabel(timeMs) {
+    const isNeg = timeMs < 0;
+    const totalSecs = Math.abs(timeMs) / 1000;
+    let sign = isNeg ? "-" : "";
+    if (totalSecs < 60) return `${sign}${totalSecs.toFixed(1)}s`; 
+    const m = Math.floor(totalSecs / 60);
+    const s = (totalSecs % 60).toFixed(1).padStart(4, '0');
+    return `${sign}${m}:${s.replace('.0', '')}`;
 }
+
+function notifyCloud() { if (typeof window.triggerHandyUpdate === 'function') window.triggerHandyUpdate(); }
 
 function cleanDuplicates() {
     const actions = getSafeActions();
@@ -127,7 +107,38 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: MAGIA DE ALINEACIÓN: Bounding Box Y-Scaling respetando "Puntos de Contacto"
+// 🎯 FIX: Escucha global para convertir puntos seleccionados en Anclas de Sync (Tecla .)
+window.addEventListener('toggleSyncPoint', () => {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    
+    // Primero checa si el modal de preset está abierto
+    const modal = document.getElementById('preset-editor-modal');
+    if (modal && modal.style.display === 'flex') {
+        if (window.presetEditorActions) {
+            let moved = false;
+            window.presetEditorActions.forEach(a => {
+                if (a.selected) { a.isSync = !a.isSync; moved = true; }
+            });
+            if (moved && typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
+        }
+        return;
+    }
+
+    // Sino, actúa sobre la línea de tiempo principal
+    const actions = getSafeActions();
+    let moved = false;
+    actions.forEach(act => {
+        if (act.selected) { act.isSync = !act.isSync; moved = true; }
+    });
+    
+    if (moved) {
+        saveHistoryState();
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        notifyCloud();
+    }
+});
+
+// 🎯 FIX: Motor de Morphing con ANCLADO CUÁNTICO (Sync Points)
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
     let result = [];
@@ -139,7 +150,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     let pRange = presetMax - presetMin;
     if (pRange === 0) pRange = 1;
 
-    let presetContact = preset.find(a => a.isContact); // Buscar si el preset tiene punto de contacto
+    let presetSync = preset.find(a => a.isSync);
 
     if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
         for (let i = 0; i < startOrMarkers.length - 1; i++) {
@@ -149,38 +160,45 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
             if (targetDuration <= 0) continue;
 
             let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
+            let targetSync = existing.find(a => a.isSync);
+            
             let oMin = 0, oMax = 100;
             let hasExisting = existing.length > 0;
-            let targetContact = null;
-
             if (hasExisting) {
                 oMin = Math.min(...existing.map(a => a.pos));
                 oMax = Math.max(...existing.map(a => a.pos));
-                targetContact = existing.find(a => a.isContact); // Buscar si la zona vieja tiene contacto
             }
-
-            // Si ambas partes tienen punto de contacto, activamos la Alineación Exacta por Desplazamiento
-            let useContactSync = presetContact && targetContact;
-            let contactDeltaY = useContactSync ? (targetContact.pos - presetContact.pos) : 0;
 
             for (let j = 0; j < preset.length; j++) {
                 if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
                 
                 let mappedPos = preset[j].pos;
-                
-                if (useContactSync) {
-                    // Alineación exacta por el punto marcado
-                    mappedPos = Math.max(0, Math.min(100, mappedPos + contactDeltaY));
-                } else if (hasExisting && (oMax - oMin) > 10) { 
-                    // Si no hay punto de contacto, usamos adaptación por topes
+                if (hasExisting && (oMax - oMin) > 10) { 
                     let norm = (preset[j].pos - presetMin) / pRange;
                     mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
                 }
 
+                // Si ambos tienen ancla (Sync Point), el tiempo se curva alrededor de ella
+                let newAt = 0;
+                if (presetSync && targetSync) {
+                    if (preset[j].at <= presetSync.at) {
+                        let ratio = presetSync.at > 0 ? (preset[j].at / presetSync.at) : 0;
+                        newAt = t1 + ratio * (targetSync.at - t1);
+                    } else {
+                        let remP = p_dur - presetSync.at;
+                        let remT = t2 - targetSync.at;
+                        let ratio = remP > 0 ? ((preset[j].at - presetSync.at) / remP) : 0;
+                        newAt = targetSync.at + ratio * remT;
+                    }
+                    if (preset[j].isSync) mappedPos = targetSync.pos; // El ancla clava exactamente el %
+                } else {
+                    newAt = t1 + (preset[j].at / p_dur) * targetDuration;
+                }
+
                 result.push({
-                    at: Math.round(t1 + (preset[j].at / p_dur) * targetDuration),
+                    at: Math.round(newAt),
                     pos: mappedPos,
-                    isContact: preset[j].isContact // Respetar la propiedad
+                    isSync: preset[j].isSync || false
                 });
             }
         }
@@ -191,34 +209,44 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
         if (targetDuration <= 0) return null;
 
         let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
+        let targetSync = existing.find(a => a.isSync);
         let oMin = 0, oMax = 100;
         let hasExisting = existing.length > 0;
-        let targetContact = null;
-
         if (hasExisting) {
             oMin = Math.min(...existing.map(a => a.pos));
             oMax = Math.max(...existing.map(a => a.pos));
-            targetContact = existing.find(a => a.isContact);
         }
 
-        let useContactSync = presetContact && targetContact;
-        let contactDeltaY = useContactSync ? (targetContact.pos - presetContact.pos) : 0;
-
         if (window.presetFillMode === 'stretch') {
-            result = preset.map(act => {
-                let mappedPos = act.pos;
-                if (useContactSync) {
-                    mappedPos = Math.max(0, Math.min(100, mappedPos + contactDeltaY));
-                } else if (hasExisting && (oMax - oMin) > 10) {
-                    let norm = (act.pos - presetMin) / pRange;
+            for (let j = 0; j < preset.length; j++) {
+                let mappedPos = preset[j].pos;
+                if (hasExisting && (oMax - oMin) > 10) {
+                    let norm = (preset[j].pos - presetMin) / pRange;
                     mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
                 }
-                return {
-                    at: Math.round(t_start + (act.at / p_dur) * targetDuration),
+
+                let newAt = 0;
+                if (presetSync && targetSync) {
+                    if (preset[j].at <= presetSync.at) {
+                        let ratio = presetSync.at > 0 ? (preset[j].at / presetSync.at) : 0;
+                        newAt = t_start + ratio * (targetSync.at - t_start);
+                    } else {
+                        let remP = p_dur - presetSync.at;
+                        let remT = t_end - targetSync.at;
+                        let ratio = remP > 0 ? ((preset[j].at - presetSync.at) / remP) : 0;
+                        newAt = targetSync.at + ratio * remT;
+                    }
+                    if (preset[j].isSync) mappedPos = targetSync.pos; 
+                } else {
+                    newAt = t_start + (preset[j].at / p_dur) * targetDuration;
+                }
+
+                result.push({
+                    at: Math.round(newAt),
                     pos: mappedPos,
-                    isContact: act.isContact
-                };
-            });
+                    isSync: preset[j].isSync || false
+                });
+            }
         } else {
             const reps = window.presetFillReps || 1;
             const repDuration = targetDuration / reps;
@@ -228,17 +256,14 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                     if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
                     
                     let mappedPos = preset[i].pos;
-                    if (useContactSync) {
-                        mappedPos = Math.max(0, Math.min(100, mappedPos + contactDeltaY));
-                    } else if (hasExisting && (oMax - oMin) > 10) {
+                    if (hasExisting && (oMax - oMin) > 10) {
                         let norm = (preset[i].pos - presetMin) / pRange;
                         mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
                     }
-
                     result.push({
                         at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
                         pos: mappedPos,
-                        isContact: preset[i].isContact
+                        isSync: preset[i].isSync || false
                     });
                 }
             }
@@ -256,7 +281,8 @@ window.updateHeatmapAndStats = function() {
         let colorHtml = isLight ? "#94a3b8" : "#94a3b8"; 
 
         if (actions.length > 1) {
-            let totalSegmentSpeed = 0; let validSegments = 0;
+            let totalSegmentSpeed = 0;
+            let validSegments = 0;
             for (let i = 1; i < actions.length; i++) {
                 let dt = (actions[i].at - actions[i-1].at) / 1000.0;
                 let dp = Math.abs(actions[i].pos - actions[i-1].pos);
@@ -272,25 +298,16 @@ window.updateHeatmapAndStats = function() {
         } else if (actions.length === 1) {
             speedText = "Slow (0)"; colorHtml = document.body.classList.contains('light-theme') ? "#059669" : "#10b981";
         }
-        statsSpan.innerHTML = `Puntos: <strong style="color:var(--text-main, #e2e8f0);">${actions.length}</strong> &nbsp;|&nbsp; Velocidad: <strong style="color: ${colorHtml}; text-shadow: 0 0 5px ${colorHtml}88; white-space: nowrap;">${speedText}</strong>`;
+        statsSpan.innerHTML = `Puntos: <strong style="color:var(--text-main, #e2e8f0);">${actions.length}</strong> &nbsp;|&nbsp; Vel: <strong style="color: ${colorHtml};">${speedText}</strong>`;
     }
 
     const hCanvas = document.getElementById('heatmap-canvas');
     if (!hCanvas) return;
     
-    let totalDurationMs = 0;
-    if (videoNode && videoNode.duration) totalDurationMs = videoNode.duration * 1000;
-    else if (actions.length > 0) totalDurationMs = actions[actions.length - 1].at;
-
-    if (totalDurationMs <= 0) {
-        hCanvas.getContext('2d').clearRect(0, 0, hCanvas.width, hCanvas.height); return;
-    }
-
-    const rect = hCanvas.getBoundingClientRect();
-    if(rect.width === 0) return; 
-    if (hCanvas.width !== rect.width) hCanvas.width = rect.width;
-    
+    let totalDurationMs = videoNode && videoNode.duration ? videoNode.duration * 1000 : (actions.length > 0 ? actions[actions.length - 1].at : 0);
     const hCtx = hCanvas.getContext('2d');
+    if (totalDurationMs <= 0 || hCanvas.getBoundingClientRect().width === 0) { hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height); return; }
+    hCanvas.width = hCanvas.getBoundingClientRect().width;
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
     const bucketCount = 150; 
@@ -327,7 +344,6 @@ window.updateHeatmapAndStats = function() {
             hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
         }
     }
-    if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
 };
 
 const originalUpdateActionsLog = window.updateActionsLog;
@@ -352,8 +368,14 @@ canvas?.addEventListener('wheel', (e) => {
         if ((videoNode && videoNode.paused) || window.isPlayingVirtual) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
             const panStep = visibleMs * 0.10; 
-            if (e.deltaY < 0) { scrollLeftMs += panStep; window.scrollMomentum = Math.min((window.scrollMomentum || 0) + 3, 10); } 
-            else { scrollLeftMs -= panStep; window.scrollMomentum = Math.max((window.scrollMomentum || 0) - 3, -10); }
+            
+            if (e.deltaY < 0) {
+                scrollLeftMs += panStep; 
+                window.scrollMomentum = Math.min((window.scrollMomentum || 0) + 3, 10);
+            } else {
+                scrollLeftMs -= panStep; 
+                window.scrollMomentum = Math.max((window.scrollMomentum || 0) - 3, -10);
+            }
             if (scrollLeftMs < 0) scrollLeftMs = 0;
             if (videoNode && videoNode.duration) {
                 const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
@@ -363,13 +385,16 @@ canvas?.addEventListener('wheel', (e) => {
     }
     
     if (isSelecting) {
-        selCurrT = xToTime(mouseX); selCurrY = mouseY;
+        selCurrT = xToTime(mouseX);
+        selCurrY = mouseY;
         const startX_px = timeToX(selStartT);
         if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
+        
         const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
         const topLimit = posToY(100);
         const minY = Math.max(topLimit, Math.min(selStartY, selCurrY)); 
         const maxY = Math.max(topLimit, Math.max(selStartY, selCurrY));
+        
         const actions = getSafeActions();
         actions.forEach(act => {
             const ny = posToY(act.pos);
@@ -388,12 +413,11 @@ window.addEventListener('forceTimelinePan', (e) => {
     if (scrollLeftMs < 0) scrollLeftMs = 0;
 });
 
-// 🎯 FIX: Preservamos isContact en el portapapeles
 window.addEventListener('copyPoints', () => {
     const selected = getSafeActions().filter(a => a.selected);
     if (selected.length > 0) {
         const baseTime = selected[0].at;
-        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos), isContact: a.isContact }));
+        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos), isSync: a.isSync||false }));
     }
 });
 
@@ -403,7 +427,7 @@ window.addEventListener('cutPoints', () => {
     const selected = actions.filter(a => a.selected);
     if (selected.length > 0) {
         const baseTime = selected[0].at;
-        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos), isContact: a.isContact }));
+        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos), isSync: a.isSync||false }));
         saveHistoryState();
         actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
         cleanDuplicates();
@@ -426,19 +450,26 @@ window.addEventListener('pastePoints', () => {
 
 canvas?.addEventListener('dragover', (e) => {
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-    e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+    e.preventDefault();
+    if(e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    
     const rect = canvas.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
     const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
-    let hoverTimeMs = xToTime(mouseX); let hoverPosRaw = yToPos(mouseY);
     
-    window.timelineGhostMouseX = mouseX; window.timelineGhostMouseY = mouseY;
+    let hoverTimeMs = xToTime(mouseX);
+    let hoverPosRaw = yToPos(mouseY);
+    
+    window.timelineGhostMouseX = mouseX;
+    window.timelineGhostMouseY = mouseY;
+    
     const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
     
     if (selectedMarkers.length >= 2) {
         window.timelineGhostTimeMs = selectedMarkers[0].at;
         window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
         window.timelineGhostMarkers = selectedMarkers;
+
         if (!window.presetFillInitialized) {
             const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
             window.presetFillMode = 'stretch';
@@ -446,20 +477,33 @@ canvas?.addEventListener('dragover', (e) => {
             window.presetFillInitialized = true;
         }
     } else {
-        window.timelineGhostMarkers = null; window.timelineGhostTargetEnd = null; window.presetFillInitialized = false;
-        const actions = getSafeActions(); const snapDistMs = 350; const actualTimeMs = window.getActualTimeMs();
+        window.timelineGhostMarkers = null;
+        window.timelineGhostTargetEnd = null;
+        window.presetFillInitialized = false;
+
+        const actions = getSafeActions();
+        const snapDistMs = 350; 
+        const actualTimeMs = window.getActualTimeMs();
+        
         const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
         const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
         const presetMid = presetDuration / 2; 
 
-        let bestSnapTime = hoverTimeMs; let minDistance = snapDistMs;
+        let bestSnapTime = hoverTimeMs;
+        let minDistance = snapDistMs;
+
         snapTargets.forEach(target => {
-            let distStart = Math.abs(hoverTimeMs - target); if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
-            let distMid = Math.abs((hoverTimeMs + presetMid) - target); if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
-            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target); if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
+            let distStart = Math.abs(hoverTimeMs - target);
+            if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
+            let distMid = Math.abs((hoverTimeMs + presetMid) - target);
+            if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
+            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
+            if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
         });
+
         if (bestSnapTime < 0) bestSnapTime = 0;
         window.timelineGhostTimeMs = bestSnapTime;
+        
         const snap = window.snapValue || 5;
         let hoverPos = Math.round(hoverPosRaw / snap) * snap;
         const basePos = window.timelineGhostPreset[0].pos;
@@ -469,21 +513,31 @@ canvas?.addEventListener('dragover', (e) => {
 
 canvas?.addEventListener('drop', (e) => {
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-    e.preventDefault(); ensureTrackExists(); let actions = getSafeActions();
+    e.preventDefault();
+    ensureTrackExists();
+    let actions = getSafeActions();
 
     if (window.timelineGhostTargetEnd) {
         const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
         if (morphed) {
             saveHistoryState();
-            let tStart = window.timelineGhostTimeMs; let tEnd = window.timelineGhostTargetEnd;
+            
+            let tStart = window.timelineGhostTimeMs;
+            let tEnd = window.timelineGhostTargetEnd;
+            
+            // EXTERMINIO ABSOLUTO (Reemplazo exacto)
             actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+
             actions.forEach(a => a.selected = false);
             morphed.forEach(m => m.selected = true);
             actions.push(...morphed);
+            
             cleanDuplicates();
             window.isDraggingPreset = false; window.timelineGhostPreset = null;
             window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
+            
             if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
             notifyCloud(); window.updateHeatmapAndStats();
             return;
@@ -493,7 +547,8 @@ canvas?.addEventListener('drop', (e) => {
     const rect = canvas.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
     let dropTimeMs = Math.round(window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX)));
-    const deltaY = window.timelineGhostDeltaPos || 0; const snap = window.snapValue || 5;
+    const deltaY = window.timelineGhostDeltaPos || 0;
+    const snap = window.snapValue || 5;
     
     saveHistoryState();
     
@@ -501,17 +556,23 @@ canvas?.addEventListener('drop', (e) => {
         at: Math.round(dropTimeMs + act.at),
         pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
         selected: true,
-        isContact: act.isContact 
+        isSync: act.isSync || false
     }));
     
-    let tStart = newActions[0].at; let tEnd = newActions[newActions.length - 1].at;
+    let tStart = newActions[0].at;
+    let tEnd = newActions[newActions.length - 1].at;
+    
+    // EXTERMINIO EN ZONA LIBRE
     actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+
     actions.forEach(a => a.selected = false); 
     actions.push(...newActions);
-    cleanDuplicates(); 
     
+    cleanDuplicates(); 
     window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+    
     if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     notifyCloud(); window.updateHeatmapAndStats();
 });
@@ -523,8 +584,15 @@ function updateDualSlider() {
     if (!sliderA || !sliderB) return;
     const valA = parseInt(sliderA.value, 10); const valB = parseInt(sliderB.value, 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
-    if (valA > valB) { sliderA.style.setProperty('--thumb-color', '#f97316'); sliderB.style.setProperty('--thumb-color', '#38bdf8'); } 
-    else { sliderA.style.setProperty('--thumb-color', '#38bdf8'); sliderB.style.setProperty('--thumb-color', '#f97316'); }
+    
+    if (valA > valB) {
+        sliderA.style.setProperty('--thumb-color', '#f97316'); 
+        sliderB.style.setProperty('--thumb-color', '#38bdf8'); 
+    } else {
+        sliderA.style.setProperty('--thumb-color', '#38bdf8'); 
+        sliderB.style.setProperty('--thumb-color', '#f97316'); 
+    }
+
     if (minLabel) minLabel.innerText = `⬇️ Mínimo: ${currentMin}%`; if (maxLabel) maxLabel.innerText = `⬆️ Máximo: ${currentMax}%`;
     if (dualFill) { dualFill.style.left = `${currentMin}%`; dualFill.style.width = `${currentMax - currentMin}%`; }
 }
@@ -535,17 +603,30 @@ sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mo
 
 window.addEventListener('injectPoint', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
-    ensureTrackExists(); const actions = getSafeActions();
+    ensureTrackExists(); 
+    const actions = getSafeActions();
+
     const timeMs = Math.round(window.getActualTimeMs());
+    
     const valA = parseInt(sliderA?.value || '20', 10); const valB = parseInt(sliderB?.value || '70', 10);
     const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
     let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
+
     saveHistoryState();
     actions.forEach(a => { a.selected = false; }); 
+    
     const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
-    if (existingIdx !== -1) { actions[existingIdx].pos = pos; actions[existingIdx].at = timeMs; actions[existingIdx].selected = true; } 
-    else { actions.push({ at: timeMs, pos: pos, selected: true }); }
+    if (existingIdx !== -1) { 
+        actions[existingIdx].pos = pos; 
+        actions[existingIdx].at = timeMs;
+        actions[existingIdx].selected = true; 
+    } 
+    else { 
+        actions.push({ at: timeMs, pos: pos, selected: true }); 
+    }
+    
     if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
     cleanDuplicates();
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     notifyCloud(); window.updateHeatmapAndStats(); 
@@ -571,17 +652,54 @@ window.addEventListener('nudgeTime', function(e) {
 
 window.addEventListener('nudgePoints', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
-    const actions = getSafeActions(); const dir = e.detail; let moved = false; const snap = window.snapValue || 5;
+    
+    const modal = document.getElementById('preset-editor-modal');
+    if (modal && modal.style.display === 'flex') {
+        if (window.presetEditorActions) {
+            const snap = window.snapValue || 5;
+            let moved = false;
+            window.presetEditorActions.forEach(act => {
+                if (act.selected) {
+                    if (e.detail === 'up') {
+                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
+                        else act.pos = Math.min(100, act.pos + snap);
+                    }
+                    if (e.detail === 'down') {
+                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
+                        else act.pos = Math.max(0, act.pos - snap);
+                    }
+                    moved = true;
+                }
+            });
+            if (moved && typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
+        }
+        return;
+    }
+
+    const actions = getSafeActions(); const dir = e.detail; let moved = false;
+    const snap = window.snapValue || 5;
     saveHistoryState();
+    
     let hasSelection = actions.some(a => a.selected);
-    if (!hasSelection) { const closest = getPointUnderPlayhead(actions); if (closest) closest.selected = true; }
+    if (!hasSelection) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; 
+    }
+
     actions.forEach(act => {
         if (act.selected) {
-            if (dir === 'up') { if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap; else act.pos = Math.min(100, act.pos + snap); }
-            if (dir === 'down') { if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap; else act.pos = Math.max(0, act.pos - snap); }
+            if (dir === 'up') {
+                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
+                else act.pos = Math.min(100, act.pos + snap);
+            }
+            if (dir === 'down') {
+                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
+                else act.pos = Math.max(0, act.pos - snap);
+            }
             moved = true;
         }
     });
+    
     if (moved) {
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); window.updateHeatmapAndStats(); 
@@ -590,7 +708,8 @@ window.addEventListener('nudgePoints', function(e) {
 
 window.addEventListener('magnetPoint', function() {
     if (document.body.classList.contains('panic-mode-active')) return;
-    const actions = getSafeActions(); const timeMs = Math.round(window.getActualTimeMs());
+    const actions = getSafeActions();
+    const timeMs = Math.round(window.getActualTimeMs());
     let moved = false; saveHistoryState();
     actions.forEach(act => { if (act.selected) { act.at = timeMs; moved = true; } });
     if (moved) {
@@ -602,13 +721,21 @@ window.addEventListener('magnetPoint', function() {
 
 window.addEventListener('deletePoints', () => {
     if (document.body.classList.contains('panic-mode-active')) return; 
-    let deletedMarker = false; const initialMarkerCount = window.timelineMarkers.length;
+
+    let deletedMarker = false;
+    const initialMarkerCount = window.timelineMarkers.length;
     window.timelineMarkers = window.timelineMarkers.filter(m => !m.selected);
-    if (window.timelineMarkers.length !== initialMarkerCount) deletedMarker = true;
+    if (window.timelineMarkers.length !== initialMarkerCount) {
+        deletedMarker = true;
+    }
 
     const actions = getSafeActions();
     let hasSelection = actions.some(a => a.selected);
-    if (!hasSelection && !deletedMarker) { const closest = getPointUnderPlayhead(actions); if (closest) closest.selected = true; }
+    if (!hasSelection && !deletedMarker) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; 
+    }
+    
     if (actions.some(a => a.selected) || deletedMarker) {
         saveHistoryState();
         actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
@@ -619,7 +746,10 @@ window.addEventListener('deletePoints', () => {
 
 window.addEventListener('undoAction', () => { undo(); });
 window.addEventListener('redoAction', () => { redo(); });
-window.addEventListener('selectAllPoints', () => { getSafeActions().forEach(a => a.selected = true); if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); });
+window.addEventListener('selectAllPoints', () => {
+    getSafeActions().forEach(a => a.selected = true);
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+});
 
 function ensureCanvasSize() {
     if (!canvas) return;
@@ -630,27 +760,61 @@ function ensureCanvasSize() {
     }
 }
 window.calculateAdaptiveZoom = function() { basePixelsPerMs = 0.1; };
+
 function saveHistoryState() { undoStack.push(JSON.stringify(getSafeActions())); if (undoStack.length > MAX_HISTORY) undoStack.shift(); redoStack = []; }
-function undo() { if (undoStack.length > 0) { redoStack.push(JSON.stringify(getSafeActions())); const parsed = JSON.parse(undoStack.pop()); window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed); if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); notifyCloud(); window.updateHeatmapAndStats(); } }
-function redo() { if (redoStack.length > 0) { undoStack.push(JSON.stringify(getSafeActions())); const parsed = JSON.parse(redoStack.pop()); window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed); if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); notifyCloud(); window.updateHeatmapAndStats(); } }
+function undo() {
+    if (undoStack.length > 0) {
+        redoStack.push(JSON.stringify(getSafeActions())); 
+        const parsed = JSON.parse(undoStack.pop());
+        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+    }
+}
+function redo() {
+    if (redoStack.length > 0) {
+        undoStack.push(JSON.stringify(getSafeActions())); 
+        const parsed = JSON.parse(redoStack.pop());
+        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+    }
+}
 function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
 function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom); }
-function posToY(pos) { const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; return canvas.height - botPad - (pos / 100) * usableHeight; }
-function yToPos(y) { const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; const rawPos = ((canvas.height - botPad - y) / usableHeight) * 100; return Math.max(0, Math.min(100, Math.round(rawPos))); }
+
+function posToY(pos) { 
+    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
+    return canvas.height - botPad - (pos / 100) * usableHeight; 
+}
+function yToPos(y) { 
+    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
+    const rawPos = ((canvas.height - botPad - y) / usableHeight) * 100; 
+    return Math.max(0, Math.min(100, Math.round(rawPos))); 
+}
 
 window.updateGhostThumb = function() {
     const ghostThumb = document.getElementById('ghost-thumb');
     if (!ghostThumb) return;
     if (!videoNode || !videoNode.duration) { ghostThumb.style.display = 'none'; return; }
+
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     const centerTimeMs = scrollLeftMs + (visibleMs / 2);
     const actualTimeMs = window.getActualTimeMs();
+
     if (Math.abs(centerTimeMs - actualTimeMs) > visibleMs * 0.05) {
         ghostThumb.style.display = 'block';
         const percentage = (centerTimeMs / (videoNode.duration * 1000)) * 100;
         ghostThumb.style.left = `${Math.max(0, Math.min(100, percentage))}%`;
-    } else { ghostThumb.style.display = 'none'; }
+    } else {
+        ghostThumb.style.display = 'none';
+    }
 };
+
+function fakeRandom(seed) {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+}
 
 window.drawTimeline = function() {
     try {
@@ -684,20 +848,28 @@ window.drawTimeline = function() {
             const startTimeMs = Math.max(0, xToTime(30));
             const endTimeMs = xToTime(canvas.width);
             let t = Math.floor(startTimeMs / stepMs) * stepMs;
+
             ctx.fillStyle = textDimColor; ctx.font = '10px monospace';
             while (t <= endTimeMs) {
                 if (t >= 0) {
                     const x = timeToX(t);
                     if (x >= 30) {
-                        ctx.strokeStyle = timeLineColor; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+                        ctx.strokeStyle = timeLineColor; 
+                        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
                         ctx.fillText(formatTimelineLabel(t), x + 4, 12);
                     }
                 }
                 t += stepMs;
             }
-            const trackY1 = 40; const trackY2 = 90; const trackH = 40; const clipMs = 25000; const gapMs = 500;    
+
+            const trackY1 = 40;  
+            const trackY2 = 90;  
+            const trackH = 40;
+            const clipMs = 25000; 
+            const gapMs = 500;    
             const startIdx = Math.floor(visibleStartMs / (clipMs + gapMs));
             const endIdx = Math.ceil(visibleEndMs / (clipMs + gapMs));
+
             ctx.lineWidth = 1;
             for (let i = startIdx; i <= endIdx; i++) {
                 const cStartMs = i * (clipMs + gapMs);
@@ -705,23 +877,32 @@ window.drawTimeline = function() {
                 const startX = Math.max(30, timeToX(cStartMs));
                 const endX = timeToX(cEndMs);
                 const w = endX - startX;
+
                 if (w > 0) {
-                    ctx.fillStyle = isLight ? '#bae6fd' : '#0ea5e9'; ctx.strokeStyle = isLight ? '#38bdf8' : '#0284c7';
+                    ctx.fillStyle = isLight ? '#bae6fd' : '#0ea5e9';
+                    ctx.strokeStyle = isLight ? '#38bdf8' : '#0284c7';
                     ctx.beginPath(); ctx.roundRect(startX, trackY1, w, trackH, 4); ctx.fill(); ctx.stroke();
                     ctx.fillStyle = isLight ? '#0c4a6e' : '#f0f9ff'; ctx.font = 'bold 11px sans-serif';
                     ctx.fillText(`Cam_0${(i%3)+1}_final.mp4`, startX + 8, trackY1 + 16);
-                    ctx.fillStyle = isLight ? '#bbf7d0' : '#10b981'; ctx.strokeStyle = isLight ? '#34d399' : '#059669';
+
+                    ctx.fillStyle = isLight ? '#bbf7d0' : '#10b981';
+                    ctx.strokeStyle = isLight ? '#34d399' : '#059669';
                     ctx.beginPath(); ctx.roundRect(startX, trackY2, w, trackH, 4); ctx.fill(); ctx.stroke();
-                    ctx.strokeStyle = isLight ? '#064e3b' : '#a7f3d0'; ctx.beginPath();
+                    
+                    ctx.strokeStyle = isLight ? '#064e3b' : '#a7f3d0';
+                    ctx.beginPath();
                     for (let px = startX + 2; px < endX - 2; px += 4) {
-                        const waveH = (Math.sin(px + i) * 10000 - Math.floor(Math.sin(px + i) * 10000)) * (trackH - 12) + 6;
-                        ctx.moveTo(px, trackY2 + trackH/2 - waveH/2); ctx.lineTo(px, trackY2 + trackH/2 + waveH/2);
+                        const waveH = fakeRandom(px + i) * (trackH - 12) + 6;
+                        ctx.moveTo(px, trackY2 + trackH/2 - waveH/2);
+                        ctx.lineTo(px, trackY2 + trackH/2 + waveH/2);
                     }
                     ctx.stroke();
                 }
             }
+
             ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
             ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
+
             const playheadX = timeToX(actualTime);
             if (playheadX >= 30) {
                 ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
@@ -733,18 +914,23 @@ window.drawTimeline = function() {
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
+            
             ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.9)' : (isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)'); 
             ctx.beginPath();
+            
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
             const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
+
             const yCenter = canvas.height / 2;
             const boostHeight = canvas.height * 0.30; 
+
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
                 if (x >= 30) {
                     const amplitude = (window.audioPeaks[i] / window.audioMaxPeak) * boostHeight; 
-                    ctx.moveTo(x, yCenter - amplitude); ctx.lineTo(x, yCenter + amplitude);
+                    ctx.moveTo(x, yCenter - amplitude);
+                    ctx.lineTo(x, yCenter + amplitude);
                 }
             }
             ctx.stroke();
@@ -754,6 +940,7 @@ window.drawTimeline = function() {
         ctx.fillStyle = 'rgba(236, 72, 153, 0.08)'; ctx.fillRect(30, y100, canvas.width - 30, y70 - y100);
         ctx.fillStyle = 'rgba(56, 189, 248, 0.05)'; ctx.fillRect(30, y70, canvas.width - 30, y20 - y70);
         ctx.fillStyle = 'rgba(16, 185, 129, 0.08)'; ctx.fillRect(30, y20, canvas.width - 30, y0 - y20);
+
         ctx.lineWidth = 2; ctx.setLineDash([5, 5]); 
         ctx.strokeStyle = 'rgba(236, 72, 153, 0.8)'; ctx.beginPath(); ctx.moveTo(30, y70); ctx.lineTo(canvas.width, y70); ctx.stroke();
         ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath(); ctx.moveTo(30, y20); ctx.lineTo(canvas.width, y20); ctx.stroke();
@@ -762,35 +949,53 @@ window.drawTimeline = function() {
         ctx.lineWidth = 1;
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
             const y = posToY(p); 
-            ctx.strokeStyle = gridColor; ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            ctx.strokeStyle = gridColor; 
+            ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         });
 
         const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
         let stepMs = 1000;
-        if (visibleMs < 500) stepMs = 50; else if (visibleMs < 1000) stepMs = 100; else if (visibleMs < 2000) stepMs = 250; else if (visibleMs < 5000) stepMs = 500; else if (visibleMs > 30000) stepMs = 5000; else if (visibleMs > 15000) stepMs = 2000; else stepMs = 1000; 
+        
+        if (visibleMs < 500) stepMs = 50;
+        else if (visibleMs < 1000) stepMs = 100;
+        else if (visibleMs < 2000) stepMs = 250;
+        else if (visibleMs < 5000) stepMs = 500;
+        else if (visibleMs > 30000) stepMs = 5000;
+        else if (visibleMs > 15000) stepMs = 2000;
+        else stepMs = 1000; 
+
         const startTimeMs = Math.max(0, xToTime(30));
         const endTimeMs = xToTime(canvas.width);
         let t = Math.floor(startTimeMs / stepMs) * stepMs;
+
         ctx.fillStyle = textDimColor; ctx.font = '10px monospace';
         while (t <= endTimeMs) {
             if (t >= 0) {
                 const x = timeToX(t);
-                if (x >= 30) { ctx.strokeStyle = timeLineColor; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); ctx.fillText(formatTimelineLabel(t), x + 4, 12); }
+                if (x >= 30) {
+                    ctx.strokeStyle = timeLineColor; 
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+                    ctx.fillText(formatTimelineLabel(t), x + 4, 12);
+                }
             }
             t += stepMs;
         }
 
         ctx.fillStyle = colBgColor; ctx.fillRect(0, 0, 30, canvas.height);
         ctx.strokeStyle = colBorder; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, canvas.height); ctx.stroke();
+
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(p => {
-            const y = posToY(p); ctx.fillStyle = textDimColor; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
+            const y = posToY(p); 
+            ctx.fillStyle = textDimColor; ctx.font = 'bold 10px monospace'; ctx.fillText(`${p}%`, 4, y + 3);
         });
 
         const actions = getSafeActions();
 
         ctx.save();
         let clipX = scrollLeftMs <= 0 ? 15 : 30; 
-        ctx.beginPath(); ctx.rect(clipX, 0, canvas.width - clipX, canvas.height); ctx.clip();
+        ctx.beginPath();
+        ctx.rect(clipX, 0, canvas.width - clipX, canvas.height);
+        ctx.clip();
 
         if (window.loadedFunscriptTracks && window.loadedFunscriptTracks.length > 0) {
             window.loadedFunscriptTracks.forEach(track => {
@@ -804,15 +1009,25 @@ window.drawTimeline = function() {
         }
 
         if (isSelectingMarkers) {
-            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(217, 70, 239, 0.8)'; ctx.fillStyle = 'rgba(217, 70, 239, 0.15)'; ctx.setLineDash([2, 2]); ctx.beginPath(); 
-            const sX_m = timeToX(selStartMarkerT); const cX_m = timeToX(selCurrMarkerT);
-            const xLeft = Math.min(sX_m, cX_m); const xRight = Math.max(sX_m, cX_m);
-            ctx.fillRect(xLeft, 0, xRight - xLeft, 40); ctx.strokeRect(xLeft, 0, xRight - xLeft, 40); ctx.setLineDash([]);
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(217, 70, 239, 0.8)'; ctx.fillStyle = 'rgba(217, 70, 239, 0.15)';
+            ctx.setLineDash([2, 2]); ctx.beginPath(); 
+            const sX_m = timeToX(selStartMarkerT);
+            const cX_m = timeToX(selCurrMarkerT);
+            const xLeft = Math.min(sX_m, cX_m);
+            const xRight = Math.max(sX_m, cX_m);
+            ctx.fillRect(xLeft, 0, xRight - xLeft, 40); 
+            ctx.strokeRect(xLeft, 0, xRight - xLeft, 40); 
+            ctx.setLineDash([]);
         }
 
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
-            let mCount = 1; let bCount = 1;
-            window.timelineMarkers.forEach(m => { m.labelStr = m.isBPM ? `B${bCount++}` : `M${mCount++}`; });
+            let mCount = 1;
+            let bCount = 1;
+            
+            window.timelineMarkers.forEach(m => {
+                m.labelStr = m.isBPM ? `B${bCount++}` : `M${mCount++}`;
+            });
+
             window.timelineMarkers.forEach((m) => {
                 const mx = timeToX(m.at);
                 if (mx >= 15) { 
@@ -820,75 +1035,110 @@ window.drawTimeline = function() {
                     let baseColor = m.isBPM ? '#0ea5e9' : '#d946ef';
                     let selColor = '#facc15';
                     let color = m.selected ? selColor : baseColor;
-                    ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
-                    ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke(); ctx.setLineDash([]);
-                    ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]); ctx.fill();
-                    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.fillText(m.labelStr, mx, 16); 
-                    ctx.textAlign = 'left'; ctx.globalAlpha = 1.0;
+
+                    ctx.globalAlpha = alpha;
+                    ctx.strokeStyle = color; 
+                    ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+                    ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, canvas.height); ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText(m.labelStr, mx, 16); 
+                    ctx.textAlign = 'left';
+                    ctx.globalAlpha = 1.0;
                 }
             });
         }
 
         if (actions.length > 0) {
-            ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
             const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
-            let hwMax = device.standard.max; let hwMin = device.standard.min;
+            let hwMax = device.standard.max;
+            let hwMin = device.standard.min;
             
             for (let i = 0; i < actions.length - 1; i++) {
                 const act1 = actions[i]; const act2 = actions[i+1];
                 const x1 = timeToX(act1.at); const y1 = posToY(act1.pos);
                 const x2 = timeToX(act2.at); const y2 = posToY(act2.pos);
-                let dt_ms = act2.at - act1.at; let dp = Math.abs(act2.pos - act1.pos);
-                let speed_mms = 0; if (dt_ms > 0) speed_mms = (dp * device.factor) / (dt_ms / 1000);
 
-                let colorNormal = isLight ? '#0284c7' : '#38bdf8'; let lineColor = colorNormal; 
-                const tPulse = performance.now() / 150; const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
+                let dt_ms = act2.at - act1.at;
+                let dp = Math.abs(act2.pos - act1.pos);
+                let speed_mms = 0;
+                if (dt_ms > 0) speed_mms = (dp * device.factor) / (dt_ms / 1000);
+
+                let colorNormal = isLight ? '#0284c7' : '#38bdf8'; 
+                let lineColor = colorNormal; 
                 
-                if (speed_mms > hwMax) lineColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
-                else if (speed_mms < hwMin && dp > 0) lineColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
+                const tPulse = performance.now() / 150;
+                const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
+                
+                if (speed_mms > hwMax) {
+                    lineColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.4 + 0.6 * pulseFactor})`; 
+                } else if (speed_mms < hwMin && dp > 0) {
+                    lineColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.4 + 0.6 * pulseFactor})`; 
+                }
                 
                 ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-                ctx.strokeStyle = lineColor; ctx.lineWidth = 3; ctx.stroke();
+                ctx.strokeStyle = lineColor;
+                ctx.lineWidth = 3;
+                ctx.stroke();
             }
 
+            // 🎯 FIX: Renderizado visual del "Sync Point" (Ancla Mágica)
             actions.forEach((act, i) => {
                 const x = timeToX(act.at);
                 if (x >= 20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    // 🎯 FIX: Renderizado visual del Punto de Contacto Verde Lima
-                    if (act.isContact) {
-                        let baseC = isLight ? '#65a30d' : '#bef264';
-                        ctx.fillStyle = baseC;
+                    if (act.isSync) {
+                        ctx.fillStyle = '#ffffff';
                         ctx.beginPath(); ctx.arc(x, y, act.selected ? 8 : 6, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = isLight ? '#14532d' : '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = '#eab308'; // Amarillo/Oro
+                        ctx.lineWidth = 3; ctx.stroke();
+                        ctx.fillStyle = '#eab308'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+                        ctx.fillText("★", x, y - 12); ctx.textAlign = 'left';
                     } else {
                         let dotColor = isLight ? '#0284c7' : '#38bdf8';
                         if (i > 0) {
-                            let prevAct = actions[i-1]; let dt_ms = act.at - prevAct.at; let dp = Math.abs(act.pos - prevAct.pos);
+                            let prevAct = actions[i-1];
+                            let dt_ms = act.at - prevAct.at;
+                            let dp = Math.abs(act.pos - prevAct.pos);
                             let speed_mms = dt_ms > 0 ? (dp * device.factor) / (dt_ms / 1000) : 0;
-                            const tPulse = performance.now() / 150; const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
+                            const tPulse = performance.now() / 150;
+                            const pulseFactor = 0.5 + 0.5 * Math.sin(tPulse); 
+                            
                             if (speed_mms > hwMax) dotColor = isLight ? `rgba(220, 38, 38, ${0.6 + 0.4 * pulseFactor})` : `rgba(239, 68, 68, ${0.5 + 0.5 * pulseFactor})`; 
                             else if (speed_mms < hwMin && dp > 0) dotColor = isLight ? `rgba(217, 119, 6, ${0.7 + 0.3 * pulseFactor})` : `rgba(250, 204, 21, ${0.5 + 0.5 * pulseFactor})`; 
                         }
                         if (act.selected) dotColor = isLight ? '#d97706' : '#f59e0b'; 
+
                         ctx.fillStyle = dotColor;
                         ctx.beginPath(); ctx.arc(x, y, act.selected ? 7 : 5, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
                     }
                     
                     if ((videoNode && videoNode.paused && !window.isPlayingVirtual) && !document.body.classList.contains('panic-mode-active')) {
-                        ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.font = 'bold 9px monospace';
                         ctx.fillStyle = isLight ? 'rgba(255,255,255,0.75)' : 'rgba(15,23,42,0.75)';
                         ctx.beginPath(); ctx.roundRect(x - 12, y - 18, 24, 11, 3); ctx.fill();
-                        ctx.fillStyle = isLight ? '#0f172a' : '#e2e8f0'; ctx.fillText(`${act.pos}%`, x, y - 10); ctx.textAlign = 'left';
+                        ctx.fillStyle = isLight ? '#0f172a' : '#e2e8f0';
+                        ctx.fillText(`${act.pos}%`, x, y - 10);
+                        ctx.textAlign = 'left';
                     }
                 }
             });
         }
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+            
             if (window.timelineGhostTargetEnd) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
                 if (morphed) {
@@ -901,30 +1151,34 @@ window.drawTimeline = function() {
                     ctx.stroke();
                     morphed.forEach(act => {
                         const x = timeToX(act.at); const y = posToY(act.pos);
-                        if(act.isContact) {
-                            ctx.fillStyle = isLight ? '#65a30d' : '#bef264';
-                            ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
-                            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                        if (act.isSync) {
+                            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+                            ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2; ctx.stroke();
                         } else {
                             ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
                             ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
                         }
                     });
                     
-                    const cursorX = timeToX(window.timelineGhostTimeMs); const cursorY = posToY(50);
+                    const cursorX = timeToX(window.timelineGhostTimeMs);
+                    const cursorY = posToY(50);
+                    
                     if (window.timelineGhostMarkers && window.timelineGhostMarkers.length > 2) {
                         ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
                         ctx.fillText("Modo: Adaptación Múltiple", cursorX + 15, cursorY + 30);
                         ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
-                        ctx.fillText("(Adaptación por Punto de Contacto activa)", cursorX + 15, cursorY + 45);
+                        ctx.fillText("(Ajustado por cada marcador)", cursorX + 15, cursorY + 45);
                     } else {
                         ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Estirar y Auto-Adaptar Altura" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
+                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Auto-Ajuste Cuántico" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
                         ctx.fillText(modeText, cursorX + 15, cursorY + 30);
+                        ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 10px monospace';
+                        ctx.fillText("(Espacio = Cambiar | Flechas ⬅ ➡ = Ajustar)", cursorX + 15, cursorY + 45);
                     }
                 }
             } else {
-                const snap = window.snapValue || 5; const deltaY = window.timelineGhostDeltaPos || 0;
+                const snap = window.snapValue || 5;
+                const deltaY = window.timelineGhostDeltaPos || 0;
                 ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
                 window.timelineGhostPreset.forEach((act, index) => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
@@ -935,25 +1189,77 @@ window.drawTimeline = function() {
                 window.timelineGhostPreset.forEach(act => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
-                    ctx.fillStyle = 'rgba(16, 185, 129, 0.9)'; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                    if (act.isSync) {
+                        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2; ctx.stroke();
+                    } else {
+                        ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+                        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                    }
                 });
                 
                 const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
                 const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(window.timelineGhostPreset[0].pos + deltaY);
+                
                 ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                if (window.isPastingMode) ctx.fillText("📋 PEGAR LIBRE (Click para soltar)", pasteX + 15, pasteY + 30);
+                if (window.isPastingMode) {
+                    ctx.fillText("📋 PEGAR LIBRE (Click para soltar)", pasteX + 15, pasteY + 30);
+                }
             }
         }
 
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
             ctx.setLineDash([2, 2]); ctx.beginPath(); 
-            const sX = timeToX(selStartT); const cX = timeToX(selCurrT);
-            const topLimit = posToY(100); const sY = Math.max(topLimit, selStartY); const cY = Math.max(topLimit, selCurrY);
-            const xLeft = Math.min(sX, cX); const yTop = Math.min(sY, cY);
+            const sX = timeToX(selStartT);
+            const cX = timeToX(selCurrT);
+            
+            const topLimit = posToY(100);
+            const sY = Math.max(topLimit, selStartY);
+            const cY = Math.max(topLimit, selCurrY);
+
+            const xLeft = Math.min(sX, cX);
+            const yTop = Math.min(sY, cY);
+
             ctx.fillRect(xLeft, yTop, Math.abs(cX - sX), Math.abs(cY - sY)); 
             ctx.strokeRect(xLeft, yTop, Math.abs(cX - sX), Math.abs(cY - sY)); 
             ctx.setLineDash([]);
+        }
+
+        if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
+            const act1 = actions[window.activeSuggestion.idx1];
+            const act2 = actions[window.activeSuggestion.idx2];
+
+            let simAct1 = {at: act1.at, pos: act1.pos};
+            let simAct2 = {at: act2.at, pos: act2.pos};
+
+            if (window.activeSuggestion.modIdx === 1) simAct1[window.activeSuggestion.key] = window.activeSuggestion.val;
+            else simAct2[window.activeSuggestion.key] = window.activeSuggestion.val;
+
+            let sx1 = timeToX(simAct1.at); let sy1 = posToY(simAct1.pos);
+            let sx2 = timeToX(simAct2.at); let sy2 = posToY(simAct2.pos);
+
+            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
+            ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+
+            let targetX = window.activeSuggestion.modIdx === 1 ? sx1 : sx2;
+            let targetY = window.activeSuggestion.modIdx === 1 ? sy1 : sy2;
+
+            ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#10b981'; ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+            
+            const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
+            
+            let hasMultiselect = actions.filter(a => a.selected).length > 1;
+            let tooltipText = hasMultiselect ? "Clic Der: Auto-Corregir Masivo" : "Clic Derecho para Auto-Corregir";
+            let boxWidth = hasMultiselect ? 245 : 240;
+
+            ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
+            ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
+            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(tooltipText, mx + 25, my + 32);
         }
 
         ctx.restore(); 
@@ -963,6 +1269,120 @@ window.drawTimeline = function() {
             ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, canvas.height); ctx.stroke();
             ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
         }
+
+        if (document.fullscreenElement) {
+            const fsCanvas = document.getElementById('fs-timeline-canvas');
+            if (fsCanvas) {
+                if (!window.fsTimelineVisible) {
+                    fsCanvas.style.display = 'none';
+                } else {
+                    fsCanvas.style.display = 'block';
+                    const rect = fsCanvas.getBoundingClientRect();
+                    if (fsCanvas.width !== rect.width || fsCanvas.height !== rect.height) {
+                        fsCanvas.width = rect.width; fsCanvas.height = rect.height;
+                    }
+                    const fCtx = fsCanvas.getContext('2d');
+                    fCtx.clearRect(0,0, fsCanvas.width, fsCanvas.height);
+                    
+                    const fsTimeToX = (t) => 10 + (t - scrollLeftMs) * (basePixelsPerMs * zoom);
+                    const fsPosToY = (p) => fsCanvas.height - 10 - (p/100)*(fsCanvas.height - 35);
+
+                    if (actions.length > 0) {
+                        fCtx.strokeStyle = '#38bdf8'; fCtx.lineWidth = 2; fCtx.beginPath();
+                        actions.forEach((a, i) => {
+                            if(i===0) fCtx.moveTo(fsTimeToX(a.at), fsPosToY(a.pos));
+                            else fCtx.lineTo(fsTimeToX(a.at), fsPosToY(a.pos));
+                        });
+                        fCtx.stroke();
+                        actions.forEach(a => {
+                            fCtx.fillStyle = a.selected ? '#f59e0b' : '#38bdf8';
+                            fCtx.beginPath(); fCtx.arc(fsTimeToX(a.at), fsPosToY(a.pos), a.selected ? 5 : 3, 0, Math.PI*2); fCtx.fill();
+                        });
+                    }
+                    
+                    const phX = fsTimeToX(actualTime);
+                    fCtx.strokeStyle = '#f97316'; fCtx.lineWidth = 2;
+                    fCtx.beginPath(); fCtx.moveTo(phX, 0); fCtx.lineTo(phX, fsCanvas.height); fCtx.stroke();
+                    
+                    fCtx.fillStyle = 'rgba(255,255,255,0.8)'; fCtx.font = '12px monospace';
+                    fCtx.fillText("Tecla 'H' oculta gráfica | 'Esc' o 'F' para salir", 15, 20);
+                }
+            }
+        } else {
+            const fsCanvas = document.getElementById('fs-timeline-canvas');
+            if (fsCanvas) fsCanvas.style.display = 'none';
+        }
+
+        if (window.scrollMomentum) {
+            if (Math.abs(window.scrollMomentum) > 0.1) {
+                window.scrollMomentum *= 0.92;
+            } else {
+                window.scrollMomentum = 0;
+            }
+
+            if (window.scrollMomentum !== 0) {
+                const intensity = Math.min(1, Math.abs(window.scrollMomentum) / 10);
+                const isForward = window.scrollMomentum > 0;
+                
+                ctx.save();
+                ctx.globalAlpha = intensity * 0.6; 
+
+                const gradWidth = 200;
+                const centerY = canvas.height / 2;
+
+                if (isForward) {
+                    let grad = ctx.createLinearGradient(canvas.width - gradWidth, 0, canvas.width, 0);
+                    grad.addColorStop(0, 'rgba(14, 165, 233, 0)'); 
+                    grad.addColorStop(1, isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(14, 165, 233, 0.6)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(canvas.width - gradWidth, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    
+                    for(let i = 0; i < 3; i++) {
+                        let cx = canvas.width - 60 + offset - (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx - 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx - 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#0369a1' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
+                    ctx.fillText("AVANZANDO", canvas.width - 20, canvas.height - 20);
+
+                } else {
+                    let grad = ctx.createLinearGradient(30, 0, 30 + gradWidth, 0);
+                    grad.addColorStop(0, isLight ? 'rgba(234, 88, 12, 0.35)' : 'rgba(249, 115, 22, 0.6)'); 
+                    grad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(30, 0, gradWidth, canvas.height);
+
+                    let offset = (performance.now() / 15) % 30;
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = isLight ? '#0f172a' : '#ffffff';
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+                    for(let i = 0; i < 3; i++) {
+                        let cx = 80 - offset + (i * 20);
+                        let alpha = 1 - (i * 0.2) - (offset / 30);
+                        ctx.globalAlpha = Math.max(0, intensity * alpha);
+                        ctx.beginPath(); ctx.moveTo(cx + 10, centerY - 15); ctx.lineTo(cx, centerY); ctx.lineTo(cx + 10, centerY + 15); ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = intensity * 0.9;
+                    ctx.fillStyle = isLight ? '#c2410c' : '#ffffff';
+                    ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+                    ctx.fillText("REBOBINANDO", 45, canvas.height - 20);
+                }
+                ctx.restore();
+            }
+        }
+
+        window.updateGhostThumb();
 
     } catch (err) {}
 };
@@ -1018,7 +1438,7 @@ canvas?.addEventListener('mousedown', (e) => {
                 at: Math.max(0, Math.round(dropTimeMs + act.at)),
                 pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
                 selected: true,
-                isContact: act.isContact
+                isSync: act.isSync || false
             }));
             
             const newTimes = new Set(newActions.map(a => a.at));
@@ -1028,7 +1448,9 @@ canvas?.addEventListener('mousedown', (e) => {
             cleanDuplicates(); 
             
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            
             if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
             notifyCloud(); window.updateHeatmapAndStats();
             return;
@@ -1053,23 +1475,32 @@ canvas?.addEventListener('mousedown', (e) => {
                     clickedMarker = true;
                     if (!e.ctrlKey) window.timelineMarkers.forEach(mk => mx !== m ? mk.selected = false : null);
                     m.selected = e.ctrlKey ? !m.selected : true;
-                    if (m.selected && !e.ctrlKey) { isDraggingMarker = true; draggedMarkerIndex = i; }
+                    
+                    if (m.selected && !e.ctrlKey) {
+                        isDraggingMarker = true;
+                        draggedMarkerIndex = i;
+                    }
                     if (typeof window.drawTimeline === 'function') window.drawTimeline();
                     return; 
                 }
             }
         }
 
-        if (!e.ctrlKey && clickY > 40) window.timelineMarkers.forEach(m => m.selected = false);
+        if (!e.ctrlKey && clickY > 40) {
+            window.timelineMarkers.forEach(m => m.selected = false);
+        }
 
         if (clickY <= 40 && !clickedMarker) {
-            isSelectingMarkers = true; selStartMarkerT = xToTime(clickX); selCurrMarkerT = selStartMarkerT;
+            isSelectingMarkers = true;
+            selStartMarkerT = xToTime(clickX);
+            selCurrMarkerT = selStartMarkerT;
             markerSelectionInitialStates = window.timelineMarkers.map(m => m.selected);
             if (!e.ctrlKey) window.timelineMarkers.forEach(m => m.selected = false);
             return; 
         }
 
-        let clickedNode = null; let cIndex = -1;
+        let clickedNode = null;
+        let cIndex = -1;
         for (let i = 0; i < actions.length; i++) {
             const nx = timeToX(actions[i].at); const ny = posToY(actions[i].pos);
             if (Math.hypot(clickX - nx, clickY - ny) <= 8) { clickedNode = actions[i]; cIndex = i; break; }
@@ -1079,17 +1510,26 @@ canvas?.addEventListener('mousedown', (e) => {
             saveHistoryState();
             if (!e.ctrlKey && !clickedNode.selected) actions.forEach(a => a.selected = false);
             clickedNode.selected = true; 
-            isDraggingNode = true; draggedNodeIndex = cIndex; 
+            isDraggingNode = true; 
+            draggedNodeIndex = cIndex; 
+            
             dragSelectionInitialStates = actions.map(a => ({...a}));
-            dragStartXTime = xToTime(clickX); dragStartYPos = yToPos(clickY);
+            dragStartXTime = xToTime(clickX);
+            dragStartYPos = yToPos(clickY);
+
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         } else {
             hadSelectionBeforeMousedown = actions.some(a => a.selected);
             if (!e.ctrlKey) actions.forEach(a => a.selected = false);
             isSelecting = true; hasDraggedSelection = false; 
-            selStartT = xToTime(clickX); selStartY = clickY; selCurrT = selStartT; selCurrY = clickY;
+            
+            selStartT = xToTime(clickX);
+            selStartY = clickY;
+            selCurrT = selStartT;
+            selCurrY = clickY;
         }
     } else if (e.button === 2) { 
+        
         if (window.timelineMarkers && window.timelineMarkers.length > 0) {
             for (let i = 0; i < window.timelineMarkers.length; i++) {
                 const m = window.timelineMarkers[i];
@@ -1100,43 +1540,62 @@ canvas?.addEventListener('mousedown', (e) => {
                         window.setActualTimeMs(m.at);
                         window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: m.at } }));
                         if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                        if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
                         window.lastMarkerRightClickIdx = -1;
                     } else {
-                        window.lastMarkerRightClickIdx = i; window.lastMarkerRightClickTime = now;
+                        window.lastMarkerRightClickIdx = i;
+                        window.lastMarkerRightClickTime = now;
                     }
                     return; 
                 }
             }
         }
+
         let selectedCount = actions.filter(a => a.selected).length;
         if (selectedCount > 1 || window.activeSuggestion) {
-            e.preventDefault(); saveHistoryState(); let wasFixed = false;
+            e.preventDefault();
+            saveHistoryState();
+            let wasFixed = false;
             if (selectedCount > 1) {
                 const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
-                let hwMax = device.standard.max; let hwMin = device.standard.min;
-                if (device.supports_overclock && window.isOverclockEnabled && device.overclock) { hwMax = device.overclock.max; hwMin = device.overclock.min; }
+                let hwMax = device.standard.max;
+                let hwMin = device.standard.min;
+                if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
+                    hwMax = device.overclock.max;
+                    hwMin = device.overclock.min;
+                }
                 wasFixed = massCorrectSelection(actions, hwMax, hwMin, device.factor);
             } else if (window.activeSuggestion) {
-                if (window.activeSuggestion.modIdx === 1) actions[window.activeSuggestion.idx1][window.activeSuggestion.key] = window.activeSuggestion.val;
-                else actions[window.activeSuggestion.idx2][window.activeSuggestion.key] = window.activeSuggestion.val;
+                if (window.activeSuggestion.modIdx === 1) {
+                    actions[window.activeSuggestion.idx1][window.activeSuggestion.key] = window.activeSuggestion.val;
+                } else {
+                    actions[window.activeSuggestion.idx2][window.activeSuggestion.key] = window.activeSuggestion.val;
+                }
                 wasFixed = true;
             }
+
             if (wasFixed) {
-                window.activeSuggestion = null; cleanDuplicates();
+                window.activeSuggestion = null;
+                cleanDuplicates();
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
                 notifyCloud(); window.updateHeatmapAndStats();
                 if (typeof window.drawTimeline === 'function') window.drawTimeline();
                 return;
             }
         }
+
         e.preventDefault();
         const now = performance.now();
         if (now - lastRightClickTime < 350) {
             let clickedTimeMs = xToTime(clickX);
-            window.setActualTimeMs(clickedTimeMs); window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: clickedTimeMs } }));
-            lastRightClickTime = 0; if (typeof window.drawTimeline === 'function') window.drawTimeline(); return;
+            window.setActualTimeMs(clickedTimeMs);
+            window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: clickedTimeMs } }));
+            lastRightClickTime = 0;
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            return;
         }
         lastRightClickTime = now;
+        
         saveHistoryState();
         actions.splice(0, actions.length, ...actions.filter(act => Math.hypot(clickX - timeToX(act.at), clickY - posToY(act.pos)) > 10));
         notifyCloud(); window.updateHeatmapAndStats();
@@ -1145,34 +1604,58 @@ canvas?.addEventListener('mousedown', (e) => {
 
 canvas?.addEventListener('mousemove', (e) => {
     if (document.body.classList.contains('panic-mode-active')) return; 
-    const pos = getMousePos(e); const mouseX = pos.x; const mouseY = pos.y;
-    window.lastMouseX = mouseX; window.lastMouseY = mouseY;
+
+    const pos = getMousePos(e);
+    const mouseX = pos.x; const mouseY = pos.y;
+    window.lastMouseX = mouseX;
+    window.lastMouseY = mouseY;
     
     if (isSelectingMarkers) {
         selCurrMarkerT = xToTime(mouseX);
-        const minT = Math.min(selStartMarkerT, selCurrMarkerT); const maxT = Math.max(selStartMarkerT, selCurrMarkerT);
-        window.timelineMarkers.forEach((m, i) => { m.selected = (m.at >= minT && m.at <= maxT) ? true : (e.ctrlKey ? markerSelectionInitialStates[i] : false); });
-        if (typeof window.drawTimeline === 'function') window.drawTimeline(); return;
+        const minT = Math.min(selStartMarkerT, selCurrMarkerT);
+        const maxT = Math.max(selStartMarkerT, selCurrMarkerT);
+        
+        window.timelineMarkers.forEach((m, i) => {
+            if (m.at >= minT && m.at <= maxT) {
+                m.selected = true;
+            } else {
+                m.selected = e.ctrlKey ? markerSelectionInitialStates[i] : false;
+            }
+        });
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
     }
 
     if (isDraggingMarker && draggedMarkerIndex !== -1) {
         const m = window.timelineMarkers[draggedMarkerIndex];
         let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
+
         const actualTimeMs = window.getActualTimeMs();
         if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = Math.round(actualTimeMs);
+
         m.at = Math.max(0, newAt);
-        window.timelineMarkers.sort((a, b) => a.at - b.at); draggedMarkerIndex = window.timelineMarkers.indexOf(m); 
-        if (typeof window.drawTimeline === 'function') window.drawTimeline(); return;
+        window.timelineMarkers.sort((a, b) => a.at - b.at);
+        draggedMarkerIndex = window.timelineMarkers.indexOf(m); 
+        
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
+        return;
     }
 
     if (window.isPastingMode && window.timelineGhostPreset) {
-        let hoverTimeMs = xToTime(mouseX); let hoverPosRaw = yToPos(mouseY);
-        window.timelineGhostMouseX = mouseX; window.timelineGhostMouseY = mouseY;
+        let hoverTimeMs = xToTime(mouseX);
+        let hoverPosRaw = yToPos(mouseY);
+        
+        window.timelineGhostMouseX = mouseX;
+        window.timelineGhostMouseY = mouseY;
+        
         const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
         
         if (selectedMarkers.length >= 2) {
-            window.timelineGhostTimeMs = selectedMarkers[0].at; window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
+            window.timelineGhostTimeMs = selectedMarkers[0].at;
+            window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
             window.timelineGhostMarkers = selectedMarkers;
+
             if (!window.presetFillInitialized) {
                 const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
                 window.presetFillMode = 'stretch';
@@ -1180,34 +1663,82 @@ canvas?.addEventListener('mousemove', (e) => {
                 window.presetFillInitialized = true;
             }
         } else {
-            window.timelineGhostMarkers = null; window.timelineGhostTargetEnd = null; window.presetFillInitialized = false;
-            const actions = getSafeActions(); const snapDistMs = 350; const actualTimeMs = window.getActualTimeMs();
+            window.timelineGhostMarkers = null;
+            window.timelineGhostTargetEnd = null;
+            window.presetFillInitialized = false;
+
+            const actions = getSafeActions();
+            const snapDistMs = 350; 
+            const actualTimeMs = window.getActualTimeMs();
+            
             const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
             const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
             const presetMid = presetDuration / 2; 
 
-            let bestSnapTime = hoverTimeMs; let minDistance = snapDistMs;
+            let bestSnapTime = hoverTimeMs;
+            let minDistance = snapDistMs;
+
             snapTargets.forEach(target => {
-                let distStart = Math.abs(hoverTimeMs - target); if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
-                let distMid = Math.abs((hoverTimeMs + presetMid) - target); if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
-                let distEnd = Math.abs((hoverTimeMs + presetDuration) - target); if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
+                let distStart = Math.abs(hoverTimeMs - target);
+                if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
+                let distMid = Math.abs((hoverTimeMs + presetMid) - target);
+                if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
+                let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
+                if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
             });
+
             if (bestSnapTime < 0) bestSnapTime = 0;
             window.timelineGhostTimeMs = bestSnapTime;
-            const snap = window.snapValue || 5; let hoverPos = Math.round(hoverPosRaw / snap) * snap;
-            const basePos = window.timelineGhostPreset[0].pos; window.timelineGhostDeltaPos = hoverPos - basePos;
+            
+            const snap = window.snapValue || 5;
+            let hoverPos = Math.round(hoverPosRaw / snap) * snap;
+            const basePos = window.timelineGhostPreset[0].pos;
+            window.timelineGhostDeltaPos = hoverPos - basePos;
         }
     }
 
     const actions = getSafeActions();
+
+    window.activeSuggestion = null;
+    const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
+    let hwMax = device.standard.max;
+    let hwMin = device.standard.min;
+    if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
+        hwMax = device.overclock.max;
+        hwMin = device.overclock.min;
+    }
+
     if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers) {
-        window.activeSuggestion = null;
+        for (let i = 0; i < actions.length - 1; i++) {
+            let act1 = actions[i]; let act2 = actions[i+1];
+            let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
+            let px2 = timeToX(act2.at); let py2 = posToY(act2.pos);
+            
+            if (mouseX >= Math.min(px1, px2) - 20 && mouseX <= Math.max(px1, px2) + 20) {
+                let dist = pDistance(mouseX, mouseY, px1, py1, px2, py2);
+                if (dist <= 15) { 
+                    let act0 = i > 0 ? actions[i-1] : null;
+                    let act3 = i < actions.length - 2 ? actions[i+2] : null;
+                    let suggestion = getCorrectionSuggestion(act1, act2, hwMax, hwMin, device.factor, act0, act3);
+                    if (suggestion) {
+                        window.activeSuggestion = { ...suggestion, idx1: i, idx2: i+1 };
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     if (isDraggingNode && dragSelectionInitialStates.length > 0) {
-        let snappedTimeDelta = 0; let snappedPosDelta = 0; const snap = window.snapValue || 5;
-        const rawTimeDelta = xToTime(mouseX) - dragStartXTime; const rawPosDelta = yToPos(mouseY) - dragStartYPos;
-        snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; snappedPosDelta = Math.round(rawPosDelta / snap) * snap;
+        let snappedTimeDelta = 0;
+        let snappedPosDelta = 0;
+        const snap = window.snapValue || 5;
+
+        const rawTimeDelta = xToTime(mouseX) - dragStartXTime;
+        const rawPosDelta = yToPos(mouseY) - dragStartYPos;
+        snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
+        snappedPosDelta = Math.round(rawPosDelta / snap) * snap;
+
         actions.forEach((act, i) => {
             if (dragSelectionInitialStates[i].selected) {
                 act.at = Math.max(0, dragSelectionInitialStates[i].at + snappedTimeDelta);
@@ -1215,32 +1746,65 @@ canvas?.addEventListener('mousemove', (e) => {
                 act.pos = Math.max(0, Math.min(100, Math.round(rawP / snap) * snap));
             }
         });
+        
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     } else if (isSelecting) {
-        selCurrT = xToTime(mouseX); selCurrY = mouseY;
+        selCurrT = xToTime(mouseX);
+        selCurrY = mouseY;
+        
         const startX_px = timeToX(selStartT);
         if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
+        
         const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
-        const topLimit = posToY(100); const minY = Math.max(topLimit, Math.min(selStartY, selCurrY)); const maxY = Math.max(topLimit, Math.max(selStartY, selCurrY));
-        actions.forEach(act => { const ny = posToY(act.pos); act.selected = (act.at >= minT && act.at <= maxT && ny >= minY && ny <= maxY); });
+        
+        const topLimit = posToY(100);
+        const minY = Math.max(topLimit, Math.min(selStartY, selCurrY)); 
+        const maxY = Math.max(topLimit, Math.max(selStartY, selCurrY));
+        
+        actions.forEach(act => {
+            const ny = posToY(act.pos);
+            act.selected = (act.at >= minT && act.at <= maxT && ny >= minY && ny <= maxY);
+        });
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     }
 });
 
 window.addEventListener('mouseup', (e) => {
     if (window.isPastingMode) return; 
-    if (isSelectingMarkers) { isSelectingMarkers = false; markerSelectionInitialStates = []; return; }
-    if (isDraggingMarker) { isDraggingMarker = false; draggedMarkerIndex = -1; return; }
 
-    const snap = window.snapValue || 5; let actions = getSafeActions();
+    if (isSelectingMarkers) {
+        isSelectingMarkers = false;
+        markerSelectionInitialStates = [];
+        return;
+    }
+
+    if (isDraggingMarker) {
+        isDraggingMarker = false;
+        draggedMarkerIndex = -1;
+        return;
+    }
+
+    const snap = window.snapValue || 5;
+    let actions = getSafeActions();
     if (isSelecting && !hasDraggedSelection && e.target === canvas) {
+        
         if (!hadSelectionBeforeMousedown) {
-            ensureTrackExists(); actions = getSafeActions(); 
-            let clickTime = Math.max(0, Math.round(selStartT / 50) * 50); let clickPos = Math.round(yToPos(selStartY) / snap) * snap; 
+            ensureTrackExists(); 
+            actions = getSafeActions(); 
+
+            let clickTime = Math.max(0, Math.round(selStartT / 50) * 50);
+            let clickPos = Math.round(yToPos(selStartY) / snap) * snap; 
+
             saveHistoryState();
+            
             const existingIdx = actions.findIndex(a => a.at === clickTime);
-            if (existingIdx !== -1) { actions[existingIdx].pos = clickPos; actions[existingIdx].selected = true; } 
-            else { actions.push({ at: clickTime, pos: clickPos, selected: true }); }
+            if (existingIdx !== -1) {
+                actions[existingIdx].pos = clickPos;
+                actions[existingIdx].selected = true;
+            } else {
+                actions.push({ at: clickTime, pos: clickPos, selected: true });
+            }
+            
             cleanDuplicates();
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
             notifyCloud(); window.updateHeatmapAndStats();
@@ -1248,10 +1812,14 @@ window.addEventListener('mouseup', (e) => {
     } else if (isDraggingNode || hasDraggedSelection) { 
         const selectedTimes = new Set(actions.filter(a => a.selected).map(a => a.at));
         actions.splice(0, actions.length, ...actions.filter(a => a.selected || !selectedTimes.has(a.at)));
-        cleanDuplicates(); notifyCloud(); window.updateHeatmapAndStats();
+        
+        cleanDuplicates();
+        notifyCloud(); window.updateHeatmapAndStats();
     }
     isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1;
 });
+
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
+
 function animationLoop() { window.drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
