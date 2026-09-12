@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.12.0 (SYNC POINTS Y EXTERMINIO PERFECTO)
+// TIMELINE V1.13.0 (SYNC POINTS MAGENTA DIAMOND)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -64,6 +64,8 @@ let dragStartYPos = 0;
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
 
+window.magneticSnapPoint = null;
+window.startMagneticSnapPoint = null;
 let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
@@ -107,11 +109,9 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-// 🎯 FIX: Escucha global para convertir puntos seleccionados en Anclas de Sync (Tecla .)
 window.addEventListener('toggleSyncPoint', () => {
     if (document.body.classList.contains('panic-mode-active')) return;
     
-    // Primero checa si el modal de preset está abierto
     const modal = document.getElementById('preset-editor-modal');
     if (modal && modal.style.display === 'flex') {
         if (window.presetEditorActions) {
@@ -124,7 +124,6 @@ window.addEventListener('toggleSyncPoint', () => {
         return;
     }
 
-    // Sino, actúa sobre la línea de tiempo principal
     const actions = getSafeActions();
     let moved = false;
     actions.forEach(act => {
@@ -138,7 +137,6 @@ window.addEventListener('toggleSyncPoint', () => {
     }
 });
 
-// 🎯 FIX: Motor de Morphing con ANCLADO CUÁNTICO (Sync Points)
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
     let result = [];
@@ -178,7 +176,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                     mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
                 }
 
-                // Si ambos tienen ancla (Sync Point), el tiempo se curva alrededor de ella
                 let newAt = 0;
                 if (presetSync && targetSync) {
                     if (preset[j].at <= presetSync.at) {
@@ -190,7 +187,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                         let ratio = remP > 0 ? ((preset[j].at - presetSync.at) / remP) : 0;
                         newAt = targetSync.at + ratio * remT;
                     }
-                    if (preset[j].isSync) mappedPos = targetSync.pos; // El ancla clava exactamente el %
+                    if (preset[j].isSync) mappedPos = targetSync.pos; 
                 } else {
                     newAt = t1 + (preset[j].at / p_dur) * targetDuration;
                 }
@@ -525,7 +522,6 @@ canvas?.addEventListener('drop', (e) => {
             let tStart = window.timelineGhostTimeMs;
             let tEnd = window.timelineGhostTargetEnd;
             
-            // EXTERMINIO ABSOLUTO (Reemplazo exacto)
             actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
 
             actions.forEach(a => a.selected = false);
@@ -562,7 +558,6 @@ canvas?.addEventListener('drop', (e) => {
     let tStart = newActions[0].at;
     let tEnd = newActions[newActions.length - 1].at;
     
-    // EXTERMINIO EN ZONA LIBRE
     actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
 
     actions.forEach(a => a.selected = false); 
@@ -1091,19 +1086,24 @@ window.drawTimeline = function() {
                 ctx.stroke();
             }
 
-            // 🎯 FIX: Renderizado visual del "Sync Point" (Ancla Mágica)
             actions.forEach((act, i) => {
                 const x = timeToX(act.at);
                 if (x >= 20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
+                    // 🎯 FIX: Renderizado visual del Ancla (Rombo Magenta)
                     if (act.isSync) {
-                        ctx.fillStyle = '#ffffff';
-                        ctx.beginPath(); ctx.arc(x, y, act.selected ? 8 : 6, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = '#eab308'; // Amarillo/Oro
-                        ctx.lineWidth = 3; ctx.stroke();
-                        ctx.fillStyle = '#eab308'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-                        ctx.fillText("★", x, y - 12); ctx.textAlign = 'left';
+                        ctx.fillStyle = act.selected ? '#ffffff' : '#d946ef'; // Magenta o Blanco
+                        ctx.beginPath(); 
+                        let size = act.selected ? 9 : 7;
+                        ctx.moveTo(x, y - size);
+                        ctx.lineTo(x + size, y);
+                        ctx.lineTo(x, y + size);
+                        ctx.lineTo(x - size, y);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.strokeStyle = act.selected ? '#d946ef' : '#ffffff';
+                        ctx.lineWidth = 2; ctx.stroke();
                     } else {
                         let dotColor = isLight ? '#0284c7' : '#38bdf8';
                         if (i > 0) {
@@ -1152,8 +1152,11 @@ window.drawTimeline = function() {
                     morphed.forEach(act => {
                         const x = timeToX(act.at); const y = posToY(act.pos);
                         if (act.isSync) {
-                            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
-                            ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2; ctx.stroke();
+                            ctx.fillStyle = '#ffffff'; ctx.beginPath();
+                            let size = 7;
+                            ctx.moveTo(x, y - size); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.lineTo(x - size, y);
+                            ctx.closePath(); ctx.fill();
+                            ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
                         } else {
                             ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
                             ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
@@ -1190,8 +1193,11 @@ window.drawTimeline = function() {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
                     if (act.isSync) {
-                        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2; ctx.stroke();
+                        ctx.fillStyle = '#ffffff'; ctx.beginPath();
+                        let size = 6;
+                        ctx.moveTo(x, y - size); ctx.lineTo(x + size, y); ctx.lineTo(x, y + size); ctx.lineTo(x - size, y);
+                        ctx.closePath(); ctx.fill();
+                        ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.stroke();
                     } else {
                         ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
                         ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
@@ -1224,42 +1230,6 @@ window.drawTimeline = function() {
             ctx.fillRect(xLeft, yTop, Math.abs(cX - sX), Math.abs(cY - sY)); 
             ctx.strokeRect(xLeft, yTop, Math.abs(cX - sX), Math.abs(cY - sY)); 
             ctx.setLineDash([]);
-        }
-
-        if (window.activeSuggestion && !window.isDraggingNode && !window.isDraggingPreset) {
-            const act1 = actions[window.activeSuggestion.idx1];
-            const act2 = actions[window.activeSuggestion.idx2];
-
-            let simAct1 = {at: act1.at, pos: act1.pos};
-            let simAct2 = {at: act2.at, pos: act2.pos};
-
-            if (window.activeSuggestion.modIdx === 1) simAct1[window.activeSuggestion.key] = window.activeSuggestion.val;
-            else simAct2[window.activeSuggestion.key] = window.activeSuggestion.val;
-
-            let sx1 = timeToX(simAct1.at); let sy1 = posToY(simAct1.pos);
-            let sx2 = timeToX(simAct2.at); let sy2 = posToY(simAct2.pos);
-
-            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
-            ctx.lineWidth = 3; ctx.strokeStyle = '#10b981'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
-
-            let targetX = window.activeSuggestion.modIdx === 1 ? sx1 : sx2;
-            let targetY = window.activeSuggestion.modIdx === 1 ? sy1 : sy2;
-
-            ctx.beginPath(); ctx.arc(targetX, targetY, 7, 0, Math.PI * 2);
-            ctx.fillStyle = '#10b981'; ctx.fill();
-            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
-            
-            const mx = window.lastMouseX || targetX; const my = window.lastMouseY || targetY;
-            
-            let hasMultiselect = actions.filter(a => a.selected).length > 1;
-            let tooltipText = hasMultiselect ? "Clic Der: Auto-Corregir Masivo" : "Clic Derecho para Auto-Corregir";
-            let boxWidth = hasMultiselect ? 245 : 240;
-
-            ctx.fillStyle = isLight ? 'rgba(241, 245, 249, 0.95)' : 'rgba(16, 185, 129, 0.95)';
-            ctx.fillRect(mx + 15, my + 15, boxWidth, 25);
-            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff'; 
-            ctx.font = 'bold 11px monospace';
-            ctx.fillText(tooltipText, mx + 25, my + 32);
         }
 
         ctx.restore(); 
