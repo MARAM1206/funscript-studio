@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.6.2">
+    <link rel="stylesheet" href="styles.css?v=1.12.0">
 </head>
 <body>
 
@@ -44,7 +44,7 @@
                 </div>
             </div>
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.6.2 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
+            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">V1.12.0 | Made with ❤️ by <strong>MARAM</strong> 🇲🇽</span>
         </div>
         
         <div id="top-center-toggles" class="top-center-toggles"></div>
@@ -88,7 +88,7 @@
                 <input type="text" id="preset-editor-name" class="modal-input" style="width: 100%; padding: 10px; border-radius: 6px; border-width: 1px; border-style: solid; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
                 <div style="display: flex; justify-content: space-between; align-items:flex-end;">
                     <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
-                    <span class="modal-hint" style="font-size: 0.7rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A, Flechas) | Zoom: Shift+Ruedita</span>
+                    <span class="modal-hint" style="font-size: 0.7rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A, Flechas) | Punto (.) = Marcar Contacto</span>
                 </div>
                 <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #000;">
                     <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
@@ -204,7 +204,7 @@
                 <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">⚡ Inyector Rápido</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta topes y usa las <strong>Flechas Arriba/Abajo</strong>.</p>
+                <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Presiona <strong>Ctrl + Arriba/Abajo</strong> para inyectar.</p>
                 <div class="dual-slider-labels">
                     <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 70%</span>
                 </div>
@@ -316,52 +316,6 @@
             </div>
         </div>
 
-        <!-- 🧠 IA DIRECTOR -->
-        <div id="panel-director" class="workspace-panel" data-title="🧠 IA Director">
-            <div class="panel-header" style="padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b; display:flex; justify-content: flex-start; align-items: center;">
-                <span style="font-weight: bold; font-size: 0.8rem; color:#94a3b8;">🧠 Inteligencia Artificial</span>
-            </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 15px; overflow-y: auto;">
-                
-                <div style="width: 100%; margin-bottom: 10px;">
-                    <label style="font-size: 0.7rem; font-weight: bold; color:#e2e8f0; display:block; margin-bottom: 4px;">Prompt de la Escena (Opcional):</label>
-                    <textarea id="director-prompt" rows="2" style="width: 100%; padding: 6px; background: #020617; color: #38bdf8; border: 1px solid #1e293b; border-radius: 6px; outline: none; font-size: 0.75rem; resize: none; font-family: monospace;" placeholder="Ej: Blowjob con garganta profunda, luego sentones y termina con edging..."></textarea>
-                </div>
-
-                <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 15px;">
-                    <div style="flex-grow: 1;">
-                        <label style="font-size: 0.7rem; font-weight: bold; color:#e2e8f0; display:block; margin-bottom: 4px;">Intensidad Global:</label>
-                        <!-- 🎯 FIX: Velocidades exactas de FapTap integradas -->
-                        <select id="director-speed-select" style="width: 100%; padding: 4px; background: #0f172a; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; outline: none; font-size: 0.75rem;">
-                            <option value="random">🎲 Aleatorio</option>
-                            <option value="slow">🟢 Lento (0 - 150)</option>
-                            <option value="medium">🟡 Medio (151 - 300)</option>
-                            <option value="fast">🟠 Rápido (301 - 500)</option>
-                            <option value="very_fast">🔴 Muy Rápido (501+)</option>
-                        </select>
-                    </div>
-                    <div style="flex-grow: 1;">
-                        <label style="font-size: 0.7rem; font-weight: bold; color:#e2e8f0; display:block; margin-bottom: 4px;">Tu Aguante:</label>
-                        <select id="director-stamina" style="width: 100%; padding: 4px; background: #0f172a; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; outline: none; font-size: 0.75rem;">
-                            <option value="low">😅 No duro mucho</option>
-                            <option value="normal" selected>🙂 Normal</option>
-                            <option value="high">🥵 Aguanto demasiado</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div style="width: 100%; margin-bottom: 15px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Duración a Generar:</span> <span id="director-dur-val" style="color: #38bdf8; font-weight: bold;">Todo el Video</span>
-                    </div>
-                    <input type="range" id="director-dur-slider" class="volume-slider" style="width: 100%;" min="0" max="60" step="1" value="0">
-                    <span style="font-size:0.6rem; color:#64748b; display:block; margin-top:4px;">(0 = Usa la duración del reproductor)</span>
-                </div>
-
-                <button id="director-generate-btn" class="menu-btn orange-btn" style="width: 100%; margin-top: auto; font-weight: bold; padding: 8px;">🎬 Crear Guion Inteligente</button>
-            </div>
-        </div>
-
         <!-- 📈 Línea de Tiempo -->
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
             <div class="panel-header" style="justify-content: flex-start; display: flex; align-items: center; padding: 6px 12px; cursor: move; border-bottom: 1px solid #1e293b;">
@@ -386,17 +340,16 @@
 
     </div>
 
-    <script src="workspace.js?v=1.6.2"></script>
-    <script src="handy.js?v=1.6.2"></script> 
-    <script src="funscript.js?v=1.6.2"></script>
-    <script src="player.js?v=1.6.2"></script>
-    <script src="tracking.js?v=1.6.2"></script>
-    <script src="presets.js?v=1.6.2"></script>
-    <script src="timeline.js?v=1.6.2"></script>
-    <script src="twin.js?v=1.6.2"></script>
-    <script src="humanizer.js?v=1.6.2"></script>
-    <script src="bpm.js?v=1.6.2"></script>
-    <script src="mass.js?v=1.6.2"></script>
-    <script src="director.js?v=1.6.2"></script>
+    <script src="workspace.js?v=1.12.0"></script>
+    <script src="handy.js?v=1.12.0"></script> 
+    <script src="funscript.js?v=1.12.0"></script>
+    <script src="player.js?v=1.12.0"></script>
+    <script src="tracking.js?v=1.12.0"></script>
+    <script src="presets.js?v=1.12.0"></script>
+    <script src="timeline.js?v=1.12.0"></script>
+    <script src="twin.js?v=1.12.0"></script>
+    <script src="humanizer.js?v=1.12.0"></script>
+    <script src="bpm.js?v=1.12.0"></script>
+    <script src="mass.js?v=1.12.0"></script>
 </body>
 </html>
