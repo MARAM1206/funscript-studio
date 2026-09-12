@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.12.0 (RENDERIZADO Y EDICIÓN DE SYNC POINTS)
+// PRESETS MANAGER V1.14.0 (NUEVO VISUAL DE ANCLA ⚓)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -248,13 +248,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
                 if (x >= 20 && x <= pCanvas.width + 20) {
                     
-                    // 🎯 FIX: Renderizado visual del "Sync Point"
                     if (a.isSync) {
-                        pCtx.fillStyle = '#ffffff';
-                        pCtx.beginPath(); pCtx.arc(x, y, a.selected ? 8 : 6, 0, Math.PI * 2); pCtx.fill();
-                        pCtx.strokeStyle = '#eab308'; pCtx.lineWidth = 3; pCtx.stroke();
-                        pCtx.fillStyle = '#eab308'; pCtx.font = '10px sans-serif'; pCtx.textAlign = 'center';
-                        pCtx.fillText("★", x, y - 12); pCtx.textAlign = 'left';
+                        pCtx.fillStyle = '#facc15'; 
+                        pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
+                        pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
+                        
+                        pCtx.fillStyle = '#0f172a'; 
+                        pCtx.font = '12px monospace'; 
+                        pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
+                        pCtx.fillText('⚓', x, y+1); 
+                        pCtx.textAlign = 'left'; pCtx.textBaseline = 'alphabetic';
                     } else {
                         pCtx.fillStyle = a.selected ? '#f59e0b' : '#0284c7';
                         pCtx.beginPath(); pCtx.arc(x, y, a.selected ? 6 : 4, 0, Math.PI * 2); pCtx.fill();
