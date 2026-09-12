@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const SNAP_DIST = 12; 
     const GAP = 10;       
-    const VERSION = 'funscript_workspace_v11'; 
+    const VERSION = 'funscript_workspace_v12'; // Reset de memoria
 
     const defaultLayout = {
         'panel-video': { left: 10, top: 10, width: 600, height: 400, visible: true },
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'panel-twin': { left: 970, top: 270, width: 200, height: 350, visible: true },
         'panel-humanizer': { left: 970, top: 10, width: 250, height: 240, visible: true },
         'panel-bpm': { left: 350, top: 10, width: 250, height: 260, visible: false }, 
-        'panel-mass': { left: 350, top: 220, width: 250, height: 320, visible: false }, 
+        'panel-mass': { left: 350, top: 280, width: 250, height: 320, visible: false }, 
         'panel-timeline': { left: 10, top: 420, width: 600, height: 200, visible: true }
     };
 
