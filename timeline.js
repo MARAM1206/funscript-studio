@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.18.0 (REDUCCIÓN DE CÁLCULOS E INYECCIÓN DE ARRASTRE SINTÉTICO)
+// TIMELINE V1.19.0 (RESCATE MATEMÁTICO INTEGRADO Y DRAG SEGURO HTML5)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -24,6 +24,35 @@ window.hardwareDB = {
 
 window.activeDevice = null;
 window.isOverclockEnabled = false;
+
+// 🎯 FIX: Matemáticas Vitales de tracking restauradas para evitar que el Canvas crashee en negro.
+function pDistance(x, y, x1, y1, x2, y2) {
+    var A = x - x1; var B = y - y1; var C = x2 - x1; var D = y2 - y1;
+    var dot = A * C + B * D; var len_sq = C * C + D * D; var param = -1;
+    if (len_sq != 0) param = dot / len_sq;
+    var xx, yy;
+    if (param < 0) { xx = x1; yy = y1; }
+    else if (param > 1) { xx = x2; yy = y2; }
+    else { xx = x1 + param * C; yy = y1 + param * D; }
+    var dx = x - xx; var dy = y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
+    let dt = act2.at - act1.at;
+    let dp = Math.abs(act2.pos - act1.pos);
+    if (dt <= 0) return null;
+    let speed = (dp * factor) / (dt / 1000);
+    if (speed > hwMax) {
+        let requiredDt = (dp * factor) / hwMax * 1000;
+        return { key: 'at', val: act1.at + requiredDt, modIdx: 2 };
+    }
+    if (speed < hwMin && dp > 0) {
+        let requiredDt = (dp * factor) / hwMin * 1000;
+        return { key: 'at', val: act1.at + requiredDt, modIdx: 2 };
+    }
+    return null;
+}
 
 function getSafeActions() {
     if (!window.funscriptActions || !Array.isArray(window.funscriptActions)) window.funscriptActions = [];
@@ -457,9 +486,394 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-function drawPresetEditor() {} // Mantenido para que no rompa llamadas internas
-function drawProgressMarkers() {} // Placeholder
+// 🎯 FIX: Blindaje Total y Lógica Preventiva contra Fallos de Arrastre (Dragover y Drop)
+canvas?.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+});
 
+canvas?.addEventListener('dragover', (e) => {
+    e.preventDefault(); 
+    try {
+        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        
+        let hoverTimeMs = xToTime(mouseX);
+        let hoverPosRaw = yToPos(mouseY);
+        
+        window.timelineGhostMouseX = mouseX;
+        window.timelineGhostMouseY = mouseY;
+        
+        const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
+        
+        if (selectedMarkers.length >= 2) {
+            window.timelineGhostTimeMs = selectedMarkers[0].at;
+            window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
+            window.timelineGhostMarkers = selectedMarkers;
+
+            if (!window.presetFillInitialized) {
+                const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+                window.presetFillMode = 'stretch';
+                window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
+                window.presetFillInitialized = true;
+            }
+        } else {
+            window.timelineGhostMarkers = null;
+            window.timelineGhostTargetEnd = null;
+            window.presetFillInitialized = false;
+
+            const actions = getSafeActions();
+            const playheadTimeMs = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
+            const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
+            const snapDistMs = 250; 
+            let bestOffset = hoverTimeMs;
+            let minDistance = snapDistMs;
+            let isSnapped = false;
+
+            const pointsToCheck = [window.timelineGhostPreset[0]];
+            if (window.timelineGhostPreset.length > 1) {
+                pointsToCheck.push(window.timelineGhostPreset[window.timelineGhostPreset.length - 1]);
+            }
+
+            pointsToCheck.forEach(pAct => {
+                let projectedTime = hoverTimeMs + pAct.at;
+                for (let i = 0; i < snapTargets.length; i++) {
+                    let dist = Math.abs(projectedTime - snapTargets[i]);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        bestOffset = snapTargets[i] - pAct.at;
+                        isSnapped = true;
+                    }
+                }
+            });
+
+            window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
+            
+            const snap = window.snapValue || 5;
+            let hoverPos = Math.round(hoverPosRaw / snap) * snap;
+            const basePos = window.timelineGhostPreset[0].pos;
+            window.timelineGhostDeltaPos = hoverPos - basePos;
+        }
+    } catch (err) {
+        console.error("Error en dragover:", err);
+    }
+});
+
+canvas?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    try {
+        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+        
+        ensureTrackExists();
+        let actions = getSafeActions();
+
+        if (window.timelineGhostTargetEnd) {
+            const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
+            if (morphed) {
+                saveHistoryState();
+                let tStart = window.timelineGhostTimeMs;
+                let tEnd = window.timelineGhostTargetEnd;
+                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+                actions.forEach(a => a.selected = false);
+                morphed.forEach(m => m.selected = true);
+                actions.push(...morphed);
+                
+                cleanDuplicates();
+                window.isDraggingPreset = false; window.timelineGhostPreset = null;
+                window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
+                
+                if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+                notifyCloud(); window.updateHeatmapAndStats();
+                return;
+            }
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        
+        let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
+        const deltaY = window.timelineGhostDeltaPos || 0;
+        const snap = window.snapValue || 5;
+        
+        saveHistoryState();
+        
+        const newActions = window.timelineGhostPreset.map(act => ({
+            at: Math.round(dropTimeMs + act.at),
+            pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
+            selected: true,
+            isSync: act.isSync || false
+        }));
+        
+        let tStart = newActions[0].at;
+        let tEnd = newActions[newActions.length - 1].at;
+        
+        actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+        actions.forEach(a => a.selected = false); 
+        actions.push(...newActions);
+        
+        cleanDuplicates(); 
+        window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+        
+        if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+    } catch (err) {
+        console.error("Error en drop:", err);
+    }
+});
+
+canvas?.addEventListener('dragleave', () => {
+    if(window.isDraggingPreset) {
+        window.timelineGhostTimeMs = null;
+        if(typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+});
+
+const sliderA = document.getElementById('min-slider'); const sliderB = document.getElementById('max-slider');
+const dualFill = document.getElementById('dual-slider-fill'); const minLabel = document.getElementById('min-label'); const maxLabel = document.getElementById('max-label');
+
+function updateDualSlider() {
+    if (!sliderA || !sliderB) return;
+    const valA = parseInt(sliderA.value, 10); const valB = parseInt(sliderB.value, 10);
+    const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
+    
+    if (valA > valB) {
+        sliderA.style.setProperty('--thumb-color', '#f97316'); 
+        sliderB.style.setProperty('--thumb-color', '#38bdf8'); 
+    } else {
+        sliderA.style.setProperty('--thumb-color', '#38bdf8'); 
+        sliderB.style.setProperty('--thumb-color', '#f97316'); 
+    }
+
+    if (minLabel) minLabel.innerText = `⬇️ Min: ${currentMin}%`; if (maxLabel) maxLabel.innerText = `⬆️ Max: ${currentMax}%`;
+    if (dualFill) { dualFill.style.left = `${currentMin}%`; dualFill.style.width = `${currentMax - currentMin}%`; }
+}
+function blurSliders() { if (sliderA) sliderA.blur(); if (sliderB) sliderB.blur(); }
+sliderA?.addEventListener('input', updateDualSlider); sliderB?.addEventListener('input', updateDualSlider);
+sliderA?.addEventListener('change', blurSliders); sliderB?.addEventListener('change', blurSliders);
+sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mouseup', blurSliders); updateDualSlider(); 
+
+window.addEventListener('injectPoint', function(e) {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    ensureTrackExists(); 
+    const actions = getSafeActions();
+
+    const timeMs = Math.round(window.getActualTimeMs());
+    
+    const valA = parseInt(sliderA?.value || '20', 10); const valB = parseInt(sliderB?.value || '70', 10);
+    const currentMin = Math.min(valA, valB); const currentMax = Math.max(valA, valB);
+    let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
+
+    saveHistoryState();
+    actions.forEach(a => { a.selected = false; }); 
+    
+    const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
+    if (existingIdx !== -1) { 
+        actions[existingIdx].pos = pos; 
+        actions[existingIdx].at = timeMs;
+        actions[existingIdx].selected = true; 
+    } 
+    else { 
+        actions.push({ at: timeMs, pos: pos, selected: true }); 
+    }
+    
+    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+
+    cleanDuplicates();
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    notifyCloud(); window.updateHeatmapAndStats(); 
+});
+
+window.addEventListener('nudgeTime', function(e) {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    const actions = getSafeActions(); const dir = e.detail; let moved = false;
+    saveHistoryState();
+    actions.forEach(act => {
+        if (act.selected) {
+            if (dir === 'left') act.at = Math.max(0, act.at - 50); 
+            if (dir === 'right') act.at = act.at + 50; 
+            moved = true;
+        }
+    });
+    if (moved) {
+        cleanDuplicates();
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+    }
+});
+
+window.addEventListener('nudgePoints', function(e) {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    
+    const modal = document.getElementById('preset-editor-modal');
+    if (modal && modal.style.display === 'flex') {
+        if (window.presetEditorActions) {
+            const snap = window.snapValue || 5;
+            let moved = false;
+            window.presetEditorActions.forEach(act => {
+                if (act.selected) {
+                    if (e.detail === 'up') {
+                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
+                        else act.pos = Math.min(100, act.pos + snap);
+                    }
+                    if (e.detail === 'down') {
+                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
+                        else act.pos = Math.max(0, act.pos - snap);
+                    }
+                    moved = true;
+                }
+            });
+            if (moved && typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
+        }
+        return;
+    }
+
+    const actions = getSafeActions(); const dir = e.detail; let moved = false;
+    const snap = window.snapValue || 5;
+    saveHistoryState();
+    
+    let hasSelection = actions.some(a => a.selected);
+    if (!hasSelection) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; 
+    }
+
+    actions.forEach(act => {
+        if (act.selected) {
+            if (dir === 'up') {
+                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
+                else act.pos = Math.min(100, act.pos + snap);
+            }
+            if (dir === 'down') {
+                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
+                else act.pos = Math.max(0, act.pos - snap);
+            }
+            moved = true;
+        }
+    });
+    
+    if (moved) {
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats(); 
+    }
+});
+
+window.addEventListener('magnetPoint', function() {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    const actions = getSafeActions();
+    const timeMs = Math.round(window.getActualTimeMs());
+    let moved = false; saveHistoryState();
+    actions.forEach(act => { if (act.selected) { act.at = timeMs; moved = true; } });
+    if (moved) {
+        cleanDuplicates();
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+    }
+});
+
+window.addEventListener('deletePoints', () => {
+    if (document.body.classList.contains('panic-mode-active')) return; 
+
+    let deletedMarker = false;
+    const initialMarkerCount = window.timelineMarkers.length;
+    window.timelineMarkers = window.timelineMarkers.filter(m => !m.selected);
+    if (window.timelineMarkers.length !== initialMarkerCount) {
+        deletedMarker = true;
+    }
+
+    const actions = getSafeActions();
+    let hasSelection = actions.some(a => a.selected);
+    if (!hasSelection && !deletedMarker) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; 
+    }
+    
+    if (actions.some(a => a.selected) || deletedMarker) {
+        saveHistoryState();
+        actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
+        notifyCloud(); window.updateHeatmapAndStats();
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+});
+
+window.addEventListener('undoAction', () => { undo(); });
+window.addEventListener('redoAction', () => { redo(); });
+window.addEventListener('selectAllPoints', () => {
+    getSafeActions().forEach(a => a.selected = true);
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+});
+
+function ensureCanvasSize() {
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (parent && (canvas.width !== parent.clientWidth || canvas.height !== parent.clientHeight)) {
+        canvas.width = parent.clientWidth; canvas.height = parent.clientHeight;
+        if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
+    }
+}
+window.calculateAdaptiveZoom = function() { basePixelsPerMs = 0.1; };
+
+function saveHistoryState() { undoStack.push(JSON.stringify(getSafeActions())); if (undoStack.length > MAX_HISTORY) undoStack.shift(); redoStack = []; }
+function undo() {
+    if (undoStack.length > 0) {
+        redoStack.push(JSON.stringify(getSafeActions())); 
+        const parsed = JSON.parse(undoStack.pop());
+        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+    }
+}
+function redo() {
+    if (redoStack.length > 0) {
+        undoStack.push(JSON.stringify(getSafeActions())); 
+        const parsed = JSON.parse(redoStack.pop());
+        window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+    }
+}
+function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
+function xToTime(x) { return scrollLeftMs + (x - 30) / (basePixelsPerMs * zoom); }
+
+function posToY(pos) { 
+    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
+    return canvas.height - botPad - (pos / 100) * usableHeight; 
+}
+function yToPos(y) { 
+    const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
+    const rawPos = ((canvas.height - botPad - y) / usableHeight) * 100; 
+    return Math.max(0, Math.min(100, Math.round(rawPos))); 
+}
+
+window.updateGhostThumb = function() {
+    const ghostThumb = document.getElementById('ghost-thumb');
+    if (!ghostThumb) return;
+    if (!videoNode || !videoNode.duration) { ghostThumb.style.display = 'none'; return; }
+
+    const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
+    const centerTimeMs = scrollLeftMs + (visibleMs / 2);
+    const actualTimeMs = window.getActualTimeMs();
+
+    if (Math.abs(centerTimeMs - actualTimeMs) > visibleMs * 0.05) {
+        ghostThumb.style.display = 'block';
+        const percentage = (centerTimeMs / (videoNode.duration * 1000)) * 100;
+        ghostThumb.style.left = `${Math.max(0, Math.min(100, percentage))}%`;
+    } else {
+        ghostThumb.style.display = 'none';
+    }
+};
+
+function fakeRandom(seed) {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+}
+
+// 🎯 FIX: Blindaje Total en el dibujo de la Línea de Tiempo. Ya no se borrará.
 window.drawTimeline = function() {
     try {
         ensureCanvasSize();
@@ -525,13 +939,13 @@ window.drawTimeline = function() {
                 if (w > 0) {
                     ctx.fillStyle = isLight ? '#bae6fd' : '#0ea5e9';
                     ctx.strokeStyle = isLight ? '#38bdf8' : '#0284c7';
-                    ctx.beginPath(); ctx.roundRect(startX, trackY1, w, trackH, 4); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.rect(startX, trackY1, w, trackH); ctx.fill(); ctx.stroke();
                     ctx.fillStyle = isLight ? '#0c4a6e' : '#f0f9ff'; ctx.font = 'bold 11px sans-serif';
                     ctx.fillText(`Cam_0${(i%3)+1}_final.mp4`, startX + 8, trackY1 + 16);
 
                     ctx.fillStyle = isLight ? '#bbf7d0' : '#10b981';
                     ctx.strokeStyle = isLight ? '#34d399' : '#059669';
-                    ctx.beginPath(); ctx.roundRect(startX, trackY2, w, trackH, 4); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.rect(startX, trackY2, w, trackH); ctx.fill(); ctx.stroke();
                     
                     ctx.strokeStyle = isLight ? '#064e3b' : '#a7f3d0';
                     ctx.beginPath();
@@ -688,7 +1102,8 @@ window.drawTimeline = function() {
 
                     ctx.fillStyle = color;
                     ctx.beginPath();
-                    ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
+                    // Usamos rect seguro en lugar de roundRect que es conflictivo en Chromium
+                    ctx.rect(mx - 15, 0, 30, 25);
                     ctx.fill();
 
                     ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
@@ -783,7 +1198,6 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: Renderizado de la Línea Fantasma durante el arrastre sintético
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             
             if (window.timelineGhostTargetEnd) {
@@ -857,8 +1271,6 @@ window.drawTimeline = function() {
                 ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
                 if (window.isPastingMode) {
                     ctx.fillText("📋 PEGAR LIBRE (Click para soltar)", pasteX + 15, pasteY + 30);
-                } else if (window.isDraggingPreset) {
-                    ctx.fillText("✋ SOLTAR AQUÍ (Click derecho cancela)", pasteX + 15, pasteY + 30);
                 }
             }
         }
@@ -1003,7 +1415,9 @@ window.drawTimeline = function() {
 
         window.updateGhostThumb();
 
-    } catch (err) {}
+    } catch (err) {
+        console.error("Error crítico en drawTimeline:", err);
+    }
 };
 
 window.syncSliderWithSelection = function() {
@@ -1039,69 +1453,42 @@ pointSlider?.addEventListener('change', function() {
 
 function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) }; }
 
-// 🎯 FIX: Intercepción de Clics globalizada para manejar el Arrastre Sintético de los presets
 canvas?.addEventListener('mousedown', (e) => {
     if (document.body.classList.contains('panic-mode-active')) return; 
 
     const snap = window.snapValue || 5;
 
-    if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset) {
+    if (window.isPastingMode && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
             saveHistoryState();
             let actions = getSafeActions();
             const pos = getMousePos(e);
-            
-            // Usamos la coordenada calculada por el Imán o el ratón en bruto
             let dropTimeMs = Math.round(window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x)));
             const deltaY = window.timelineGhostDeltaPos || 0;
             
-            if (window.timelineGhostTargetEnd) {
-                // Modo Adaptación Múltiple a Marcadores
-                const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
-                if (morphed) {
-                    let tStart = window.timelineGhostTimeMs;
-                    let tEnd = window.timelineGhostTargetEnd;
-                    
-                    actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-                    actions.forEach(a => a.selected = false);
-                    morphed.forEach(m => m.selected = true);
-                    actions.push(...morphed);
-                }
-            } else {
-                // Modo Inyección Directa o Repetición
-                const newActions = window.timelineGhostPreset.map(act => ({
-                    at: Math.max(0, Math.round(dropTimeMs + act.at)),
-                    pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
-                    selected: true,
-                    isSync: act.isSync || false
-                }));
-                
-                const newTimes = new Set(newActions.map(a => a.at));
-                actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
-                actions.forEach(a => a.selected = false);
-                actions.push(...newActions);
-            }
+            const newActions = window.timelineGhostPreset.map(act => ({
+                at: Math.max(0, Math.round(dropTimeMs + act.at)),
+                pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
+                selected: true,
+                isSync: act.isSync || false
+            }));
             
+            const newTimes = new Set(newActions.map(a => a.at));
+            actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
+            actions.forEach(a => a.selected = false);
+            actions.push(...newActions);
             cleanDuplicates(); 
             
-            // Apagado de todas las banderas para soltar todo limpiamente
-            window.isPastingMode = false; window.isDraggingPreset = false;
-            window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
-            window.timelineGhostDeltaPos = 0; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
+            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
             
-            document.body.style.cursor = 'default';
             if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
 
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
             notifyCloud(); window.updateHeatmapAndStats();
-            if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         } else if (e.button === 2) { 
-            // Clic derecho cancela todo
-            window.isPastingMode = false; window.isDraggingPreset = false;
-            window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-            document.body.style.cursor = 'default';
+            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
@@ -1255,9 +1642,40 @@ canvas?.addEventListener('mousemove', (e) => {
     const mouseX = pos.x; const mouseY = pos.y;
     window.lastMouseX = mouseX;
     window.lastMouseY = mouseY;
+    
+    if (isSelectingMarkers) {
+        selCurrMarkerT = xToTime(mouseX);
+        const minT = Math.min(selStartMarkerT, selCurrMarkerT);
+        const maxT = Math.max(selStartMarkerT, selCurrMarkerT);
+        
+        window.timelineMarkers.forEach((m, i) => {
+            if (m.at >= minT && m.at <= maxT) {
+                m.selected = true;
+            } else {
+                m.selected = e.ctrlKey ? markerSelectionInitialStates[i] : false;
+            }
+        });
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        return;
+    }
 
-    // 🎯 FIX: Cálculo Matemático del Imán en Tiempo Real (Reemplaza el antiguo dragover)
-    if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset) {
+    if (isDraggingMarker && draggedMarkerIndex !== -1) {
+        const m = window.timelineMarkers[draggedMarkerIndex];
+        let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
+
+        const actualTimeMs = window.getActualTimeMs();
+        if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = Math.round(actualTimeMs);
+
+        m.at = Math.max(0, newAt);
+        window.timelineMarkers.sort((a, b) => a.at - b.at);
+        draggedMarkerIndex = window.timelineMarkers.indexOf(m); 
+        
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+        if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
+        return;
+    }
+
+    if (window.isPastingMode && window.timelineGhostPreset) {
         let hoverTimeMs = xToTime(mouseX);
         let hoverPosRaw = yToPos(mouseY);
         
@@ -1315,40 +1733,9 @@ canvas?.addEventListener('mousemove', (e) => {
             window.timelineGhostDeltaPos = hoverPos - basePos;
         }
     }
-    
-    if (isSelectingMarkers) {
-        selCurrMarkerT = xToTime(mouseX);
-        const minT = Math.min(selStartMarkerT, selCurrMarkerT);
-        const maxT = Math.max(selStartMarkerT, selCurrMarkerT);
-        
-        window.timelineMarkers.forEach((m, i) => {
-            if (m.at >= minT && m.at <= maxT) {
-                m.selected = true;
-            } else {
-                m.selected = e.ctrlKey ? markerSelectionInitialStates[i] : false;
-            }
-        });
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        return;
-    }
-
-    if (isDraggingMarker && draggedMarkerIndex !== -1) {
-        const m = window.timelineMarkers[draggedMarkerIndex];
-        let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
-
-        const actualTimeMs = window.getActualTimeMs();
-        if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = Math.round(actualTimeMs);
-
-        m.at = Math.max(0, newAt);
-        window.timelineMarkers.sort((a, b) => a.at - b.at);
-        draggedMarkerIndex = window.timelineMarkers.indexOf(m); 
-        
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        if (typeof window.drawProgressMarkers === 'function') window.drawProgressMarkers();
-        return;
-    }
 
     const actions = getSafeActions();
+
     window.activeSuggestion = null;
     const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
     let hwMax = device.standard.max;
@@ -1358,7 +1745,7 @@ canvas?.addEventListener('mousemove', (e) => {
         hwMin = device.overclock.min;
     }
 
-    if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers && !window.isDraggingPreset) {
+    if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers) {
         for (let i = 0; i < actions.length - 1; i++) {
             let act1 = actions[i]; let act2 = actions[i+1];
             let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
@@ -1420,8 +1807,7 @@ canvas?.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
-    // Si estábamos en medio de un arrastre sintético, el evento lo manejó el mousedown anterior
-    if (window.isPastingMode || window.isDraggingPreset) return; 
+    if (window.isPastingMode) return; 
 
     if (isSelectingMarkers) {
         isSelectingMarkers = false;
@@ -1471,6 +1857,149 @@ window.addEventListener('mouseup', (e) => {
 });
 
 canvas?.addEventListener('contextmenu', e => e.preventDefault());
+
+// Manejador de Arrastre Sintético Global desde los Presets a la Línea de Tiempo
+document.addEventListener('mousemove', (e) => {
+    if (window.isDraggingPreset && window.timelineGhostPreset) {
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        
+        // Si el ratón está encima del canvas de la línea de tiempo
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            let hoverTimeMs = xToTime(mouseX);
+            let hoverPosRaw = yToPos(mouseY);
+            
+            window.timelineGhostMouseX = mouseX;
+            window.timelineGhostMouseY = mouseY;
+            
+            const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
+            
+            if (selectedMarkers.length >= 2) {
+                window.timelineGhostTimeMs = selectedMarkers[0].at;
+                window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
+                window.timelineGhostMarkers = selectedMarkers;
+    
+                if (!window.presetFillInitialized) {
+                    const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+                    window.presetFillMode = 'stretch';
+                    window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
+                    window.presetFillInitialized = true;
+                }
+            } else {
+                window.timelineGhostMarkers = null;
+                window.timelineGhostTargetEnd = null;
+                window.presetFillInitialized = false;
+    
+                const actions = getSafeActions();
+                const playheadTimeMs = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
+                const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
+                const snapDistMs = 250; 
+                let bestOffset = hoverTimeMs;
+                let minDistance = snapDistMs;
+                let isSnapped = false;
+    
+                const pointsToCheck = [window.timelineGhostPreset[0]];
+                if (window.timelineGhostPreset.length > 1) {
+                    pointsToCheck.push(window.timelineGhostPreset[window.timelineGhostPreset.length - 1]);
+                }
+    
+                pointsToCheck.forEach(pAct => {
+                    let projectedTime = hoverTimeMs + pAct.at;
+                    for (let i = 0; i < snapTargets.length; i++) {
+                        let dist = Math.abs(projectedTime - snapTargets[i]);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            bestOffset = snapTargets[i] - pAct.at;
+                            isSnapped = true;
+                        }
+                    }
+                });
+    
+                window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
+                
+                const snap = window.snapValue || 5;
+                let hoverPos = Math.round(hoverPosRaw / snap) * snap;
+                const basePos = window.timelineGhostPreset[0].pos;
+                window.timelineGhostDeltaPos = hoverPos - basePos;
+            }
+        } else {
+            window.timelineGhostTimeMs = null; // Borrar si sale del canvas
+        }
+        if(typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+});
+
+// Manejo del soltado del Preset Sintético
+document.addEventListener('mouseup', (e) => {
+    if (window.isDraggingPreset && window.timelineGhostPreset) {
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            ensureTrackExists();
+            let actions = getSafeActions();
+
+            if (window.timelineGhostTargetEnd) {
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
+                if (morphed) {
+                    saveHistoryState();
+                    let tStart = window.timelineGhostTimeMs;
+                    let tEnd = window.timelineGhostTargetEnd;
+                    
+                    actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+                    actions.forEach(a => a.selected = false);
+                    morphed.forEach(m => m.selected = true);
+                    actions.push(...morphed);
+                    
+                    cleanDuplicates();
+                    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+                    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+                    notifyCloud(); window.updateHeatmapAndStats();
+                }
+            } else {
+                const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+                let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
+                const deltaY = window.timelineGhostDeltaPos || 0;
+                const snap = window.snapValue || 5;
+                
+                saveHistoryState();
+                
+                const newActions = window.timelineGhostPreset.map(act => ({
+                    at: Math.round(dropTimeMs + act.at),
+                    pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
+                    selected: true,
+                    isSync: act.isSync || false
+                }));
+                
+                let tStart = newActions[0].at;
+                let tEnd = newActions[newActions.length - 1].at;
+                
+                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+                actions.forEach(a => a.selected = false); 
+                actions.push(...newActions);
+                
+                cleanDuplicates(); 
+                if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+                notifyCloud(); window.updateHeatmapAndStats();
+            }
+        }
+        
+        window.isDraggingPreset = false; 
+        window.timelineGhostPreset = null; 
+        window.timelineGhostTimeMs = null; 
+        window.timelineGhostDeltaPos = 0;
+        window.presetFillInitialized = false; 
+        window.timelineGhostTargetEnd = null; 
+        window.timelineGhostMarkers = null;
+        
+        document.body.style.cursor = 'default';
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
+});
 
 function animationLoop() { window.drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
