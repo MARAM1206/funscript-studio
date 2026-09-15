@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.18.0 (SISTEMA DE INYECCIÓN POR PORTAPAPELES)
+// PRESETS MANAGER V1.18.5 (DRAG & DROP RESTAURADO Y BLINDADO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,10 +71,33 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetsLibrary.forEach((preset, index) => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
-                // 🎯 FIX: Adiós atributos de arrastre. Cursor normal.
+                card.draggable = true; 
                 card.dataset.id = preset.id;
-                card.style.transition = "border 0.2s ease, transform 0.1s";
-                card.style.cursor = "default"; 
+                
+                // 🎯 FIX: Física de arrastre (Drag & Drop) restaurada limpiamente
+                card.addEventListener('dragstart', (e) => {
+                    window.isDraggingPreset = true;
+                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                    window.presetFillInitialized = false; 
+                    
+                    if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'copy';
+                        e.dataTransfer.setData('text/plain', preset.id); 
+                    }
+                    setTimeout(() => card.style.opacity = '0.5', 0);
+                });
+                
+                card.addEventListener('dragend', (e) => {
+                    e.preventDefault();
+                    card.style.opacity = '1';
+                    window.isDraggingPreset = false;
+                    window.timelineGhostPreset = null;
+                    window.timelineGhostTimeMs = null;
+                    window.timelineGhostTargetEnd = null;
+                    window.timelineGhostMarkers = null;
+                    
+                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                });
 
                 if (isModal) {
                     card.addEventListener('dblclick', () => {
@@ -86,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
-                // 🎯 FIX: Se añade el botón de Copiar (📋) al menú de acciones
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
@@ -95,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
-                        <button class="copy-preset-btn" title="Cargar Preset (Inyectar)" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">📋</button>
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
                         <button class="delete-preset-btn" title="Eliminar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">🗑️</button>
                     </div>` : ''}
@@ -104,28 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(card);
 
                 if (!isModal) {
-                    // 🎯 FIX: Lógica del Inyector por Portapapeles
-                    const copyBtn = card.querySelector('.copy-preset-btn');
-                    copyBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        window.clipboardFunscript = JSON.parse(JSON.stringify(preset.actions));
-                        
-                        // Activamos el modo pegar directamente
-                        window.isPastingMode = true;
-                        window.timelineGhostPreset = window.clipboardFunscript;
-                        window.timelineGhostTimeMs = null;
-                        window.presetFillInitialized = false; 
-                        
-                        // Pequeño feedback visual de éxito
-                        const originalIcon = copyBtn.innerText;
-                        copyBtn.innerText = "✅";
-                        setTimeout(() => copyBtn.innerText = originalIcon, 1000);
-                        
-                        if(typeof window.drawTimeline === 'function') window.drawTimeline();
-                    });
-                    copyBtn.addEventListener('mouseenter', e => e.target.style.opacity = '1');
-                    copyBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
-
                     const editBtn = card.querySelector('.edit-preset-btn');
                     editBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -462,9 +461,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
-
-    // 🎯 FIX: Eliminados los eventos de Drop Interno del Canvas. 
-    // Ahora todo se pega desde el portapapeles global del sistema de Inyección.
 
     renderPresetsLibrary();
 });
