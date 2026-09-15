@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.15.0 (AUTO-ZOOM Y NOMENCLATURA INTELIGENTE)
+// PRESETS MANAGER V1.15.1 (RESIZE OBSERVER INFALIBLE Y BOTONES CONTEXTUALES)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('preset-editor-modal');
     
     const modalCancel = document.getElementById('preset-editor-cancel');
-    const modalSave = document.getElementById('preset-editor-save'); // Botón Guardar / Sobrescribir
-    const modalSaveNew = document.getElementById('preset-editor-save-new'); // Botón Guardar como Nuevo
+    const modalSave = document.getElementById('preset-editor-save'); 
+    const modalSaveNew = document.getElementById('preset-editor-save-new'); 
     
     const pCanvas = document.getElementById('preset-editor-canvas');
     const pNameInput = document.getElementById('preset-editor-name');
@@ -26,7 +26,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSelectingP = false; let pSelStartT = 0; let pSelStartY = 0; let pSelCurrT = 0; let pSelCurrY = 0;
     let hasDraggedPSelection = false; let hadSelectionBeforePMousedown = false;
 
-    // 🎯 FIX: Sistema anti-sobrescritura para generar nombres únicos "(1), (2)"
+    // 🎯 FIX: El ResizeObserver garantiza que el Canvas jamás se dibuje "en negro" al abrirse
+    const resizeObserver = new ResizeObserver(() => {
+        if (modal && modal.style.display === 'flex' && pCanvas) {
+            const container = pCanvas.parentElement;
+            if (pCanvas.width !== container.clientWidth || pCanvas.height !== container.clientHeight) {
+                pCanvas.width = container.clientWidth;
+                pCanvas.height = container.clientHeight;
+                drawPresetEditor();
+            }
+        }
+    });
+    if (pCanvas && pCanvas.parentElement) resizeObserver.observe(pCanvas.parentElement);
+
     function getUniqueName(desiredName, excludeId = null) {
         let name = desiredName.trim() || 'Sin Nombre';
         let counter = 1;
@@ -148,70 +160,62 @@ document.addEventListener('DOMContentLoaded', () => {
             const newPresetActions = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, isSync: a.isSync || false }));
             
             window.presetEditorActions = newPresetActions;
-            openPresetEditor(); // Se llama sin ID, activa el modo Creación.
+            openPresetEditor(); 
         });
     }
 
     function generateId() { return Math.random().toString(36).substr(2, 9); }
 
-    // 🎯 FIX: Lógica contextual de botones y Auto-Zoom en el Canvas
+    // 🎯 FIX: Lógica dual de botones (Crear vs Editar) y Anti-Crash del Canvas
     function openPresetEditor(presetId = null) {
         if (!modal) return;
         editingPresetId = presetId;
         pScrollX = 0; pZoom = 1.0;
         
         if (presetId) {
-            // MODO EDICIÓN
             const p = window.presetsLibrary.find(x => x.id === presetId);
             if (p) { 
                 pNameInput.value = p.name; 
                 window.presetEditorActions = JSON.parse(JSON.stringify(p.actions)); 
             }
-            
             modalSave.innerText = "Sobrescribir";
             modalSave.className = "menu-btn orange-btn"; 
-            modalSave.style.display = "block";
-            
-            modalSaveNew.innerText = "Guardar como Nuevo";
             modalSaveNew.style.display = "block";
         } else {
-            // MODO CREACIÓN
             pNameInput.value = "Nuevo Preset"; 
-            
-            modalSave.innerText = "Guardar";
+            modalSave.innerText = "Crear Preset";
             modalSave.className = "menu-btn success-btn"; 
-            modalSave.style.display = "block";
-            
             modalSaveNew.style.display = "none";
         }
         
         modal.style.display = 'flex';
         renderPresetsLibrary(); 
         
-        // Timeout para asegurar que el DOM calculó el tamaño del modal
-        setTimeout(() => { 
-            const container = pCanvas.parentElement;
-            pCanvas.width = container.clientWidth; 
-            pCanvas.height = container.clientHeight;
-            
-            // 🎯 Auto-Zoom Horizontal: Ajustar gráfica para que ocupe el 80% de la pantalla visible
-            if (window.presetEditorActions.length > 0) {
-                const totalDurationMs = window.presetEditorActions[window.presetEditorActions.length - 1].at;
-                if (totalDurationMs > 0) {
-                    const targetPixels = pCanvas.width * 0.8; 
-                    pZoom = targetPixels / (totalDurationMs * pBasePixelsPerMs);
-                    pZoom = Math.max(0.1, Math.min(15.0, pZoom)); 
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const container = pCanvas.parentElement;
+                pCanvas.width = container.clientWidth; 
+                pCanvas.height = container.clientHeight;
+                
+                if (window.presetEditorActions.length > 0) {
+                    const totalDurationMs = window.presetEditorActions[window.presetEditorActions.length - 1].at;
+                    if (totalDurationMs > 0) {
+                        const targetPixels = pCanvas.width * 0.8; 
+                        pZoom = targetPixels / (totalDurationMs * pBasePixelsPerMs);
+                        pZoom = Math.max(0.1, Math.min(15.0, pZoom)); 
+                    } else {
+                        pZoom = 1.0;
+                    }
                 }
-            }
-            drawPresetEditor(); 
-        }, 50);
+                drawPresetEditor(); 
+            });
+        });
     }
 
     function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
 
     modalCancel?.addEventListener('click', closePresetEditor);
 
-    // 🎯 Acción: "Guardar como Nuevo" (Solo visible en edición)
     modalSaveNew?.addEventListener('click', () => {
         if (window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
         
@@ -226,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPresetsLibrary(); closePresetEditor();
     });
 
-    // 🎯 Acción: "Guardar" / "Sobrescribir" (Botón principal híbrido)
     modalSave?.addEventListener('click', () => {
         if (window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
         
@@ -235,14 +238,12 @@ document.addEventListener('DOMContentLoaded', () => {
         window.presetEditorActions.forEach(a => a.at -= base);
 
         if (editingPresetId) {
-            // Sobrescribir preset existente
             const p = window.presetsLibrary.find(x => x.id === editingPresetId);
             if (p) { 
-                p.name = getUniqueName(pNameInput.value, p.id); // Asegura que el nombre no choque con OTRO preset diferente
+                p.name = getUniqueName(pNameInput.value, p.id); 
                 p.actions = JSON.parse(JSON.stringify(window.presetEditorActions)); 
             }
         } else {
-            // Crear uno completamente nuevo
             const finalName = getUniqueName(pNameInput.value);
             const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
             window.presetsLibrary.push(newPreset);
