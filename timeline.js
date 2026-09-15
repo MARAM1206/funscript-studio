@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.15.0 (IMÁN MULTI-PUNTO DE ALTA PRECISIÓN Y SOLTADO DE PRESETS)
+// TIMELINE V1.17.0 (IMÁN OPTIMIZADO PARA EVITAR CONGELAMIENTOS AL ARRASTRAR)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -64,9 +64,6 @@ let dragStartYPos = 0;
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
 
-window.magneticSnapPoint = null;
-window.startMagneticSnapPoint = null;
-let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
 function formatTimelineLabel(timeMs) {
@@ -460,10 +457,10 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// 🎯 FIX: Imán Multipunto de Precisión para Línea de Tiempo
+// 🎯 FIX: Cálculo de Imanes Optimizado para no bloquear el arrastre nativo.
 canvas?.addEventListener('dragover', (e) => {
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-    e.preventDefault();
+    e.preventDefault(); 
     if(e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     
     const rect = canvas.getBoundingClientRect();
@@ -497,24 +494,26 @@ canvas?.addEventListener('dragover', (e) => {
         const actions = getSafeActions();
         const playheadTimeMs = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
         
-        // 🎯 Magia Negra: Comparar contra todos los puntos existentes y la línea naranja
         const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
         
-        const snapDistMs = 250; // Fuerza del imán de 250 ms
+        const snapDistMs = 250; 
         let bestOffset = hoverTimeMs;
         let minDistance = snapDistMs;
         let isSnapped = false;
 
-        window.timelineGhostPreset.forEach(pAct => {
+        // 🎯 FIX: El Imán ahora solo checa las puntas del preset en lugar de todo el interior
+        const pointsToCheck = [window.timelineGhostPreset[0], window.timelineGhostPreset[window.timelineGhostPreset.length - 1]];
+
+        pointsToCheck.forEach(pAct => {
             let projectedTime = hoverTimeMs + pAct.at;
-            snapTargets.forEach(target => {
-                let dist = Math.abs(projectedTime - target);
+            for (let i = 0; i < snapTargets.length; i++) {
+                let dist = Math.abs(projectedTime - snapTargets[i]);
                 if (dist < minDistance) {
                     minDistance = dist;
-                    bestOffset = target - pAct.at;
+                    bestOffset = snapTargets[i] - pAct.at;
                     isSnapped = true;
                 }
-            });
+            }
         });
 
         window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
@@ -526,7 +525,6 @@ canvas?.addEventListener('dragover', (e) => {
     }
 });
 
-// 🎯 FIX: Insertar el preset calculado matemáticamente al soltar el click
 canvas?.addEventListener('drop', (e) => {
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
     e.preventDefault();
@@ -562,7 +560,6 @@ canvas?.addEventListener('drop', (e) => {
     const rect = canvas.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
     
-    // Aquí el dropTime usa la matemática del imán guardada previamente en timelineGhostTimeMs
     let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
     const deltaY = window.timelineGhostDeltaPos || 0;
     const snap = window.snapValue || 5;
