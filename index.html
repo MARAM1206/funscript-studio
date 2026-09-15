@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.14.0">
+    <link rel="stylesheet" href="styles.css?v=1.14.1">
 </head>
 <body>
 
@@ -129,9 +129,9 @@
         
         <!-- 🎬 Reproductor -->
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
-            <div class="panel-header video-info-bar">
-                <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; max-width: 400px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">🎥 Sin video</span>
-                <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal;">
+            <div class="panel-header video-info-bar" style="display: flex; justify-content: space-between;">
+                <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; max-width: 400px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">Sin video</span>
+                <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal; margin-left: auto;">
                     <span id="v-res" class="fixed-info" style="color:#38bdf8; font-weight: normal;">--x--</span> <span class="divider">|</span> 
                     <span id="v-fps" class="fixed-info" style="color:#38bdf8; font-weight: normal;">-- fps</span> <span class="divider">|</span> 
                     <span id="v-speed" class="fixed-info" style="color:#38bdf8; font-weight: normal;">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
@@ -155,21 +155,21 @@
                     <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
                 </div>
 
-                <!-- 🎯 FIX: Sincronización perfecta Slider y Heatmap (Optimización de Espacio) -->
+                <!-- 🎯 FIX: Espacio Optimizado y Componentes Sincronizados de Barra y Heatmap -->
                 <div class="video-bottom-unified-bar">
                     <span id="v-time-current" style="width: 35px; text-align: right;">00:00</span>
                     
-                    <div class="sync-container" style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center;">
+                    <div class="sync-container" style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center; position: relative;">
                         <!-- Slider Arriba -->
-                        <div class="progress-slider-wrapper">
+                        <div class="progress-slider-wrapper" style="position: relative; height: 14px; display: flex; align-items: center;">
                             <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
                             <div id="ghost-thumb" class="ghost-thumb"></div> 
                             <canvas id="progress-markers-canvas" class="heatmap-canvas" style="position:absolute; top:0; left:0; pointer-events:none; z-index:4; opacity: 1;"></canvas>
                         </div>
                         
-                        <!-- Heatmap Abajo (Mismo ancho estricto) -->
-                        <div class="heatmap-wrapper">
-                            <canvas id="heatmap-canvas" class="heatmap-canvas"></canvas>
+                        <!-- Heatmap Abajo -->
+                        <div class="heatmap-wrapper" style="position: relative; height: 20px; border-radius: 2px; overflow: hidden; background: #059669; border: 1px solid var(--border-color); width: 100%;">
+                            <canvas id="heatmap-canvas" class="heatmap-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1;"></canvas>
                         </div>
                     </div>
 
@@ -179,9 +179,9 @@
         </div>
 
         <!-- 📂 Gestor de Archivos -->
-        <div id="panel-tracks" class="workspace-panel" data-title="📂 Gestor de Archivos">
+        <div id="panel-tracks" class="workspace-panel" data-title="Gestor de Archivos">
             <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left;">📂 Gestor de Archivos</span>
+                <span style="flex-grow: 1; text-align: left;">Gestor de Archivos</span>
                 <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1rem; padding:0 5px;" title="Añadir Archivos (Video o Scripts)">➕</button>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; padding: 8px;">
@@ -190,20 +190,20 @@
         </div>
 
         <!-- ⭐ Presets -->
-        <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
+        <div id="panel-presets" class="workspace-panel" data-title="Presets">
             <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left;">⭐ Presets</span>
+                <span style="flex-grow: 1; text-align: left;">Presets</span>
             </div>
             <div class="panel-content" style="padding: 8px;">
-                <button id="save-preset-btn" class="menu-btn purple-btn" style="width: 100%; margin-bottom: 8px; font-size: 0.75rem;">Guardar Selección</button>
+                <button id="save-preset-btn" class="menu-btn purple-btn" style="width: 100%; margin-bottom: 8px; font-size: 0.7rem;">Guardar Selección</button>
                 <div id="presets-list" class="presets-list-container"><span class="empty-log">No hay presets aún.</span></div>
             </div>
         </div>
 
         <!-- 🎚️ Ajuste Puntos -->
-        <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: center; color:#94a3b8;">🎚️ Ajuste</span>
+        <div id="panel-slider" class="workspace-panel" data-title="Ajuste">
+            <div class="panel-header" style="justify-content: center !important;">
+                <span style="text-align: center; color:#94a3b8;">Ajuste</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                 <div class="vertical-slider-wrapper">
@@ -214,9 +214,9 @@
         </div>
 
         <!-- ⚡ Inyector Rápido -->
-        <div id="panel-quick" class="workspace-panel" data-title="⚡ Inyector Rápido">
+        <div id="panel-quick" class="workspace-panel" data-title="Inyector Rápido">
             <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">⚡ Inyector Rápido</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Inyector Rápido</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
                 <p style="font-size: 0.7rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta topes y usa <strong>Ctrl + Flechas</strong>.</p>
@@ -232,9 +232,9 @@
         </div>
 
         <!-- 🤖 Digital Twin -->
-        <div id="panel-twin" class="workspace-panel" data-title="🤖 Digital Twin">
+        <div id="panel-twin" class="workspace-panel" data-title="Digital Twin">
             <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🤖 Digital Twin 3D</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Digital Twin 3D</span>
                 <div style="display: flex; align-items: center; gap: 8px;" onmousedown="event.stopPropagation()">
                     <button id="twin-anatomy-btn" class="track-btn" style="color:#94a3b8; font-size:1rem; padding:0 5px;" title="Mostrar/Ocultar Referencia Anatómica">🙈</button>
                     <span id="twin-status-txt" style="font-family:monospace; font-size:0.6rem; color:#10b981;">EN LÍNEA</span>
@@ -247,16 +247,16 @@
         </div>
 
         <!-- 🎭 Humanizador -->
-        <div id="panel-humanizer" class="workspace-panel" data-title="🎭 Humanizador">
+        <div id="panel-humanizer" class="workspace-panel" data-title="Humanizador">
             <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🎭 Humanizador</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Humanizador</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 12px; overflow-y: auto;">
                 <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 8px; line-height: 1.3;">Añade micro-errores humanos de forma inteligente al patrón.</p>
                 
                 <label class="oc-label" style="background: rgba(15, 23, 42, 0.5); border-radius: 6px; padding: 6px 10px; width: 100%; display: flex; justify-content: center; margin-bottom: 12px; border: 1px solid #1e293b; transition: all 0.2s; cursor: pointer;">
                     <input type="checkbox" id="hum-auto-toggle" class="oc-toggle" checked> 
-                    <span class="oc-text" style="font-weight:bold; color:#10b981; font-size: 0.75rem;">Modo 100% Automático</span>
+                    <span class="oc-text" style="font-weight:bold; color:#10b981; font-size: 0.75rem;">Modo Automático</span>
                 </label>
 
                 <div id="hum-manual-controls" style="width: 100%; display: none; opacity: 0; transition: opacity 0.3s; margin-bottom: 10px;">
@@ -279,9 +279,9 @@
         </div>
 
         <!-- 🥁 Auto-Ritmo -->
-        <div id="panel-bpm" class="workspace-panel" data-title="🥁 Auto-Ritmo">
+        <div id="panel-bpm" class="workspace-panel" data-title="Auto-Ritmo">
             <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🥁 Auto-Ritmo (BPM)</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Auto-Ritmo (BPM)</span>
                 <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:0.9rem; padding:0 5px;" title="Borrar Marcadores">🗑️</button>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 12px;">
@@ -303,9 +303,9 @@
         </div>
 
         <!-- 🎛️ Moldeador -->
-        <div id="panel-mass" class="workspace-panel" data-title="🎛️ Moldeador">
+        <div id="panel-mass" class="workspace-panel" data-title="Moldeador">
             <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🎛️ Moldeador de Patrones</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Moldeador de Patrones</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 12px;">
                 <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Ajusta el tamaño o la altura de muchos puntos a la vez.</p>
@@ -332,10 +332,11 @@
         </div>
 
         <!-- 📈 Línea de Tiempo -->
-        <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left;">📈 Línea de Tiempo</span>
-                <div style="display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.75rem; font-family: monospace; color: var(--text-dim, #94a3b8); margin-right: 20px;">
+        <div id="panel-timeline" class="workspace-panel" data-title="Línea de Tiempo">
+            <div class="panel-header" style="justify-content: center;">
+                <span style="width: 150px; text-align: left;">Línea de Tiempo</span>
+                <!-- 🎯 FIX: Selector de FPS centrado -->
+                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.75rem; font-family: monospace; color: var(--text-dim, #94a3b8);">
                      <span>Saltos:</span>
                      <div class="fps-control">
                         <button id="fps-btn-down" class="fps-btn">◀</button>
@@ -344,8 +345,8 @@
                      </div>
                      <span>fps</span>
                 </div>
-                <div style="text-align: right;">
-                    <span id="timeline-stats" style="font-size: 0.7rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Vel: --</span>
+                <div style="width: 150px; text-align: right;">
+                    <span id="timeline-stats" style="font-size: 0.65rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Vel: --</span>
                 </div>
             </div>
             <div class="panel-content" style="position: relative; padding: 0;">
@@ -355,16 +356,15 @@
 
     </div>
 
-    <script src="workspace.js?v=1.14.0"></script>
-    <script src="handy.js?v=1.14.0"></script> 
-    <script src="funscript.js?v=1.14.0"></script>
-    <script src="player.js?v=1.14.0"></script>
-    <script src="tracking.js?v=1.14.0"></script>
-    <script src="presets.js?v=1.14.0"></script>
-    <script src="timeline.js?v=1.14.0"></script>
-    <script src="twin.js?v=1.14.0"></script>
-    <script src="humanizer.js?v=1.14.0"></script>
-    <script src="bpm.js?v=1.14.0"></script>
-    <script src="mass.js?v=1.14.0"></script>
+    <script src="workspace.js?v=1.14.1"></script>
+    <script src="handy.js?v=1.14.1"></script> 
+    <script src="funscript.js?v=1.14.1"></script>
+    <script src="player.js?v=1.14.1"></script>
+    <script src="presets.js?v=1.14.1"></script>
+    <script src="timeline.js?v=1.14.1"></script>
+    <script src="twin.js?v=1.14.1"></script>
+    <script src="humanizer.js?v=1.14.1"></script>
+    <script src="bpm.js?v=1.14.1"></script>
+    <script src="mass.js?v=1.14.1"></script>
 </body>
 </html>
