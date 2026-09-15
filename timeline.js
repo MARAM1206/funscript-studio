@@ -64,9 +64,6 @@ let dragStartYPos = 0;
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
 
-window.magneticSnapPoint = null;
-window.startMagneticSnapPoint = null;
-let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
 function formatTimelineLabel(timeMs) {
@@ -460,15 +457,15 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// 🎯 FIX: Blindaje absoluto en Canvas con e.preventDefault() inmediato.
+// 🎯 FIX: HTML5 Drag & Drop Nativo. preventDefault() absoluto desde la línea 1
 canvas?.addEventListener('dragenter', (e) => {
-    if (window.isDraggingPreset) e.preventDefault();
+    e.preventDefault();
 });
 
 canvas?.addEventListener('dragover', (e) => {
     e.preventDefault(); 
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    e.dataTransfer.dropEffect = 'copy';
     
     const rect = canvas.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -508,7 +505,7 @@ canvas?.addEventListener('dragover', (e) => {
         let minDistance = snapDistMs;
         let isSnapped = false;
 
-        // 🎯 FIX: Optimización de Imán (Reduce los cálculos en un 90% para evitar lag)
+        // 🎯 FIX: Imán ultraligero que solo evalúa el inicio y fin del preset. Cero Lag.
         const pointsToCheck = [window.timelineGhostPreset[0], window.timelineGhostPreset[window.timelineGhostPreset.length - 1]];
 
         pointsToCheck.forEach(pAct => {
