@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.14.0 (SYNC POINTS CON ÍCONO DE ANCLA VISUAL)
+// TIMELINE V1.14.2 (SISTEMA MATEMÁTICO DE HEATMAP EXACTO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -269,7 +269,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
-// 🎯 FIX: Heatmap de Alta Resolución y Transición de Colores (Verde a Rojo)
+// 🎯 FIX: Sistema de Sincronización y Color 1:1 del Mapa de Calor
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     const statsSpan = document.getElementById('timeline-stats');
@@ -288,13 +288,13 @@ window.updateHeatmapAndStats = function() {
             }
             if (validSegments > 0) {
                 const fapTapSpeed = Math.round(totalSegmentSpeed / validSegments);
-                if (fapTapSpeed >= 501) { speedText = `Very Fast (${fapTapSpeed})`; colorHtml = isLight ? "#dc2626" : "#ef4444"; } 
-                else if (fapTapSpeed >= 301) { speedText = `Fast (${fapTapSpeed})`; colorHtml = isLight ? "#ea580c" : "#f97316"; } 
-                else if (fapTapSpeed >= 151) { speedText = `Medium (${fapTapSpeed})`; colorHtml = isLight ? "#ca8a04" : "#facc15"; } 
-                else { speedText = `Slow (${fapTapSpeed})`; colorHtml = isLight ? "#059669" : "#10b981"; } 
+                if (fapTapSpeed >= 501) { speedText = `Muy Rápido (${fapTapSpeed})`; colorHtml = isLight ? "#dc2626" : "#ef4444"; } 
+                else if (fapTapSpeed >= 301) { speedText = `Rápido (${fapTapSpeed})`; colorHtml = isLight ? "#ea580c" : "#f97316"; } 
+                else if (fapTapSpeed >= 151) { speedText = `Medio (${fapTapSpeed})`; colorHtml = isLight ? "#ca8a04" : "#facc15"; } 
+                else { speedText = `Lento (${fapTapSpeed})`; colorHtml = isLight ? "#059669" : "#10b981"; } 
             }
         } else if (actions.length === 1) {
-            speedText = "Slow (0)"; colorHtml = document.body.classList.contains('light-theme') ? "#059669" : "#10b981";
+            speedText = "Lento (0)"; colorHtml = document.body.classList.contains('light-theme') ? "#059669" : "#10b981";
         }
         statsSpan.innerHTML = `Puntos: <strong style="color:var(--text-main, #e2e8f0);">${actions.length}</strong> &nbsp;|&nbsp; Vel: <strong style="color: ${colorHtml};">${speedText}</strong>`;
     }
@@ -304,42 +304,55 @@ window.updateHeatmapAndStats = function() {
     
     let totalDurationMs = videoNode && videoNode.duration ? videoNode.duration * 1000 : (actions.length > 0 ? actions[actions.length - 1].at : 0);
     const hCtx = hCanvas.getContext('2d');
-    if (totalDurationMs <= 0 || hCanvas.getBoundingClientRect().width === 0) { hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height); return; }
+    
+    if (totalDurationMs <= 0 || hCanvas.getBoundingClientRect().width === 0) { 
+        hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height); 
+        return; 
+    }
+    
     hCanvas.width = hCanvas.getBoundingClientRect().width;
-    hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+    
+    // Relleno absoluto inicial verde esmeralda (Cero acción)
+    hCtx.fillStyle = '#059669'; 
+    hCtx.fillRect(0, 0, hCanvas.width, hCanvas.height);
 
-    const bucketCount = 400; // Incremento de bloques para mayor resolución visual
-    const bucketDuration = totalDurationMs / bucketCount;
-    const buckets = new Array(bucketCount).fill(0);
+    if (actions.length > 1) {
+        const bucketCount = Math.floor(hCanvas.width); // Resolución de Píxel a Píxel
+        const bucketDuration = totalDurationMs / bucketCount;
+        const bucketSpeeds = new Array(bucketCount).fill(0);
+        
+        const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
 
-    actions.forEach((act, idx) => {
-        if (act.at <= totalDurationMs) {
-            const b = Math.floor(act.at / bucketDuration);
-            if (b >= 0 && b < bucketCount) {
-                if (idx > 0 && actions[idx-1].at <= totalDurationMs) buckets[b] += Math.abs(act.pos - actions[idx-1].pos); 
-                else buckets[b] += 50; 
+        // Calculamos la velocidad máxima registrada en cada bloque de tiempo
+        for (let i = 1; i < actions.length; i++) {
+            let a1 = actions[i-1];
+            let a2 = actions[i];
+            let dt = a2.at - a1.at;
+            let dp = Math.abs(a2.pos - a1.pos);
+            if (dt > 0) {
+                let speed = (dp * device.factor) / (dt / 1000); 
+                let startB = Math.floor(a1.at / bucketDuration);
+                let endB = Math.floor(a2.at / bucketDuration);
+
+                startB = Math.max(0, Math.min(bucketCount - 1, startB));
+                endB = Math.max(0, Math.min(bucketCount - 1, endB));
+
+                for (let b = startB; b <= endB; b++) {
+                    bucketSpeeds[b] = Math.max(bucketSpeeds[b], speed);
+                }
             }
         }
-    });
 
-    const smoothedBuckets = new Array(bucketCount).fill(0);
-    for (let i = 0; i < bucketCount; i++) {
-        let sum = buckets[i]; let count = 1;
-        if (i > 0) { sum += buckets[i-1]; count++; }
-        if (i < bucketCount - 1) { sum += buckets[i+1]; count++; }
-        smoothedBuckets[i] = sum / count; 
-    }
-
-    const sortedBuckets = [...smoothedBuckets].sort((a,b) => a-b);
-    const maxDistance = sortedBuckets[Math.floor(bucketCount * 0.98)] || 1; 
-    const bucketWidth = hCanvas.width / bucketCount;
-    
-    for (let i = 0; i < bucketCount; i++) {
-        if (smoothedBuckets[i] > 0) {
-            const intensity = Math.min(1.0, (smoothedBuckets[i] / maxDistance));
-            const hue = 120 - (intensity * 120); // 120 (Verde) a 0 (Rojo)
-            hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity + 0.3)})`;
-            hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
+        const bucketWidth = hCanvas.width / bucketCount;
+        for (let i = 0; i < bucketCount; i++) {
+            if (bucketSpeeds[i] > 0) {
+                let speed = bucketSpeeds[i];
+                // Mapeo Visual: 120 grados (Verde) a 0 grados (Rojo Vivo)
+                let intensity = Math.min(1.0, speed / 400); // 400 mm/s se pinta Rojo Total
+                let hue = 120 - (intensity * 120);
+                hCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth), hCanvas.height);
+            }
         }
     }
 };
@@ -589,7 +602,7 @@ function updateDualSlider() {
         sliderB.style.setProperty('--thumb-color', '#f97316'); 
     }
 
-    if (minLabel) minLabel.innerText = `⬇️ Mínimo: ${currentMin}%`; if (maxLabel) maxLabel.innerText = `⬆️ Máximo: ${currentMax}%`;
+    if (minLabel) minLabel.innerText = `⬇️ Min: ${currentMin}%`; if (maxLabel) maxLabel.innerText = `⬆️ Max: ${currentMax}%`;
     if (dualFill) { dualFill.style.left = `${currentMin}%`; dualFill.style.width = `${currentMax - currentMin}%`; }
 }
 function blurSliders() { if (sliderA) sliderA.blur(); if (sliderB) sliderB.blur(); }
@@ -642,7 +655,7 @@ window.addEventListener('nudgeTime', function(e) {
     if (moved) {
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); 
+        notifyCloud(); window.updateHeatmapAndStats();
     }
 });
 
