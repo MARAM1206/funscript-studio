@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V2.0 (ARRASTRE HÍBRIDO ANTI-CRASH: ORDENAR E INYECTAR)
+// PRESETS MANAGER V1.20.0 (DRAG & DROP NATIVO BLINDADO: ORDENAR E INYECTAR)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,80 +71,65 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetsLibrary.forEach((preset, index) => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
+                card.draggable = true; 
                 card.dataset.id = preset.id;
-                card.title = "Arrastra la tarjeta para ordenar";
-                
-                // 🎯 FIX 1: HTML5 D&D Exclusivo para reordenar la lista
-                card.draggable = true;
+                card.style.transition = "border 0.2s ease, transform 0.1s";
                 
                 card.addEventListener('dragstart', (e) => {
-                    // Si estamos arrastrando la gráfica, abortamos el D&D nativo
-                    if (window.isDraggingPreset) {
-                        e.preventDefault();
-                        return;
-                    }
-                    
-                    window.isSortingPreset = true;
+                    window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
-                    e.dataTransfer.effectAllowed = 'move';
+                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                    window.presetFillInitialized = false; 
                     
-                    // Imagen fantasma vacía para evitar crash
-                    const img = new Image();
-                    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                    e.dataTransfer.setDragImage(img, 0, 0);
-
-                    setTimeout(() => card.style.opacity = '0.4', 0);
+                    if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'copyMove';
+                        e.dataTransfer.setData('text/plain', preset.id); 
+                    }
+                    setTimeout(() => card.style.opacity = '0.5', 0);
                 });
                 
                 card.addEventListener('dragover', (e) => {
-                    if (!window.isSortingPreset) return;
                     e.preventDefault(); 
                     e.dataTransfer.dropEffect = 'move';
-                    
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        const rect = card.getBoundingClientRect();
-                        const relY = e.clientY - rect.top;
-                        if (relY < rect.height / 2) {
-                            card.style.boxShadow = "0 -2px 0 0 #38bdf8"; 
-                        } else {
-                            card.style.boxShadow = "0 2px 0 0 #38bdf8"; 
-                        }
+                        card.style.borderTop = "2px dashed #38bdf8"; 
+                        card.style.transform = "translateY(2px)";
                     }
                 });
 
                 card.addEventListener('dragleave', () => {
-                    card.style.boxShadow = "";
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
                 });
 
                 card.addEventListener('drop', (e) => {
-                    if (!window.isSortingPreset) return;
                     e.preventDefault();
-                    card.style.boxShadow = "";
-                    
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        const rect = card.getBoundingClientRect();
-                        const relY = e.clientY - rect.top;
-                        let insertIndex = index;
-                        if (relY >= rect.height / 2) insertIndex++;
-                        
                         const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
-                        if (insertIndex > window.draggedPresetIndex) insertIndex--;
-                        window.presetsLibrary.splice(insertIndex, 0, movedItem);
-                        
+                        window.presetsLibrary.splice(index, 0, movedItem);
                         localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                         window.needsPresetReRender = true; 
                     }
                 });
 
                 card.addEventListener('dragend', () => {
-                    window.isSortingPreset = false;
-                    window.draggedPresetIndex = undefined;
                     card.style.opacity = '1';
-                    card.style.boxShadow = "";
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
+                    window.isDraggingPreset = false;
+                    window.draggedPresetIndex = undefined;
+                    window.timelineGhostPreset = null;
+                    window.timelineGhostTimeMs = null;
+                    window.timelineGhostTargetEnd = null;
+                    window.timelineGhostMarkers = null;
                     
+                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+
                     if (window.needsPresetReRender) {
                         window.needsPresetReRender = false;
-                        renderPresetsLibrary();
+                        setTimeout(() => renderPresetsLibrary(), 10);
                     }
                 });
 
@@ -158,13 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
-                
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; cursor: grab;" title="📥 Arrastra esta gráfica a la Línea de Tiempo"></canvas>
+                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
@@ -196,51 +180,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     delBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
                 }
 
-                // 🎯 FIX 2: Arrastre Sintético exclusivo del Canvas para inyectar a la Línea de Tiempo
                 setTimeout(() => {
-                    const cNode = document.getElementById(canvasId);
-                    if (cNode && preset.actions.length > 0) {
-                        const tCtx = cNode.getContext('2d');
-                        tCtx.clearRect(0, 0, cNode.width, cNode.height);
+                    const c = document.getElementById(canvasId);
+                    if (c && preset.actions.length > 0) {
+                        const tCtx = c.getContext('2d');
+                        tCtx.clearRect(0, 0, c.width, c.height);
                         const dur = preset.actions[preset.actions.length-1].at;
-                        if (dur > 0) {
-                            tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
-                            preset.actions.forEach((a, i) => {
-                                const x = (a.at / dur) * cNode.width;
-                                const y = cNode.height - (a.pos / 100) * cNode.height;
-                                if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
-                            });
-                            tCtx.stroke();
-                        }
-
-                        // Interceptar el clic para activar el modo de Inyección
-                        cNode.addEventListener('mousedown', (e) => {
-                            if (e.button !== 0) return;
-                            e.preventDefault(); // MATA el dragstart nativo, bloqueando el crash de Chromium
-                            e.stopPropagation(); 
-                            
-                            window.isDraggingPreset = true;
-                            window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
-                            window.presetFillInitialized = false; 
-                            
-                            document.body.classList.add('is-dragging-global');
-
-                            const onGlobalMouseUp = () => {
-                                document.removeEventListener('mouseup', onGlobalMouseUp);
-                                document.body.classList.remove('is-dragging-global');
-                                
-                                setTimeout(() => {
-                                    window.isDraggingPreset = false;
-                                    window.timelineGhostPreset = null;
-                                    window.timelineGhostTimeMs = null;
-                                    window.timelineGhostTargetEnd = null;
-                                    window.timelineGhostMarkers = null;
-                                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
-                                }, 50);
-                            };
-
-                            document.addEventListener('mouseup', onGlobalMouseUp);
+                        if (dur <= 0) return;
+                        tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
+                        preset.actions.forEach((a, i) => {
+                            const x = (a.at / dur) * c.width;
+                            const y = c.height - (a.pos / 100) * c.height;
+                            if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
                         });
+                        tCtx.stroke();
                     }
                 }, 10);
             });
@@ -431,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetEditorActions.forEach(a => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
                 if (x >= 20 && x <= pCanvas.width + 20) {
+                    
                     if (a.isSync) {
                         pCtx.fillStyle = '#facc15'; 
                         pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
@@ -543,12 +497,4 @@ document.addEventListener('DOMContentLoaded', () => {
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
     renderPresetsLibrary();
-    
-    // 🎯 FIX: Sistema global de rescate de cursor. Si hay error en otra parte, un clic limpia la UI.
-    window.addEventListener('mouseup', () => {
-        if (window.isDraggingPreset) {
-            window.isDraggingPreset = false;
-            document.body.classList.remove('is-dragging-global');
-        }
-    });
 });
