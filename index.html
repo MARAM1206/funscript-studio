@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.14.6">
+    <link rel="stylesheet" href="styles.css?v=1.14.7">
 </head>
 <body>
 
@@ -107,7 +107,6 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                     <p class="modal-hint" style="font-size: 0.7rem; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
                     
-                    <!-- 🎯 FIX: Estructura HTML de botones dinámicos preparada para cambiar entre modo Crear / Editar -->
                     <div style="display: flex; gap: 10px;">
                         <button id="preset-editor-cancel" class="menu-btn dark-btn">Cancelar</button>
                         <button id="preset-editor-save-new" class="menu-btn blue-btn" style="display: none;">Guardar como Nuevo</button>
@@ -135,7 +134,6 @@
 
     <div class="workspace-container">
         
-        <!-- 🎬 Reproductor -->
         <div id="panel-video" class="workspace-panel" data-title="Reproductor">
             <div class="panel-header video-info-bar" style="display: flex; justify-content: space-between;">
                 <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; max-width: 400px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">Sin video</span>
@@ -145,7 +143,6 @@
                     <span id="v-speed" class="fixed-info" style="color:#38bdf8; font-weight: normal;">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
                     <div style="display: flex; align-items: center; gap: 6px; position: relative;">
                         <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute" style="display:inline-block; width: 18px; text-align: center;">🔊</span></span>
-                        <!-- El input del volumen está controlado ahora con CSS estético -->
                         <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.01" value="1" title="Volumen">
                     </div>
                 </div>
@@ -192,7 +189,6 @@
             </div>
         </div>
 
-        <!-- 📂 Gestor de Archivos -->
         <div id="panel-tracks" class="workspace-panel" data-title="Gestor de Archivos">
             <div class="panel-header">
                 <span style="flex-grow: 1; text-align: left;">Gestor de Archivos</span>
@@ -203,7 +199,6 @@
             </div>
         </div>
 
-        <!-- ⭐ Presets -->
         <div id="panel-presets" class="workspace-panel" data-title="Presets">
             <div class="panel-header">
                 <span style="flex-grow: 1; text-align: left;">Presets</span>
@@ -214,7 +209,6 @@
             </div>
         </div>
 
-        <!-- 🎚️ Ajuste Puntos -->
         <div id="panel-slider" class="workspace-panel" data-title="Ajuste">
             <div class="panel-header" style="justify-content: center !important;">
                 <span style="text-align: center; color:#94a3b8;">Ajuste</span>
@@ -227,7 +221,6 @@
             </div>
         </div>
 
-        <!-- ⚡ Inyector Rápido -->
         <div id="panel-quick" class="workspace-panel" data-title="Inyector Rápido">
             <div class="panel-header">
                 <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Inyector Rápido</span>
@@ -245,7 +238,6 @@
             </div>
         </div>
 
-        <!-- 🤖 Digital Twin -->
         <div id="panel-twin" class="workspace-panel" data-title="Digital Twin">
             <div class="panel-header">
                 <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Digital Twin 3D</span>
@@ -260,7 +252,6 @@
             </div>
         </div>
 
-        <!-- 🎭 Humanizador -->
         <div id="panel-humanizer" class="workspace-panel" data-title="Humanizador">
             <div class="panel-header">
                 <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Humanizador</span>
@@ -292,7 +283,6 @@
             </div>
         </div>
 
-        <!-- 🥁 Auto-Ritmo -->
         <div id="panel-bpm" class="workspace-panel" data-title="Auto-Ritmo">
             <div class="panel-header">
                 <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Auto-Ritmo (BPM)</span>
@@ -316,7 +306,6 @@
             </div>
         </div>
 
-        <!-- 🎛️ Moldeador -->
         <div id="panel-mass" class="workspace-panel" data-title="Moldeador">
             <div class="panel-header">
                 <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Moldeador de Patrones</span>
@@ -345,7 +334,6 @@
             </div>
         </div>
 
-        <!-- 📈 Línea de Tiempo -->
         <div id="panel-timeline" class="workspace-panel" data-title="Línea de Tiempo">
             <div class="panel-header" style="justify-content: center;">
                 <span style="width: 150px; text-align: left;">Línea de Tiempo</span>
