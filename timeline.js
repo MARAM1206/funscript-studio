@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.14.3 (SISTEMA MATEMÁTICO TRANSPARENTE Y DEGRADADO)
+// TIMELINE V1.14.4 (HEATMAP ADAPTATIVO CON BLOQUES VISIBLES)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -269,7 +269,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
-// 🎯 FIX: Heatmap Transparente donde no hay acción. Gradiente de Verde (0mm/s) a Rojo (400mm/s)
+// 🎯 FIX: Heatmap Inteligente. Evalúa saltos vacíos y previene pintar amarillos ilógicos.
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     const statsSpan = document.getElementById('timeline-stats');
@@ -312,19 +312,17 @@ window.updateHeatmapAndStats = function() {
     
     hCanvas.width = hCanvas.getBoundingClientRect().width;
     
-    // Limpiamos el canvas por completo (se queda transparente del color del contenedor)
+    // El lienzo inicia completamente transparente
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
     if (actions.length > 1) {
-        const bucketCount = Math.floor(hCanvas.width); 
+        const minBlockWidth = 4; // Aseguramos bloques visibles (no 1px)
+        const bucketCount = Math.max(1, Math.floor(hCanvas.width / minBlockWidth)); 
         const bucketDuration = totalDurationMs / bucketCount;
         
-        // Inicializamos los bloques en -1 (significa "no hay conexión")
         const bucketSpeeds = new Array(bucketCount).fill(-1); 
-        
         const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
 
-        // Calculamos la velocidad máxima en cada bloque donde SÍ hay una línea trazada
         for (let i = 1; i < actions.length; i++) {
             let a1 = actions[i-1];
             let a2 = actions[i];
@@ -339,20 +337,28 @@ window.updateHeatmapAndStats = function() {
                 startB = Math.max(0, Math.min(bucketCount - 1, startB));
                 endB = Math.max(0, Math.min(bucketCount - 1, endB));
 
-                for (let b = startB; b <= endB; b++) {
-                    bucketSpeeds[b] = Math.max(bucketSpeeds[b] === -1 ? 0 : bucketSpeeds[b], speed);
+                if (dt > 2000) {
+                    // Hay un hueco enorme (> 2 segundos). Es una pausa/introducción.
+                    // Solo marcamos los extremos y dejamos el centro vacío/transparente.
+                    bucketSpeeds[startB] = Math.max(bucketSpeeds[startB] === -1 ? 0 : bucketSpeeds[startB], speed);
+                    bucketSpeeds[endB] = Math.max(bucketSpeeds[endB] === -1 ? 0 : bucketSpeeds[endB], speed);
+                } else {
+                    for (let b = startB; b <= endB; b++) {
+                        bucketSpeeds[b] = Math.max(bucketSpeeds[b] === -1 ? 0 : bucketSpeeds[b], speed);
+                    }
                 }
             }
         }
 
         const bucketWidth = hCanvas.width / bucketCount;
         for (let i = 0; i < bucketCount; i++) {
-            if (bucketSpeeds[i] !== -1) { // Solo si hay una línea dibujada
+            if (bucketSpeeds[i] !== -1) { 
                 let speed = bucketSpeeds[i];
-                let intensity = Math.min(1.0, speed / 400); // Límite mecánico de 400mm/s
-                let hue = 120 - (intensity * 120); // 120 es verde esmeralda, 0 es rojo
+                let intensity = Math.min(1.0, speed / 400); 
+                let hue = 120 - (intensity * 120); 
                 hCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-                hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth), hCanvas.height);
+                // Sumamos 0.5 al ancho para evitar las microrayas de sub-píxeles
+                hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
             }
         }
     }
