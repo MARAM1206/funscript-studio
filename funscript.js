@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V47.0 (SISTEMA DE OCULTACIÓN VISUAL)
+// GESTOR DE ARCHIVOS V48.0 (SISTEMA DE OCULTACIÓN Y LIMPIEZA TOTAL)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -77,7 +77,7 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
-// 🎯 FIX: Tipografías más pequeñas y ocultación de ícono "ojo" si solo hay 1 script
+// 🎯 FIX: Eliminación de emojis. Ocultamiento inteligente de Ojo y PRINCIPAL.
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
     let htmlContent = '';
@@ -95,7 +95,7 @@ window.updateFileManagerUI = function() {
             htmlContent += `<span class="empty-tracks-msg">No hay archivos cargados. Importa un Video o FunScript.</span>`;
         }
     } else {
-        const showEyeIcon = window.loadedFunscriptTracks.length > 1; // Solo muestra el ojo si hay 2+ scripts
+        const showExtraControls = window.loadedFunscriptTracks.length > 1; 
         
         htmlContent += `<div style="display: flex; flex-direction: column; gap: 4px;">`;
         htmlContent += window.loadedFunscriptTracks.map((track, idx) => {
@@ -108,8 +108,8 @@ window.updateFileManagerUI = function() {
                         <span class="track-name" style="color: ${track.color}; font-size: 0.7rem; font-weight: normal; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${track.name}">${track.name}</span>
                     </div>
                     <div class="track-actions" style="display: flex; align-items: center; gap: 6px;">
-                        ${track.isPrimary ? `<span class="primary-badge" style="background: ${track.color}; font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; color: #fff;">PRINCIPAL</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}" style="font-size: 0.75rem;">⭐</button>`}
-                        <button class="track-btn toggle-vis-btn" data-id="${track.id}" style="font-size: 0.75rem; display: ${showEyeIcon ? 'inline-block' : 'none'};">${track.visible ? '👁️' : '🙈'}</button>
+                        ${showExtraControls ? (track.isPrimary ? `<span class="primary-badge" style="background: ${track.color}; font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; color: #fff;">PRINCIPAL</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}" style="font-size: 0.75rem;">⭐</button>`) : ''}
+                        <button class="track-btn toggle-vis-btn" data-id="${track.id}" style="font-size: 0.75rem; display: ${showExtraControls ? 'inline-block' : 'none'};">${track.visible ? '👁️' : '🙈'}</button>
                         <button class="track-btn delete-track-btn" data-id="${track.id}" style="color: #ef4444; font-size: 0.75rem;">🗑️</button>
                     </div>
                 </div>
