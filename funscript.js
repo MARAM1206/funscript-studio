@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V48.0 (SISTEMA DE OCULTACIÓN Y LIMPIEZA TOTAL)
+// GESTOR DE ARCHIVOS V49.0 (BLINDAJE GLOBAL DE ARRASTRE ANTI-CRASH)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -77,7 +77,6 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
-// 🎯 FIX: Eliminación de emojis. Ocultamiento inteligente de Ojo y PRINCIPAL.
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
     let htmlContent = '';
@@ -182,4 +181,25 @@ exportBtn?.addEventListener('click', () => {
     link.href = URL.createObjectURL(blob);
     link.download = currentPrimary ? `${currentPrimary.name}.funscript` : "script.funscript";
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
+});
+
+// 🎯 FIX: Eventos globales de Drag and Drop blindados con preventDefault() absoluto
+window.addEventListener('dragover', (e) => { 
+    e.preventDefault(); // NUNCA remover esta línea. Evita el cursor congelado.
+    if (window.isDraggingPreset) return; 
+    if (!e.dataTransfer || !e.dataTransfer.types || !e.dataTransfer.types.includes('Files')) return; 
+});
+
+window.addEventListener('drop', (e) => {
+    e.preventDefault(); 
+    if (window.isDraggingPreset) return; 
+    if (!e.dataTransfer || !e.dataTransfer.types || !e.dataTransfer.types.includes('Files')) return; 
+    
+    const files = Array.from(e.dataTransfer.files);
+    const videoFiles = files.filter(f => f.type.startsWith('video/'));
+    const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
+
+    const hasFunscripts = funscriptFiles.length > 0;
+    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
+    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
