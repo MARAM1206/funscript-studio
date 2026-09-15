@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V2.0 (ARRASTRE SINTÉTICO ANTI-BUG Y GUARDADO BLINDADO)
+// PRESETS MANAGER V1.19.0 (CONVERSIÓN DE CANVAS A IMG ANTI-CRASH CHROME)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,36 +71,75 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetsLibrary.forEach((preset, index) => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
-                // 🎯 FIX: Eliminado completamente el maldito "draggable=true" de HTML5
+                card.draggable = true; 
                 card.dataset.id = preset.id;
+                card.style.transition = "border 0.2s ease, transform 0.1s";
                 
-                // 🎯 FIX: Arrastre Sintético. Jamás crashea a Chromium porque no usa su API rota.
-                card.addEventListener('mousedown', (e) => {
-                    if (e.button !== 0 || e.target.closest('button')) return; // Solo clic izquierdo
-                    e.preventDefault(); // Previene que el texto intente seleccionarse
-                    
-                    window.isDraggingPreset = true;
-                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
-                    window.presetFillInitialized = false; 
-                    
-                    document.body.classList.add('is-dragging-global');
-
-                    const onGlobalMouseUp = () => {
-                        document.removeEventListener('mouseup', onGlobalMouseUp);
-                        document.body.classList.remove('is-dragging-global');
+                // 🎯 FIX: HTML5 Nativo Saneado. Sin imágenes Canvas fantasmas.
+                card.addEventListener('dragstart', (e) => {
+                    try {
+                        window.isDraggingPreset = true;
+                        window.draggedPresetIndex = index; 
+                        window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                        window.presetFillInitialized = false; 
                         
-                        // Retraso de 50ms para que el canvas absorba la orden de Drop antes de limpiar la memoria
-                        setTimeout(() => {
-                            window.isDraggingPreset = false;
-                            window.timelineGhostPreset = null;
-                            window.timelineGhostTimeMs = null;
-                            window.timelineGhostTargetEnd = null;
-                            window.timelineGhostMarkers = null;
-                            if(typeof window.drawTimeline === 'function') window.drawTimeline();
-                        }, 50);
-                    };
+                        if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = 'copyMove';
+                            e.dataTransfer.setData('text/plain', preset.id.toString()); 
+                        }
+                    } catch (err) {
+                        e.preventDefault(); 
+                    }
+                });
+                
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault(); 
+                    try {
+                        e.dataTransfer.dropEffect = 'move';
+                        if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                            card.style.borderTop = "2px dashed #38bdf8"; 
+                            card.style.transform = "translateY(2px)";
+                        }
+                    } catch(err) {}
+                });
 
-                    document.addEventListener('mouseup', onGlobalMouseUp);
+                card.addEventListener('dragleave', () => {
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    try {
+                        card.style.borderTop = "";
+                        card.style.transform = "none";
+                        if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                            const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
+                            window.presetsLibrary.splice(index, 0, movedItem);
+                            localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                            window.needsPresetReRender = true; 
+                        }
+                    } catch(err) {}
+                });
+
+                card.addEventListener('dragend', () => {
+                    try {
+                        window.isDraggingPreset = false;
+                        window.draggedPresetIndex = undefined;
+                        window.timelineGhostPreset = null;
+                        window.timelineGhostTimeMs = null;
+                        window.timelineGhostTargetEnd = null;
+                        window.timelineGhostMarkers = null;
+                        
+                        document.body.style.cursor = 'default';
+                        setTimeout(() => document.body.style.cursor = '', 50);
+                        if(typeof window.drawTimeline === 'function') window.drawTimeline();
+
+                        if (window.needsPresetReRender) {
+                            window.needsPresetReRender = false;
+                            setTimeout(() => renderPresetsLibrary(), 10);
+                        }
+                    } catch(err) {}
                 });
 
                 if (isModal) {
@@ -112,14 +151,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     card.addEventListener('dblclick', () => { openPresetEditor(preset.id); });
                 }
 
-                const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
-                // 🎯 FIX: Eliminada la injerencia de los hijos con pointer-events
+                const imgId = `preset-thumb-img-${isModal ? 'm-' : ''}${preset.id}`;
+                
+                // 🎯 FIX: Sustituido Canvas por etiqueta IMG. Evita el "Crash Bug" de Chromium.
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
+                    <img id="${imgId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none; object-fit: contain;" />
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
@@ -151,20 +191,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     delBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
                 }
 
+                // Generación Diferida a Memoria: Dibuja un canvas oculto, lo pasa a Base64 y lo pega en el HTML como IMG.
                 setTimeout(() => {
-                    const c = document.getElementById(canvasId);
-                    if (c && preset.actions.length > 0) {
-                        const tCtx = c.getContext('2d');
-                        tCtx.clearRect(0, 0, c.width, c.height);
+                    const imgNode = document.getElementById(imgId);
+                    if (imgNode && preset.actions.length > 0) {
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = 60;
+                        tempCanvas.height = 30;
+                        const tCtx = tempCanvas.getContext('2d');
+                        
                         const dur = preset.actions[preset.actions.length-1].at;
-                        if (dur <= 0) return;
-                        tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
-                        preset.actions.forEach((a, i) => {
-                            const x = (a.at / dur) * c.width;
-                            const y = c.height - (a.pos / 100) * c.height;
-                            if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
-                        });
-                        tCtx.stroke();
+                        if (dur > 0) {
+                            tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
+                            preset.actions.forEach((a, i) => {
+                                const x = (a.at / dur) * 60;
+                                const y = 30 - (a.pos / 100) * 30;
+                                if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
+                            });
+                            tCtx.stroke();
+                            // Inyección de imagen segura
+                            imgNode.src = tempCanvas.toDataURL("image/png");
+                        }
                     }
                 }, 10);
             });
@@ -174,9 +221,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(modalPresetsList, true);
     }
 
-    // 🎯 FIX: Evento de guardado 100% blindado
     if (saveBtn) {
-        saveBtn.addEventListener('click', (e) => {
+        saveBtn.onclick = (e) => {
             e.preventDefault();
             try {
                 if (!window.funscriptActions || window.funscriptActions.length === 0) {
@@ -195,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch(err) {
                 alert("Error al extraer puntos: " + err.message);
             }
-        });
+        };
     }
 
     function generateId() { return Math.random().toString(36).substr(2, 9); }
@@ -249,14 +295,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
 
     if (modalCancel) {
-        modalCancel.addEventListener('click', (e) => {
+        modalCancel.onclick = (e) => {
             e.preventDefault();
             closePresetEditor();
-        });
+        };
     }
 
     if (modalSaveNew) {
-        modalSaveNew.addEventListener('click', (e) => {
+        modalSaveNew.onclick = (e) => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
@@ -273,11 +319,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 alert("Error crítico al guardar como nuevo: " + err.message);
             }
-        });
+        };
     }
 
     if (modalSave) {
-        modalSave.addEventListener('click', (e) => {
+        modalSave.onclick = (e) => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
@@ -303,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 alert("Error crítico al crear preset: " + err.message);
             }
-        });
+        };
     }
 
     function drawPresetEditor() {
@@ -464,34 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
         isDraggingPNode = false; pDragSelectionInitial = []; isSelectingP = false; draggedPNodeIndex = -1;
         drawPresetEditor();
-    });
-
-    // 🎯 FIX: Permite soltar presets en el Canvas del Editor de forma segura (Inyección Sintética)
-    pCanvas?.addEventListener('mouseup', (e) => {
-        if (window.isDraggingPreset && window.timelineGhostPreset) {
-            try {
-                const rect = pCanvas.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const dropTimeMs = Math.max(0, Math.round(pXToTime(mouseX)));
-                
-                const newActions = window.timelineGhostPreset.map(act => ({
-                    at: Math.round(dropTimeMs + act.at),
-                    pos: act.pos,
-                    selected: true,
-                    isSync: act.isSync || false
-                }));
-                
-                window.presetEditorActions.forEach(a => a.selected = false);
-                window.presetEditorActions.push(...newActions);
-                
-                window.presetEditorActions.sort((a,b)=>a.at-b.at);
-                for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
-                
-            } catch(err) {}
-            
-            window.isDraggingPreset = false; window.timelineGhostPreset = null;
-            drawPresetEditor();
-        }
     });
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
