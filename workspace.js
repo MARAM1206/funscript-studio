@@ -14,13 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const GAP = 10;       
     const VERSION = 'funscript_workspace_layout_v14'; 
 
-    // 🎯 FIX: Fórmula Matemática para abarcar el 100% de la pantalla del usuario
     function getDefaultLayout() {
         const W = window.innerWidth;
         const topBarH = document.querySelector('.top-bar-menu')?.offsetHeight || 45;
         const H = window.innerHeight - topBarH;
 
-        // Proporciones fluidas (18% Izq | 57% Centro | 25% Der)
         const L_W = Math.max(260, Math.min(320, W * 0.18));
         const R_W = Math.max(340, Math.min(420, W * 0.25));
         const C_W = Math.max(400, W - L_W - R_W - (4 * GAP));
@@ -74,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(VERSION, JSON.stringify(layoutState));
     }
 
-    // 🎯 FIX: Sistema de Guardado y Restauración de Interfaz
     if (saveLayoutBtn) {
         saveLayoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -106,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // El borrado de caché salva los presets y el layout custom
     const cacheBtn = document.getElementById('menu-cache-btn');
     if (cacheBtn) {
         cacheBtn.addEventListener('click', (e) => {
@@ -166,7 +162,6 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.appendChild(handle);
         });
 
-        // 🎯 FIX: Aplicación estricta de barreras físicas al cargar la página
         const W = window.innerWidth;
         const topBarH = document.querySelector('.top-bar-menu')?.offsetHeight || 45;
         const H = window.innerHeight - topBarH;
@@ -205,7 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const WW = window.innerWidth;
                     const HH = window.innerHeight - topBarH;
 
-                    // 🎯 FIX: Barreras de Cristal. Imposible salirse del monitor.
                     newL = Math.max(GAP, Math.min(newL, WW - panel.offsetWidth - GAP));
                     newT = Math.max(GAP, Math.min(newT, HH - panel.offsetHeight - GAP));
 
@@ -228,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         else if (Math.abs(newB - oB) < SNAP_DIST) newT = oB - panel.offsetHeight;          
                     });
 
-                    // Re-verificar barreras tras imanes
                     newL = Math.max(GAP, Math.min(newL, WW - panel.offsetWidth - GAP));
                     newT = Math.max(GAP, Math.min(newT, HH - panel.offsetHeight - GAP));
 
@@ -275,61 +268,55 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (type.includes('e')) {
                         let proposedR = startL + startW + (ev.clientX - startX);
                         let snappedR = Math.min(proposedR, WW - GAP);
-                        
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
                             let oL = other.offsetLeft, oR = oL + other.offsetWidth;
                             if (Math.abs(proposedR - (oL - GAP)) < SNAP_DIST) snappedR = oL - GAP; 
                             if (Math.abs(proposedR - oR) < SNAP_DIST) snappedR = oR;               
                         });
-                        
                         let proposedW = snappedR - startL;
-                        if (proposedW >= minW) nw = proposedW;
+                        nw = Math.max(minW, proposedW); 
                     }
                     
                     if (type.includes('s')) {
                         let proposedB = startT + startH + (ev.clientY - startY);
                         let snappedB = Math.min(proposedB, HH - GAP);
-                        
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
                             let oT = other.offsetTop, oB = oT + other.offsetHeight;
                             if (Math.abs(proposedB - (oT - GAP)) < SNAP_DIST) snappedB = oT - GAP; 
                             if (Math.abs(proposedB - oB) < SNAP_DIST) snappedB = oB;               
                         });
-                        
                         let proposedH = snappedB - startT;
-                        if (proposedH >= minH) nh = proposedH;
+                        nh = Math.max(minH, proposedH); 
                     }
                     
                     if (type.includes('w')) {
                         let proposedL = startL + (ev.clientX - startX);
                         let snappedL = Math.max(proposedL, GAP);
-                        
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
                             let oL = other.offsetLeft, oR = oL + other.offsetWidth;
                             if (Math.abs(proposedL - (oR + GAP)) < SNAP_DIST) snappedL = oR + GAP; 
                             if (Math.abs(proposedL - oL) < SNAP_DIST) snappedL = oL;               
                         });
-                        
                         let proposedW = startW + (startL - snappedL);
-                        if (proposedW >= minW) { nw = proposedW; nl = snappedL; }
+                        nw = Math.max(minW, proposedW);
+                        nl = startL + startW - nw; 
                     }
                     
                     if (type.includes('n')) {
                         let proposedT = startT + (ev.clientY - startY);
                         let snappedT = Math.max(proposedT, GAP);
-                        
                         panels.forEach(other => {
                             if (other === panel || other.style.display === 'none') return;
                             let oT = other.offsetTop, oB = oT + other.offsetHeight;
                             if (Math.abs(proposedT - (oB + GAP)) < SNAP_DIST) snappedT = oB + GAP; 
                             if (Math.abs(proposedT - oT) < SNAP_DIST) snappedT = oT;               
                         });
-                        
                         let proposedH = startH + (startT - snappedT);
-                        if (proposedH >= minH) { nh = proposedH; nt = snappedT; }
+                        nh = Math.max(minH, proposedH);
+                        nt = startT + startH - nh; 
                     }
 
                     if (nw >= minW) { panel.style.width = nw + 'px'; panel.style.left = nl + 'px'; }
