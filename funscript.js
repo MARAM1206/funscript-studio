@@ -77,18 +77,17 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
+// 🎯 FIX: Gestor de archivos limpio. Video como padre, .funscript como ramas
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
-    
     let htmlContent = '';
 
     if (window.currentVideoName) {
         htmlContent += `
-            <div class="file-manager-video">
-                <span title="${window.currentVideoName}">${window.currentVideoName}</span>
-                <button class="track-btn delete-video-btn" style="color: #ef4444;" title="Quitar Video">🗑️</button>
-            </div>
-        `;
+        <div class="file-manager-video" style="display: flex; align-items: center; justify-content: space-between; padding: 8px; background: var(--bg-hover); border-radius: 6px; border-left: 4px solid #facc15; margin-bottom: 6px;">
+            <span style="font-weight: 600; font-size: 0.85rem; color: #facc15; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${window.currentVideoName}">🎬 ${window.currentVideoName}</span>
+            <button class="track-btn delete-video-btn" style="color: #ef4444; margin-left: 10px;" title="Quitar Video">🗑️</button>
+        </div>`;
     }
 
     if (window.loadedFunscriptTracks.length === 0) {
@@ -96,24 +95,25 @@ window.updateFileManagerUI = function() {
             htmlContent += `<span class="empty-tracks-msg">No hay archivos cargados. Importa un Video o FunScript.</span>`;
         }
     } else {
-        const marginStyle = window.currentVideoName ? "margin-left: 20px;" : "margin-left: 0;";
-        
-        htmlContent += window.loadedFunscriptTracks.map(track => {
-            // 🎯 FIX: El color SIEMPRE se muestra vibrante, sea o no el principal
-            const borderColor = track.color;
-            const textColor = track.color;
+        htmlContent += `<div style="display: flex; flex-direction: column; gap: 4px;">`;
+        htmlContent += window.loadedFunscriptTracks.map((track, idx) => {
+            const isLast = idx === window.loadedFunscriptTracks.length - 1;
             return `
-            <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="${marginStyle} border-left-color: ${borderColor};">
-                <div class="track-info">
-                    <span class="track-name" style="color: ${textColor};" title="${track.name}">${track.name}</span>
+            <div style="display: flex; align-items: center;">
+                ${window.currentVideoName ? `<span style="color: var(--border-color); font-family: monospace; margin-left: 10px; margin-right: 5px;">${isLast ? '└─' : '├─'}</span>` : ''}
+                <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="flex-grow: 1; display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-input); border-radius: 6px; border-left: 3px solid ${track.color};">
+                    <div class="track-info" style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                        <span class="track-name" style="color: ${track.color}; font-size: 0.8rem; font-weight: normal; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${track.name}">📜 ${track.name}</span>
+                    </div>
+                    <div class="track-actions" style="display: flex; align-items: center; gap: 6px;">
+                        ${track.isPrimary ? `<span class="primary-badge" style="background: ${track.color}; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; color: #fff;">PRINCIPAL</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}">⭐</button>`}
+                        <button class="track-btn toggle-vis-btn" data-id="${track.id}">${track.visible ? '👁️' : '🙈'}</button>
+                        <button class="track-btn delete-track-btn" data-id="${track.id}" style="color: #ef4444;">🗑️</button>
+                    </div>
                 </div>
-                <div class="track-actions">
-                    ${track.isPrimary ? `<span class="primary-badge" style="background: ${track.color};">Principal</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}">⭐</button>`}
-                    <button class="track-btn toggle-vis-btn" data-id="${track.id}">${track.visible ? '👁️' : '🙈'}</button>
-                    <button class="track-btn delete-track-btn" data-id="${track.id}" style="color: #ef4444;">🗑️</button>
-                </div>
-            </div>
-        `}).join('');
+            </div>`;
+        }).join('');
+        htmlContent += `</div>`;
     }
 
     tracksListContainer.innerHTML = htmlContent;
