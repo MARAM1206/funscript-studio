@@ -213,7 +213,7 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .dual-slider-labels { display: flex; justify-content: space-between; width: 100%; font-size: 0.65rem; font-weight: bold; margin-bottom: 5px; }
 .dual-slider-container { position: relative; width: 100%; height: 20px; }
 .dual-slider-track { position: absolute; top: 50%; width: 100%; height: 6px; transform: translateY(-50%); background: var(--bg-input); border-radius: 3px; border: 1px solid var(--border-color); }
-.dual-slider-fill { position: absolute; top: 50%; height: 6px; transform: translateY(-50%); background: linear-gradient(90deg, #38bdf8, #f97316); border-radius: 3px; }
+.dual-slider-fill { absolute; top: 50%; height: 6px; transform: translateY(-50%); background: linear-gradient(90deg, #38bdf8, #f97316); border-radius: 3px; }
 .dual-range { position: absolute; top: 50%; width: 100%; transform: translateY(-50%); -webkit-appearance: none; background: transparent; pointer-events: none; z-index: 2; margin: 0; }
 .dual-range::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 14px; height: 14px; border-radius: 50%; background: var(--thumb-color, #fff); border: 2px solid var(--border-color); cursor: pointer; }
 
@@ -233,7 +233,7 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .file-actions { display: flex; align-items: center; gap: 6px; }
 .empty-tracks-msg, .empty-log { color: var(--text-muted); font-size: 0.75rem; font-style: italic; text-align: center; margin-top: 10px; }
 
-/* 🎯 FIX: Eliminado el 'cursor: grab' maldito que causaba el bloqueo permanente */
+/* 🎯 FIX: Se eliminó el cursor conflictivo. El cursor ahora es 'grab' pero SIN el estado ':active' */
 .preset-card { 
     background: var(--bg-input); 
     border: 1px solid var(--border-color); 
@@ -243,9 +243,12 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
     align-items: center; 
     justify-content: space-between; 
     margin-bottom: 6px; 
+    cursor: grab; 
 }
 .preset-card-title { font-size: 0.75rem; font-weight: 600; color: var(--text-main); }
 .preset-card-meta { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; font-family: monospace;}
+.delete-preset-btn { background: transparent; border: none; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; font-size: 0.8rem; }
+.delete-preset-btn:hover { opacity: 1; }
 
 /* =========================================
    MODALES (POPUPS) Y RESIZERS
