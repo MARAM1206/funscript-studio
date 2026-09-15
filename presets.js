@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.17.1 (DESTRUCCIÓN DEL BUG DEL CURSOR ATASCADO)
+// PRESETS MANAGER V1.17.0 (MOTOR DE ARRASTRE NATIVO BLINDADO ANTI-CRASH)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.dataset.id = preset.id;
                 card.style.transition = "border 0.2s ease, transform 0.1s";
                 
-                // 🎯 FIX: Blindaje Total del Drag & Drop. Inyección nativa limpia.
+                // 🎯 FIX: HTML5 Drag & Drop Nativo. Eliminado el setDragImage que causaba Crash en Chromium
                 card.addEventListener('dragstart', (e) => {
                     window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
@@ -84,11 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (e.dataTransfer) {
                         e.dataTransfer.effectAllowed = 'copyMove';
-                        // Usamos un GIF transparente oficial en Base64 para que Chromium no colapse
-                        const dragImg = new Image();
-                        dragImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                        e.dataTransfer.setDragImage(dragImg, 0, 0);
+                        e.dataTransfer.setData('application/json', JSON.stringify(preset)); 
                     }
+                    setTimeout(() => card.style.opacity = '0.5', 0); // Efecto visual nativo
                 });
                 
                 card.addEventListener('dragover', (e) => {
@@ -113,12 +111,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
                         window.presetsLibrary.splice(index, 0, movedItem);
                         localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-                        // 🎯 FIX: Jamás renderizar aquí para no borrar el nodo activo y crashear Chromium
+                        // 🎯 FIX: Renderizado diferido para evitar el colapso del DOM durante el evento de soltar
                         window.needsPresetReRender = true; 
                     }
                 });
 
                 card.addEventListener('dragend', () => {
+                    card.style.opacity = '1';
                     window.isDraggingPreset = false;
                     window.draggedPresetIndex = undefined;
                     window.timelineGhostPreset = null;
@@ -148,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
-                // 🎯 FIX: pointer-events: none; evita que los hijos del div secuestren el drag
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
@@ -500,37 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawPresetEditor();
     });
 
-    // 🎯 FIX: preventDefault() es crucial aquí también
-    pCanvas?.addEventListener('dragover', (e) => {
-        e.preventDefault(); 
-        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-    });
-
-    pCanvas?.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-        
-        const rect = pCanvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const dropTimeMs = Math.max(0, Math.round(pXToTime(mouseX)));
-        
-        const newActions = window.timelineGhostPreset.map(act => ({
-            at: Math.round(dropTimeMs + act.at),
-            pos: act.pos,
-            selected: true,
-            isSync: act.isSync || false
-        }));
-        
-        window.presetEditorActions.forEach(a => a.selected = false);
-        window.presetEditorActions.push(...newActions);
-        
-        window.presetEditorActions.sort((a,b)=>a.at-b.at);
-        for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
-        
-        window.isDraggingPreset = false; window.timelineGhostPreset = null;
-        drawPresetEditor();
-    });
+    pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
     renderPresetsLibrary();
 });
