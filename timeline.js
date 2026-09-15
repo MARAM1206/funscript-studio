@@ -269,6 +269,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
+// 🎯 FIX: Heatmap de Alta Resolución y Transición de Colores (Verde a Rojo)
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     const statsSpan = document.getElementById('timeline-stats');
@@ -307,7 +308,7 @@ window.updateHeatmapAndStats = function() {
     hCanvas.width = hCanvas.getBoundingClientRect().width;
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
-    const bucketCount = 150; 
+    const bucketCount = 400; // Incremento de bloques para mayor resolución visual
     const bucketDuration = totalDurationMs / bucketCount;
     const buckets = new Array(bucketCount).fill(0);
 
@@ -330,14 +331,14 @@ window.updateHeatmapAndStats = function() {
     }
 
     const sortedBuckets = [...smoothedBuckets].sort((a,b) => a-b);
-    const maxDistance = sortedBuckets[Math.floor(bucketCount * 0.95)] || 1; 
+    const maxDistance = sortedBuckets[Math.floor(bucketCount * 0.98)] || 1; 
     const bucketWidth = hCanvas.width / bucketCount;
     
     for (let i = 0; i < bucketCount; i++) {
         if (smoothedBuckets[i] > 0) {
-            const intensity = Math.min(1.0, 0.2 + (0.8 * (smoothedBuckets[i] / maxDistance)));
-            const hue = (1 - intensity) * 200; 
-            hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity)})`;
+            const intensity = Math.min(1.0, (smoothedBuckets[i] / maxDistance));
+            const hue = 120 - (intensity * 120); // 120 (Verde) a 0 (Rojo)
+            hCtx.fillStyle = `hsla(${hue}, 100%, 50%, ${Math.max(0.4, intensity + 0.3)})`;
             hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
         }
     }
@@ -1091,13 +1092,12 @@ window.drawTimeline = function() {
                 if (x >= 20 && x <= canvas.width + 20) {
                     const y = posToY(act.pos); 
 
-                    // 🎯 FIX: Renderizado visual del Ancla (Rombo gigante dorado/magenta)
                     if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; // Fondo dorado brillante
+                        ctx.fillStyle = '#facc15'; 
                         ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
                         
-                        ctx.fillStyle = '#0f172a'; // Icono interno de Ancla
+                        ctx.fillStyle = '#0f172a'; 
                         ctx.font = '12px monospace'; 
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         ctx.fillText('⚓', x, y+1); 
