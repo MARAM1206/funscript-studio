@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.15.3 (SISTEMA DE ARRASTRE BLINDADO BASE64 ANTI-CRASH)
+// PRESETS MANAGER V1.16.0 (SISTEMA ANTI-CRASH CHROME Y BOTONES BLINDADOS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pNameInput = document.getElementById('preset-editor-name');
     const modalPresetsList = document.getElementById('modal-presets-library-list');
 
+    // 🎯 FIX: Extracción segura del caché para evitar bloqueos del sistema
     try {
         let stored = JSON.parse(localStorage.getItem('funscript_presets'));
         if (Array.isArray(stored)) {
@@ -49,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pCanvas && pCanvas.parentElement) resizeObserver.observe(pCanvas.parentElement);
 
     function getUniqueName(desiredName, excludeId = null) {
-        let name = desiredName.trim() || 'Sin Nombre';
+        let name = (desiredName || '').trim() || 'Nuevo Preset';
         let counter = 1;
         let finalName = name;
         while (window.presetsLibrary.some(p => p.name === finalName && p.id !== excludeId)) {
@@ -75,20 +76,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.dataset.id = preset.id;
                 card.style.transition = "border 0.2s ease, transform 0.1s";
                 
-                // 🎯 FIX: Sistema Anti-Crash del Navegador. Inyección de imagen fantasma en Base64.
+                // 🎯 FIX: Blindaje contra el Crash de Chromium (Cursor de Manita atascado)
                 card.addEventListener('dragstart', (e) => {
                     window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
                     window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
                     window.presetFillInitialized = false; 
                     
-                    if(e.dataTransfer) {
+                    if (e.dataTransfer) {
                         e.dataTransfer.effectAllowed = 'copyMove';
                         e.dataTransfer.setData('text/plain', preset.id); 
                         
-                        const blankImg = new Image();
-                        blankImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                        e.dataTransfer.setDragImage(blankImg, 0, 0);
+                        // Generamos un Canvas invisible en memoria. El navegador no se congelará.
+                        const ghostCanvas = document.createElement('canvas');
+                        ghostCanvas.width = 1;
+                        ghostCanvas.height = 1;
+                        e.dataTransfer.setDragImage(ghostCanvas, 0, 0);
                     }
                 });
                 
@@ -119,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.draggedPresetIndex = undefined;
                 });
 
+                // Liberación de memoria forzada para devolver el cursor de la manita a la flecha
                 card.addEventListener('dragend', () => {
                     window.isDraggingPreset = false;
                     window.draggedPresetIndex = undefined;
@@ -126,6 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.timelineGhostTimeMs = null;
                     window.timelineGhostTargetEnd = null;
                     window.timelineGhostMarkers = null;
+                    document.body.style.cursor = 'default';
+                    setTimeout(() => document.body.style.cursor = '', 50);
                     if(typeof window.drawTimeline === 'function') window.drawTimeline();
                 });
 
@@ -199,27 +205,24 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(modalPresetsList, true);
     }
 
+    // 🎯 FIX: Evento blindado para "Guardar Selección" (En Panel Principal)
     if (saveBtn) {
-        saveBtn.onclick = (e) => {
+        saveBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            try {
-                if (!window.funscriptActions || window.funscriptActions.length === 0) {
-                    alert('No hay puntos en la línea de tiempo.'); return;
-                }
-                const selected = window.funscriptActions.filter(a => a.selected);
-                if (selected.length < 2) {
-                    alert('Selecciona al menos 2 puntos para crear un preset.'); return;
-                }
-                
-                const baseTime = selected[0].at;
-                const newPresetActions = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, isSync: a.isSync || false }));
-                
-                window.presetEditorActions = newPresetActions;
-                openPresetEditor(); 
-            } catch(err) {
-                alert("Error al extraer puntos: " + err.message);
+            if (!window.funscriptActions || window.funscriptActions.length === 0) {
+                alert('No hay puntos en la línea de tiempo.'); return;
             }
-        };
+            const selected = window.funscriptActions.filter(a => a.selected);
+            if (selected.length < 2) {
+                alert('Selecciona al menos 2 puntos en la línea de tiempo para crear un preset.'); return;
+            }
+            
+            const baseTime = selected[0].at;
+            const newPresetActions = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, isSync: a.isSync || false }));
+            
+            window.presetEditorActions = newPresetActions;
+            openPresetEditor(); 
+        });
     }
 
     function generateId() { return Math.random().toString(36).substr(2, 9); }
@@ -250,6 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
+                if (!pCanvas) return;
                 const container = pCanvas.parentElement;
                 pCanvas.width = container.clientWidth; 
                 pCanvas.height = container.clientHeight;
@@ -271,62 +275,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
 
-    if (modalCancel) {
-        modalCancel.onclick = (e) => {
+    if (modalCancel) modalCancel.addEventListener('click', (e) => { e.preventDefault(); closePresetEditor(); });
+
+    // 🎯 FIX: Evento blindado "Guardar Como Nuevo"
+    if (modalSaveNew) {
+        modalSaveNew.addEventListener('click', (e) => {
             e.preventDefault();
-            closePresetEditor();
-        };
+            if (window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+            
+            window.presetEditorActions.sort((a,b) => a.at - b.at);
+            const base = window.presetEditorActions[0].at;
+            window.presetEditorActions.forEach(a => a.at -= base);
+
+            const finalName = getUniqueName(pNameInput.value);
+            const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
+            window.presetsLibrary.push(newPreset);
+            localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+            renderPresetsLibrary(); closePresetEditor();
+        });
     }
 
-    if (modalSaveNew) {
-        modalSaveNew.onclick = (e) => {
+    // 🎯 FIX: Evento blindado "Crear Preset" / "Sobrescribir"
+    if (modalSave) {
+        modalSave.addEventListener('click', (e) => {
             e.preventDefault();
-            try {
-                if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
-                
-                window.presetEditorActions.sort((a,b) => a.at - b.at);
-                const base = window.presetEditorActions[0].at;
-                window.presetEditorActions.forEach(a => a.at -= base);
+            if (window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+            
+            window.presetEditorActions.sort((a,b) => a.at - b.at);
+            const base = window.presetEditorActions[0].at;
+            window.presetEditorActions.forEach(a => a.at -= base);
 
+            if (editingPresetId) {
+                const p = window.presetsLibrary.find(x => x.id === editingPresetId);
+                if (p) { 
+                    p.name = getUniqueName(pNameInput.value, p.id); 
+                    p.actions = JSON.parse(JSON.stringify(window.presetEditorActions)); 
+                }
+            } else {
                 const finalName = getUniqueName(pNameInput.value);
                 const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
                 window.presetsLibrary.push(newPreset);
-                localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-                renderPresetsLibrary(); closePresetEditor();
-            } catch (err) {
-                alert("Error crítico al guardar como nuevo: " + err.message);
             }
-        };
-    }
-
-    if (modalSave) {
-        modalSave.onclick = (e) => {
-            e.preventDefault();
-            try {
-                if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
-                
-                window.presetEditorActions.sort((a,b) => a.at - b.at);
-                const base = window.presetEditorActions[0].at;
-                window.presetEditorActions.forEach(a => a.at -= base);
-
-                if (editingPresetId) {
-                    const p = window.presetsLibrary.find(x => x.id === editingPresetId);
-                    if (p) { 
-                        p.name = getUniqueName(pNameInput.value, p.id); 
-                        p.actions = JSON.parse(JSON.stringify(window.presetEditorActions)); 
-                    }
-                } else {
-                    const finalName = getUniqueName(pNameInput.value);
-                    const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
-                    window.presetsLibrary.push(newPreset);
-                }
-                
-                localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-                renderPresetsLibrary(); closePresetEditor();
-            } catch (err) {
-                alert("Error crítico al crear preset: " + err.message);
-            }
-        };
+            
+            localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+            renderPresetsLibrary(); closePresetEditor();
+        });
     }
 
     function drawPresetEditor() {
@@ -490,6 +483,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
+
+    pCanvas?.addEventListener('dragover', (e) => {
+        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+        e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+    });
+
+    pCanvas?.addEventListener('drop', (e) => {
+        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+        e.preventDefault();
+        
+        const rect = pCanvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const dropTimeMs = Math.max(0, Math.round(pXToTime(mouseX)));
+        
+        const newActions = window.timelineGhostPreset.map(act => ({
+            at: Math.round(dropTimeMs + act.at),
+            pos: act.pos,
+            selected: true,
+            isSync: act.isSync || false
+        }));
+        
+        window.presetEditorActions.forEach(a => a.selected = false);
+        window.presetEditorActions.push(...newActions);
+        
+        window.presetEditorActions.sort((a,b)=>a.at-b.at);
+        for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
+        
+        window.isDraggingPreset = false; window.timelineGhostPreset = null;
+        drawPresetEditor();
+    });
 
     renderPresetsLibrary();
 });
