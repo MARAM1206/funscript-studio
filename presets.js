@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.17.0 (EDICIÓN, REORDENAMIENTO Y DRAG-DROP MAGNÉTICO)
+// PRESETS MANAGER V1.15.3 (SISTEMA DE ARRASTRE BLINDADO BASE64 ANTI-CRASH)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pNameInput = document.getElementById('preset-editor-name');
     const modalPresetsList = document.getElementById('modal-presets-library-list');
 
-    // Inicialización
     try {
         let stored = JSON.parse(localStorage.getItem('funscript_presets'));
         if (Array.isArray(stored)) {
@@ -37,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSelectingP = false; let pSelStartT = 0; let pSelStartY = 0; let pSelCurrT = 0; let pSelCurrY = 0;
     let hasDraggedPSelection = false; let hadSelectionBeforePMousedown = false;
 
-    // Resizer
     const resizeObserver = new ResizeObserver(() => {
         if (modal && modal.style.display === 'flex' && pCanvas) {
             const container = pCanvas.parentElement;
@@ -61,9 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return finalName;
     }
 
-    // ==========================================
-    // RENDERIZADO Y DRAG & DROP DE TARJETAS
-    // ==========================================
     function renderPresetsLibrary() {
         const renderList = (container, isModal = false) => {
             if (!container) return;
@@ -79,23 +74,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.draggable = true; 
                 card.dataset.id = preset.id;
                 card.style.transition = "border 0.2s ease, transform 0.1s";
-                card.style.cursor = "grab";
                 
-                // Eventos Drag & Drop de la tarjeta
+                // 🎯 FIX: Sistema Anti-Crash del Navegador. Inyección de imagen fantasma en Base64.
                 card.addEventListener('dragstart', (e) => {
                     window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
                     window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                    window.presetFillInitialized = false; 
                     
                     if(e.dataTransfer) {
                         e.dataTransfer.effectAllowed = 'copyMove';
-                        // Fantasma invisible nativo para usar nuestro propio Ghost en el Canvas
-                        const dragGhost = document.createElement('div');
-                        dragGhost.style.width = '10px'; dragGhost.style.height = '10px';
-                        dragGhost.style.background = 'transparent';
-                        document.body.appendChild(dragGhost);
-                        e.dataTransfer.setDragImage(dragGhost, 0, 0);
-                        setTimeout(() => document.body.removeChild(dragGhost), 0);
+                        e.dataTransfer.setData('text/plain', preset.id); 
+                        
+                        const blankImg = new Image();
+                        blankImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                        e.dataTransfer.setDragImage(blankImg, 0, 0);
                     }
                 });
                 
@@ -103,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault(); 
                     e.dataTransfer.dropEffect = 'move';
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        card.style.borderTop = "2px dashed var(--accent)"; 
+                        card.style.borderTop = "2px dashed #38bdf8"; 
                         card.style.transform = "translateY(2px)";
                     }
                 });
@@ -117,13 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault();
                     card.style.borderTop = "";
                     card.style.transform = "none";
-                    // Reordenamiento visual (Mover de lugar)
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
                         const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
                         window.presetsLibrary.splice(index, 0, movedItem);
                         localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                         renderPresetsLibrary();
                     }
+                    window.draggedPresetIndex = undefined;
                 });
 
                 card.addEventListener('dragend', () => {
@@ -131,6 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.draggedPresetIndex = undefined;
                     window.timelineGhostPreset = null;
                     window.timelineGhostTimeMs = null;
+                    window.timelineGhostTargetEnd = null;
+                    window.timelineGhostMarkers = null;
                     if(typeof window.drawTimeline === 'function') window.drawTimeline();
                 });
 
@@ -144,13 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
-                
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0;">
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:var(--bg-panel); border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
+                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; cursor: move;"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center;">
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
@@ -160,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 container.appendChild(card);
 
-                // Listeners de los botones
                 if (!isModal) {
                     const editBtn = card.querySelector('.edit-preset-btn');
                     editBtn.addEventListener('click', (e) => {
@@ -183,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     delBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
                 }
 
-                // Dibujar miniatura
                 setTimeout(() => {
                     const c = document.getElementById(canvasId);
                     if (c && preset.actions.length > 0) {
@@ -207,9 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(modalPresetsList, true);
     }
 
-    // ==========================================
-    // LOGICA DEL EDITOR DE PRESETS (MODAL)
-    // ==========================================
     if (saveBtn) {
         saveBtn.onclick = (e) => {
             e.preventDefault();
@@ -282,13 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
 
-    if (modalCancel) modalCancel.onclick = (e) => { e.preventDefault(); closePresetEditor(); };
+    if (modalCancel) {
+        modalCancel.onclick = (e) => {
+            e.preventDefault();
+            closePresetEditor();
+        };
+    }
 
     if (modalSaveNew) {
         modalSaveNew.onclick = (e) => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+                
                 window.presetEditorActions.sort((a,b) => a.at - b.at);
                 const base = window.presetEditorActions[0].at;
                 window.presetEditorActions.forEach(a => a.at -= base);
@@ -298,7 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.presetsLibrary.push(newPreset);
                 localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                 renderPresetsLibrary(); closePresetEditor();
-            } catch (err) { alert("Error crítico al guardar como nuevo: " + err.message); }
+            } catch (err) {
+                alert("Error crítico al guardar como nuevo: " + err.message);
+            }
         };
     }
 
@@ -307,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+                
                 window.presetEditorActions.sort((a,b) => a.at - b.at);
                 const base = window.presetEditorActions[0].at;
                 window.presetEditorActions.forEach(a => a.at -= base);
@@ -325,7 +323,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                 renderPresetsLibrary(); closePresetEditor();
-            } catch (err) { alert("Error crítico al guardar preset: " + err.message); }
+            } catch (err) {
+                alert("Error crítico al crear preset: " + err.message);
+            }
         };
     }
 
@@ -379,9 +379,22 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetEditorActions.forEach(a => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
                 if (x >= 20 && x <= pCanvas.width + 20) {
-                    pCtx.fillStyle = a.selected ? '#f59e0b' : '#0284c7';
-                    pCtx.beginPath(); pCtx.arc(x, y, a.selected ? 6 : 4, 0, Math.PI * 2); pCtx.fill();
-                    pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 1; pCtx.stroke();
+                    
+                    if (a.isSync) {
+                        pCtx.fillStyle = '#facc15'; 
+                        pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
+                        pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
+                        
+                        pCtx.fillStyle = '#0f172a'; 
+                        pCtx.font = '12px monospace'; 
+                        pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
+                        pCtx.fillText('⚓', x, y+1); 
+                        pCtx.textAlign = 'left'; pCtx.textBaseline = 'alphabetic';
+                    } else {
+                        pCtx.fillStyle = a.selected ? '#f59e0b' : '#0284c7';
+                        pCtx.beginPath(); pCtx.arc(x, y, a.selected ? 6 : 4, 0, Math.PI * 2); pCtx.fill();
+                        pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 1; pCtx.stroke();
+                    }
                 }
             });
         }
@@ -478,104 +491,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
-    // =========================================================================
-    // 🧲 IMÁN MULTIPUNTO PARA LA LÍNEA DE TIEMPO (INYECCIÓN DIRECTA Y SEGURA)
-    // =========================================================================
-    // Agregamos la lógica directamente al timeline-canvas desde este archivo para
-    // que no tengas que modificar tu timeline.js y todo funcione mágicamente.
-    
-    setTimeout(() => {
-        const mainTimelineCanvas = document.getElementById('timeline-canvas');
-        if (mainTimelineCanvas) {
-            
-            mainTimelineCanvas.addEventListener('dragover', (e) => {
-                if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-                e.preventDefault(); 
-                e.dataTransfer.dropEffect = 'copy'; 
-                
-                const rect = mainTimelineCanvas.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                
-                // Extraer el tiempo del mouse utilizando las funciones de timeline.js si existen
-                let hoverTimeMs = 0;
-                if (typeof window.xToTime === 'function') {
-                    hoverTimeMs = window.xToTime(mouseX);
-                } else if (window.timelineScrollX !== undefined) {
-                    const pixels = (window.basePixelsPerMs || 0.1) * (window.timelineZoom || 1);
-                    hoverTimeMs = window.timelineScrollX + (mouseX / pixels);
-                }
-
-                // 🎯 EL IMÁN: Recopila todos los objetivos posibles (Línea naranja + Todos los puntos)
-                const playheadTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
-                const existingActions = window.funscriptActions || [];
-                const snapTargets = [playheadTime, ...existingActions.map(a => a.at)];
-
-                const snapDistMs = 250; // Rango de magnetismo (250 ms)
-                let bestOffset = 0;
-                let minDistance = snapDistMs;
-                let isSnapped = false;
-
-                // Magia Negra: Compara CADA punto del preset con CADA objetivo existente
-                window.timelineGhostPreset.forEach(pAct => {
-                    let projectedTime = hoverTimeMs + pAct.at;
-                    snapTargets.forEach(target => {
-                        let dist = Math.abs(projectedTime - target);
-                        if (dist < minDistance) {
-                            minDistance = dist;
-                            bestOffset = target - pAct.at; 
-                            isSnapped = true;
-                        }
-                    });
-                });
-
-                // Si hay un snap, desplaza el preset completo; si no, sigue el mouse fluido
-                window.timelineGhostTimeMs = isSnapped ? Math.max(0, bestOffset) : Math.max(0, hoverTimeMs);
-                
-                // Forzar redibujado de la línea de tiempo para ver la previsualización
-                if(typeof window.drawTimeline === 'function') window.drawTimeline();
-            });
-
-            mainTimelineCanvas.addEventListener('drop', (e) => {
-                if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-                e.preventDefault();
-                
-                // Soltado exitoso
-                const baseTime = window.timelineGhostTimeMs;
-                const newActions = window.timelineGhostPreset.map(act => ({
-                    at: Math.round(baseTime + act.at),
-                    pos: act.pos,
-                    selected: true,
-                    isSync: act.isSync || false
-                }));
-                
-                if (window.funscriptActions) {
-                    window.funscriptActions.forEach(a => a.selected = false);
-                    window.funscriptActions.push(...newActions);
-                    window.funscriptActions.sort((a,b) => a.at - b.at);
-                    
-                    // Limpieza de duplicados
-                    for(let i = window.funscriptActions.length-1; i > 0; i--) { 
-                        if(window.funscriptActions[i].at === window.funscriptActions[i-1].at) {
-                            window.funscriptActions.splice(window.funscriptActions[i].selected ? i-1 : i, 1);
-                        } 
-                    }
-                    if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                    if (typeof window.updateTimelineStats === 'function') window.updateTimelineStats();
-                }
-                
-                window.isDraggingPreset = false; 
-                window.timelineGhostPreset = null;
-            });
-            
-            mainTimelineCanvas.addEventListener('dragleave', () => {
-                if(window.isDraggingPreset) {
-                    window.timelineGhostTimeMs = null;
-                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
-                }
-            });
-        }
-    }, 1000); // Dar 1 segundo para asegurar que timeline-canvas ya se renderizó en el DOM
-
-    // Render inicial
     renderPresetsLibrary();
 });
