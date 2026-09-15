@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.14.3">
+    <link rel="stylesheet" href="styles.css?v=1.14.5">
 </head>
 <body>
 
@@ -35,13 +35,20 @@
                 <button class="menu-btn dark-btn device-alert-pulse device-btn-fixed" id="device-menu-btn" style="width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📱 Dispositivos</button>
                 <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
                     <a href="#" data-device="handy_std">Handy V1 / 2 Standar</a>
-                    <div class="sub-dropdown">
-                        <a href="#" data-device="handy_pro">Handy 2 PRO</a>
-                        <span class="sub-arrow">▶</span>
+                    
+                    <!-- 🎯 FIX: Submenú estructurado para que el clic del Overclock funcione perfectamente -->
+                    <div class="sub-dropdown" style="position: relative;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <a href="#" data-device="handy_pro" style="flex-grow: 1; padding: 8px 15px;">Handy 2 PRO</a>
+                            <span class="sub-arrow" style="padding-right: 15px; font-size: 0.6rem;">▶</span>
+                        </div>
                         <div class="sub-dropdown-content">
-                            <label class="oc-label"><input type="checkbox" class="oc-toggle"> <span class="oc-text">Overclock Off</span></label>
+                            <label class="oc-label" style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; cursor: pointer; color: var(--text-main);">
+                                <input type="checkbox" class="oc-toggle"> <span class="oc-text">Overclock Off</span>
+                            </label>
                         </div>
                     </div>
+                    
                     <a href="#" data-device="keon_1">Keon 1</a>
                     <a href="#" data-device="keon_2">Keon 2</a>
                     <a href="#" data-device="keon_sm">Keon Sex Machine</a>
@@ -49,6 +56,7 @@
                 </div>
             </div>
 
+            <!-- 🎯 FIX: Firma limpia sin versión -->
             <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">Made with ❤️ by <strong>MARAM MX</strong></span>
         </div>
         
@@ -142,8 +150,9 @@
                 </div>
             </div>
             
-            <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 35px);">
-                <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #000;">
+            <!-- 🎯 FIX: Scrollbar oculta forzada con overflow: hidden !important -->
+            <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 35px); overflow: hidden !important;">
+                <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; background: #000;">
                     <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
                     <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
                     
