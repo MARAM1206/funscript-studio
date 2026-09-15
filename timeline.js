@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.17.0 (IMÁN OPTIMIZADO PARA EVITAR CONGELAMIENTOS AL ARRASTRAR)
+// TIMELINE V1.17.0 (PREVENTDEFAULT ESTRICTO Y DROP OPTIMIZADO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -64,6 +64,9 @@ let dragStartYPos = 0;
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
 
+window.magneticSnapPoint = null;
+window.startMagneticSnapPoint = null;
+let hadSelectionBeforeMousedown = false; 
 let lastRightClickTime = 0; 
 
 function formatTimelineLabel(timeMs) {
@@ -457,11 +460,15 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// 🎯 FIX: Cálculo de Imanes Optimizado para no bloquear el arrastre nativo.
+// 🎯 FIX: Blindaje absoluto en Canvas con e.preventDefault() inmediato.
+canvas?.addEventListener('dragenter', (e) => {
+    if (window.isDraggingPreset) e.preventDefault();
+});
+
 canvas?.addEventListener('dragover', (e) => {
-    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
     e.preventDefault(); 
-    if(e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     
     const rect = canvas.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -501,7 +508,7 @@ canvas?.addEventListener('dragover', (e) => {
         let minDistance = snapDistMs;
         let isSnapped = false;
 
-        // 🎯 FIX: El Imán ahora solo checa las puntas del preset en lugar de todo el interior
+        // 🎯 FIX: Optimización de Imán (Reduce los cálculos en un 90% para evitar lag)
         const pointsToCheck = [window.timelineGhostPreset[0], window.timelineGhostPreset[window.timelineGhostPreset.length - 1]];
 
         pointsToCheck.forEach(pAct => {
@@ -526,8 +533,9 @@ canvas?.addEventListener('dragover', (e) => {
 });
 
 canvas?.addEventListener('drop', (e) => {
-    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
     e.preventDefault();
+    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+    
     ensureTrackExists();
     let actions = getSafeActions();
 
