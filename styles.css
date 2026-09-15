@@ -109,7 +109,27 @@ body {
    ========================================= */
 .workspace-container { position: absolute; top: 45px; left: 0; width: 100vw; height: calc(100vh - 45px); background-color: var(--bg-main); overflow: hidden; }
 .workspace-panel { position: absolute; background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.3); overflow: hidden; min-width: 200px; min-height: 150px; }
-.panel-header { background-color: var(--bg-hover); padding: 8px 12px; cursor: move; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); user-select: none; font-size: 0.85rem; color: var(--text-main); font-weight: 600; }
+
+#panel-slider { min-width: 70px !important; } /* 🎯 FIX: Liberación del ancho del panel Ajuste */
+
+/* 🎯 FIX: Nombres de pestañas a la izquierda y sin negritas */
+.panel-header { 
+    background-color: var(--bg-hover); 
+    padding: 8px 12px; 
+    cursor: move; 
+    display: flex; 
+    justify-content: flex-start; 
+    gap: 10px;
+    align-items: center; 
+    border-bottom: 1px solid var(--border-color); 
+    user-select: none; 
+    font-size: 0.85rem; 
+    color: var(--text-main); 
+    font-weight: normal; 
+}
+.panel-header > span { font-weight: normal !important; }
+.panel-header > :last-child { margin-left: auto; } /* Los botones extra se mantienen a la derecha */
+
 .panel-content { flex-grow: 1; position: relative; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; }
 
 /* =========================================
@@ -121,19 +141,47 @@ body {
 .video-container { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; background-color: #000 !important; overflow: hidden; border-radius: 4px; }
 #video-empty-state { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 80%; height: 30%; color: rgba(255,255,255,0.4); font-size: 1.5rem; font-family: monospace; border: 2px dashed rgba(255,255,255,0.2); border-radius: 12px; pointer-events: none; }
 
-.video-bottom-unified-bar { height: 40px; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; padding: 0 15px; border-top: 1px solid var(--border-color); position: absolute; bottom: 0; width: 100%; z-index: 20; }
-.progress-bar-container { display: flex; width: 100%; align-items: center; gap: 12px; color: white; font-family: 'Inter', monospace; font-size: 0.75rem; font-weight: 600; }
-.progress-slider-wrapper { flex-grow: 1; position: relative; height: 24px; display: flex; align-items: center; background: rgba(0,0,0,0.5); border-radius: 4px; }
-.heatmap-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 4px; pointer-events: none; opacity: 0.9; }
-.custom-progress { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer; z-index: 5; opacity: 0; margin: 0; }
-.ghost-thumb { position: absolute; width: 2px; height: 100%; background: white; z-index: 6; pointer-events: none; box-shadow: 0 0 8px white; top: 0; }
+/* 🎯 FIX: Nueva barra base para evitar empalmes con el video */
+.video-bottom-unified-bar {
+    height: auto;
+    min-height: 55px;
+    background: var(--bg-panel);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 10px 15px;
+    border-top: 1px solid var(--border-color);
+    width: 100%;
+    z-index: 20;
+}
+.progress-bar-container { display: flex; width: 100%; align-items: center; gap: 12px; font-family: 'Inter', monospace; font-size: 0.75rem; color: #e2e8f0; font-weight: 600; }
+.progress-slider-wrapper { flex-grow: 1; position: relative; height: 14px; display: flex; align-items: center; background: #020617; border-radius: 4px; border: 1px solid var(--border-color); }
+.heatmap-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 4px; pointer-events: none; opacity: 1; }
+
+.custom-progress { 
+    position: absolute; 
+    top: 50%; left: 0; 
+    width: 100%; height: 4px; 
+    transform: translateY(-50%);
+    cursor: pointer; z-index: 5; margin: 0;
+    -webkit-appearance: none; background: transparent;
+}
+.custom-progress::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px;
+    background: #38bdf8; border-radius: 50%;
+    cursor: pointer; box-shadow: 0 0 5px rgba(56, 189, 248, 0.8);
+}
+.custom-progress::-webkit-slider-runnable-track {
+    background: transparent; height: 4px; border-radius: 2px;
+}
+
+.ghost-thumb { position: absolute; width: 2px; height: 100%; background: white; z-index: 6; pointer-events: none; box-shadow: 0 0 8px white; top: 0; display: none; }
 
 .fs-mini-icon { position: absolute; bottom: 50px; right: 15px; background: rgba(15, 23, 42, 0.8); color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; z-index: 10; border: 1px solid rgba(255,255,255,0.2); font-weight: bold; transition: background 0.2s; }
 .fs-mini-icon:hover { background: rgba(56, 189, 248, 0.9); border-color: white; }
 
-/* FIX CRÍTICO: La mini-gráfica DEBE estar oculta por defecto y solo mostrarse en JS cuando estemos en Pantalla Completa */
 #fs-timeline-canvas { display: none; position: absolute; bottom: 50px; left: 15px; width: calc(100% - 75px); height: 60px; background: rgba(0,0,0,0.6); border-radius: 6px; pointer-events: none; z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
-
 #timeline-canvas { display: block; width: 100%; height: 100%; border-radius: 4px; }
 .fps-control { display: flex; align-items: center; gap: 5px; background: var(--bg-input); border-radius: 4px; padding: 2px 4px; border: 1px solid var(--border-color); }
 .fps-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.7rem; font-weight: bold; }
@@ -158,7 +206,7 @@ body {
 .slider-badge { background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; margin-bottom: 10px; }
 
 /* =========================================
-   GESTOR DE ARCHIVOS (FIX: RESTAURADO EL DISEÑO DE LAS LISTAS)
+   GESTOR DE ARCHIVOS
    ========================================= */
 .tracks-list-container { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; min-height: 100px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 .file-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -195,3 +243,13 @@ body {
 .resize-handle-nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; }
 .resize-handle-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
 .resize-handle-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
+
+/* 🎯 FIX: Animación tipo 'Ripple' Modo Claro/Oscuro */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) {
+    z-index: 9999;
+    clip-path: circle(0% at var(--ripple-x, 50%) var(--ripple-y, 50%));
+    animation: ripple 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes ripple { to { clip-path: circle(150% at var(--ripple-x, 50%) var(--ripple-y, 50%)); } }
