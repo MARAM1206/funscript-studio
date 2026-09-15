@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.15.2 (SISTEMA ANTI-CRASH Y BOTONES FORZADOS)
+// PRESETS MANAGER V1.16.0 (EDICIÓN DIRECTA, REORDENAMIENTO Y DRAG-DROP)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pNameInput = document.getElementById('preset-editor-name');
     const modalPresetsList = document.getElementById('modal-presets-library-list');
 
-    // 🎯 FIX: Filtro Sanitario. Limpia la memoria de presets corruptos que rompen el botón.
     try {
         let stored = JSON.parse(localStorage.getItem('funscript_presets'));
         if (Array.isArray(stored)) {
@@ -74,13 +73,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.className = 'preset-card';
                 card.draggable = true; 
                 card.dataset.id = preset.id;
+                card.style.transition = "border 0.2s ease, transform 0.1s";
                 
+                // 🎯 Lógica de Drag & Drop (Híbrida: Timeline y Reordenamiento)
                 card.addEventListener('dragstart', (e) => {
                     window.isDraggingPreset = true;
+                    window.draggedPresetIndex = index; // Para reordenar
                     window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
                     window.presetFillInitialized = false; 
                     if(e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'copy';
+                        e.dataTransfer.effectAllowed = 'copyMove';
                         e.dataTransfer.setData('text/plain', 'preset');
                         
                         const dragGhost = document.createElement('div');
@@ -92,8 +94,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
                 
+                // Eventos visuales para reordenar dentro de la lista
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault(); 
+                    e.dataTransfer.dropEffect = 'move';
+                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                        card.style.borderTop = "2px dashed #38bdf8"; 
+                        card.style.transform = "translateY(2px)";
+                    }
+                });
+
+                card.addEventListener('dragleave', () => {
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
+                    // Si se soltó sobre otra tarjeta, reordenar
+                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                        const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
+                        window.presetsLibrary.splice(index, 0, movedItem);
+                        localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                        renderPresetsLibrary();
+                    }
+                    window.draggedPresetIndex = undefined;
+                });
+
                 card.addEventListener('dragend', () => {
                     window.isDraggingPreset = false;
+                    window.draggedPresetIndex = undefined;
                     window.timelineGhostPreset = null;
                     window.timelineGhostTimeMs = null;
                     window.timelineGhostTargetEnd = null;
@@ -111,18 +143,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
+                
+                // 🎯 Nuevo Lápiz para edición directa insertado junto al botón de borrar
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0;">
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px;"></canvas>
-                    ${!isModal ? `<button class="delete-preset-btn" title="Eliminar Preset">🗑️</button>` : ''}
+                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; cursor: move;"></canvas>
+                    ${!isModal ? `
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:1rem; opacity:0.7;">✏️</button>
+                        <button class="delete-preset-btn" title="Eliminar Preset" style="background:none; border:none; cursor:pointer; font-size:1rem; opacity:0.7;">🗑️</button>
+                    </div>` : ''}
                 `;
                 
                 container.appendChild(card);
 
                 if (!isModal) {
+                    // Listener del Lápiz
+                    card.querySelector('.edit-preset-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openPresetEditor(preset.id);
+                    });
+                    card.querySelector('.edit-preset-btn').addEventListener('mouseenter', e => e.target.style.opacity = '1');
+                    card.querySelector('.edit-preset-btn').addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
+
+                    // Listener de Borrar
                     card.querySelector('.delete-preset-btn').addEventListener('click', (e) => {
                         e.stopPropagation();
                         if (confirm(`¿Eliminar el preset "${preset.name}"?`)) {
@@ -131,6 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             renderPresetsLibrary();
                         }
                     });
+                    card.querySelector('.delete-preset-btn').addEventListener('mouseenter', e => e.target.style.opacity = '1');
+                    card.querySelector('.delete-preset-btn').addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
                 }
 
                 setTimeout(() => {
@@ -156,7 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(modalPresetsList, true);
     }
 
-    // 🎯 FIX: Uso de .onclick directo para evitar sobreescritura de eventos y fallas mudas
     if (saveBtn) {
         saveBtn.onclick = (e) => {
             e.preventDefault();
@@ -257,7 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // 🎯 FIX: Blindaje absoluto en el guardado principal. 
     if (modalSave) {
         modalSave.onclick = (e) => {
             e.preventDefault();
