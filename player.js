@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.15.0 (FLECHAS FPS EXACTOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.15.1 (TOGGLE TIEMPO RESTANTE)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -171,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('min-slider')) document.getElementById('min-slider').step = window.snapValue;
     if (document.getElementById('max-slider')) document.getElementById('max-slider').step = window.snapValue;
 
-    // 🎯 FIX: Corrección Matemática para los Botones e Inputs de Saltos FPS
     const fpsInput = document.getElementById('fps-jump-input');
     const btnUp = document.getElementById('fps-btn-up');
     const btnDown = document.getElementById('fps-btn-down');
@@ -209,6 +208,41 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('close-controls-btn')?.addEventListener('click', () => {
         if (controlsModal) controlsModal.style.display = 'none';
     });
+
+    // 🎯 FIX: Sistema de Toggle para Tiempo Restante
+    let showRemainingTime = false;
+    vTimeCurrent?.addEventListener('click', () => {
+        showRemainingTime = !showRemainingTime;
+        if (videoPlayer && videoPlayer.duration) {
+            if (showRemainingTime) {
+                vTimeCurrent.innerText = "-" + formatTime(videoPlayer.duration - videoPlayer.currentTime);
+            } else {
+                vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+            }
+        }
+    });
+
+    vTimeTotal?.addEventListener('click', () => {
+        showRemainingTime = !showRemainingTime;
+        if (videoPlayer && videoPlayer.duration) {
+            if (showRemainingTime) {
+                vTimeCurrent.innerText = "-" + formatTime(videoPlayer.duration - videoPlayer.currentTime);
+            } else {
+                vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+            }
+        }
+    });
+
+    window.updateTimeDisplays = function() {
+        if (!videoPlayer || isNaN(videoPlayer.duration)) return;
+        if (vTimeCurrent) {
+            if (showRemainingTime) {
+                vTimeCurrent.innerText = "-" + formatTime(videoPlayer.duration - videoPlayer.currentTime);
+            } else {
+                vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+            }
+        }
+    }
 });
 
 let currentSpeed = 1.0; 
@@ -358,7 +392,8 @@ videoPlayer?.addEventListener('timeupdate', () => {
     if (!isSeeking && videoPlayer.duration && videoProgress) {
         videoProgress.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
     }
-    if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+    
+    if (typeof window.updateTimeDisplays === 'function') window.updateTimeDisplays();
     
     if (window.timelineMarkers) {
         let currentMs = videoPlayer.currentTime * 1000;
@@ -409,7 +444,8 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
     if (vFps) vFps.innerText = `${window.videoFPS} fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
-    if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
+    
+    if (typeof window.updateTimeDisplays === 'function') window.updateTimeDisplays();
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
     if (typeof window.calculateAdaptiveZoom === 'function') window.calculateAdaptiveZoom();
     
@@ -720,7 +756,6 @@ window.addEventListener('keydown', (event) => {
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
         } 
         else if (key === 'arrowleft' || key === 'arrowright') {
-            // 🎯 FIX: Brinco perfecto por Fotogramas si no hay selección
             if (!isPlaying && !hasSelection) {
                 const fpsInput = document.getElementById('fps-jump-input');
                 const framesToJump = fpsInput ? (parseInt(fpsInput.value, 10) || 1) : 1;
