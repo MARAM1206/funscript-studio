@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.13.0 (NUEVOS CONTROLES Y SPEED OVERLAY)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.15.0 (FLECHAS FPS EXACTOS)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -105,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
     }
 
-    // 🎯 FIX: Transición "Ripple" (Efecto Agua) garantizada entre modos
     document.getElementById('menu-theme-btn')?.addEventListener('click', (e) => {
         e.preventDefault();
         const toggleTheme = () => {
@@ -124,7 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 🎯 FIX: Detener el parpadeo cuando un Juguete es elegido
     document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -151,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 🎯 FIX: Lógica de Textos visuales para el candado de 5% o 1%
     const snapToggle = document.getElementById('menu-snap-toggle');
     const snapText = document.getElementById('snap-text-display');
     
@@ -173,6 +170,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('point-slider')) document.getElementById('point-slider').step = window.snapValue;
     if (document.getElementById('min-slider')) document.getElementById('min-slider').step = window.snapValue;
     if (document.getElementById('max-slider')) document.getElementById('max-slider').step = window.snapValue;
+
+    // 🎯 FIX: Corrección Matemática para los Botones e Inputs de Saltos FPS
+    const fpsInput = document.getElementById('fps-jump-input');
+    const btnUp = document.getElementById('fps-btn-up');
+    const btnDown = document.getElementById('fps-btn-down');
+
+    function enforceFPSLimits() {
+        if (!fpsInput) return;
+        let val = parseInt(fpsInput.value, 10);
+        if (isNaN(val) || val <= 0) val = 1;
+        if (val > window.videoFPS) val = window.videoFPS;
+        fpsInput.value = val;
+    }
+
+    fpsInput?.addEventListener('change', enforceFPSLimits);
+    fpsInput?.addEventListener('blur', enforceFPSLimits);
+
+    btnUp?.addEventListener('click', () => {
+        if (!fpsInput) return;
+        let val = parseInt(fpsInput.value, 10) || 1;
+        fpsInput.value = val + 1;
+        enforceFPSLimits();
+    });
+
+    btnDown?.addEventListener('click', () => {
+        if (!fpsInput) return;
+        let val = parseInt(fpsInput.value, 10) || 1;
+        fpsInput.value = val - 1;
+        enforceFPSLimits();
+    });
 
     const controlsModal = document.getElementById('controls-modal');
     document.getElementById('menu-controls-btn')?.addEventListener('click', (e) => {
@@ -264,9 +291,7 @@ async function loadVideoFile(file, hasFunscripts = false) {
     window.currentVideoName = file.name;
     
     if (vName) {
-        let displayName = file.name;
-        if (displayName.length > 60) displayName = displayName.substring(0, 57) + "..."; 
-        vName.innerText = `🎥 ${displayName}`;
+        vName.innerText = file.name;
         vName.title = file.name; 
     }
     
@@ -382,7 +407,7 @@ window.drawProgressMarkers = function() {
 videoPlayer?.addEventListener('loadedmetadata', () => {
     window.videoFPS = 30; 
     if (vRes) vRes.innerText = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
-    if (vFps) vFps.innerText = `🎞️ ${window.videoFPS} fps`; 
+    if (vFps) vFps.innerText = `${window.videoFPS} fps`; 
     if (vTimeTotal) vTimeTotal.innerText = formatTime(videoPlayer.duration);
     if (vTimeCurrent) vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
     if (typeof window.updateHeatmapAndStats === 'function') window.updateHeatmapAndStats();
@@ -391,6 +416,7 @@ videoPlayer?.addEventListener('loadedmetadata', () => {
     const fpsInput = document.getElementById('fps-jump-input');
     if (fpsInput) {
         let val = parseInt(fpsInput.value, 10);
+        if (isNaN(val) || val <= 0) val = 1;
         if (val > window.videoFPS) fpsInput.value = window.videoFPS;
     }
     window.drawProgressMarkers();
@@ -640,6 +666,11 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
+    const forcePan = (exactTimeMs) => {
+        if (exactTimeMs !== undefined) window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: exactTimeMs } }));
+        else window.dispatchEvent(new Event('forceTimelinePan'));
+    };
+
     if (event.ctrlKey) {
         if (key === 'z') { event.preventDefault(); window.dispatchEvent(new Event('undoAction')); return; }
         if (key === 'y') { event.preventDefault(); window.dispatchEvent(new Event('redoAction')); return; }
@@ -689,7 +720,16 @@ window.addEventListener('keydown', (event) => {
             window.dispatchEvent(new CustomEvent('nudgePoints', { detail: key.replace('arrow','') }));
         } 
         else if (key === 'arrowleft' || key === 'arrowright') {
-            if (!isPlaying && hasSelection) {
+            // 🎯 FIX: Brinco perfecto por Fotogramas si no hay selección
+            if (!isPlaying && !hasSelection) {
+                const fpsInput = document.getElementById('fps-jump-input');
+                const framesToJump = fpsInput ? (parseInt(fpsInput.value, 10) || 1) : 1;
+                const msPerFrame = 1000 / window.videoFPS;
+                const jumpMs = framesToJump * msPerFrame;
+                let newTime = window.getActualTimeMs() + (key === 'arrowright' ? jumpMs : -jumpMs);
+                window.setActualTimeMs(newTime);
+                forcePan(newTime);
+            } else if (hasSelection) {
                 window.dispatchEvent(new CustomEvent('nudgeTime', { detail: key.replace('arrow','') }));
             }
         }
@@ -717,11 +757,6 @@ window.addEventListener('keydown', (event) => {
         if(vSpeed) vSpeed.innerText = `⚡ Vel: ${currentSpeed.toFixed(1)}x`; 
         showSpeedOverlay(currentSpeed);
     }
-    
-    const forcePan = (exactTimeMs) => {
-        if (exactTimeMs !== undefined) window.dispatchEvent(new CustomEvent('forceTimelinePan', { detail: { timeMs: exactTimeMs } }));
-        else window.dispatchEvent(new Event('forceTimelinePan'));
-    };
 
     const fpsInput = document.getElementById('fps-jump-input');
     const framesToJump = fpsInput ? (parseInt(fpsInput.value, 10) || 1) : 1;
