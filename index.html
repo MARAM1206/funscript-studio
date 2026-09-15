@@ -20,8 +20,7 @@
                     <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
                     <a href="#" id="menu-controls-btn" style="display: none;">⌨️ Controles</a>
                     
-                    <!-- 🎯 FIX: Input y UI de candado corregida -->
-                    <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
+                    <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
                         <input type="checkbox" id="menu-snap-toggle" class="snap-toggle" checked style="display: none;">
                         <span class="snap-text" id="snap-text-display">🔒 Bloqueo de 5%</span>
                     </label>
@@ -88,19 +87,19 @@
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 75vh; min-height: 600px;">
             <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 class="modal-title" style="margin: 0; font-size: 1.1rem;">✏️ Editor de Presets</h3>
+                    <h3 class="modal-title" style="margin: 0; font-size: 1rem;">✏️ Editor de Presets</h3>
                 </div>
-                <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
-                <input type="text" id="preset-editor-name" class="modal-input" style="width: 100%; padding: 10px; border-radius: 6px; border-width: 1px; border-style: solid; margin-bottom: 20px; font-size: 0.9rem;" placeholder="Ej: Patrón Rápido">
+                <label class="modal-label" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
+                <input type="text" id="preset-editor-name" class="modal-input" style="width: 100%; padding: 8px; border-radius: 6px; border-width: 1px; border-style: solid; margin-bottom: 15px; font-size: 0.85rem;" placeholder="Ej: Patrón Rápido">
                 <div style="display: flex; justify-content: space-between; align-items:flex-end;">
-                    <label class="modal-label" style="font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
-                    <span class="modal-hint" style="font-size: 0.7rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A) | Ancla (Tecla .) | Zoom: Shift+Rueda</span>
+                    <label class="modal-label" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
+                    <span class="modal-hint" style="font-size: 0.65rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A) | Ancla (.) | Zoom: Shift+Rueda</span>
                 </div>
                 <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #000;">
                     <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                    <p class="modal-hint" style="font-size: 0.75rem; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
+                    <p class="modal-hint" style="font-size: 0.7rem; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
                     <div style="display: flex; gap: 10px;">
                         <button id="preset-editor-cancel" class="menu-btn dark-btn">Cancelar</button>
                         <button id="preset-editor-save-new" class="menu-btn blue-btn">Crear como Nuevo</button>
@@ -109,8 +108,8 @@
                 </div>
             </div>
             <div class="modal-content" style="width: 250px; display: flex; flex-direction: column; padding: 15px;">
-                <h4 class="modal-h4" style="font-size:0.9rem; margin-bottom:10px; text-align: center; border-bottom-width: 1px; border-bottom-style: solid; padding-bottom: 10px;">Tus Presets</h4>
-                <p class="modal-hint" style="font-size: 0.7rem; text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
+                <h4 class="modal-h4" style="font-size:0.85rem; margin-bottom:10px; text-align: center; border-bottom-width: 1px; border-bottom-style: solid; padding-bottom: 10px;">Tus Presets</h4>
+                <p class="modal-hint" style="font-size: 0.65rem; text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
                 <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
         </div>
@@ -119,7 +118,7 @@
     <div id="controls-modal" class="modal-overlay">
         <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
-                <h3 class="modal-title" style="margin: 0; font-size: 1.3rem;">⌨️ Guía de Controles</h3>
+                <h3 class="modal-title" style="margin: 0; font-size: 1.1rem;">⌨️ Guía de Controles</h3>
                 <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
             </div>
             <div class="controls-grid"></div>
@@ -131,7 +130,7 @@
         <!-- 🎬 Reproductor -->
         <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
             <div class="panel-header video-info-bar">
-                <span id="v-name" class="info-text-white" style="max-width: 400px; font-weight: normal; font-size: 0.8rem; color:#e2e8f0; text-shadow:none;">🎥 Sin video</span>
+                <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; max-width: 400px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">🎥 Sin video</span>
                 <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal;">
                     <span id="v-res" class="fixed-info" style="color:#38bdf8; font-weight: normal;">--x--</span> <span class="divider">|</span> 
                     <span id="v-fps" class="fixed-info" style="color:#38bdf8; font-weight: normal;">-- fps</span> <span class="divider">|</span> 
@@ -156,32 +155,36 @@
                     <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
                 </div>
 
-                <!-- 🎯 FIX: Contenedores de Mapa de Calor y Progreso separados y limpios -->
+                <!-- 🎯 FIX: Sincronización perfecta Slider y Heatmap (Optimización de Espacio) -->
                 <div class="video-bottom-unified-bar">
-                    <div style="width: 100%; height: 16px; margin-bottom: 6px; position: relative; border-radius: 4px; overflow: hidden; background: #020617; border: 1px solid var(--border-color);">
-                        <canvas id="heatmap-canvas" class="heatmap-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1;"></canvas>
-                    </div>
-                    <div class="progress-bar-container">
-                        <span id="v-time-current">00:00</span>
+                    <span id="v-time-current" style="width: 35px; text-align: right;">00:00</span>
+                    
+                    <div class="sync-container" style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center;">
+                        <!-- Slider Arriba -->
                         <div class="progress-slider-wrapper">
                             <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
                             <div id="ghost-thumb" class="ghost-thumb"></div> 
                             <canvas id="progress-markers-canvas" class="heatmap-canvas" style="position:absolute; top:0; left:0; pointer-events:none; z-index:4; opacity: 1;"></canvas>
                         </div>
-                        <span id="v-time-total">00:00</span>
+                        
+                        <!-- Heatmap Abajo (Mismo ancho estricto) -->
+                        <div class="heatmap-wrapper">
+                            <canvas id="heatmap-canvas" class="heatmap-canvas"></canvas>
+                        </div>
                     </div>
-                </div>
 
+                    <span id="v-time-total" style="width: 35px; text-align: left;">00:00</span>
+                </div>
             </div>
         </div>
 
         <!-- 📂 Gestor de Archivos -->
         <div id="panel-tracks" class="workspace-panel" data-title="📂 Gestor de Archivos">
             <div class="panel-header">
-                <span>📂 Gestor de Archivos</span>
-                <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1.1rem; padding:0 5px;" title="Añadir Archivos (Video o Scripts)">➕</button>
+                <span style="flex-grow: 1; text-align: left;">📂 Gestor de Archivos</span>
+                <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1rem; padding:0 5px;" title="Añadir Archivos (Video o Scripts)">➕</button>
             </div>
-            <div class="panel-content" style="display: flex; flex-direction: column;">
+            <div class="panel-content" style="display: flex; flex-direction: column; padding: 8px;">
                 <div id="tracks-list" class="tracks-list-container" style="flex-grow: 1;"><span class="empty-tracks-msg">No hay archivos cargados.</span></div>
             </div>
         </div>
@@ -189,18 +192,18 @@
         <!-- ⭐ Presets -->
         <div id="panel-presets" class="workspace-panel" data-title="⭐ Presets">
             <div class="panel-header">
-                <span>⭐ Presets</span>
+                <span style="flex-grow: 1; text-align: left;">⭐ Presets</span>
             </div>
-            <div class="panel-content">
-                <button id="save-preset-btn" class="menu-btn purple-btn" style="width: 100%; margin-bottom: 8px;">Guardar Selección</button>
+            <div class="panel-content" style="padding: 8px;">
+                <button id="save-preset-btn" class="menu-btn purple-btn" style="width: 100%; margin-bottom: 8px; font-size: 0.75rem;">Guardar Selección</button>
                 <div id="presets-list" class="presets-list-container"><span class="empty-log">No hay presets aún.</span></div>
             </div>
         </div>
 
         <!-- 🎚️ Ajuste Puntos -->
         <div id="panel-slider" class="workspace-panel" data-title="🎚️ Ajuste">
-            <div class="panel-header" style="justify-content: center !important;">
-                <span style="color:#94a3b8;">🎚️ Ajuste</span>
+            <div class="panel-header">
+                <span style="flex-grow: 1; text-align: center; color:#94a3b8;">🎚️ Ajuste</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                 <div class="vertical-slider-wrapper">
@@ -213,12 +216,12 @@
         <!-- ⚡ Inyector Rápido -->
         <div id="panel-quick" class="workspace-panel" data-title="⚡ Inyector Rápido">
             <div class="panel-header">
-                <span style="color:#94a3b8;">⚡ Inyector Rápido</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">⚡ Inyector Rápido</span>
             </div>
             <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.8rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta topes y usa <strong>Ctrl + Flechas</strong>.</p>
+                <p style="font-size: 0.7rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta topes y usa <strong>Ctrl + Flechas</strong>.</p>
                 <div class="dual-slider-labels">
-                    <span id="min-label" style="color: #38bdf8;">⬇️ Mínimo: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Máximo: 70%</span>
+                    <span id="min-label" style="color: #38bdf8;">⬇️ Min: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Max: 70%</span>
                 </div>
                 <div class="dual-slider-container">
                     <div class="dual-slider-track"></div><div id="dual-slider-fill" class="dual-slider-fill"></div>
@@ -231,9 +234,9 @@
         <!-- 🤖 Digital Twin -->
         <div id="panel-twin" class="workspace-panel" data-title="🤖 Digital Twin">
             <div class="panel-header">
-                <span style="color:#94a3b8;">🤖 Digital Twin 3D</span>
-                <div style="display: flex; align-items: center; gap: 10px;" onmousedown="event.stopPropagation()">
-                    <button id="twin-anatomy-btn" class="track-btn" style="color:#94a3b8; font-size:1.1rem; padding:0 5px;" title="Mostrar/Ocultar Referencia Anatómica">🙈</button>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🤖 Digital Twin 3D</span>
+                <div style="display: flex; align-items: center; gap: 8px;" onmousedown="event.stopPropagation()">
+                    <button id="twin-anatomy-btn" class="track-btn" style="color:#94a3b8; font-size:1rem; padding:0 5px;" title="Mostrar/Ocultar Referencia Anatómica">🙈</button>
                     <span id="twin-status-txt" style="font-family:monospace; font-size:0.6rem; color:#10b981;">EN LÍNEA</span>
                 </div>
             </div>
@@ -246,77 +249,77 @@
         <!-- 🎭 Humanizador -->
         <div id="panel-humanizer" class="workspace-panel" data-title="🎭 Humanizador">
             <div class="panel-header">
-                <span style="color:#94a3b8;">🎭 Humanizador</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🎭 Humanizador</span>
             </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 15px; overflow-y: auto;">
-                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Añade micro-errores humanos de forma inteligente al patrón.</p>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 12px; overflow-y: auto;">
+                <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 8px; line-height: 1.3;">Añade micro-errores humanos de forma inteligente al patrón.</p>
                 
-                <label class="oc-label" style="background: rgba(15, 23, 42, 0.5); border-radius: 6px; padding: 8px 10px; width: 100%; display: flex; justify-content: center; margin-bottom: 15px; border: 1px solid #1e293b; transition: all 0.2s;">
+                <label class="oc-label" style="background: rgba(15, 23, 42, 0.5); border-radius: 6px; padding: 6px 10px; width: 100%; display: flex; justify-content: center; margin-bottom: 12px; border: 1px solid #1e293b; transition: all 0.2s; cursor: pointer;">
                     <input type="checkbox" id="hum-auto-toggle" class="oc-toggle" checked> 
-                    <span class="oc-text" style="font-weight:bold; color:#10b981;">Modo 100% Automático</span>
+                    <span class="oc-text" style="font-weight:bold; color:#10b981; font-size: 0.75rem;">Modo 100% Automático</span>
                 </label>
 
                 <div id="hum-manual-controls" style="width: 100%; display: none; opacity: 0; transition: opacity 0.3s; margin-bottom: 10px;">
                     <div style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
-                            <span>Límite de Tiempo:</span> <span id="hum-time-val" style="color: #38bdf8; font-weight: bold;">±15 ms</span>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
+                            <span>Límite Tiempo:</span> <span id="hum-time-val" style="color: #38bdf8; font-weight: bold;">±15 ms</span>
                         </div>
                         <input type="range" id="hum-time-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="50" step="1" value="15">
                     </div>
                     <div style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
-                            <span>Límite de Posición:</span> <span id="hum-pos-val" style="color: #f97316; font-weight: bold;">±3%</span>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
+                            <span>Límite Posición:</span> <span id="hum-pos-val" style="color: #f97316; font-weight: bold;">±3%</span>
                         </div>
                         <input type="range" id="hum-pos-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="15" step="1" value="3">
                     </div>
                 </div>
 
-                <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%; margin-top: auto;">🎲 Aplicar a Selección</button>
+                <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%; margin-top: auto; font-size: 0.75rem;">🎲 Aplicar a Selección</button>
             </div>
         </div>
 
         <!-- 🥁 Auto-Ritmo -->
         <div id="panel-bpm" class="workspace-panel" data-title="🥁 Auto-Ritmo">
             <div class="panel-header">
-                <span style="color:#94a3b8;">🥁 Auto-Ritmo (BPM)</span>
-                <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:1rem; padding:0 5px;" title="Borrar Marcadores">🗑️</button>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🥁 Auto-Ritmo (BPM)</span>
+                <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:0.9rem; padding:0 5px;" title="Borrar Marcadores">🗑️</button>
             </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
-                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Detecta los golpes de la música y coloca marcadores azules automáticamente.</p>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 12px;">
+                <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Detecta los golpes de la música automáticamente.</p>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
                         <span>Fuerza del Golpe:</span> <span id="bpm-sens-val" style="color: #0ea5e9; font-weight: bold;">75%</span>
                     </div>
                     <input type="range" id="bpm-sens-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="10" max="100" step="1" value="75">
                 </div>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Tipo de Sonido (Filtro):</span> <span id="bpm-freq-val" style="color: #8b5cf6; font-weight: bold;">120 Hz</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
+                        <span>Filtro de Sonido:</span> <span id="bpm-freq-val" style="color: #8b5cf6; font-weight: bold;">120 Hz</span>
                     </div>
                     <input type="range" id="bpm-freq-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="50" max="300" step="10" value="120">
                 </div>
-                <button id="analyze-bpm-btn" class="menu-btn blue-btn" style="width: 100%;">🔎 Escanear Video</button>
+                <button id="analyze-bpm-btn" class="menu-btn blue-btn" style="width: 100%; font-size: 0.75rem;">🔎 Escanear Video</button>
             </div>
         </div>
 
         <!-- 🎛️ Moldeador -->
         <div id="panel-mass" class="workspace-panel" data-title="🎛️ Moldeador">
             <div class="panel-header">
-                <span style="color:#94a3b8;">🎛️ Moldeador de Patrones</span>
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">🎛️ Moldeador de Patrones</span>
             </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px;">
-                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Ajusta el tamaño o la altura de muchos puntos a la vez sin arruinar su ritmo.</p>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 12px;">
+                <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Ajusta el tamaño o la altura de muchos puntos a la vez.</p>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
                         <span>Tamaño del Movimiento:</span> <span id="mass-scale-val" style="color: #38bdf8; font-weight: bold;">100%</span>
                     </div>
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
                         <input type="range" id="mass-scale-slider" class="volume-slider" style="flex-grow:1;" min="10" max="200" step="10" value="100">
                         <button id="apply-scale-btn" class="menu-btn blue-btn" style="font-size:0.7rem; padding: 4px 8px;">Aplicar</button>
                     </div>
                 </div>
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #e2e8f0; margin-bottom: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
                         <span>Altura Base (Subir/Bajar):</span> <span id="mass-offset-val" style="color: #f97316; font-weight: bold;">0%</span>
                     </div>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
@@ -324,15 +327,15 @@
                         <button id="apply-offset-btn" class="menu-btn orange-btn" style="font-size:0.7rem; padding: 4px 8px;">Mover</button>
                     </div>
                 </div>
-                <button id="invert-btn" class="menu-btn purple-btn" style="width: 100%;">↕️ Voltear al Revés (Invertir)</button>
+                <button id="invert-btn" class="menu-btn purple-btn" style="width: 100%; font-size: 0.75rem;">↕️ Voltear al Revés</button>
             </div>
         </div>
 
         <!-- 📈 Línea de Tiempo -->
         <div id="panel-timeline" class="workspace-panel" data-title="📈 Línea de Tiempo">
             <div class="panel-header">
-                <span style="width: 150px;">📈 Línea de Tiempo</span>
-                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.8rem; font-family: monospace; color: var(--text-dim, #94a3b8);">
+                <span style="flex-grow: 1; text-align: left;">📈 Línea de Tiempo</span>
+                <div style="display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.75rem; font-family: monospace; color: var(--text-dim, #94a3b8); margin-right: 20px;">
                      <span>Saltos:</span>
                      <div class="fps-control">
                         <button id="fps-btn-down" class="fps-btn">◀</button>
@@ -341,8 +344,8 @@
                      </div>
                      <span>fps</span>
                 </div>
-                <div style="width: 250px; text-align: right;">
-                    <span id="timeline-stats" style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Velocidad: --</span>
+                <div style="text-align: right;">
+                    <span id="timeline-stats" style="font-size: 0.7rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Vel: --</span>
                 </div>
             </div>
             <div class="panel-content" style="position: relative; padding: 0;">
