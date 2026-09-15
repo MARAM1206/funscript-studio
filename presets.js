@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.15.1 (RESIZE OBSERVER INFALIBLE Y BOTONES CONTEXTUALES)
+// PRESETS MANAGER V1.15.2 (SISTEMA ANTI-CRASH Y BOTONES FORZADOS)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,7 +15,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const pNameInput = document.getElementById('preset-editor-name');
     const modalPresetsList = document.getElementById('modal-presets-library-list');
 
-    window.presetsLibrary = JSON.parse(localStorage.getItem('funscript_presets')) || [];
+    // 🎯 FIX: Filtro Sanitario. Limpia la memoria de presets corruptos que rompen el botón.
+    try {
+        let stored = JSON.parse(localStorage.getItem('funscript_presets'));
+        if (Array.isArray(stored)) {
+            window.presetsLibrary = stored.filter(p => p && typeof p === 'object' && p.id && p.name !== undefined && p.actions);
+        } else {
+            window.presetsLibrary = [];
+        }
+    } catch (e) {
+        window.presetsLibrary = [];
+    }
+
     window.presetEditorActions = [];
     let editingPresetId = null; 
     let pCtx = pCanvas ? pCanvas.getContext('2d') : null;
@@ -26,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSelectingP = false; let pSelStartT = 0; let pSelStartY = 0; let pSelCurrT = 0; let pSelCurrY = 0;
     let hasDraggedPSelection = false; let hadSelectionBeforePMousedown = false;
 
-    // 🎯 FIX: El ResizeObserver garantiza que el Canvas jamás se dibuje "en negro" al abrirse
     const resizeObserver = new ResizeObserver(() => {
         if (modal && modal.style.display === 'flex' && pCanvas) {
             const container = pCanvas.parentElement;
@@ -146,27 +156,32 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(modalPresetsList, true);
     }
 
+    // 🎯 FIX: Uso de .onclick directo para evitar sobreescritura de eventos y fallas mudas
     if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-            if (!window.funscriptActions || window.funscriptActions.length === 0) {
-                alert('No hay puntos en la línea de tiempo.'); return;
+        saveBtn.onclick = (e) => {
+            e.preventDefault();
+            try {
+                if (!window.funscriptActions || window.funscriptActions.length === 0) {
+                    alert('No hay puntos en la línea de tiempo.'); return;
+                }
+                const selected = window.funscriptActions.filter(a => a.selected);
+                if (selected.length < 2) {
+                    alert('Selecciona al menos 2 puntos para crear un preset.'); return;
+                }
+                
+                const baseTime = selected[0].at;
+                const newPresetActions = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, isSync: a.isSync || false }));
+                
+                window.presetEditorActions = newPresetActions;
+                openPresetEditor(); 
+            } catch(err) {
+                alert("Error al extraer puntos: " + err.message);
             }
-            const selected = window.funscriptActions.filter(a => a.selected);
-            if (selected.length < 2) {
-                alert('Selecciona al menos 2 puntos para crear un preset.'); return;
-            }
-            
-            const baseTime = selected[0].at;
-            const newPresetActions = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, isSync: a.isSync || false }));
-            
-            window.presetEditorActions = newPresetActions;
-            openPresetEditor(); 
-        });
+        };
     }
 
     function generateId() { return Math.random().toString(36).substr(2, 9); }
 
-    // 🎯 FIX: Lógica dual de botones (Crear vs Editar) y Anti-Crash del Canvas
     function openPresetEditor(presetId = null) {
         if (!modal) return;
         editingPresetId = presetId;
@@ -214,44 +229,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
 
-    modalCancel?.addEventListener('click', closePresetEditor);
+    if (modalCancel) {
+        modalCancel.onclick = (e) => {
+            e.preventDefault();
+            closePresetEditor();
+        };
+    }
 
-    modalSaveNew?.addEventListener('click', () => {
-        if (window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
-        
-        window.presetEditorActions.sort((a,b) => a.at - b.at);
-        const base = window.presetEditorActions[0].at;
-        window.presetEditorActions.forEach(a => a.at -= base);
+    if (modalSaveNew) {
+        modalSaveNew.onclick = (e) => {
+            e.preventDefault();
+            try {
+                if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+                
+                window.presetEditorActions.sort((a,b) => a.at - b.at);
+                const base = window.presetEditorActions[0].at;
+                window.presetEditorActions.forEach(a => a.at -= base);
 
-        const finalName = getUniqueName(pNameInput.value);
-        const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
-        window.presetsLibrary.push(newPreset);
-        localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-        renderPresetsLibrary(); closePresetEditor();
-    });
-
-    modalSave?.addEventListener('click', () => {
-        if (window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
-        
-        window.presetEditorActions.sort((a,b) => a.at - b.at);
-        const base = window.presetEditorActions[0].at;
-        window.presetEditorActions.forEach(a => a.at -= base);
-
-        if (editingPresetId) {
-            const p = window.presetsLibrary.find(x => x.id === editingPresetId);
-            if (p) { 
-                p.name = getUniqueName(pNameInput.value, p.id); 
-                p.actions = JSON.parse(JSON.stringify(window.presetEditorActions)); 
+                const finalName = getUniqueName(pNameInput.value);
+                const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
+                window.presetsLibrary.push(newPreset);
+                localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                renderPresetsLibrary(); closePresetEditor();
+            } catch (err) {
+                alert("Error crítico al guardar como nuevo: " + err.message);
             }
-        } else {
-            const finalName = getUniqueName(pNameInput.value);
-            const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
-            window.presetsLibrary.push(newPreset);
-        }
-        
-        localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-        renderPresetsLibrary(); closePresetEditor();
-    });
+        };
+    }
+
+    // 🎯 FIX: Blindaje absoluto en el guardado principal. 
+    if (modalSave) {
+        modalSave.onclick = (e) => {
+            e.preventDefault();
+            try {
+                if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+                
+                window.presetEditorActions.sort((a,b) => a.at - b.at);
+                const base = window.presetEditorActions[0].at;
+                window.presetEditorActions.forEach(a => a.at -= base);
+
+                if (editingPresetId) {
+                    const p = window.presetsLibrary.find(x => x.id === editingPresetId);
+                    if (p) { 
+                        p.name = getUniqueName(pNameInput.value, p.id); 
+                        p.actions = JSON.parse(JSON.stringify(window.presetEditorActions)); 
+                    }
+                } else {
+                    const finalName = getUniqueName(pNameInput.value);
+                    const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
+                    window.presetsLibrary.push(newPreset);
+                }
+                
+                localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                renderPresetsLibrary(); closePresetEditor();
+            } catch (err) {
+                alert("Error crítico al crear preset: " + err.message);
+            }
+        };
+    }
 
     function drawPresetEditor() {
         if (!pCtx || !pCanvas || modal.style.display !== 'flex') return;
