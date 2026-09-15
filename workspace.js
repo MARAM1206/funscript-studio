@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.14.0 (100% RESPONSIVO, BARRERAS FÍSICAS Y MEMORIA)
+// WORKSPACE MANAGER V1.14.3 (100% RESPONSIVO, BARRERAS FÍSICAS Y MEMORIA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const SNAP_DIST = 12; 
     const GAP = 10;       
-    const VERSION = 'funscript_workspace_layout_v14'; 
+    const VERSION = 'funscript_workspace_layout_v14_1'; 
 
     function getDefaultLayout() {
         const W = window.innerWidth;
