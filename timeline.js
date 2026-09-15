@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.14.5 (MINI-GRÁFICA FULLSCREEN OPTIMIZADA)
+// TIMELINE V1.15.0 (IMÁN MULTI-PUNTO DE ALTA PRECISIÓN Y SOLTADO DE PRESETS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -310,7 +310,6 @@ window.updateHeatmapAndStats = function() {
     }
     
     hCanvas.width = hCanvas.getBoundingClientRect().width;
-    
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
     if (actions.length > 1) {
@@ -461,6 +460,7 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
+// 🎯 FIX: Imán Multipunto de Precisión para Línea de Tiempo
 canvas?.addEventListener('dragover', (e) => {
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
     e.preventDefault();
@@ -495,27 +495,29 @@ canvas?.addEventListener('dragover', (e) => {
         window.presetFillInitialized = false;
 
         const actions = getSafeActions();
-        const snapDistMs = 350; 
-        const actualTimeMs = window.getActualTimeMs();
+        const playheadTimeMs = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
         
-        const snapTargets = [actualTimeMs, ...actions.map(a => a.at)];
-        const presetDuration = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-        const presetMid = presetDuration / 2; 
-
-        let bestSnapTime = hoverTimeMs;
+        // 🎯 Magia Negra: Comparar contra todos los puntos existentes y la línea naranja
+        const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
+        
+        const snapDistMs = 250; // Fuerza del imán de 250 ms
+        let bestOffset = hoverTimeMs;
         let minDistance = snapDistMs;
+        let isSnapped = false;
 
-        snapTargets.forEach(target => {
-            let distStart = Math.abs(hoverTimeMs - target);
-            if (distStart < minDistance) { minDistance = distStart; bestSnapTime = target; }
-            let distMid = Math.abs((hoverTimeMs + presetMid) - target);
-            if (distMid < minDistance) { minDistance = distMid; bestSnapTime = target - presetMid; }
-            let distEnd = Math.abs((hoverTimeMs + presetDuration) - target);
-            if (distEnd < minDistance) { minDistance = distEnd; bestSnapTime = target - presetDuration; }
+        window.timelineGhostPreset.forEach(pAct => {
+            let projectedTime = hoverTimeMs + pAct.at;
+            snapTargets.forEach(target => {
+                let dist = Math.abs(projectedTime - target);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    bestOffset = target - pAct.at;
+                    isSnapped = true;
+                }
+            });
         });
 
-        if (bestSnapTime < 0) bestSnapTime = 0;
-        window.timelineGhostTimeMs = bestSnapTime;
+        window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
         
         const snap = window.snapValue || 5;
         let hoverPos = Math.round(hoverPosRaw / snap) * snap;
@@ -524,6 +526,7 @@ canvas?.addEventListener('dragover', (e) => {
     }
 });
 
+// 🎯 FIX: Insertar el preset calculado matemáticamente al soltar el click
 canvas?.addEventListener('drop', (e) => {
     if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
     e.preventDefault();
@@ -558,7 +561,9 @@ canvas?.addEventListener('drop', (e) => {
 
     const rect = canvas.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
-    let dropTimeMs = Math.round(window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX)));
+    
+    // Aquí el dropTime usa la matemática del imán guardada previamente en timelineGhostTimeMs
+    let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
     const deltaY = window.timelineGhostDeltaPos || 0;
     const snap = window.snapValue || 5;
     
@@ -586,6 +591,13 @@ canvas?.addEventListener('drop', (e) => {
 
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     notifyCloud(); window.updateHeatmapAndStats();
+});
+
+canvas?.addEventListener('dragleave', () => {
+    if(window.isDraggingPreset) {
+        window.timelineGhostTimeMs = null;
+        if(typeof window.drawTimeline === 'function') window.drawTimeline();
+    }
 });
 
 const sliderA = document.getElementById('min-slider'); const sliderB = document.getElementById('max-slider');
@@ -1267,7 +1279,6 @@ window.drawTimeline = function() {
                     const fCtx = fsCanvas.getContext('2d');
                     fCtx.clearRect(0,0, fsCanvas.width, fsCanvas.height);
                     
-                    // 🎯 FIX: Fórmula de dibujo Y ajustada para la nueva altura de 80px
                     const fsTimeToX = (t) => 10 + (t - scrollLeftMs) * (basePixelsPerMs * zoom);
                     const fsPosToY = (p) => fsCanvas.height - 12 - (p/100)*(fsCanvas.height - 30);
 
