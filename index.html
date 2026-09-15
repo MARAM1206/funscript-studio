@@ -90,7 +90,6 @@
     <input type="file" id="universal-file-input" accept="video/*,.funscript,.json,.vtt,.srt" multiple style="display: none;">
 
     <div id="preset-editor-modal" class="modal-overlay">
-        <!-- 🎯 FIX: Altura optimizada para que no se vea enorme a lo alto (60vh en lugar de 75vh) -->
         <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 60vh; min-height: 450px;">
             <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -108,11 +107,11 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                     <p class="modal-hint" style="font-size: 0.7rem; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
                     
-                    <!-- 🎯 FIX: Botones preparados para inyección dinámica de JS según el modo -->
+                    <!-- 🎯 FIX: Estructura HTML de botones dinámicos preparada para cambiar entre modo Crear / Editar -->
                     <div style="display: flex; gap: 10px;">
                         <button id="preset-editor-cancel" class="menu-btn dark-btn">Cancelar</button>
-                        <button id="preset-editor-save-new" class="menu-btn blue-btn">Guardar como Nuevo</button>
-                        <button id="preset-editor-save" class="menu-btn success-btn">Guardar</button>
+                        <button id="preset-editor-save-new" class="menu-btn blue-btn" style="display: none;">Guardar como Nuevo</button>
+                        <button id="preset-editor-save" class="menu-btn success-btn">Crear Preset</button>
                     </div>
                 </div>
             </div>
@@ -146,6 +145,7 @@
                     <span id="v-speed" class="fixed-info" style="color:#38bdf8; font-weight: normal;">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
                     <div style="display: flex; align-items: center; gap: 6px; position: relative;">
                         <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute" style="display:inline-block; width: 18px; text-align: center;">🔊</span></span>
+                        <!-- El input del volumen está controlado ahora con CSS estético -->
                         <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.01" value="1" title="Volumen">
                     </div>
                 </div>
