@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.17.0 (MOTOR DE ARRASTRE NATIVO BLINDADO ANTI-CRASH)
+// PRESETS MANAGER V1.18.0 (SISTEMA ANTI-CRASH BLINDADO TRY/CATCH)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -75,27 +75,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.dataset.id = preset.id;
                 card.style.transition = "border 0.2s ease, transform 0.1s";
                 
-                // 🎯 FIX: HTML5 Drag & Drop Nativo. Eliminado el setDragImage que causaba Crash en Chromium
+                // 🎯 FIX: Blindaje absoluto del inicio de arrastre.
                 card.addEventListener('dragstart', (e) => {
-                    window.isDraggingPreset = true;
-                    window.draggedPresetIndex = index; 
-                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
-                    window.presetFillInitialized = false; 
-                    
-                    if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'copyMove';
-                        e.dataTransfer.setData('application/json', JSON.stringify(preset)); 
+                    try {
+                        window.isDraggingPreset = true;
+                        window.draggedPresetIndex = index; 
+                        window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                        window.presetFillInitialized = false; 
+                        
+                        if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = 'copyMove';
+                            // Enviar solo texto simple para evitar que Chromium colapse la memoria
+                            e.dataTransfer.setData('text/plain', preset.id.toString()); 
+                        }
+                    } catch (err) {
+                        console.error("Error en dragstart:", err);
+                        e.preventDefault(); // Si hay error, cancela seguro antes de romper el cursor
                     }
-                    setTimeout(() => card.style.opacity = '0.5', 0); // Efecto visual nativo
                 });
                 
                 card.addEventListener('dragover', (e) => {
                     e.preventDefault(); 
-                    e.dataTransfer.dropEffect = 'move';
-                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        card.style.borderTop = "2px dashed #38bdf8"; 
-                        card.style.transform = "translateY(2px)";
-                    }
+                    try {
+                        e.dataTransfer.dropEffect = 'move';
+                        if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                            card.style.borderTop = "2px dashed #38bdf8"; 
+                            card.style.transform = "translateY(2px)";
+                        }
+                    } catch(err) {}
                 });
 
                 card.addEventListener('dragleave', () => {
@@ -105,36 +112,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 card.addEventListener('drop', (e) => {
                     e.preventDefault();
-                    card.style.borderTop = "";
-                    card.style.transform = "none";
-                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
-                        window.presetsLibrary.splice(index, 0, movedItem);
-                        localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-                        // 🎯 FIX: Renderizado diferido para evitar el colapso del DOM durante el evento de soltar
-                        window.needsPresetReRender = true; 
-                    }
+                    try {
+                        card.style.borderTop = "";
+                        card.style.transform = "none";
+                        if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                            const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
+                            window.presetsLibrary.splice(index, 0, movedItem);
+                            localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                            window.needsPresetReRender = true; 
+                        }
+                    } catch(err) {}
                 });
 
                 card.addEventListener('dragend', () => {
-                    card.style.opacity = '1';
-                    window.isDraggingPreset = false;
-                    window.draggedPresetIndex = undefined;
-                    window.timelineGhostPreset = null;
-                    window.timelineGhostTimeMs = null;
-                    window.timelineGhostTargetEnd = null;
-                    window.timelineGhostMarkers = null;
-                    
-                    // Liberación del cursor de emergencia
-                    document.body.style.cursor = 'default';
-                    setTimeout(() => document.body.style.cursor = '', 50);
-                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                    try {
+                        window.isDraggingPreset = false;
+                        window.draggedPresetIndex = undefined;
+                        window.timelineGhostPreset = null;
+                        window.timelineGhostTimeMs = null;
+                        window.timelineGhostTargetEnd = null;
+                        window.timelineGhostMarkers = null;
+                        
+                        // Forzar restauración del cursor en el DOM
+                        document.body.style.cursor = 'default';
+                        setTimeout(() => document.body.style.cursor = '', 50);
+                        if(typeof window.drawTimeline === 'function') window.drawTimeline();
 
-                    // Renderizado diferido seguro
-                    if (window.needsPresetReRender) {
-                        window.needsPresetReRender = false;
-                        setTimeout(() => renderPresetsLibrary(), 10);
-                    }
+                        if (window.needsPresetReRender) {
+                            window.needsPresetReRender = false;
+                            setTimeout(() => renderPresetsLibrary(), 10);
+                        }
+                    } catch(err) {}
                 });
 
                 if (isModal) {
@@ -500,5 +508,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
+    pCanvas?.addEventListener('dragover', (e) => {
+        e.preventDefault(); 
+        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    });
+
+    pCanvas?.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+        
+        try {
+            const rect = pCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const dropTimeMs = Math.max(0, Math.round(pXToTime(mouseX)));
+            
+            const newActions = window.timelineGhostPreset.map(act => ({
+                at: Math.round(dropTimeMs + act.at),
+                pos: act.pos,
+                selected: true,
+                isSync: act.isSync || false
+            }));
+            
+            window.presetEditorActions.forEach(a => a.selected = false);
+            window.presetEditorActions.push(...newActions);
+            
+            window.presetEditorActions.sort((a,b)=>a.at-b.at);
+            for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
+            
+        } catch(err) {}
+        
+        window.isDraggingPreset = false; window.timelineGhostPreset = null;
+        drawPresetEditor();
+    });
+
     renderPresetsLibrary();
+
+    // 🎯 FIX: Sistema global de rescate de cursor. Si la manita se queda pegada en cualquier parte de la pantalla, un clic la libera.
+    window.addEventListener('mouseup', () => {
+        if (window.isDraggingPreset) {
+            window.isDraggingPreset = false;
+            document.body.style.cursor = 'default';
+        }
+    });
 });
