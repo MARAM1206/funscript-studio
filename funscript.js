@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V46.0 (COLORES SIEMPRE ACTIVOS Y OPTIMIZADO)
+// GESTOR DE ARCHIVOS V47.0 (SISTEMA DE OCULTACIÓN VISUAL)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -77,7 +77,7 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
-// 🎯 FIX: Tipografías más pequeñas y jerarquía limpia
+// 🎯 FIX: Tipografías más pequeñas y ocultación de ícono "ojo" si solo hay 1 script
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
     let htmlContent = '';
@@ -85,7 +85,7 @@ window.updateFileManagerUI = function() {
     if (window.currentVideoName) {
         htmlContent += `
         <div class="file-manager-video" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--bg-hover); border-radius: 6px; border-left: 3px solid #facc15; margin-bottom: 6px;">
-            <span style="font-weight: 600; font-size: 0.75rem; color: #facc15; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${window.currentVideoName}">🎬 ${window.currentVideoName}</span>
+            <span style="font-weight: 600; font-size: 0.75rem; color: #facc15; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${window.currentVideoName}">${window.currentVideoName}</span>
             <button class="track-btn delete-video-btn" style="color: #ef4444; margin-left: 10px; font-size: 0.8rem;" title="Quitar Video">🗑️</button>
         </div>`;
     }
@@ -95,6 +95,8 @@ window.updateFileManagerUI = function() {
             htmlContent += `<span class="empty-tracks-msg">No hay archivos cargados. Importa un Video o FunScript.</span>`;
         }
     } else {
+        const showEyeIcon = window.loadedFunscriptTracks.length > 1; // Solo muestra el ojo si hay 2+ scripts
+        
         htmlContent += `<div style="display: flex; flex-direction: column; gap: 4px;">`;
         htmlContent += window.loadedFunscriptTracks.map((track, idx) => {
             const isLast = idx === window.loadedFunscriptTracks.length - 1;
@@ -103,11 +105,11 @@ window.updateFileManagerUI = function() {
                 ${window.currentVideoName ? `<span style="color: var(--border-color); font-family: monospace; margin-left: 10px; margin-right: 5px; font-size: 0.7rem;">${isLast ? '└─' : '├─'}</span>` : ''}
                 <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="flex-grow: 1; display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: var(--bg-input); border-radius: 6px; border-left: 3px solid ${track.color};">
                     <div class="track-info" style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                        <span class="track-name" style="color: ${track.color}; font-size: 0.75rem; font-weight: normal; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${track.name}">📜 ${track.name}</span>
+                        <span class="track-name" style="color: ${track.color}; font-size: 0.7rem; font-weight: normal; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${track.name}">${track.name}</span>
                     </div>
                     <div class="track-actions" style="display: flex; align-items: center; gap: 6px;">
                         ${track.isPrimary ? `<span class="primary-badge" style="background: ${track.color}; font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; color: #fff;">PRINCIPAL</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}" style="font-size: 0.75rem;">⭐</button>`}
-                        <button class="track-btn toggle-vis-btn" data-id="${track.id}" style="font-size: 0.75rem;">${track.visible ? '👁️' : '🙈'}</button>
+                        <button class="track-btn toggle-vis-btn" data-id="${track.id}" style="font-size: 0.75rem; display: ${showEyeIcon ? 'inline-block' : 'none'};">${track.visible ? '👁️' : '🙈'}</button>
                         <button class="track-btn delete-track-btn" data-id="${track.id}" style="color: #ef4444; font-size: 0.75rem;">🗑️</button>
                     </div>
                 </div>
