@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.18.5 (DRAG & DROP RESTAURADO Y BLINDADO)
+// PRESETS MANAGER V2.0 (ARRASTRE SINTÉTICO ANTI-BUG Y GUARDADO BLINDADO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,32 +71,36 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetsLibrary.forEach((preset, index) => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
-                card.draggable = true; 
+                // 🎯 FIX: Eliminado completamente el maldito "draggable=true" de HTML5
                 card.dataset.id = preset.id;
                 
-                // 🎯 FIX: Física de arrastre (Drag & Drop) restaurada limpiamente
-                card.addEventListener('dragstart', (e) => {
+                // 🎯 FIX: Arrastre Sintético. Jamás crashea a Chromium porque no usa su API rota.
+                card.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0 || e.target.closest('button')) return; // Solo clic izquierdo
+                    e.preventDefault(); // Previene que el texto intente seleccionarse
+                    
                     window.isDraggingPreset = true;
                     window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
                     window.presetFillInitialized = false; 
                     
-                    if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'copy';
-                        e.dataTransfer.setData('text/plain', preset.id); 
-                    }
-                    setTimeout(() => card.style.opacity = '0.5', 0);
-                });
-                
-                card.addEventListener('dragend', (e) => {
-                    e.preventDefault();
-                    card.style.opacity = '1';
-                    window.isDraggingPreset = false;
-                    window.timelineGhostPreset = null;
-                    window.timelineGhostTimeMs = null;
-                    window.timelineGhostTargetEnd = null;
-                    window.timelineGhostMarkers = null;
-                    
-                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                    document.body.classList.add('is-dragging-global');
+
+                    const onGlobalMouseUp = () => {
+                        document.removeEventListener('mouseup', onGlobalMouseUp);
+                        document.body.classList.remove('is-dragging-global');
+                        
+                        // Retraso de 50ms para que el canvas absorba la orden de Drop antes de limpiar la memoria
+                        setTimeout(() => {
+                            window.isDraggingPreset = false;
+                            window.timelineGhostPreset = null;
+                            window.timelineGhostTimeMs = null;
+                            window.timelineGhostTargetEnd = null;
+                            window.timelineGhostMarkers = null;
+                            if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                        }, 50);
+                    };
+
+                    document.addEventListener('mouseup', onGlobalMouseUp);
                 });
 
                 if (isModal) {
@@ -109,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
+                // 🎯 FIX: Eliminada la injerencia de los hijos con pointer-events
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
@@ -169,8 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(modalPresetsList, true);
     }
 
+    // 🎯 FIX: Evento de guardado 100% blindado
     if (saveBtn) {
-        saveBtn.onclick = (e) => {
+        saveBtn.addEventListener('click', (e) => {
             e.preventDefault();
             try {
                 if (!window.funscriptActions || window.funscriptActions.length === 0) {
@@ -189,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch(err) {
                 alert("Error al extraer puntos: " + err.message);
             }
-        };
+        });
     }
 
     function generateId() { return Math.random().toString(36).substr(2, 9); }
@@ -243,14 +249,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
 
     if (modalCancel) {
-        modalCancel.onclick = (e) => {
+        modalCancel.addEventListener('click', (e) => {
             e.preventDefault();
             closePresetEditor();
-        };
+        });
     }
 
     if (modalSaveNew) {
-        modalSaveNew.onclick = (e) => {
+        modalSaveNew.addEventListener('click', (e) => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
@@ -267,11 +273,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 alert("Error crítico al guardar como nuevo: " + err.message);
             }
-        };
+        });
     }
 
     if (modalSave) {
-        modalSave.onclick = (e) => {
+        modalSave.addEventListener('click', (e) => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
@@ -297,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 alert("Error crítico al crear preset: " + err.message);
             }
-        };
+        });
     }
 
     function drawPresetEditor() {
@@ -458,6 +464,34 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
         isDraggingPNode = false; pDragSelectionInitial = []; isSelectingP = false; draggedPNodeIndex = -1;
         drawPresetEditor();
+    });
+
+    // 🎯 FIX: Permite soltar presets en el Canvas del Editor de forma segura (Inyección Sintética)
+    pCanvas?.addEventListener('mouseup', (e) => {
+        if (window.isDraggingPreset && window.timelineGhostPreset) {
+            try {
+                const rect = pCanvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const dropTimeMs = Math.max(0, Math.round(pXToTime(mouseX)));
+                
+                const newActions = window.timelineGhostPreset.map(act => ({
+                    at: Math.round(dropTimeMs + act.at),
+                    pos: act.pos,
+                    selected: true,
+                    isSync: act.isSync || false
+                }));
+                
+                window.presetEditorActions.forEach(a => a.selected = false);
+                window.presetEditorActions.push(...newActions);
+                
+                window.presetEditorActions.sort((a,b)=>a.at-b.at);
+                for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
+                
+            } catch(err) {}
+            
+            window.isDraggingPreset = false; window.timelineGhostPreset = null;
+            drawPresetEditor();
+        }
     });
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
