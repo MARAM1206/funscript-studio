@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.14.4 (HEATMAP ADAPTATIVO CON BLOQUES VISIBLES)
+// TIMELINE V1.14.5 (MINI-GRÁFICA FULLSCREEN OPTIMIZADA)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -269,7 +269,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
-// 🎯 FIX: Heatmap Inteligente. Evalúa saltos vacíos y previene pintar amarillos ilógicos.
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     const statsSpan = document.getElementById('timeline-stats');
@@ -312,11 +311,10 @@ window.updateHeatmapAndStats = function() {
     
     hCanvas.width = hCanvas.getBoundingClientRect().width;
     
-    // El lienzo inicia completamente transparente
     hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
     if (actions.length > 1) {
-        const minBlockWidth = 4; // Aseguramos bloques visibles (no 1px)
+        const minBlockWidth = 4; 
         const bucketCount = Math.max(1, Math.floor(hCanvas.width / minBlockWidth)); 
         const bucketDuration = totalDurationMs / bucketCount;
         
@@ -338,8 +336,6 @@ window.updateHeatmapAndStats = function() {
                 endB = Math.max(0, Math.min(bucketCount - 1, endB));
 
                 if (dt > 2000) {
-                    // Hay un hueco enorme (> 2 segundos). Es una pausa/introducción.
-                    // Solo marcamos los extremos y dejamos el centro vacío/transparente.
                     bucketSpeeds[startB] = Math.max(bucketSpeeds[startB] === -1 ? 0 : bucketSpeeds[startB], speed);
                     bucketSpeeds[endB] = Math.max(bucketSpeeds[endB] === -1 ? 0 : bucketSpeeds[endB], speed);
                 } else {
@@ -357,7 +353,6 @@ window.updateHeatmapAndStats = function() {
                 let intensity = Math.min(1.0, speed / 400); 
                 let hue = 120 - (intensity * 120); 
                 hCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-                // Sumamos 0.5 al ancho para evitar las microrayas de sub-píxeles
                 hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth) + 0.5, hCanvas.height);
             }
         }
@@ -1272,8 +1267,9 @@ window.drawTimeline = function() {
                     const fCtx = fsCanvas.getContext('2d');
                     fCtx.clearRect(0,0, fsCanvas.width, fsCanvas.height);
                     
+                    // 🎯 FIX: Fórmula de dibujo Y ajustada para la nueva altura de 80px
                     const fsTimeToX = (t) => 10 + (t - scrollLeftMs) * (basePixelsPerMs * zoom);
-                    const fsPosToY = (p) => fsCanvas.height - 10 - (p/100)*(fsCanvas.height - 35);
+                    const fsPosToY = (p) => fsCanvas.height - 12 - (p/100)*(fsCanvas.height - 30);
 
                     if (actions.length > 0) {
                         fCtx.strokeStyle = '#38bdf8'; fCtx.lineWidth = 2; fCtx.beginPath();
