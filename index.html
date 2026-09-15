@@ -1,371 +1,495 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.14.7">
-</head>
-<body>
+// ==========================================================================
+// PRESETS MANAGER V1.15.3 (SISTEMA DE ARRASTRE BLINDADO BASE64 ANTI-CRASH)
+// ==========================================================================
 
-    <div class="top-bar-menu">
-        <div class="top-left-actions" style="display: flex; align-items: center; gap: 10px;">
-            <div class="dropdown">
-                <button class="menu-btn dark-btn">⚙️ Configuración</button>
-                <div class="dropdown-content">
-                    <a href="#" id="menu-save-layout-btn" style="color: #10b981; font-weight: bold;">💾 Guardar Acomodo</a>
-                    <a href="#" id="menu-restore-layout-btn" style="color: #facc15; font-weight: bold;">🔄 Restaurar Acomodo</a>
-                    <a href="#" id="menu-fullscreen-layout-btn" style="color: #38bdf8; font-weight: bold;">🖥️ Acomodo de Fábrica (Llenar Pantalla)</a>
-                    <hr style="border-color: #1e293b; margin: 5px 0;">
-                    <a href="#" style="pointer-events: none; color: #64748b;">Idioma (Próximamente)</a>
-                    <a href="#" id="menu-controls-btn" style="display: none;">⌨️ Controles</a>
-                    
-                    <label class="snap-label" style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: background 0.2s;">
-                        <input type="checkbox" id="menu-snap-toggle" class="snap-toggle" checked style="display: none;">
-                        <span class="snap-text" id="snap-text-display">🔒 Bloqueo de 5%</span>
-                    </label>
+document.addEventListener('DOMContentLoaded', () => {
+    const saveBtn = document.getElementById('save-preset-btn');
+    const presetsList = document.getElementById('presets-list');
+    const modal = document.getElementById('preset-editor-modal');
+    
+    const modalCancel = document.getElementById('preset-editor-cancel');
+    const modalSave = document.getElementById('preset-editor-save'); 
+    const modalSaveNew = document.getElementById('preset-editor-save-new'); 
+    
+    const pCanvas = document.getElementById('preset-editor-canvas');
+    const pNameInput = document.getElementById('preset-editor-name');
+    const modalPresetsList = document.getElementById('modal-presets-library-list');
 
-                    <a href="#" style="pointer-events: none; color: #64748b;">Notas (Próximamente)</a>
-                    <a href="#" id="menu-theme-btn">☀️ Modo claro</a>
-                    <a href="#" id="menu-cache-btn" style="color: #ef4444;">🗑️ Borrar Caché (Salva Presets)</a>
-                </div>
-            </div>
-            
-            <div class="dropdown">
-                <button class="menu-btn dark-btn device-alert-pulse device-btn-fixed" id="device-menu-btn" style="width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📱 Dispositivos</button>
-                <div class="dropdown-content wide-dropdown" id="device-dropdown-list">
-                    <a href="#" data-device="handy_std">Handy V1 / 2 Standar</a>
-                    
-                    <div class="sub-dropdown" style="position: relative;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                            <a href="#" data-device="handy_pro" style="flex-grow: 1; padding: 8px 15px;">Handy 2 PRO</a>
-                            <span class="sub-arrow" style="padding-right: 15px; font-size: 0.6rem;">▶</span>
-                        </div>
-                        <div class="sub-dropdown-content">
-                            <label class="oc-label" style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; cursor: pointer; color: var(--text-main);">
-                                <input type="checkbox" class="oc-toggle"> <span class="oc-text">Overclock Off</span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <a href="#" data-device="keon_1">Keon 1</a>
-                    <a href="#" data-device="keon_2">Keon 2</a>
-                    <a href="#" data-device="keon_sm">Keon Sex Machine</a>
-                    <a href="#" data-device="erojoy_x3">Erojoy X3</a>
-                </div>
-            </div>
+    try {
+        let stored = JSON.parse(localStorage.getItem('funscript_presets'));
+        if (Array.isArray(stored)) {
+            window.presetsLibrary = stored.filter(p => p && typeof p === 'object' && p.id && p.name !== undefined && p.actions);
+        } else {
+            window.presetsLibrary = [];
+        }
+    } catch (e) {
+        window.presetsLibrary = [];
+    }
 
-            <span style="font-size: 0.65rem; color: #64748b; font-family: monospace; white-space: nowrap; margin-left: 5px;">Made with ❤️ by <strong>MARAM MX</strong></span>
-        </div>
-        
-        <div id="top-center-toggles" class="top-center-toggles"></div>
-        
-        <div class="top-right-actions" style="display: flex; align-items: center; gap: 15px;">
-            <div class="handy-container" id="handy-main-container" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; border-width: 1px; border-style: solid;">
-                <span id="handy-status" style="font-size:0.75rem; font-weight: bold; width: 20px; text-align: center;" title="Desconectado">🔴</span>
-                <input type="text" id="handy-key" placeholder="Tu Connection Key" class="handy-input" style="width: 130px; padding: 4px 8px; border-radius: 4px; border-width: 1px; border-style: solid; font-size: 0.75rem; text-align: center; outline: none;">
+    window.presetEditorActions = [];
+    let editingPresetId = null; 
+    let pCtx = pCanvas ? pCanvas.getContext('2d') : null;
+
+    let pScrollX = 0; let pZoom = 1.0; let pBasePixelsPerMs = 0.2;
+    let isDraggingPNode = false; let draggedPNodeIndex = -1;
+    let pDragSelectionInitial = []; let pDragStartX = 0; let pDragStartY = 0;
+    let isSelectingP = false; let pSelStartT = 0; let pSelStartY = 0; let pSelCurrT = 0; let pSelCurrY = 0;
+    let hasDraggedPSelection = false; let hadSelectionBeforePMousedown = false;
+
+    const resizeObserver = new ResizeObserver(() => {
+        if (modal && modal.style.display === 'flex' && pCanvas) {
+            const container = pCanvas.parentElement;
+            if (pCanvas.width !== container.clientWidth || pCanvas.height !== container.clientHeight) {
+                pCanvas.width = container.clientWidth;
+                pCanvas.height = container.clientHeight;
+                drawPresetEditor();
+            }
+        }
+    });
+    if (pCanvas && pCanvas.parentElement) resizeObserver.observe(pCanvas.parentElement);
+
+    function getUniqueName(desiredName, excludeId = null) {
+        let name = desiredName.trim() || 'Sin Nombre';
+        let counter = 1;
+        let finalName = name;
+        while (window.presetsLibrary.some(p => p.name === finalName && p.id !== excludeId)) {
+            finalName = `${name} (${counter})`;
+            counter++;
+        }
+        return finalName;
+    }
+
+    function renderPresetsLibrary() {
+        const renderList = (container, isModal = false) => {
+            if (!container) return;
+            container.innerHTML = '';
+            if (window.presetsLibrary.length === 0) {
+                container.innerHTML = '<span class="empty-log">No hay presets aún.</span>';
+                return;
+            }
+
+            window.presetsLibrary.forEach((preset, index) => {
+                const card = document.createElement('div');
+                card.className = 'preset-card';
+                card.draggable = true; 
+                card.dataset.id = preset.id;
+                card.style.transition = "border 0.2s ease, transform 0.1s";
                 
-                <div class="dropdown" style="display: flex; align-items: center;">
-                    <button class="menu-btn offset-btn" style="background: transparent; border: 1px solid #475569; padding: 4px 8px; font-size: 0.7rem;">⏱️ Offset</button>
-                    <div class="dropdown-content" style="padding: 15px; width: 350px; left: -140px; text-align: center;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <span id="handy-connection-status" style="font-size: 0.8rem; font-weight: bold; color: #94a3b8;">Desconectado</span>
-                            <button id="handy-disconnect-btn" class="menu-btn dark-btn" style="font-size: 0.65rem; padding: 2px 6px; display: none;">Desconectar</button>
-                        </div>
-                        <label class="offset-label" style="font-size:0.8rem; font-weight: bold; display: block; margin-bottom: 10px;">Sync Offset: <span id="handy-offset-display" style="color: #38bdf8;">0</span> ms</label>
-                        <input type="range" id="handy-offset" min="-400" max="400" step="1" value="0" style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #1e293b; padding-top: 10px;">
-                            <span id="handy-latency-display" style="font-size: 0.7rem; color: #94a3b8; font-family: monospace;">Red: --</span>
-                            <button id="handy-autosync-btn" class="menu-btn dark-btn" style="font-size: 0.7rem; padding: 4px 8px; transition: all 0.3s;" title="Resuelve el reloj de tu PC con los servidores para evitar desfases">🔄 Reparar Sincronía</button>
-                        </div>
-                    </div>
-                </div>
-
-                <button id="handy-connect-btn" class="menu-btn orange-btn">🛜 Conectar</button>
-            </div>
-            <button id="export-btn" class="menu-btn success-btn">💾 Exportar FunScript</button>
-        </div>
-    </div>
-
-    <input type="file" id="universal-file-input" accept="video/*,.funscript,.json,.vtt,.srt" multiple style="display: none;">
-
-    <div id="preset-editor-modal" class="modal-overlay">
-        <div style="display: flex; gap: 20px; align-items: stretch; max-width: 95vw; height: 60vh; min-height: 450px;">
-            <div class="modal-content" style="width: 800px; display: flex; flex-direction: column;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 class="modal-title" style="margin: 0; font-size: 1rem;">✏️ Editor de Presets</h3>
-                </div>
-                <label class="modal-label" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; display: block;">Nombre del Preset:</label>
-                <input type="text" id="preset-editor-name" class="modal-input" style="width: 100%; padding: 8px; border-radius: 6px; border-width: 1px; border-style: solid; margin-bottom: 15px; font-size: 0.85rem;" placeholder="Ej: Patrón Rápido">
-                <div style="display: flex; justify-content: space-between; align-items:flex-end;">
-                    <label class="modal-label" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; display: block;">Línea de Tiempo del Preset:</label>
-                    <span class="modal-hint" style="font-size: 0.65rem; margin-bottom: 4px;">Atajos (Ctrl+C, V, X, Z, Y, A) | Ancla (.) | Zoom: Shift+Rueda</span>
-                </div>
-                <div class="modal-canvas-container" style="position: relative; width: 100%; flex-grow: 1; border-width: 1px; border-style: solid; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #000;">
-                    <canvas id="preset-editor-canvas" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                    <p class="modal-hint" style="font-size: 0.7rem; margin: 0;">Click Izq: Crear/Mover | Click Der: Eliminar | Arrastra presets de la lista aquí</p>
+                // 🎯 FIX: Sistema Anti-Crash del Navegador. Inyección de imagen fantasma en Base64.
+                card.addEventListener('dragstart', (e) => {
+                    window.isDraggingPreset = true;
+                    window.draggedPresetIndex = index; 
+                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                    window.presetFillInitialized = false; 
                     
-                    <div style="display: flex; gap: 10px;">
-                        <button id="preset-editor-cancel" class="menu-btn dark-btn">Cancelar</button>
-                        <button id="preset-editor-save-new" class="menu-btn blue-btn" style="display: none;">Guardar como Nuevo</button>
-                        <button id="preset-editor-save" class="menu-btn success-btn">Crear Preset</button>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-content" style="width: 250px; display: flex; flex-direction: column; padding: 15px;">
-                <h4 class="modal-h4" style="font-size:0.85rem; margin-bottom:10px; text-align: center; border-bottom-width: 1px; border-bottom-style: solid; padding-bottom: 10px;">Tus Presets</h4>
-                <p class="modal-hint" style="font-size: 0.65rem; text-align: center; margin-bottom: 10px;">(Arrastra al lienzo o da doble clic)</p>
-                <div id="modal-presets-library-list" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="controls-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 950px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 15px;">
-                <h3 class="modal-title" style="margin: 0; font-size: 1.1rem;">⌨️ Guía de Controles</h3>
-                <button id="close-controls-btn" class="menu-btn dark-btn">Cerrar</button>
-            </div>
-            <div class="controls-grid"></div>
-        </div>
-    </div>
-
-    <div class="workspace-container">
-        
-        <div id="panel-video" class="workspace-panel" data-title="Reproductor">
-            <div class="panel-header video-info-bar" style="display: flex; justify-content: space-between;">
-                <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; max-width: 400px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">Sin video</span>
-                <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal; margin-left: auto;">
-                    <span id="v-res" class="fixed-info" style="color:#38bdf8; font-weight: normal;">--x--</span> <span class="divider">|</span> 
-                    <span id="v-fps" class="fixed-info" style="color:#38bdf8; font-weight: normal;">-- fps</span> <span class="divider">|</span> 
-                    <span id="v-speed" class="fixed-info" style="color:#38bdf8; font-weight: normal;">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
-                    <div style="display: flex; align-items: center; gap: 6px; position: relative;">
-                        <span id="v-mute-container" class="fixed-info" style="cursor: pointer;"><span id="v-mute" style="display:inline-block; width: 18px; text-align: center;">🔊</span></span>
-                        <input type="range" id="video-volume" class="volume-slider" min="0" max="1" step="0.01" value="1" title="Volumen">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="panel-content" id="panel-video-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 35px); overflow: hidden !important;">
-                <div class="video-container" id="video-container-wrapper" style="flex-grow: 1; position: relative; width: 100%; display: flex; justify-content: center; align-items: center; background: #000;">
-                    <div id="video-empty-state">📂 Suelta tus archivos aquí</div>
-                    <video id="video-player" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"></video>
-                    
-                    <div id="speed-overlay" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); color: #38bdf8; padding: 15px 30px; border-radius: 8px; font-size: 2rem; font-weight: bold; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10; font-family: monospace; border: 2px solid #38bdf8; box-shadow: 0 0 15px rgba(56,189,248,0.5);">1.0x</div>
-
-                    <div id="panic-overlay" class="panic-overlay"></div>
-                    <canvas id="tracking-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-                    <div id="fs-mini-btn" class="fs-mini-icon" title="Pantalla Completa (F)">⤢</div>
-                    <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
-                </div>
-
-                <div class="video-bottom-unified-bar" style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 15px; border-top: 1px solid var(--border-color); width: 100%; background: var(--bg-panel); z-index: 20;">
-                    
-                    <div style="display: flex; align-items: center; width: 100%; gap: 12px;">
-                        <span id="v-time-current" style="width: 40px; text-align: right; font-family: 'Inter', monospace; font-size: 0.65rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none;" title="Clic para alternar tiempo restante">00:00</span>
+                    if(e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'copyMove';
+                        e.dataTransfer.setData('text/plain', preset.id); 
                         
-                        <div class="progress-slider-wrapper" style="flex-grow: 1; position: relative; height: 14px; display: flex; align-items: center;">
-                            <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
-                            <div id="ghost-thumb" class="ghost-thumb"></div> 
-                            <canvas id="progress-markers-canvas" class="heatmap-canvas" style="position:absolute; top:0; left:0; pointer-events:none; z-index:4; opacity: 1;"></canvas>
-                        </div>
-                        
-                        <span id="v-time-total" style="width: 40px; text-align: left; font-family: 'Inter', monospace; font-size: 0.65rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none;" title="Clic para alternar tiempo restante">00:00</span>
-                    </div>
-
-                    <div style="display: flex; width: 100%; gap: 12px; align-items: center;">
-                        <div style="width: 40px; flex-shrink: 0;"></div>
-                        
-                        <div class="heatmap-wrapper" style="flex-grow: 1; position: relative; height: 15px; border-radius: 2px; overflow: hidden; background: transparent; border: 1px solid var(--border-color);">
-                            <canvas id="heatmap-canvas" class="heatmap-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1;"></canvas>
-                        </div>
-                        
-                        <div style="width: 40px; flex-shrink: 0;"></div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-tracks" class="workspace-panel" data-title="Gestor de Archivos">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left;">Gestor de Archivos</span>
-                <button id="add-file-btn" class="track-btn" style="color:#10b981; font-size:1rem; padding:0 5px;" title="Añadir Archivos (Video o Scripts)">➕</button>
-            </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; padding: 8px;">
-                <div id="tracks-list" class="tracks-list-container" style="flex-grow: 1;"><span class="empty-tracks-msg">No hay archivos cargados.</span></div>
-            </div>
-        </div>
-
-        <div id="panel-presets" class="workspace-panel" data-title="Presets">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left;">Presets</span>
-            </div>
-            <div class="panel-content" style="padding: 8px;">
-                <button id="save-preset-btn" class="menu-btn purple-btn" style="width: 100%; margin-bottom: 8px; font-size: 0.7rem;">Guardar Selección</button>
-                <div id="presets-list" class="presets-list-container"><span class="empty-log">No hay presets aún.</span></div>
-            </div>
-        </div>
-
-        <div id="panel-slider" class="workspace-panel" data-title="Ajuste">
-            <div class="panel-header" style="justify-content: center !important;">
-                <span style="text-align: center; color:#94a3b8;">Ajuste</span>
-            </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
-                <div class="vertical-slider-wrapper">
-                    <span id="slider-value-display" class="slider-badge">50%</span>
-                    <input type="range" id="point-slider" min="0" max="100" step="5" value="50" class="vertical-range-input">
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-quick" class="workspace-panel" data-title="Inyector Rápido">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Inyector Rápido</span>
-            </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px;">
-                <p style="font-size: 0.7rem; color: var(--text-dim, #94a3b8); text-align: center; margin-bottom: 15px;">Ajusta topes y usa <strong>Ctrl + Flechas</strong>.</p>
-                <div class="dual-slider-labels">
-                    <span id="min-label" style="color: #38bdf8;">⬇️ Min: 20%</span><span id="max-label" style="color: #f97316;">⬆️ Max: 70%</span>
-                </div>
-                <div class="dual-slider-container">
-                    <div class="dual-slider-track"></div><div id="dual-slider-fill" class="dual-slider-fill"></div>
-                    <input type="range" id="min-slider" class="dual-range" min="0" max="100" step="5" value="20">
-                    <input type="range" id="max-slider" class="dual-range" min="0" max="100" step="5" value="70">
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-twin" class="workspace-panel" data-title="Digital Twin">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Digital Twin 3D</span>
-                <div style="display: flex; align-items: center; gap: 8px;" onmousedown="event.stopPropagation()">
-                    <button id="twin-anatomy-btn" class="track-btn" style="color:#94a3b8; font-size:1rem; padding:0 5px;" title="Mostrar/Ocultar Referencia Anatómica">🙈</button>
-                    <span id="twin-status-txt" style="font-family:monospace; font-size:0.6rem; color:#10b981;">EN LÍNEA</span>
-                </div>
-            </div>
-            <div class="panel-content twin-content" style="padding: 0; display: flex; flex-direction: column; height: calc(100% - 35px);">
-                <canvas id="twin-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
-                <div id="twin-floor-gradient" class="twin-floor"></div>
-            </div>
-        </div>
-
-        <div id="panel-humanizer" class="workspace-panel" data-title="Humanizador">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Humanizador</span>
-            </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 12px; overflow-y: auto;">
-                <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 8px; line-height: 1.3;">Añade micro-errores humanos de forma inteligente al patrón.</p>
+                        const blankImg = new Image();
+                        blankImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                        e.dataTransfer.setDragImage(blankImg, 0, 0);
+                    }
+                });
                 
-                <label class="oc-label" style="background: rgba(15, 23, 42, 0.5); border-radius: 6px; padding: 6px 10px; width: 100%; display: flex; justify-content: center; margin-bottom: 12px; border: 1px solid #1e293b; transition: all 0.2s; cursor: pointer;">
-                    <input type="checkbox" id="hum-auto-toggle" class="oc-toggle" checked> 
-                    <span class="oc-text" style="font-weight:bold; color:#10b981; font-size: 0.75rem;">Modo Automático</span>
-                </label>
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault(); 
+                    e.dataTransfer.dropEffect = 'move';
+                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                        card.style.borderTop = "2px dashed #38bdf8"; 
+                        card.style.transform = "translateY(2px)";
+                    }
+                });
 
-                <div id="hum-manual-controls" style="width: 100%; display: none; opacity: 0; transition: opacity 0.3s; margin-bottom: 10px;">
-                    <div style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
-                            <span>Límite Tiempo:</span> <span id="hum-time-val" style="color: #38bdf8; font-weight: bold;">±15 ms</span>
-                        </div>
-                        <input type="range" id="hum-time-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="50" step="1" value="15">
-                    </div>
-                    <div style="width: 100%;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
-                            <span>Límite Posición:</span> <span id="hum-pos-val" style="color: #f97316; font-weight: bold;">±3%</span>
-                        </div>
-                        <input type="range" id="hum-pos-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="0" max="15" step="1" value="3">
-                    </div>
-                </div>
+                card.addEventListener('dragleave', () => {
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
+                });
 
-                <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%; margin-top: auto; font-size: 0.75rem;">🎲 Aplicar a Selección</button>
-            </div>
-        </div>
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.style.borderTop = "";
+                    card.style.transform = "none";
+                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                        const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
+                        window.presetsLibrary.splice(index, 0, movedItem);
+                        localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                        renderPresetsLibrary();
+                    }
+                    window.draggedPresetIndex = undefined;
+                });
 
-        <div id="panel-bpm" class="workspace-panel" data-title="Auto-Ritmo">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Auto-Ritmo (BPM)</span>
-                <button id="clear-bpm-btn" class="track-btn" style="color:#ef4444; font-size:0.9rem; padding:0 5px;" title="Borrar Marcadores">🗑️</button>
-            </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 12px;">
-                <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Detecta los golpes de la música automáticamente.</p>
-                <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Fuerza del Golpe:</span> <span id="bpm-sens-val" style="color: #0ea5e9; font-weight: bold;">75%</span>
-                    </div>
-                    <input type="range" id="bpm-sens-slider" class="volume-slider" style="width: 100%; margin-bottom: 10px;" min="10" max="100" step="1" value="75">
-                </div>
-                <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Filtro de Sonido:</span> <span id="bpm-freq-val" style="color: #8b5cf6; font-weight: bold;">120 Hz</span>
-                    </div>
-                    <input type="range" id="bpm-freq-slider" class="volume-slider" style="width: 100%; margin-bottom: 15px;" min="50" max="300" step="10" value="120">
-                </div>
-                <button id="analyze-bpm-btn" class="menu-btn blue-btn" style="width: 100%; font-size: 0.75rem;">🔎 Escanear Video</button>
-            </div>
-        </div>
+                card.addEventListener('dragend', () => {
+                    window.isDraggingPreset = false;
+                    window.draggedPresetIndex = undefined;
+                    window.timelineGhostPreset = null;
+                    window.timelineGhostTimeMs = null;
+                    window.timelineGhostTargetEnd = null;
+                    window.timelineGhostMarkers = null;
+                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                });
 
-        <div id="panel-mass" class="workspace-panel" data-title="Moldeador">
-            <div class="panel-header">
-                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Moldeador de Patrones</span>
-            </div>
-            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 12px;">
-                <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 10px; line-height: 1.3;">Ajusta el tamaño o la altura de muchos puntos a la vez.</p>
-                <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Tamaño del Movimiento:</span> <span id="mass-scale-val" style="color: #38bdf8; font-weight: bold;">100%</span>
-                    </div>
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-                        <input type="range" id="mass-scale-slider" class="volume-slider" style="flex-grow:1;" min="10" max="200" step="10" value="100">
-                        <button id="apply-scale-btn" class="menu-btn blue-btn" style="font-size:0.7rem; padding: 4px 8px;">Aplicar</button>
-                    </div>
-                </div>
-                <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #e2e8f0; margin-bottom: 5px;">
-                        <span>Altura Base (Subir/Bajar):</span> <span id="mass-offset-val" style="color: #f97316; font-weight: bold;">0%</span>
-                    </div>
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
-                        <input type="range" id="mass-offset-slider" class="volume-slider" style="flex-grow:1;" min="-50" max="50" step="5" value="0">
-                        <button id="apply-offset-btn" class="menu-btn orange-btn" style="font-size:0.7rem; padding: 4px 8px;">Mover</button>
-                    </div>
-                </div>
-                <button id="invert-btn" class="menu-btn purple-btn" style="width: 100%; font-size: 0.75rem;">↕️ Voltear al Revés</button>
-            </div>
-        </div>
+                if (isModal) {
+                    card.addEventListener('dblclick', () => {
+                        window.presetEditorActions = JSON.parse(JSON.stringify(preset.actions));
+                        pScrollX = 0; drawPresetEditor();
+                    });
+                } else {
+                    card.addEventListener('dblclick', () => { openPresetEditor(preset.id); });
+                }
 
-        <div id="panel-timeline" class="workspace-panel" data-title="Línea de Tiempo">
-            <div class="panel-header" style="justify-content: center;">
-                <span style="width: 150px; text-align: left;">Línea de Tiempo</span>
-                <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.75rem; font-family: monospace; color: var(--text-dim, #94a3b8);">
-                     <span>Saltos:</span>
-                     <div class="fps-control">
-                        <button id="fps-btn-down" class="fps-btn">◀</button>
-                        <input type="number" id="fps-jump-input" class="fps-input" value="1" min="1" max="60">
-                        <button id="fps-btn-up" class="fps-btn">▶</button>
-                     </div>
-                     <span>fps</span>
-                </div>
-                <div style="width: 150px; text-align: right;">
-                    <span id="timeline-stats" style="font-size: 0.65rem; color: #94a3b8; font-weight: normal; white-space: nowrap;">Puntos: 0 | Vel: --</span>
-                </div>
-            </div>
-            <div class="panel-content" style="position: relative; padding: 0;">
-                <canvas id="timeline-canvas"></canvas>
-            </div>
-        </div>
+                const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
+                card.innerHTML = `
+                    <div style="flex-grow: 1; min-width: 0;">
+                        <div class="preset-card-title">${preset.name}</div>
+                        <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
+                    </div>
+                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; cursor: move;"></canvas>
+                    ${!isModal ? `
+                    <div style="display:flex; flex-direction:column; gap:4px; align-items: center;">
+                        <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
+                        <button class="delete-preset-btn" title="Eliminar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">🗑️</button>
+                    </div>` : ''}
+                `;
+                
+                container.appendChild(card);
 
-    </div>
+                if (!isModal) {
+                    const editBtn = card.querySelector('.edit-preset-btn');
+                    editBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openPresetEditor(preset.id);
+                    });
+                    editBtn.addEventListener('mouseenter', e => e.target.style.opacity = '1');
+                    editBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
 
-    <script src="workspace.js?v=1.14.3"></script>
-    <script src="handy.js?v=1.14.3"></script> 
-    <script src="funscript.js?v=1.14.3"></script>
-    <script src="player.js?v=1.14.3"></script>
-    <script src="presets.js?v=1.14.3"></script>
-    <script src="timeline.js?v=1.14.3"></script>
-    <script src="twin.js?v=1.14.3"></script>
-    <script src="humanizer.js?v=1.14.3"></script>
-    <script src="bpm.js?v=1.14.3"></script>
-    <script src="mass.js?v=1.14.3"></script>
-</body>
-</html>
+                    const delBtn = card.querySelector('.delete-preset-btn');
+                    delBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (confirm(`¿Eliminar el preset "${preset.name}"?`)) {
+                            window.presetsLibrary.splice(index, 1);
+                            localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                            renderPresetsLibrary();
+                        }
+                    });
+                    delBtn.addEventListener('mouseenter', e => e.target.style.opacity = '1');
+                    delBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
+                }
+
+                setTimeout(() => {
+                    const c = document.getElementById(canvasId);
+                    if (c && preset.actions.length > 0) {
+                        const tCtx = c.getContext('2d');
+                        tCtx.clearRect(0, 0, c.width, c.height);
+                        const dur = preset.actions[preset.actions.length-1].at;
+                        if (dur <= 0) return;
+                        tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
+                        preset.actions.forEach((a, i) => {
+                            const x = (a.at / dur) * c.width;
+                            const y = c.height - (a.pos / 100) * c.height;
+                            if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
+                        });
+                        tCtx.stroke();
+                    }
+                }, 10);
+            });
+        };
+
+        renderList(presetsList, false);
+        renderList(modalPresetsList, true);
+    }
+
+    if (saveBtn) {
+        saveBtn.onclick = (e) => {
+            e.preventDefault();
+            try {
+                if (!window.funscriptActions || window.funscriptActions.length === 0) {
+                    alert('No hay puntos en la línea de tiempo.'); return;
+                }
+                const selected = window.funscriptActions.filter(a => a.selected);
+                if (selected.length < 2) {
+                    alert('Selecciona al menos 2 puntos para crear un preset.'); return;
+                }
+                
+                const baseTime = selected[0].at;
+                const newPresetActions = selected.map(a => ({ at: a.at - baseTime, pos: a.pos, isSync: a.isSync || false }));
+                
+                window.presetEditorActions = newPresetActions;
+                openPresetEditor(); 
+            } catch(err) {
+                alert("Error al extraer puntos: " + err.message);
+            }
+        };
+    }
+
+    function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+    function openPresetEditor(presetId = null) {
+        if (!modal) return;
+        editingPresetId = presetId;
+        pScrollX = 0; pZoom = 1.0;
+        
+        if (presetId) {
+            const p = window.presetsLibrary.find(x => x.id === presetId);
+            if (p) { 
+                pNameInput.value = p.name; 
+                window.presetEditorActions = JSON.parse(JSON.stringify(p.actions)); 
+            }
+            modalSave.innerText = "Sobrescribir";
+            modalSave.className = "menu-btn orange-btn"; 
+            modalSaveNew.style.display = "block";
+        } else {
+            pNameInput.value = "Nuevo Preset"; 
+            modalSave.innerText = "Crear Preset";
+            modalSave.className = "menu-btn success-btn"; 
+            modalSaveNew.style.display = "none";
+        }
+        
+        modal.style.display = 'flex';
+        renderPresetsLibrary(); 
+        
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const container = pCanvas.parentElement;
+                pCanvas.width = container.clientWidth; 
+                pCanvas.height = container.clientHeight;
+                
+                if (window.presetEditorActions.length > 0) {
+                    const totalDurationMs = window.presetEditorActions[window.presetEditorActions.length - 1].at;
+                    if (totalDurationMs > 0) {
+                        const targetPixels = pCanvas.width * 0.8; 
+                        pZoom = targetPixels / (totalDurationMs * pBasePixelsPerMs);
+                        pZoom = Math.max(0.1, Math.min(15.0, pZoom)); 
+                    } else {
+                        pZoom = 1.0;
+                    }
+                }
+                drawPresetEditor(); 
+            });
+        });
+    }
+
+    function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
+
+    if (modalCancel) {
+        modalCancel.onclick = (e) => {
+            e.preventDefault();
+            closePresetEditor();
+        };
+    }
+
+    if (modalSaveNew) {
+        modalSaveNew.onclick = (e) => {
+            e.preventDefault();
+            try {
+                if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+                
+                window.presetEditorActions.sort((a,b) => a.at - b.at);
+                const base = window.presetEditorActions[0].at;
+                window.presetEditorActions.forEach(a => a.at -= base);
+
+                const finalName = getUniqueName(pNameInput.value);
+                const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
+                window.presetsLibrary.push(newPreset);
+                localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                renderPresetsLibrary(); closePresetEditor();
+            } catch (err) {
+                alert("Error crítico al guardar como nuevo: " + err.message);
+            }
+        };
+    }
+
+    if (modalSave) {
+        modalSave.onclick = (e) => {
+            e.preventDefault();
+            try {
+                if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
+                
+                window.presetEditorActions.sort((a,b) => a.at - b.at);
+                const base = window.presetEditorActions[0].at;
+                window.presetEditorActions.forEach(a => a.at -= base);
+
+                if (editingPresetId) {
+                    const p = window.presetsLibrary.find(x => x.id === editingPresetId);
+                    if (p) { 
+                        p.name = getUniqueName(pNameInput.value, p.id); 
+                        p.actions = JSON.parse(JSON.stringify(window.presetEditorActions)); 
+                    }
+                } else {
+                    const finalName = getUniqueName(pNameInput.value);
+                    const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
+                    window.presetsLibrary.push(newPreset);
+                }
+                
+                localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                renderPresetsLibrary(); closePresetEditor();
+            } catch (err) {
+                alert("Error crítico al crear preset: " + err.message);
+            }
+        };
+    }
+
+    function drawPresetEditor() {
+        if (!pCtx || !pCanvas || modal.style.display !== 'flex') return;
+        
+        const parent = pCanvas.parentElement;
+        if(pCanvas.width !== parent.clientWidth) pCanvas.width = parent.clientWidth;
+        if(pCanvas.height !== parent.clientHeight) pCanvas.height = parent.clientHeight;
+
+        pCtx.clearRect(0,0, pCanvas.width, pCanvas.height);
+
+        const timeToX = (t) => 30 + (t - pScrollX) * (pBasePixelsPerMs * pZoom);
+        const xToTime = (x) => pScrollX + (x - 30) / (pBasePixelsPerMs * pZoom);
+        const posToY = (p) => { const pad = 30; return pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad); };
+
+        pCtx.fillStyle = '#06090e'; pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
+
+        pCtx.strokeStyle = 'rgba(255,255,255,0.05)'; pCtx.lineWidth = 1;
+        [0, 25, 50, 75, 100].forEach(p => { const y = posToY(p); pCtx.beginPath(); pCtx.moveTo(30, y); pCtx.lineTo(pCanvas.width, y); pCtx.stroke(); });
+
+        pCtx.fillStyle = '#1e293b'; pCtx.fillRect(0,0, 30, pCanvas.height);
+        pCtx.fillStyle = '#94a3b8'; pCtx.font = '10px monospace';
+        [0, 25, 50, 75, 100].forEach(p => { pCtx.fillText(`${p}%`, 2, posToY(p) + 4); });
+
+        const visibleMs = (pCanvas.width - 30) / (pBasePixelsPerMs * pZoom);
+        let stepMs = visibleMs < 1000 ? 100 : (visibleMs < 5000 ? 500 : 1000);
+        let t = Math.floor(Math.max(0, xToTime(30)) / stepMs) * stepMs;
+        while(t <= xToTime(pCanvas.width)) {
+            if (t >= 0) {
+                const x = timeToX(t);
+                if (x >= 30) { pCtx.strokeStyle='rgba(255,255,255,0.05)'; pCtx.beginPath(); pCtx.moveTo(x,0); pCtx.lineTo(x,pCanvas.height); pCtx.stroke(); pCtx.fillText(`${t/1000}s`, x+2, 10); }
+            }
+            t += stepMs;
+        }
+
+        if (isSelectingP) {
+            pCtx.fillStyle = 'rgba(56, 189, 248, 0.15)'; pCtx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; pCtx.setLineDash([2,2]);
+            const sx = timeToX(pSelStartT); const cx = timeToX(pSelCurrT);
+            const xl = Math.min(sx, cx); const yt = Math.min(pSelStartY, pSelCurrY);
+            pCtx.fillRect(xl, yt, Math.abs(cx-sx), Math.abs(pSelCurrY-pSelStartY));
+            pCtx.strokeRect(xl, yt, Math.abs(cx-sx), Math.abs(pSelCurrY-pSelStartY));
+            pCtx.setLineDash([]);
+        }
+
+        if (window.presetEditorActions.length > 0) {
+            pCtx.strokeStyle = '#38bdf8'; pCtx.lineWidth = 2; pCtx.beginPath();
+            window.presetEditorActions.forEach((a, i) => { const x=timeToX(a.at); const y=posToY(a.pos); if(i===0) pCtx.moveTo(x,y); else pCtx.lineTo(x,y); });
+            pCtx.stroke();
+
+            window.presetEditorActions.forEach(a => {
+                const x = timeToX(a.at); const y = posToY(a.pos);
+                if (x >= 20 && x <= pCanvas.width + 20) {
+                    
+                    if (a.isSync) {
+                        pCtx.fillStyle = '#facc15'; 
+                        pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
+                        pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
+                        
+                        pCtx.fillStyle = '#0f172a'; 
+                        pCtx.font = '12px monospace'; 
+                        pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
+                        pCtx.fillText('⚓', x, y+1); 
+                        pCtx.textAlign = 'left'; pCtx.textBaseline = 'alphabetic';
+                    } else {
+                        pCtx.fillStyle = a.selected ? '#f59e0b' : '#0284c7';
+                        pCtx.beginPath(); pCtx.arc(x, y, a.selected ? 6 : 4, 0, Math.PI * 2); pCtx.fill();
+                        pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 1; pCtx.stroke();
+                    }
+                }
+            });
+        }
+    }
+
+    const pXToTime = (x) => pScrollX + (x - 30) / (pBasePixelsPerMs * pZoom);
+    const pYToPos = (y) => { const pad=30; return Math.max(0, Math.min(100, Math.round(((pCanvas.height - pad - y) / (pCanvas.height - 2*pad)) * 100))); };
+
+    pCanvas?.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = pCanvas.getBoundingClientRect(); const mouseX = e.clientX - rect.left;
+        if (e.shiftKey) {
+            const tMouse = pXToTime(mouseX);
+            pZoom = Math.max(0.1, Math.min(15.0, pZoom + (e.deltaY < 0 ? 0.1 : -0.1)));
+            pScrollX = Math.max(0, tMouse - (mouseX - 30)/(pBasePixelsPerMs*pZoom));
+        } else {
+            const pan = ((pCanvas.width-30)/(pBasePixelsPerMs*pZoom)) * 0.1;
+            pScrollX = Math.max(0, pScrollX + (e.deltaY < 0 ? pan : -pan));
+        }
+        drawPresetEditor();
+    }, {passive:false});
+
+    pCanvas?.addEventListener('mousedown', (e) => {
+        const rect = pCanvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+        const clickT = pXToTime(mx); const clickP = pYToPos(my);
+        const timeToX = (t) => 30 + (t - pScrollX) * (pBasePixelsPerMs * pZoom);
+        const posToY = (p) => { const pad = 30; return pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad); };
+
+        if (e.button === 0) {
+            let clicked = null; let cIdx = -1;
+            for(let i=0; i<window.presetEditorActions.length; i++) {
+                if(Math.hypot(mx - timeToX(window.presetEditorActions[i].at), my - posToY(window.presetEditorActions[i].pos)) <= 8) { clicked = window.presetEditorActions[i]; cIdx = i; break; }
+            }
+            if (clicked) {
+                if(!e.ctrlKey && !clicked.selected) window.presetEditorActions.forEach(a=>a.selected=false);
+                clicked.selected = true; isDraggingPNode = true; draggedPNodeIndex = cIdx;
+                pDragSelectionInitial = window.presetEditorActions.map(a=>({...a}));
+                pDragStartX = clickT; pDragStartY = clickP;
+            } else {
+                hadSelectionBeforePMousedown = window.presetEditorActions.some(a=>a.selected);
+                if(!e.ctrlKey) window.presetEditorActions.forEach(a=>a.selected=false);
+                isSelectingP = true; hasDraggedPSelection = false;
+                pSelStartT = clickT; pSelStartY = my; pSelCurrT = clickT; pSelCurrY = my;
+            }
+        } else if (e.button === 2) {
+            window.presetEditorActions = window.presetEditorActions.filter(a => Math.hypot(mx - timeToX(a.at), my - posToY(a.pos)) > 10);
+        }
+        drawPresetEditor();
+    });
+
+    pCanvas?.addEventListener('mousemove', (e) => {
+        const rect = pCanvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+        if (isDraggingPNode && pDragSelectionInitial.length > 0) {
+            const snap = window.snapValue || 5;
+            const dT = Math.round((pXToTime(mx) - pDragStartX)/50)*50;
+            const dP = Math.round((pYToPos(my) - pDragStartY)/snap)*snap;
+            window.presetEditorActions.forEach((a,i) => {
+                if(pDragSelectionInitial[i].selected) {
+                    a.at = Math.max(0, pDragSelectionInitial[i].at + dT);
+                    a.pos = Math.max(0, Math.min(100, Math.round((pDragSelectionInitial[i].pos + dP)/snap)*snap));
+                }
+            });
+        } else if (isSelectingP) {
+            pSelCurrT = pXToTime(mx); pSelCurrY = my;
+            if (Math.hypot(mx - (30+(pSelStartT-pScrollX)*(pBasePixelsPerMs*pZoom)), my - pSelStartY) > 5) hasDraggedPSelection = true;
+            const minT = Math.min(pSelStartT, pSelCurrT); const maxT = Math.max(pSelStartT, pSelCurrT);
+            const pad=30; const minY = Math.max(pad, Math.min(pSelStartY, pSelCurrY)); const maxY = Math.max(pad, Math.max(pSelStartY, pSelCurrY));
+            const posToY = (p) => pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad);
+            window.presetEditorActions.forEach(a => {
+                const ay = posToY(a.pos);
+                a.selected = (a.at >= minT && a.at <= maxT && ay >= minY && ay <= maxY);
+            });
+        }
+        if(isDraggingPNode || isSelectingP) drawPresetEditor();
+    });
+
+    pCanvas?.addEventListener('mouseup', (e) => {
+        const snap = window.snapValue || 5;
+        if (isSelectingP && !hasDraggedPSelection && e.target === pCanvas) {
+            if (!hadSelectionBeforePMousedown) {
+                const rect = pCanvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+                let cTime = Math.max(0, Math.round(pXToTime(mx)/50)*50);
+                let cPos = Math.round(pYToPos(my)/snap)*snap;
+                const eIdx = window.presetEditorActions.findIndex(a=>a.at === cTime);
+                if(eIdx !== -1) { window.presetEditorActions[eIdx].pos = cPos; window.presetEditorActions[eIdx].selected = true; }
+                else { window.presetEditorActions.push({at:cTime, pos:cPos, selected:true}); }
+            }
+        }
+        window.presetEditorActions.sort((a,b)=>a.at-b.at);
+        for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
+        isDraggingPNode = false; pDragSelectionInitial = []; isSelectingP = false; draggedPNodeIndex = -1;
+        drawPresetEditor();
+    });
+
+    pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
+
+    renderPresetsLibrary();
+});
