@@ -1,5 +1,5 @@
 /* =========================================
-   ESTILOS MAESTROS Y VARIABLES (V1.16.5)
+   ESTILOS MAESTROS Y VARIABLES (V1.16.6 - Z-INDEX Y MENÚS)
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -51,7 +51,7 @@ body {
     background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color);
     padding: 0 15px; height: 45px; position: relative; z-index: 9000;
 }
-.top-bar-menu::-webkit-scrollbar { height: 0px; }
+/* 🎯 FIX: Se removió overflow-x: auto; para permitir que los dropdowns se expandan libremente */
 
 .top-center-toggles { display: flex; gap: 8px; flex-grow: 1; justify-content: center; }
 
@@ -90,9 +90,11 @@ body {
 .dropdown-content a, .dropdown-content label { color: var(--text-main); padding: 8px 15px; text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 0.75rem; cursor: pointer; border-bottom: 1px solid transparent; }
 .dropdown-content a:hover, .dropdown-content label:hover { background-color: var(--bg-hover); }
 
+/* 🎯 FIX: Hover mantenido para los sub-dropdowns de los dispositivos (Handy Overclock) */
 .sub-dropdown { position: relative; }
-.sub-dropdown-content { display: none; position: absolute; left: 100%; top: -1px; background-color: var(--bg-panel); border: 1px solid var(--border-color); min-width: 180px; border-radius: 6px; }
-.sub-dropdown:hover .sub-dropdown-content { display: block; }
+.sub-dropdown:hover .sub-dropdown-content { display: block !important; }
+.sub-dropdown-content { display: none; position: absolute; left: 100%; top: 0; background-color: var(--bg-panel); border: 1px solid var(--border-color); min-width: 160px; border-radius: 6px; margin-left: -2px; z-index: 9600; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
+
 .sub-arrow { margin-left: auto; font-size: 0.6rem; }
 
 @keyframes pulse-alert {
@@ -227,7 +229,8 @@ body {
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
 .modal-content { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
 
-.resize-handle { position: absolute; z-index: 10; }
+/* 🎯 FIX: Jerarquía forzada a 9900 para que ningún borde interior opaque los resizers físicos */
+.resize-handle { position: absolute; z-index: 9900; }
 .resize-handle-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: se-resize; }
 .resize-handle-s { bottom: 0; left: 12px; right: 12px; height: 6px; cursor: s-resize; }
 .resize-handle-e { top: 12px; bottom: 12px; right: 0; width: 6px; cursor: e-resize; }
