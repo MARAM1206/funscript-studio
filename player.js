@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(tBtn) tBtn.innerText = '🌙 Modo oscuro';
     }
 
+    // 🎯 FIX: Transición "Ripple" (Efecto Agua) garantizada entre modos
     document.getElementById('menu-theme-btn')?.addEventListener('click', (e) => {
         e.preventDefault();
         const toggleTheme = () => {
@@ -123,6 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // 🎯 FIX: Detener el parpadeo cuando un Juguete es elegido
     document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -149,14 +151,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 🎯 FIX: Lógica de Textos visuales para el candado de 5% o 1%
     const snapToggle = document.getElementById('menu-snap-toggle');
+    const snapText = document.getElementById('snap-text-display');
+    
     let savedSnap = localStorage.getItem('funscript_snap');
     if(savedSnap !== null) { snapToggle.checked = (savedSnap === 'true'); }
     window.snapValue = snapToggle.checked ? 5 : 1;
+    if (snapText) snapText.innerText = snapToggle.checked ? "🔒 Bloqueo de 5%" : "🔓 Libre (1%)";
 
     snapToggle.addEventListener('change', (e) => {
         window.snapValue = e.target.checked ? 5 : 1;
         localStorage.setItem('funscript_snap', e.target.checked);
+        if (snapText) snapText.innerText = e.target.checked ? "🔒 Bloqueo de 5%" : "🔓 Libre (1%)";
+
         if (document.getElementById('point-slider')) document.getElementById('point-slider').step = window.snapValue;
         if (document.getElementById('min-slider')) document.getElementById('min-slider').step = window.snapValue;
         if (document.getElementById('max-slider')) document.getElementById('max-slider').step = window.snapValue;
@@ -451,7 +459,6 @@ videoPlayer?.addEventListener('volumechange', () => {
     if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
-// 🎯 FIX: Función para feedback de velocidad en el video
 function showSpeedOverlay(speed) {
     const overlay = document.getElementById('speed-overlay');
     if(!overlay) return;
@@ -656,7 +663,6 @@ window.addEventListener('keydown', (event) => {
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
         if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
         
-        // 🎯 FIX: Controles de Inyector Rápido movidos a Ctrl + Flechas
         if (key === 'arrowup' || key === 'arrowdown') {
             event.preventDefault(); event.stopPropagation();
             window.dispatchEvent(new CustomEvent('injectPoint', { detail: { dir: key === 'arrowup' ? 'up' : 'down' } }));
@@ -675,7 +681,6 @@ window.addEventListener('keydown', (event) => {
         event.preventDefault(); window.dispatchEvent(new Event('deletePoints')); return;
     }
 
-    // 🎯 FIX: Las Flechas Solas ahora Mueven la Selección (Nudge Points)
     if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault(); event.stopPropagation();
         if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); 
@@ -698,7 +703,6 @@ window.addEventListener('keydown', (event) => {
         if(videoPlayer) videoPlayer.muted = !videoPlayer.muted; 
     }
     
-    // 🎯 FIX: Velocidad con feedback visual
     if (key === 'e' && !event.ctrlKey) { 
         event.preventDefault(); 
         currentSpeed = Math.max(0.1, currentSpeed - 0.1); 
