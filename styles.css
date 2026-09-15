@@ -1,5 +1,5 @@
 /* =========================================
-   ESTILOS MAESTROS Y VARIABLES (V1.16.4 - CENTRADO Y ESPACIOS)
+   ESTILOS MAESTROS Y VARIABLES (V1.16.5)
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -50,7 +50,6 @@ body {
     display: flex; justify-content: space-between; align-items: center;
     background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color);
     padding: 0 15px; height: 45px; position: relative; z-index: 9000;
-    overflow-x: auto; white-space: nowrap;
 }
 .top-bar-menu::-webkit-scrollbar { height: 0px; }
 
@@ -137,7 +136,22 @@ body {
 .video-container { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; background-color: #000 !important; overflow: hidden; border-radius: 4px; }
 #video-empty-state { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 80%; height: 30%; color: rgba(255,255,255,0.4); font-size: 1.2rem; font-family: monospace; border: 2px dashed rgba(255,255,255,0.2); border-radius: 12px; pointer-events: none; }
 
-/* 🎯 FIX: Margen del Thumb para Centrado Geométrico Exacto */
+.video-bottom-unified-bar {
+    height: 52px;
+    background: var(--bg-panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 15px;
+    border-top: 1px solid var(--border-color);
+    width: 100%;
+    z-index: 20;
+    gap: 10px;
+}
+
+.sync-container { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.progress-slider-wrapper { position: relative; height: 16px; display: flex; align-items: center; }
+
 .custom-progress { 
     position: absolute; 
     top: 50%; left: 0; 
@@ -156,7 +170,7 @@ body {
     width: 12px; height: 12px;
     background: #38bdf8; border-radius: 50%;
     cursor: pointer; box-shadow: 0 0 5px rgba(56, 189, 248, 0.8);
-    margin-top: -4px; /* Baja el círculo para empatar el centro matemático con la barra de 4px */
+    margin-top: -4px; 
 }
 
 .ghost-thumb { position: absolute; width: 2px; height: 100%; background: white; z-index: 6; pointer-events: none; box-shadow: 0 0 8px white; top: 0; display: none; }
