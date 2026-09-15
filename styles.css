@@ -1,5 +1,5 @@
 /* =========================================
-   ESTILOS MAESTROS Y VARIABLES (V1.16.7 - CSS DEFINITIVO)
+   ESTILOS MAESTROS Y VARIABLES (V1.17.0 - CURSOR FIX)
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -94,7 +94,6 @@ body {
 
 .sub-arrow { margin-left: auto; font-size: 0.6rem; }
 
-/* 🎯 FIX: Animación de "Latido" visible y más rápida */
 @keyframes pulse-alert {
     0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.8); border-color: #f43f5e; color: #f43f5e; }
     50% { box-shadow: 0 0 10px 4px rgba(244, 63, 94, 0.3); border-color: #fb7185; color: #fb7185; }
@@ -178,7 +177,6 @@ body {
 .fs-mini-icon { position: absolute; bottom: 50px; right: 15px; background: rgba(15, 23, 42, 0.8); color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; z-index: 10; border: 1px solid rgba(255,255,255,0.2); font-weight: bold; transition: background 0.2s; }
 .fs-mini-icon:hover { background: rgba(56, 189, 248, 0.9); border-color: white; }
 
-/* 🎯 FIX: Mini Gráfica 33% más alta en Fullscreen */
 #fs-timeline-canvas { display: none; position: absolute; bottom: 50px; left: 15px; width: calc(100% - 75px); height: 80px; background: rgba(0,0,0,0.6); border-radius: 6px; pointer-events: none; z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
 #timeline-canvas { display: block; width: 100%; height: 100%; border-radius: 4px; }
 .fps-control { display: flex; align-items: center; gap: 5px; background: var(--bg-input); border-radius: 4px; padding: 2px 4px; border: 1px solid var(--border-color); }
@@ -191,7 +189,6 @@ body {
    ========================================= */
 .handy-input, .modal-input, textarea, select { background-color: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); font-family: inherit; padding: 6px; border-radius: 4px; outline: none; }
 
-/* 🎯 FIX: Bolita de Volumen más elegante y esbelta */
 .volume-slider { 
     -webkit-appearance: none; 
     width: 70px; 
@@ -225,7 +222,7 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .slider-badge { background: #3b82f6; color: white; padding: 4px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; margin-bottom: 10px; }
 
 /* =========================================
-   GESTOR DE ARCHIVOS
+   GESTOR DE ARCHIVOS Y PRESETS
    ========================================= */
 .tracks-list-container { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; min-height: 100px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 .file-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 6px; }
@@ -236,8 +233,18 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .file-actions { display: flex; align-items: center; gap: 6px; }
 .empty-tracks-msg, .empty-log { color: var(--text-muted); font-size: 0.75rem; font-style: italic; text-align: center; margin-top: 10px; }
 
-/* PRESETS */
-.preset-card { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; cursor: grab; }
+/* 🎯 FIX: Eliminada la clase :active que atascaba el cursor al arrastrar presets */
+.preset-card { 
+    background: var(--bg-input); 
+    border: 1px solid var(--border-color); 
+    border-radius: 6px; 
+    padding: 6px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    margin-bottom: 6px; 
+    cursor: grab; 
+}
 .preset-card-title { font-size: 0.75rem; font-weight: 600; color: var(--text-main); }
 .preset-card-meta { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; font-family: monospace;}
 .delete-preset-btn { background: transparent; border: none; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; font-size: 0.8rem; }
