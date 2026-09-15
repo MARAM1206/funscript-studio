@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.18.0 (SISTEMA ANTI-CRASH BLINDADO TRY/CATCH)
+// PRESETS MANAGER V1.18.0 (SISTEMA DE INYECCIÓN POR PORTAPAPELES)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,79 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetsLibrary.forEach((preset, index) => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
-                card.draggable = true; 
+                // 🎯 FIX: Adiós atributos de arrastre. Cursor normal.
                 card.dataset.id = preset.id;
                 card.style.transition = "border 0.2s ease, transform 0.1s";
-                
-                // 🎯 FIX: Blindaje absoluto del inicio de arrastre.
-                card.addEventListener('dragstart', (e) => {
-                    try {
-                        window.isDraggingPreset = true;
-                        window.draggedPresetIndex = index; 
-                        window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
-                        window.presetFillInitialized = false; 
-                        
-                        if (e.dataTransfer) {
-                            e.dataTransfer.effectAllowed = 'copyMove';
-                            // Enviar solo texto simple para evitar que Chromium colapse la memoria
-                            e.dataTransfer.setData('text/plain', preset.id.toString()); 
-                        }
-                    } catch (err) {
-                        console.error("Error en dragstart:", err);
-                        e.preventDefault(); // Si hay error, cancela seguro antes de romper el cursor
-                    }
-                });
-                
-                card.addEventListener('dragover', (e) => {
-                    e.preventDefault(); 
-                    try {
-                        e.dataTransfer.dropEffect = 'move';
-                        if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                            card.style.borderTop = "2px dashed #38bdf8"; 
-                            card.style.transform = "translateY(2px)";
-                        }
-                    } catch(err) {}
-                });
-
-                card.addEventListener('dragleave', () => {
-                    card.style.borderTop = "";
-                    card.style.transform = "none";
-                });
-
-                card.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    try {
-                        card.style.borderTop = "";
-                        card.style.transform = "none";
-                        if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                            const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
-                            window.presetsLibrary.splice(index, 0, movedItem);
-                            localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-                            window.needsPresetReRender = true; 
-                        }
-                    } catch(err) {}
-                });
-
-                card.addEventListener('dragend', () => {
-                    try {
-                        window.isDraggingPreset = false;
-                        window.draggedPresetIndex = undefined;
-                        window.timelineGhostPreset = null;
-                        window.timelineGhostTimeMs = null;
-                        window.timelineGhostTargetEnd = null;
-                        window.timelineGhostMarkers = null;
-                        
-                        // Forzar restauración del cursor en el DOM
-                        document.body.style.cursor = 'default';
-                        setTimeout(() => document.body.style.cursor = '', 50);
-                        if(typeof window.drawTimeline === 'function') window.drawTimeline();
-
-                        if (window.needsPresetReRender) {
-                            window.needsPresetReRender = false;
-                            setTimeout(() => renderPresetsLibrary(), 10);
-                        }
-                    } catch(err) {}
-                });
+                card.style.cursor = "default"; 
 
                 if (isModal) {
                     card.addEventListener('dblclick', () => {
@@ -155,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
+                // 🎯 FIX: Se añade el botón de Copiar (📋) al menú de acciones
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
@@ -163,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
+                        <button class="copy-preset-btn" title="Cargar Preset (Inyectar)" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">📋</button>
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
                         <button class="delete-preset-btn" title="Eliminar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">🗑️</button>
                     </div>` : ''}
@@ -171,6 +104,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(card);
 
                 if (!isModal) {
+                    // 🎯 FIX: Lógica del Inyector por Portapapeles
+                    const copyBtn = card.querySelector('.copy-preset-btn');
+                    copyBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        window.clipboardFunscript = JSON.parse(JSON.stringify(preset.actions));
+                        
+                        // Activamos el modo pegar directamente
+                        window.isPastingMode = true;
+                        window.timelineGhostPreset = window.clipboardFunscript;
+                        window.timelineGhostTimeMs = null;
+                        window.presetFillInitialized = false; 
+                        
+                        // Pequeño feedback visual de éxito
+                        const originalIcon = copyBtn.innerText;
+                        copyBtn.innerText = "✅";
+                        setTimeout(() => copyBtn.innerText = originalIcon, 1000);
+                        
+                        if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                    });
+                    copyBtn.addEventListener('mouseenter', e => e.target.style.opacity = '1');
+                    copyBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
+
                     const editBtn = card.querySelector('.edit-preset-btn');
                     editBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -508,47 +463,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
-    pCanvas?.addEventListener('dragover', (e) => {
-        e.preventDefault(); 
-        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-    });
-
-    pCanvas?.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-        
-        try {
-            const rect = pCanvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const dropTimeMs = Math.max(0, Math.round(pXToTime(mouseX)));
-            
-            const newActions = window.timelineGhostPreset.map(act => ({
-                at: Math.round(dropTimeMs + act.at),
-                pos: act.pos,
-                selected: true,
-                isSync: act.isSync || false
-            }));
-            
-            window.presetEditorActions.forEach(a => a.selected = false);
-            window.presetEditorActions.push(...newActions);
-            
-            window.presetEditorActions.sort((a,b)=>a.at-b.at);
-            for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
-            
-        } catch(err) {}
-        
-        window.isDraggingPreset = false; window.timelineGhostPreset = null;
-        drawPresetEditor();
-    });
+    // 🎯 FIX: Eliminados los eventos de Drop Interno del Canvas. 
+    // Ahora todo se pega desde el portapapeles global del sistema de Inyección.
 
     renderPresetsLibrary();
-
-    // 🎯 FIX: Sistema global de rescate de cursor. Si la manita se queda pegada en cualquier parte de la pantalla, un clic la libera.
-    window.addEventListener('mouseup', () => {
-        if (window.isDraggingPreset) {
-            window.isDraggingPreset = false;
-            document.body.style.cursor = 'default';
-        }
-    });
 });
