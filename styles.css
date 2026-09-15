@@ -1,5 +1,5 @@
 /* =========================================
-   ESTILOS MAESTROS Y VARIABLES (V1.17.0 - CURSOR FIX)
+   ESTILOS MAESTROS Y VARIABLES (V1.18.0)
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -185,7 +185,7 @@ body {
 .fps-input { width: 30px; background: transparent; border: none; color: var(--text-main); text-align: center; font-size: 0.7rem; font-family: monospace; outline: none; font-weight: bold; }
 
 /* =========================================
-   INPUTS Y SLIDERS (INCLUYE VOLUMEN ALIGERADO)
+   INPUTS Y SLIDERS
    ========================================= */
 .handy-input, .modal-input, textarea, select { background-color: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); font-family: inherit; padding: 6px; border-radius: 4px; outline: none; }
 
@@ -233,7 +233,7 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .file-actions { display: flex; align-items: center; gap: 6px; }
 .empty-tracks-msg, .empty-log { color: var(--text-muted); font-size: 0.75rem; font-style: italic; text-align: center; margin-top: 10px; }
 
-/* 🎯 FIX: Eliminada la clase :active que atascaba el cursor al arrastrar presets */
+/* 🎯 FIX: Eliminado el 'cursor: grab' maldito que causaba el bloqueo permanente */
 .preset-card { 
     background: var(--bg-input); 
     border: 1px solid var(--border-color); 
@@ -243,12 +243,9 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
     align-items: center; 
     justify-content: space-between; 
     margin-bottom: 6px; 
-    cursor: grab; 
 }
 .preset-card-title { font-size: 0.75rem; font-weight: 600; color: var(--text-main); }
 .preset-card-meta { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; font-family: monospace;}
-.delete-preset-btn { background: transparent; border: none; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; font-size: 0.8rem; }
-.delete-preset-btn:hover { opacity: 1; }
 
 /* =========================================
    MODALES (POPUPS) Y RESIZERS
