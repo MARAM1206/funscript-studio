@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.14.2 (SISTEMA MATEMÁTICO DE HEATMAP EXACTO)
+// TIMELINE V1.14.3 (SISTEMA MATEMÁTICO TRANSPARENTE Y DEGRADADO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -269,7 +269,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
-// 🎯 FIX: Sistema de Sincronización y Color 1:1 del Mapa de Calor
+// 🎯 FIX: Heatmap Transparente donde no hay acción. Gradiente de Verde (0mm/s) a Rojo (400mm/s)
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
     const statsSpan = document.getElementById('timeline-stats');
@@ -312,23 +312,25 @@ window.updateHeatmapAndStats = function() {
     
     hCanvas.width = hCanvas.getBoundingClientRect().width;
     
-    // Relleno absoluto inicial verde esmeralda (Cero acción)
-    hCtx.fillStyle = '#059669'; 
-    hCtx.fillRect(0, 0, hCanvas.width, hCanvas.height);
+    // Limpiamos el canvas por completo (se queda transparente del color del contenedor)
+    hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
 
     if (actions.length > 1) {
-        const bucketCount = Math.floor(hCanvas.width); // Resolución de Píxel a Píxel
+        const bucketCount = Math.floor(hCanvas.width); 
         const bucketDuration = totalDurationMs / bucketCount;
-        const bucketSpeeds = new Array(bucketCount).fill(0);
+        
+        // Inicializamos los bloques en -1 (significa "no hay conexión")
+        const bucketSpeeds = new Array(bucketCount).fill(-1); 
         
         const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
 
-        // Calculamos la velocidad máxima registrada en cada bloque de tiempo
+        // Calculamos la velocidad máxima en cada bloque donde SÍ hay una línea trazada
         for (let i = 1; i < actions.length; i++) {
             let a1 = actions[i-1];
             let a2 = actions[i];
             let dt = a2.at - a1.at;
             let dp = Math.abs(a2.pos - a1.pos);
+            
             if (dt > 0) {
                 let speed = (dp * device.factor) / (dt / 1000); 
                 let startB = Math.floor(a1.at / bucketDuration);
@@ -338,18 +340,17 @@ window.updateHeatmapAndStats = function() {
                 endB = Math.max(0, Math.min(bucketCount - 1, endB));
 
                 for (let b = startB; b <= endB; b++) {
-                    bucketSpeeds[b] = Math.max(bucketSpeeds[b], speed);
+                    bucketSpeeds[b] = Math.max(bucketSpeeds[b] === -1 ? 0 : bucketSpeeds[b], speed);
                 }
             }
         }
 
         const bucketWidth = hCanvas.width / bucketCount;
         for (let i = 0; i < bucketCount; i++) {
-            if (bucketSpeeds[i] > 0) {
+            if (bucketSpeeds[i] !== -1) { // Solo si hay una línea dibujada
                 let speed = bucketSpeeds[i];
-                // Mapeo Visual: 120 grados (Verde) a 0 grados (Rojo Vivo)
-                let intensity = Math.min(1.0, speed / 400); // 400 mm/s se pinta Rojo Total
-                let hue = 120 - (intensity * 120);
+                let intensity = Math.min(1.0, speed / 400); // Límite mecánico de 400mm/s
+                let hue = 120 - (intensity * 120); // 120 es verde esmeralda, 0 es rojo
                 hCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
                 hCtx.fillRect(i * bucketWidth, 0, Math.ceil(bucketWidth), hCanvas.height);
             }
