@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.15.1 (TOGGLE TIEMPO RESTANTE)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.15.2 (PROPAGACIÓN Y TOGGLE RESUELTOS)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -149,18 +149,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 🎯 FIX: Bloquea el cierre accidental del submenú cuando interactúas con el Overclock
+    const subDropdownContent = document.querySelector('.sub-dropdown-content');
+    if (subDropdownContent) {
+        subDropdownContent.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    // 🎯 FIX: Texto "Desbloqueado" más intuitivo
     const snapToggle = document.getElementById('menu-snap-toggle');
     const snapText = document.getElementById('snap-text-display');
     
     let savedSnap = localStorage.getItem('funscript_snap');
     if(savedSnap !== null) { snapToggle.checked = (savedSnap === 'true'); }
     window.snapValue = snapToggle.checked ? 5 : 1;
-    if (snapText) snapText.innerText = snapToggle.checked ? "🔒 Bloqueo de 5%" : "🔓 Libre (1%)";
+    if (snapText) snapText.innerText = snapToggle.checked ? "🔒 Bloqueo de 5%" : "🔓 Desbloqueado";
 
     snapToggle.addEventListener('change', (e) => {
         window.snapValue = e.target.checked ? 5 : 1;
         localStorage.setItem('funscript_snap', e.target.checked);
-        if (snapText) snapText.innerText = e.target.checked ? "🔒 Bloqueo de 5%" : "🔓 Libre (1%)";
+        if (snapText) snapText.innerText = e.target.checked ? "🔒 Bloqueo de 5%" : "🔓 Desbloqueado";
 
         if (document.getElementById('point-slider')) document.getElementById('point-slider').step = window.snapValue;
         if (document.getElementById('min-slider')) document.getElementById('min-slider').step = window.snapValue;
@@ -209,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (controlsModal) controlsModal.style.display = 'none';
     });
 
-    // 🎯 FIX: Sistema de Toggle para Tiempo Restante
     let showRemainingTime = false;
     vTimeCurrent?.addEventListener('click', () => {
         showRemainingTime = !showRemainingTime;
