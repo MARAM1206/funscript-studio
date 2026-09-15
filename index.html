@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FunScript Studio</title>
-    <link rel="stylesheet" href="styles.css?v=1.14.1">
+    <link rel="stylesheet" href="styles.css?v=1.14.2">
 </head>
 <body>
 
@@ -128,7 +128,7 @@
     <div class="workspace-container">
         
         <!-- 🎬 Reproductor -->
-        <div id="panel-video" class="workspace-panel" data-title="🎬 Reproductor">
+        <div id="panel-video" class="workspace-panel" data-title="Reproductor">
             <div class="panel-header video-info-bar" style="display: flex; justify-content: space-between;">
                 <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; max-width: 400px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">Sin video</span>
                 <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal; margin-left: auto;">
@@ -155,25 +155,34 @@
                     <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
                 </div>
 
-                <!-- 🎯 FIX: Espacio Optimizado y Componentes Sincronizados de Barra y Heatmap -->
-                <div class="video-bottom-unified-bar">
-                    <span id="v-time-current" style="width: 35px; text-align: right;">00:00</span>
+                <!-- 🎯 FIX: Sincronización Estricta 1:1, Layout Flexbox e Interactividad de Tiempo -->
+                <div class="video-bottom-unified-bar" style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 15px; border-top: 1px solid var(--border-color); width: 100%; background: var(--bg-panel); z-index: 20;">
                     
-                    <div class="sync-container" style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center; position: relative;">
-                        <!-- Slider Arriba -->
-                        <div class="progress-slider-wrapper" style="position: relative; height: 14px; display: flex; align-items: center;">
+                    <!-- Fila 1: Tiempos pequeños interactivos alineados HORIZONTALMENTE solo con la Barra Deslizadora -->
+                    <div style="display: flex; align-items: center; width: 100%; gap: 12px;">
+                        <span id="v-time-current" style="width: 40px; text-align: right; font-family: 'Inter', monospace; font-size: 0.65rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none;" title="Clic para alternar tiempo restante">00:00</span>
+                        
+                        <div class="progress-slider-wrapper" style="flex-grow: 1; position: relative; height: 14px; display: flex; align-items: center;">
                             <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
                             <div id="ghost-thumb" class="ghost-thumb"></div> 
                             <canvas id="progress-markers-canvas" class="heatmap-canvas" style="position:absolute; top:0; left:0; pointer-events:none; z-index:4; opacity: 1;"></canvas>
                         </div>
                         
-                        <!-- Heatmap Abajo -->
-                        <div class="heatmap-wrapper" style="position: relative; height: 20px; border-radius: 2px; overflow: hidden; background: #059669; border: 1px solid var(--border-color); width: 100%;">
-                            <canvas id="heatmap-canvas" class="heatmap-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1;"></canvas>
-                        </div>
+                        <span id="v-time-total" style="width: 40px; text-align: left; font-family: 'Inter', monospace; font-size: 0.65rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none;" title="Clic para alternar tiempo restante">00:00</span>
                     </div>
 
-                    <span id="v-time-total" style="width: 35px; text-align: left;">00:00</span>
+                    <!-- Fila 2: Heatmap Transparente de 15px (Ancho matemáticamente idéntico al Slider usando espaciadores de 40px) -->
+                    <div style="display: flex; width: 100%; gap: 12px; align-items: center;">
+                        <div style="width: 40px; flex-shrink: 0;"></div> <!-- Espacio para igualar el margen de v-time-current -->
+                        
+                        <div class="heatmap-wrapper" style="flex-grow: 1; position: relative; height: 15px; border-radius: 2px; overflow: hidden; background: var(--bg-input); border: 1px solid var(--border-color);">
+                            <!-- El Canvas pinta transparente donde no hay acción -->
+                            <canvas id="heatmap-canvas" class="heatmap-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1;"></canvas>
+                        </div>
+                        
+                        <div style="width: 40px; flex-shrink: 0;"></div> <!-- Espacio para igualar el margen de v-time-total -->
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -335,7 +344,6 @@
         <div id="panel-timeline" class="workspace-panel" data-title="Línea de Tiempo">
             <div class="panel-header" style="justify-content: center;">
                 <span style="width: 150px; text-align: left;">Línea de Tiempo</span>
-                <!-- 🎯 FIX: Selector de FPS centrado -->
                 <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 0.75rem; font-family: monospace; color: var(--text-dim, #94a3b8);">
                      <span>Saltos:</span>
                      <div class="fps-control">
@@ -356,15 +364,15 @@
 
     </div>
 
-    <script src="workspace.js?v=1.14.1"></script>
-    <script src="handy.js?v=1.14.1"></script> 
-    <script src="funscript.js?v=1.14.1"></script>
-    <script src="player.js?v=1.14.1"></script>
-    <script src="presets.js?v=1.14.1"></script>
-    <script src="timeline.js?v=1.14.1"></script>
-    <script src="twin.js?v=1.14.1"></script>
-    <script src="humanizer.js?v=1.14.1"></script>
-    <script src="bpm.js?v=1.14.1"></script>
-    <script src="mass.js?v=1.14.1"></script>
+    <script src="workspace.js?v=1.14.2"></script>
+    <script src="handy.js?v=1.14.2"></script> 
+    <script src="funscript.js?v=1.14.2"></script>
+    <script src="player.js?v=1.14.2"></script>
+    <script src="presets.js?v=1.14.2"></script>
+    <script src="timeline.js?v=1.14.2"></script>
+    <script src="twin.js?v=1.14.2"></script>
+    <script src="humanizer.js?v=1.14.2"></script>
+    <script src="bpm.js?v=1.14.2"></script>
+    <script src="mass.js?v=1.14.2"></script>
 </body>
 </html>
