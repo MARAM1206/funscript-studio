@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.21.0 (CONTROL AISLADO Y ARRASTRE NATIVO + SINTÉTICO)
+// PRESETS MANAGER V1.22.0 (DRAG & DROP NATIVO UNIFICADO Y BLINDADO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSelectingP = false; let pSelStartT = 0; let pSelStartY = 0; let pSelCurrT = 0; let pSelCurrY = 0;
     let hasDraggedPSelection = false; let hadSelectionBeforePMousedown = false;
 
-    // 🎯 FIX: Historial Aislado para el Editor de Presets (Ctrl+Z Exclusivo)
     let pUndoStack = [];
     let pRedoStack = [];
     const MAX_P_HISTORY = 50;
@@ -99,25 +98,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
                 card.dataset.id = preset.id;
-                card.title = "Arrastra la tarjeta para ordenar";
+                card.title = "Arrastra a la Línea de Tiempo o Reordena";
+                
+                // 🎯 FIX: Restauramos el Drag & Drop HTML5 para TODO (Ordenar e Inyectar)
                 card.draggable = true;
                 
                 card.addEventListener('dragstart', (e) => {
-                    if (window.isDraggingPreset) {
-                        e.preventDefault();
-                        return;
-                    }
-                    window.isSortingPreset = true;
+                    window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
-                    e.dataTransfer.effectAllowed = 'move';
-                    const img = new Image();
-                    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                    e.dataTransfer.setDragImage(img, 0, 0);
+                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                    window.presetFillInitialized = false; 
+                    
+                    if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'copyMove';
+                        // Imagen invisible para evitar crashes de memoria en Chrome/Brave
+                        const img = new Image();
+                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                        e.dataTransfer.setDragImage(img, 0, 0);
+                        e.dataTransfer.setData('text/plain', preset.id); 
+                    }
                     setTimeout(() => card.style.opacity = '0.4', 0);
                 });
                 
                 card.addEventListener('dragover', (e) => {
-                    if (!window.isSortingPreset) return;
+                    if (!window.isDraggingPreset) return;
                     e.preventDefault(); 
                     e.dataTransfer.dropEffect = 'move';
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
@@ -131,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.addEventListener('dragleave', () => { card.style.boxShadow = ""; });
 
                 card.addEventListener('drop', (e) => {
-                    if (!window.isSortingPreset) return;
+                    if (!window.isDraggingPreset) return;
                     e.preventDefault();
                     card.style.boxShadow = "";
                     
@@ -151,15 +155,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 card.addEventListener('dragend', () => {
-                    window.isSortingPreset = false;
+                    window.isDraggingPreset = false;
                     window.draggedPresetIndex = undefined;
                     card.style.opacity = '1';
                     card.style.boxShadow = "";
+                    
+                    window.timelineGhostPreset = null;
+                    window.timelineGhostTimeMs = null;
+                    window.timelineGhostTargetEnd = null;
+                    window.timelineGhostMarkers = null;
                     
                     if (window.needsPresetReRender) {
                         window.needsPresetReRender = false;
                         renderPresetsLibrary();
                     }
+                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
                 });
 
                 if (isModal) {
@@ -178,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; cursor: grab;" title="📥 Arrastra esta gráfica a la Línea de Tiempo"></canvas>
+                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
@@ -225,34 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                             tCtx.stroke();
                         }
-
-                        cNode.addEventListener('mousedown', (e) => {
-                            if (e.button !== 0) return;
-                            e.preventDefault(); 
-                            e.stopPropagation(); 
-                            
-                            window.isDraggingPreset = true;
-                            window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
-                            window.presetFillInitialized = false; 
-                            
-                            document.body.classList.add('is-dragging-global');
-
-                            const onGlobalMouseUp = () => {
-                                document.removeEventListener('mouseup', onGlobalMouseUp);
-                                document.body.classList.remove('is-dragging-global');
-                                
-                                setTimeout(() => {
-                                    window.isDraggingPreset = false;
-                                    window.timelineGhostPreset = null;
-                                    window.timelineGhostTimeMs = null;
-                                    window.timelineGhostTargetEnd = null;
-                                    window.timelineGhostMarkers = null;
-                                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
-                                }, 50);
-                            };
-
-                            document.addEventListener('mouseup', onGlobalMouseUp);
-                        });
                     }
                 }, 10);
             });
@@ -558,7 +540,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
-    // 🎯 FIX: Controles exclusivos para el Editor de Presets (Ctrl+Z y más)
     window.addEventListener('undoAction', () => { if (modal && modal.style.display === 'flex') pUndo(); });
     window.addEventListener('redoAction', () => { if (modal && modal.style.display === 'flex') pRedo(); });
     
@@ -650,6 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // 🎯 FIX: Permite poner un ancla flotante incluso dentro del editor de presets
     window.addEventListener('toggleSyncPoint', () => {
         if (modal && modal.style.display === 'flex') {
             let selected = window.presetEditorActions.filter(a => a.selected);
