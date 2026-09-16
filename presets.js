@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.22.0 (DRAG & DROP NATIVO UNIFICADO Y BLINDADO)
+// PRESETS MANAGER V1.23.0 (CONTROL AISLADO Y ARRASTRE NATIVO + SINTÉTICO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -98,30 +98,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
                 card.dataset.id = preset.id;
-                card.title = "Arrastra a la Línea de Tiempo o Reordena";
-                
-                // 🎯 FIX: Restauramos el Drag & Drop HTML5 para TODO (Ordenar e Inyectar)
+                card.title = "Arrastra la tarjeta para ordenar";
                 card.draggable = true;
                 
                 card.addEventListener('dragstart', (e) => {
-                    window.isDraggingPreset = true;
-                    window.draggedPresetIndex = index; 
-                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
-                    window.presetFillInitialized = false; 
-                    
-                    if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'copyMove';
-                        // Imagen invisible para evitar crashes de memoria en Chrome/Brave
-                        const img = new Image();
-                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                        e.dataTransfer.setDragImage(img, 0, 0);
-                        e.dataTransfer.setData('text/plain', preset.id); 
+                    if (window.isDraggingPreset) {
+                        e.preventDefault();
+                        return;
                     }
+                    window.isSortingPreset = true;
+                    window.draggedPresetIndex = index; 
+                    e.dataTransfer.effectAllowed = 'move';
+                    const img = new Image();
+                    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                    e.dataTransfer.setDragImage(img, 0, 0);
                     setTimeout(() => card.style.opacity = '0.4', 0);
                 });
                 
                 card.addEventListener('dragover', (e) => {
-                    if (!window.isDraggingPreset) return;
+                    if (!window.isSortingPreset) return;
                     e.preventDefault(); 
                     e.dataTransfer.dropEffect = 'move';
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
@@ -135,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.addEventListener('dragleave', () => { card.style.boxShadow = ""; });
 
                 card.addEventListener('drop', (e) => {
-                    if (!window.isDraggingPreset) return;
+                    if (!window.isSortingPreset) return;
                     e.preventDefault();
                     card.style.boxShadow = "";
                     
@@ -155,21 +150,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 card.addEventListener('dragend', () => {
-                    window.isDraggingPreset = false;
+                    window.isSortingPreset = false;
                     window.draggedPresetIndex = undefined;
                     card.style.opacity = '1';
                     card.style.boxShadow = "";
-                    
-                    window.timelineGhostPreset = null;
-                    window.timelineGhostTimeMs = null;
-                    window.timelineGhostTargetEnd = null;
-                    window.timelineGhostMarkers = null;
                     
                     if (window.needsPresetReRender) {
                         window.needsPresetReRender = false;
                         renderPresetsLibrary();
                     }
-                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
                 });
 
                 if (isModal) {
@@ -188,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
+                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; cursor: grab;" title="📥 Arrastra esta gráfica a la Línea de Tiempo"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
@@ -235,6 +224,34 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                             tCtx.stroke();
                         }
+
+                        cNode.addEventListener('mousedown', (e) => {
+                            if (e.button !== 0) return;
+                            e.preventDefault(); 
+                            e.stopPropagation(); 
+                            
+                            window.isDraggingPreset = true;
+                            window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                            window.presetFillInitialized = false; 
+                            
+                            document.body.classList.add('is-dragging-global');
+
+                            const onGlobalMouseUp = () => {
+                                document.removeEventListener('mouseup', onGlobalMouseUp);
+                                document.body.classList.remove('is-dragging-global');
+                                
+                                setTimeout(() => {
+                                    window.isDraggingPreset = false;
+                                    window.timelineGhostPreset = null;
+                                    window.timelineGhostTimeMs = null;
+                                    window.timelineGhostTargetEnd = null;
+                                    window.timelineGhostMarkers = null;
+                                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                                }, 50);
+                            };
+
+                            document.addEventListener('mouseup', onGlobalMouseUp);
+                        });
                     }
                 }, 10);
             });
