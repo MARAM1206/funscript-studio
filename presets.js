@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.20.0 (DRAG & DROP NATIVO BLINDADO: ORDENAR E INYECTAR)
+// PRESETS MANAGER V1.21.0 (CONTROL AISLADO Y ARRASTRE NATIVO + SINTÉTICO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -36,6 +36,33 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSelectingP = false; let pSelStartT = 0; let pSelStartY = 0; let pSelCurrT = 0; let pSelCurrY = 0;
     let hasDraggedPSelection = false; let hadSelectionBeforePMousedown = false;
 
+    // 🎯 FIX: Historial Aislado para el Editor de Presets (Ctrl+Z Exclusivo)
+    let pUndoStack = [];
+    let pRedoStack = [];
+    const MAX_P_HISTORY = 50;
+
+    function savePresetHistoryState() {
+        pUndoStack.push(JSON.stringify(window.presetEditorActions));
+        if (pUndoStack.length > MAX_P_HISTORY) pUndoStack.shift();
+        pRedoStack = [];
+    }
+
+    function pUndo() {
+        if (pUndoStack.length > 0) {
+            pRedoStack.push(JSON.stringify(window.presetEditorActions));
+            window.presetEditorActions = JSON.parse(pUndoStack.pop());
+            drawPresetEditor();
+        }
+    }
+
+    function pRedo() {
+        if (pRedoStack.length > 0) {
+            pUndoStack.push(JSON.stringify(window.presetEditorActions));
+            window.presetEditorActions = JSON.parse(pRedoStack.pop());
+            drawPresetEditor();
+        }
+    }
+
     const resizeObserver = new ResizeObserver(() => {
         if (modal && modal.style.display === 'flex' && pCanvas) {
             const container = pCanvas.parentElement;
@@ -71,65 +98,67 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetsLibrary.forEach((preset, index) => {
                 const card = document.createElement('div');
                 card.className = 'preset-card';
-                card.draggable = true; 
                 card.dataset.id = preset.id;
-                card.style.transition = "border 0.2s ease, transform 0.1s";
+                card.title = "Arrastra la tarjeta para ordenar";
+                card.draggable = true;
                 
                 card.addEventListener('dragstart', (e) => {
-                    window.isDraggingPreset = true;
-                    window.draggedPresetIndex = index; 
-                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
-                    window.presetFillInitialized = false; 
-                    
-                    if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'copyMove';
-                        e.dataTransfer.setData('text/plain', preset.id); 
+                    if (window.isDraggingPreset) {
+                        e.preventDefault();
+                        return;
                     }
-                    setTimeout(() => card.style.opacity = '0.5', 0);
+                    window.isSortingPreset = true;
+                    window.draggedPresetIndex = index; 
+                    e.dataTransfer.effectAllowed = 'move';
+                    const img = new Image();
+                    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                    e.dataTransfer.setDragImage(img, 0, 0);
+                    setTimeout(() => card.style.opacity = '0.4', 0);
                 });
                 
                 card.addEventListener('dragover', (e) => {
+                    if (!window.isSortingPreset) return;
                     e.preventDefault(); 
                     e.dataTransfer.dropEffect = 'move';
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        card.style.borderTop = "2px dashed #38bdf8"; 
-                        card.style.transform = "translateY(2px)";
+                        const rect = card.getBoundingClientRect();
+                        const relY = e.clientY - rect.top;
+                        if (relY < rect.height / 2) card.style.boxShadow = "0 -2px 0 0 #38bdf8"; 
+                        else card.style.boxShadow = "0 2px 0 0 #38bdf8"; 
                     }
                 });
 
-                card.addEventListener('dragleave', () => {
-                    card.style.borderTop = "";
-                    card.style.transform = "none";
-                });
+                card.addEventListener('dragleave', () => { card.style.boxShadow = ""; });
 
                 card.addEventListener('drop', (e) => {
+                    if (!window.isSortingPreset) return;
                     e.preventDefault();
-                    card.style.borderTop = "";
-                    card.style.transform = "none";
+                    card.style.boxShadow = "";
+                    
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
+                        const rect = card.getBoundingClientRect();
+                        const relY = e.clientY - rect.top;
+                        let insertIndex = index;
+                        if (relY >= rect.height / 2) insertIndex++;
+                        
                         const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
-                        window.presetsLibrary.splice(index, 0, movedItem);
+                        if (insertIndex > window.draggedPresetIndex) insertIndex--;
+                        window.presetsLibrary.splice(insertIndex, 0, movedItem);
+                        
                         localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                         window.needsPresetReRender = true; 
                     }
                 });
 
                 card.addEventListener('dragend', () => {
-                    card.style.opacity = '1';
-                    card.style.borderTop = "";
-                    card.style.transform = "none";
-                    window.isDraggingPreset = false;
+                    window.isSortingPreset = false;
                     window.draggedPresetIndex = undefined;
-                    window.timelineGhostPreset = null;
-                    window.timelineGhostTimeMs = null;
-                    window.timelineGhostTargetEnd = null;
-                    window.timelineGhostMarkers = null;
+                    card.style.opacity = '1';
+                    card.style.boxShadow = "";
                     
-                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
-
                     if (window.needsPresetReRender) {
                         window.needsPresetReRender = false;
-                        setTimeout(() => renderPresetsLibrary(), 10);
+                        renderPresetsLibrary();
                     }
                 });
 
@@ -143,12 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
+                
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
                         <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
+                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; cursor: grab;" title="📥 Arrastra esta gráfica a la Línea de Tiempo"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
@@ -181,19 +211,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 setTimeout(() => {
-                    const c = document.getElementById(canvasId);
-                    if (c && preset.actions.length > 0) {
-                        const tCtx = c.getContext('2d');
-                        tCtx.clearRect(0, 0, c.width, c.height);
+                    const cNode = document.getElementById(canvasId);
+                    if (cNode && preset.actions.length > 0) {
+                        const tCtx = cNode.getContext('2d');
+                        tCtx.clearRect(0, 0, cNode.width, cNode.height);
                         const dur = preset.actions[preset.actions.length-1].at;
-                        if (dur <= 0) return;
-                        tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
-                        preset.actions.forEach((a, i) => {
-                            const x = (a.at / dur) * c.width;
-                            const y = c.height - (a.pos / 100) * c.height;
-                            if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
+                        if (dur > 0) {
+                            tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
+                            preset.actions.forEach((a, i) => {
+                                const x = (a.at / dur) * cNode.width;
+                                const y = cNode.height - (a.pos / 100) * cNode.height;
+                                if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
+                            });
+                            tCtx.stroke();
+                        }
+
+                        cNode.addEventListener('mousedown', (e) => {
+                            if (e.button !== 0) return;
+                            e.preventDefault(); 
+                            e.stopPropagation(); 
+                            
+                            window.isDraggingPreset = true;
+                            window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                            window.presetFillInitialized = false; 
+                            
+                            document.body.classList.add('is-dragging-global');
+
+                            const onGlobalMouseUp = () => {
+                                document.removeEventListener('mouseup', onGlobalMouseUp);
+                                document.body.classList.remove('is-dragging-global');
+                                
+                                setTimeout(() => {
+                                    window.isDraggingPreset = false;
+                                    window.timelineGhostPreset = null;
+                                    window.timelineGhostTimeMs = null;
+                                    window.timelineGhostTargetEnd = null;
+                                    window.timelineGhostMarkers = null;
+                                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                                }, 50);
+                            };
+
+                            document.addEventListener('mouseup', onGlobalMouseUp);
                         });
-                        tCtx.stroke();
                     }
                 }, 10);
             });
@@ -232,6 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!modal) return;
         editingPresetId = presetId;
         pScrollX = 0; pZoom = 1.0;
+        pUndoStack = []; pRedoStack = [];
         
         if (presetId) {
             const p = window.presetsLibrary.find(x => x.id === presetId);
@@ -384,12 +444,10 @@ document.addEventListener('DOMContentLoaded', () => {
             window.presetEditorActions.forEach(a => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
                 if (x >= 20 && x <= pCanvas.width + 20) {
-                    
                     if (a.isSync) {
                         pCtx.fillStyle = '#facc15'; 
                         pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
                         pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
-                        
                         pCtx.fillStyle = '#0f172a'; 
                         pCtx.font = '12px monospace'; 
                         pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
@@ -429,6 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const posToY = (p) => { const pad = 30; return pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad); };
 
         if (e.button === 0) {
+            savePresetHistoryState();
             let clicked = null; let cIdx = -1;
             for(let i=0; i<window.presetEditorActions.length; i++) {
                 if(Math.hypot(mx - timeToX(window.presetEditorActions[i].at), my - posToY(window.presetEditorActions[i].pos)) <= 8) { clicked = window.presetEditorActions[i]; cIdx = i; break; }
@@ -445,6 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pSelStartT = clickT; pSelStartY = my; pSelCurrT = clickT; pSelCurrY = my;
             }
         } else if (e.button === 2) {
+            savePresetHistoryState();
             window.presetEditorActions = window.presetEditorActions.filter(a => Math.hypot(mx - timeToX(a.at), my - posToY(a.pos)) > 10);
         }
         drawPresetEditor();
@@ -452,6 +512,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pCanvas?.addEventListener('mousemove', (e) => {
         const rect = pCanvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+        window.pLastMouseX = mx; window.pLastMouseY = my;
+        
         if (isDraggingPNode && pDragSelectionInitial.length > 0) {
             const snap = window.snapValue || 5;
             const dT = Math.round((pXToTime(mx) - pDragStartX)/50)*50;
@@ -495,6 +557,113 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
+
+    // 🎯 FIX: Controles exclusivos para el Editor de Presets (Ctrl+Z y más)
+    window.addEventListener('undoAction', () => { if (modal && modal.style.display === 'flex') pUndo(); });
+    window.addEventListener('redoAction', () => { if (modal && modal.style.display === 'flex') pRedo(); });
+    
+    window.addEventListener('deletePoints', () => {
+        if (modal && modal.style.display === 'flex') {
+            if(window.presetEditorActions.some(a=>a.selected)){
+                savePresetHistoryState();
+                window.presetEditorActions = window.presetEditorActions.filter(a => !a.selected);
+                drawPresetEditor();
+            }
+        }
+    });
+
+    window.addEventListener('selectAllPoints', () => {
+        if (modal && modal.style.display === 'flex') {
+            window.presetEditorActions.forEach(a => a.selected = true);
+            drawPresetEditor();
+        }
+    });
+
+    window.addEventListener('copyPoints', () => {
+        if (modal && modal.style.display === 'flex') {
+            const sel = window.presetEditorActions.filter(a => a.selected);
+            if(sel.length > 0) {
+                const baseTime = sel[0].at;
+                window.clipboardFunscript = sel.map(a => ({...a, at: a.at - baseTime}));
+            }
+        }
+    });
+
+    window.addEventListener('cutPoints', () => {
+        if (modal && modal.style.display === 'flex') {
+            const sel = window.presetEditorActions.filter(a => a.selected);
+            if(sel.length > 0) {
+                const baseTime = sel[0].at;
+                window.clipboardFunscript = sel.map(a => ({...a, at: a.at - baseTime}));
+                savePresetHistoryState();
+                window.presetEditorActions = window.presetEditorActions.filter(a => !a.selected);
+                drawPresetEditor();
+            }
+        }
+    });
+
+    window.addEventListener('pastePoints', () => {
+        if (modal && modal.style.display === 'flex' && window.clipboardFunscript) {
+            savePresetHistoryState();
+            window.presetEditorActions.forEach(a => a.selected = false);
+            const baseT = Math.max(0, Math.round(pXToTime(window.pLastMouseX || 30) / 50) * 50);
+            const snap = window.snapValue || 5;
+            const deltaP = Math.round(pYToPos(window.pLastMouseY || 150) / snap) * snap - window.clipboardFunscript[0].pos;
+
+            const newPts = window.clipboardFunscript.map(a => ({
+                at: baseT + a.at,
+                pos: Math.max(0, Math.min(100, Math.round((a.pos + deltaP)/snap)*snap)),
+                selected: true,
+                isSync: a.isSync || false
+            }));
+            window.presetEditorActions.push(...newPts);
+            window.presetEditorActions.sort((a,b)=>a.at-b.at);
+            drawPresetEditor();
+        }
+    });
+
+    window.addEventListener('nudgePoints', (e) => {
+        if (modal && modal.style.display === 'flex') {
+            savePresetHistoryState();
+            const snap = window.snapValue || 5;
+            window.presetEditorActions.forEach(act => {
+                if (act.selected) {
+                    if (e.detail === 'up') act.pos = Math.min(100, act.pos + snap);
+                    if (e.detail === 'down') act.pos = Math.max(0, act.pos - snap);
+                }
+            });
+            drawPresetEditor();
+        }
+    });
+
+    window.addEventListener('nudgeTime', (e) => {
+        if (modal && modal.style.display === 'flex') {
+            savePresetHistoryState();
+            window.presetEditorActions.forEach(act => {
+                if (act.selected) {
+                    if (e.detail === 'left') act.at = Math.max(0, act.at - 50);
+                    if (e.detail === 'right') act.at = act.at + 50;
+                }
+            });
+            window.presetEditorActions.sort((a,b)=>a.at-b.at);
+            drawPresetEditor();
+        }
+    });
+
+    window.addEventListener('toggleSyncPoint', () => {
+        if (modal && modal.style.display === 'flex') {
+            let selected = window.presetEditorActions.filter(a => a.selected);
+            savePresetHistoryState();
+            if (selected.length === 0) {
+                let timeMs = Math.max(0, Math.round(pXToTime(pCanvas ? pCanvas.width / 2 : 100) / 50) * 50);
+                window.presetEditorActions.push({ at: timeMs, pos: 50, selected: true, isSync: true });
+                window.presetEditorActions.sort((a,b)=>a.at-b.at);
+            } else {
+                selected.forEach(a => a.isSync = !a.isSync);
+            }
+            drawPresetEditor();
+        }
+    });
 
     renderPresetsLibrary();
 });
