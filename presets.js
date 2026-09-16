@@ -246,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     window.timelineGhostTimeMs = null;
                                     window.timelineGhostTargetEnd = null;
                                     window.timelineGhostMarkers = null;
+                                    window.timelineGhostTargetAnchor = null;
                                     if(typeof window.drawTimeline === 'function') window.drawTimeline();
                                 }, 50);
                             };
@@ -557,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
+    // 🎯 FIX: Controles exclusivos para el Editor de Presets (Ctrl+Z y más)
     window.addEventListener('undoAction', () => { if (modal && modal.style.display === 'flex') pUndo(); });
     window.addEventListener('redoAction', () => { if (modal && modal.style.display === 'flex') pRedo(); });
     
@@ -644,22 +646,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             window.presetEditorActions.sort((a,b)=>a.at-b.at);
-            drawPresetEditor();
-        }
-    });
-
-    // 🎯 FIX: Permite poner un ancla flotante incluso dentro del editor de presets
-    window.addEventListener('toggleSyncPoint', () => {
-        if (modal && modal.style.display === 'flex') {
-            let selected = window.presetEditorActions.filter(a => a.selected);
-            savePresetHistoryState();
-            if (selected.length === 0) {
-                let timeMs = Math.max(0, Math.round(pXToTime(pCanvas ? pCanvas.width / 2 : 100) / 50) * 50);
-                window.presetEditorActions.push({ at: timeMs, pos: 50, selected: true, isSync: true });
-                window.presetEditorActions.sort((a,b)=>a.at-b.at);
-            } else {
-                selected.forEach(a => a.isSync = !a.isSync);
-            }
             drawPresetEditor();
         }
     });
