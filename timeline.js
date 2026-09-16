@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.23.0 (IA DE ESCALA GEOMÉTRICA DE ANCLAS Y DIBUJO PROTEGIDO)
+// TIMELINE V1.24.0 (IA DE ESCALA GEOMÉTRICA DE ANCLAS Y DIBUJO BLINDADO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -140,16 +140,14 @@ function getPointUnderPlayhead(actions) {
 // 🎯 FIX: IA DE POSICIONAMIENTO GEOMÉTRICO (Escala Inteligente de Anclas)
 function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
     if (pSyncVal !== null && tSyncVal !== null) {
-        if (presetVal === pSyncVal) return tSyncVal; // Cae exacto en el ancla
+        if (presetVal === pSyncVal) return tSyncVal; 
         
         if (presetVal > pSyncVal) {
-            // Dilata o contrae hacia arriba
             let distUpP = 100 - pSyncVal;
             let distUpT = 100 - tSyncVal;
             let scale = distUpP > 0 ? (distUpT / distUpP) : 1;
             return Math.max(0, Math.min(100, Math.round(tSyncVal + (presetVal - pSyncVal) * scale)));
         } else {
-            // Dilata o contrae hacia abajo
             let distDownP = pSyncVal; 
             let distDownT = tSyncVal; 
             let scale = distDownP > 0 ? (distDownT / distDownP) : 1;
@@ -293,14 +291,15 @@ window.addEventListener('toggleSyncPoint', () => {
 
     if (selected.length === 0) {
         saveHistoryState();
-        const timeMs = Math.round(window.getActualTimeMs());
+        let safeTime = 0;
+        try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
+        const timeMs = Math.round(safeTime);
         const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
         
         if (existingIdx !== -1) {
             actions[existingIdx].isSync = !actions[existingIdx].isSync;
             actions[existingIdx].selected = true; 
         } else {
-            // Se inyecta exactamente en el porcentaje 50% y en la Línea Naranja de la línea de tiempo
             actions.push({ at: timeMs, pos: 50, selected: true, isSync: true });
         }
         
@@ -444,7 +443,9 @@ function updateGhostPosition(mouseX, mouseY) {
         window.presetFillInitialized = false;
 
         const actions = getSafeActions();
-        const playheadTimeMs = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
+        let safeTime = 0;
+        try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
+        const playheadTimeMs = safeTime;
         const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
         const snapDistMs = 250; 
         let bestOffset = hoverTimeMs;
@@ -491,7 +492,7 @@ function updateGhostPosition(mouseX, mouseY) {
     }
 }
 
-// 🎯 FIX: Se re-conectan los Eventos Drop (con blindaje anti-crash).
+// 🎯 FIX: Se re-conectan los Eventos Drop (con blindaje absoluto).
 canvas?.addEventListener('dragenter', (e) => { e.preventDefault(); });
 canvas?.addEventListener('dragover', (e) => { 
     e.preventDefault(); 
@@ -620,7 +621,9 @@ window.updateGhostThumb = function() {
 
     const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
     const centerTimeMs = scrollLeftMs + (visibleMs / 2);
-    const actualTimeMs = window.getActualTimeMs();
+    let safeTime = 0;
+    try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
+    const actualTimeMs = safeTime;
 
     if (Math.abs(centerTimeMs - actualTimeMs) > visibleMs * 0.05) {
         ghostThumb.style.display = 'block';
@@ -631,12 +634,14 @@ window.updateGhostThumb = function() {
     }
 };
 
+// 🎯 FIX: Dibuja la línea de tiempo de forma 100% segura (No se pondrá negra)
 window.drawTimeline = function() {
     try {
         ensureCanvasSize();
         if (!ctx || !canvas) return;
         
-        let actualTime = window.getActualTimeMs();
+        let actualTime = 0;
+        try { actualTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
         
         if ((videoNode && !videoNode.paused) || window.isPlayingVirtual) {
             const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
@@ -768,7 +773,10 @@ window.drawTimeline = function() {
             ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         });
 
-        const visibleMs = (canvas.width - 30) / (basePixelsPerMs * zoom);
+        let z = zoom || 1.0;
+        let bpm = basePixelsPerMs || 0.1;
+        let w = (canvas.width > 30) ? canvas.width - 30 : 800;
+        const visibleMs = w / (bpm * z);
         let stepMs = 1000;
         
         if (visibleMs < 500) stepMs = 50;
@@ -954,7 +962,7 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: El fantasma del Preset muestra el cálculo de la IA Geométrica en Vivo antes de soltar
+        // 🎯 FIX: El fantasma del Preset muestra el cálculo de la IA Geométrica en Vivo
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             
             if (window.timelineGhostTargetEnd) {
@@ -1422,7 +1430,10 @@ canvas?.addEventListener('mousemove', (e) => {
         const m = window.timelineMarkers[draggedMarkerIndex];
         let newAt = Math.round(xToTime(mouseX) / 50) * 50; 
 
-        const actualTimeMs = window.getActualTimeMs();
+        let safeTime = 0;
+        try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(err){}
+        const actualTimeMs = safeTime;
+
         if (Math.abs(timeToX(newAt) - timeToX(actualTimeMs)) < 15) newAt = Math.round(actualTimeMs);
 
         m.at = Math.max(0, newAt);
@@ -1476,7 +1487,10 @@ canvas?.addEventListener('mousemove', (e) => {
         snappedPosDelta = Math.round(rawPosDelta / snap) * snap;
 
         // 🎯 FIX: Magnetismo Automático hacia la Línea de Reproducción Naranja
-        const playhead = Math.round(window.getActualTimeMs());
+        let safeTime = 0;
+        try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(err){}
+        const playhead = Math.round(safeTime);
+
         dragSelectionInitialStates.forEach((initialAct) => {
             if (initialAct.selected) {
                 let proposedTime = initialAct.at + snappedTimeDelta;
@@ -1517,8 +1531,6 @@ canvas?.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
-    if (window.isPastingMode) return; 
-
     if (isSelectingMarkers) {
         isSelectingMarkers = false;
         markerSelectionInitialStates = [];
@@ -1565,6 +1577,67 @@ window.addEventListener('mouseup', (e) => {
     }
     isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1;
 });
+
+// 🎯 FIX: Reparación de la Rueda del Ratón cuando está en pausa.
+canvas?.addEventListener('wheel', (e) => {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    e.preventDefault();
+    
+    let z = zoom || 1.0;
+    let bpm = basePixelsPerMs || 0.1;
+    let w = (canvas.width > 30) ? canvas.width - 30 : 800;
+
+    if (e.shiftKey) {
+        const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+        const timeAtMouse = scrollLeftMs + (mouseX - 30) / (bpm * z);
+        
+        z = Math.round((z + (e.deltaY < 0 ? 0.08 : -0.08)) * 100) / 100;
+        z = Math.max(0.1, Math.min(z, 15.0)); 
+        zoom = z;
+        
+        scrollLeftMs = timeAtMouse - (mouseX - 30) / (bpm * z);
+        if (scrollLeftMs < 0) scrollLeftMs = 0; 
+    } else {
+        const panStep = (w / (bpm * z)) * 0.10; 
+        if (e.deltaY < 0) {
+            scrollLeftMs -= panStep; 
+            window.scrollMomentum = Math.min((window.scrollMomentum || 0) + 3, 10);
+        } else {
+            scrollLeftMs += panStep; 
+            window.scrollMomentum = Math.max((window.scrollMomentum || 0) - 3, -10);
+        }
+        if (scrollLeftMs < 0) scrollLeftMs = 0;
+
+        if (videoNode && videoNode.duration && !isNaN(videoNode.duration)) {
+            const visibleMs = w / (bpm * z);
+            const maxScroll = (videoNode.duration * 1000) - visibleMs + 2000; 
+            if (scrollLeftMs > maxScroll && maxScroll > 0) scrollLeftMs = maxScroll;
+        }
+    }
+    
+    if (isSelecting) {
+        const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+        const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+        selCurrT = xToTime(mouseX);
+        selCurrY = mouseY;
+        const startX_px = timeToX(selStartT);
+        if (Math.hypot(mouseX - startX_px, mouseY - selStartY) > 5) hasDraggedSelection = true;
+        
+        const minT = Math.min(selStartT, selCurrT); const maxT = Math.max(selStartT, selCurrT);
+        const topLimit = posToY(100);
+        const minY = Math.max(topLimit, Math.min(selStartY, selCurrY)); 
+        const maxY = Math.max(topLimit, Math.max(selStartY, selCurrY));
+        
+        const actions = getSafeActions();
+        actions.forEach(act => {
+            const ny = posToY(act.pos);
+            act.selected = (act.at >= minT && act.at <= maxT && ny >= minY && ny <= maxY);
+        });
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    }
+}, { passive: false });
+
+canvas?.addEventListener('contextmenu', e => e.preventDefault());
 
 function animationLoop() { window.drawTimeline(); requestAnimationFrame(animationLoop); }
 requestAnimationFrame(animationLoop);
