@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.15.2 (PROPAGACIÓN Y TOGGLE RESUELTOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.24.0 (MARCADORES Y TOGGLE BLINDADOS)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -97,7 +97,6 @@ function virtualPlayLoop() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-
     const savedTheme = localStorage.getItem('funscript_theme');
     if (savedTheme === 'light') {
         document.body.classList.add('light-theme');
@@ -113,14 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const tBtn = document.getElementById('menu-theme-btn');
             if(tBtn) tBtn.innerText = isLight ? '🌙 Modo oscuro' : '☀️ Modo claro';
         };
-
         if (document.startViewTransition) {
             document.documentElement.style.setProperty('--ripple-x', e.clientX + 'px');
             document.documentElement.style.setProperty('--ripple-y', e.clientY + 'px');
             document.startViewTransition(toggleTheme);
-        } else {
-            toggleTheme();
-        }
+        } else { toggleTheme(); }
     });
 
     document.querySelectorAll('#device-dropdown-list a[data-device]').forEach(link => {
@@ -149,15 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 🎯 FIX: Bloquea el cierre accidental del submenú cuando interactúas con el Overclock
     const subDropdownContent = document.querySelector('.sub-dropdown-content');
-    if (subDropdownContent) {
-        subDropdownContent.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-    }
+    if (subDropdownContent) subDropdownContent.addEventListener('click', (e) => { e.stopPropagation(); });
 
-    // 🎯 FIX: Texto "Desbloqueado" más intuitivo
     const snapToggle = document.getElementById('menu-snap-toggle');
     const snapText = document.getElementById('snap-text-display');
     
@@ -221,24 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let showRemainingTime = false;
     vTimeCurrent?.addEventListener('click', () => {
         showRemainingTime = !showRemainingTime;
-        if (videoPlayer && videoPlayer.duration) {
-            if (showRemainingTime) {
-                vTimeCurrent.innerText = "-" + formatTime(videoPlayer.duration - videoPlayer.currentTime);
-            } else {
-                vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
-            }
-        }
+        window.updateTimeDisplays();
     });
 
     vTimeTotal?.addEventListener('click', () => {
         showRemainingTime = !showRemainingTime;
-        if (videoPlayer && videoPlayer.duration) {
-            if (showRemainingTime) {
-                vTimeCurrent.innerText = "-" + formatTime(videoPlayer.duration - videoPlayer.currentTime);
-            } else {
-                vTimeCurrent.innerText = formatTime(videoPlayer.currentTime);
-            }
-        }
+        window.updateTimeDisplays();
     });
 
     window.updateTimeDisplays = function() {
@@ -431,18 +409,29 @@ videoPlayer?.addEventListener('seeked', () => {
     if (!videoPlayer.paused && typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
+// 🎯 FIX: Marcadores exactos limitados a 4px de alto, centrados con la bolita
 window.drawProgressMarkers = function() {
     const c = document.getElementById('progress-markers-canvas');
     if(!c || !videoPlayer || !videoPlayer.duration || !window.timelineMarkers) return;
-    c.width = c.clientWidth; c.height = c.clientHeight;
+    
+    const rect = c.getBoundingClientRect();
+    if (rect.width === 0) return;
+    c.width = rect.width; 
+    c.height = 4; // Fijo a la altura de la pista visual
+
     const ctx = c.getContext('2d');
-    ctx.clearRect(0,0,c.width,c.height);
+    ctx.clearRect(0,0, c.width, c.height);
+    
     const totalMs = videoPlayer.duration * 1000;
     if(totalMs <= 0) return;
     
+    const thumbW = 12; // Ancho del Thumb del CSS
+    const usableWidth = c.width - thumbW;
+    
     window.timelineMarkers.forEach(m => {
         ctx.fillStyle = m.isBPM ? '#0ea5e9' : '#facc15'; 
-        const px = (m.at / totalMs) * c.width;
+        // Desplazamos la posición X para empatar milimétricamente con el centro del thumb (6px offset)
+        const px = (thumbW / 2) + (m.at / totalMs) * usableWidth;
         ctx.fillRect(px - 1, 0, 2, c.height);
     });
 };
@@ -556,6 +545,7 @@ window.addEventListener('keydown', (event) => {
             window.timelineGhostTimeMs = null;
             window.presetFillInitialized = false; 
             window.timelineGhostTargetEnd = null;
+            document.body.classList.remove('is-dragging-global');
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
