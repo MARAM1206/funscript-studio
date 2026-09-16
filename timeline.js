@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.20.0 (IMÁN FLUIDO Y RECEPCIÓN SEGURA CON SETTIMEOUT)
+// TIMELINE V1.21.0 (IA DE ESCALA DE ANCLAS Y MAGNETISMO DE REPRODUCCIÓN)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -91,7 +91,6 @@ let dragStartYPos = 0;
 
 let isDraggingMarker = false;
 let draggedMarkerIndex = -1;
-
 let lastRightClickTime = 0; 
 
 function formatTimelineLabel(timeMs) {
@@ -134,33 +133,27 @@ function getPointUnderPlayhead(actions) {
     return closest;
 }
 
-window.addEventListener('toggleSyncPoint', () => {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    
-    const modal = document.getElementById('preset-editor-modal');
-    if (modal && modal.style.display === 'flex') {
-        if (window.presetEditorActions) {
-            let moved = false;
-            window.presetEditorActions.forEach(a => {
-                if (a.selected) { a.isSync = !a.isSync; moved = true; }
-            });
-            if (moved && typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
-        }
-        return;
+// 🎯 IA DE POSICIONAMIENTO MATEMÁTICO (Escala Inteligente de Anclas)
+function getSmartMappedPos(presetVal, pMin, pMax, pSyncVal, tSyncVal, oMin, oMax, hasExisting) {
+    if (pSyncVal !== null && tSyncVal !== null) {
+        let scale = 1.0;
+        let distUpP = pMax - pSyncVal;
+        let distDownP = pSyncVal - pMin;
+        let distUpT = 100 - tSyncVal;
+        let distDownT = tSyncVal;
+        
+        // Calcula cuánto debe encogerse para caber sin deformarse
+        if (distUpP > 0) scale = Math.min(scale, distUpT / distUpP);
+        if (distDownP > 0) scale = Math.min(scale, distDownT / distDownP);
+        
+        return Math.max(0, Math.min(100, Math.round(tSyncVal + (presetVal - pSyncVal) * scale)));
+    } else if (hasExisting && (oMax - oMin) > 10) {
+        let pRange = pMax - pMin || 1;
+        let norm = (presetVal - pMin) / pRange;
+        return Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
     }
-
-    const actions = getSafeActions();
-    let moved = false;
-    actions.forEach(act => {
-        if (act.selected) { act.isSync = !act.isSync; moved = true; }
-    });
-    
-    if (moved) {
-        saveHistoryState();
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-        notifyCloud();
-    }
-});
+    return presetVal;
+}
 
 window.getMorphedPreset = function(preset, startOrMarkers, end) {
     if (!preset || preset.length === 0) return null;
@@ -170,10 +163,8 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
 
     let presetMin = Math.min(...preset.map(a => a.pos));
     let presetMax = Math.max(...preset.map(a => a.pos));
-    let pRange = presetMax - presetMin;
-    if (pRange === 0) pRange = 1;
-
     let presetSync = preset.find(a => a.isSync);
+    let pSyncVal = presetSync ? presetSync.pos : null;
 
     if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
         for (let i = 0; i < startOrMarkers.length - 1; i++) {
@@ -184,6 +175,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
 
             let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
             let targetSync = existing.find(a => a.isSync);
+            let tSyncVal = targetSync ? targetSync.pos : null;
             
             let oMin = 0, oMax = 100;
             let hasExisting = existing.length > 0;
@@ -195,13 +187,9 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
             for (let j = 0; j < preset.length; j++) {
                 if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
                 
-                let mappedPos = preset[j].pos;
-                if (hasExisting && (oMax - oMin) > 10) { 
-                    let norm = (preset[j].pos - presetMin) / pRange;
-                    mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
-                }
-
+                let mappedPos = getSmartMappedPos(preset[j].pos, presetMin, presetMax, pSyncVal, tSyncVal, oMin, oMax, hasExisting);
                 let newAt = 0;
+                
                 if (presetSync && targetSync) {
                     if (preset[j].at <= presetSync.at) {
                         let ratio = presetSync.at > 0 ? (preset[j].at / presetSync.at) : 0;
@@ -212,7 +200,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                         let ratio = remP > 0 ? ((preset[j].at - presetSync.at) / remP) : 0;
                         newAt = targetSync.at + ratio * remT;
                     }
-                    if (preset[j].isSync) mappedPos = targetSync.pos; 
                 } else {
                     newAt = t1 + (preset[j].at / p_dur) * targetDuration;
                 }
@@ -232,6 +219,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
 
         let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
         let targetSync = existing.find(a => a.isSync);
+        let tSyncVal = targetSync ? targetSync.pos : null;
         let oMin = 0, oMax = 100;
         let hasExisting = existing.length > 0;
         if (hasExisting) {
@@ -241,13 +229,9 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
 
         if (window.presetFillMode === 'stretch') {
             for (let j = 0; j < preset.length; j++) {
-                let mappedPos = preset[j].pos;
-                if (hasExisting && (oMax - oMin) > 10) {
-                    let norm = (preset[j].pos - presetMin) / pRange;
-                    mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
-                }
-
+                let mappedPos = getSmartMappedPos(preset[j].pos, presetMin, presetMax, pSyncVal, tSyncVal, oMin, oMax, hasExisting);
                 let newAt = 0;
+                
                 if (presetSync && targetSync) {
                     if (preset[j].at <= presetSync.at) {
                         let ratio = presetSync.at > 0 ? (preset[j].at / presetSync.at) : 0;
@@ -258,7 +242,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                         let ratio = remP > 0 ? ((preset[j].at - presetSync.at) / remP) : 0;
                         newAt = targetSync.at + ratio * remT;
                     }
-                    if (preset[j].isSync) mappedPos = targetSync.pos; 
                 } else {
                     newAt = t_start + (preset[j].at / p_dur) * targetDuration;
                 }
@@ -277,11 +260,8 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
                 for (let i = 0; i < preset.length; i++) {
                     if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
                     
-                    let mappedPos = preset[i].pos;
-                    if (hasExisting && (oMax - oMin) > 10) {
-                        let norm = (preset[i].pos - presetMin) / pRange;
-                        mappedPos = Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
-                    }
+                    let mappedPos = getSmartMappedPos(preset[i].pos, presetMin, presetMax, pSyncVal, tSyncVal, oMin, oMax, hasExisting);
+                    
                     result.push({
                         at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
                         pos: mappedPos,
@@ -293,6 +273,45 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     }
     return result;
 };
+
+// 🎯 FIX: Tecla Punto (.) crea ancla flotante instantánea.
+window.addEventListener('toggleSyncPoint', () => {
+    if (document.body.classList.contains('panic-mode-active')) return;
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
+
+    ensureTrackExists();
+    const actions = getSafeActions();
+    let selected = actions.filter(act => act.selected);
+
+    if (selected.length === 0) {
+        saveHistoryState();
+        const timeMs = Math.round(window.getActualTimeMs());
+        const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
+        
+        if (existingIdx !== -1) {
+            actions[existingIdx].isSync = !actions[existingIdx].isSync;
+            actions[existingIdx].selected = true;
+        } else {
+            actions.push({ at: timeMs, pos: 50, selected: true, isSync: true });
+        }
+        
+        cleanDuplicates();
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud();
+        window.updateHeatmapAndStats();
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    } else {
+        let moved = false;
+        actions.forEach(act => {
+            if (act.selected) { act.isSync = !act.isSync; moved = true; }
+        });
+        if (moved) {
+            saveHistoryState();
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
+            notifyCloud();
+        }
+    }
+});
 
 window.updateHeatmapAndStats = function() {
     const actions = getSafeActions();
@@ -450,7 +469,9 @@ window.addEventListener('forceTimelinePan', (e) => {
     if (scrollLeftMs < 0) scrollLeftMs = 0;
 });
 
+// 🎯 FIX: Bloqueo de Atajos Aislados (El Timeline ignora si el Editor está abierto)
 window.addEventListener('copyPoints', () => {
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
     const selected = getSafeActions().filter(a => a.selected);
     if (selected.length > 0) {
         const baseTime = selected[0].at;
@@ -460,6 +481,7 @@ window.addEventListener('copyPoints', () => {
 
 window.addEventListener('cutPoints', () => {
     if (document.body.classList.contains('panic-mode-active')) return;
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
     const actions = getSafeActions();
     const selected = actions.filter(a => a.selected);
     if (selected.length > 0) {
@@ -475,30 +497,21 @@ window.addEventListener('cutPoints', () => {
 });
 
 window.addEventListener('pastePoints', () => {
-    const modal = document.getElementById('preset-editor-modal');
-    if (window.clipboardFunscript && window.clipboardFunscript.length > 0 && (!modal || modal.style.display !== 'flex')) {
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
+    if (window.clipboardFunscript && window.clipboardFunscript.length > 0) {
         getSafeActions().forEach(a => a.selected = false); 
         window.isPastingMode = true;
         window.timelineGhostPreset = window.clipboardFunscript;
         window.timelineGhostTimeMs = null;
+        if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
+            updateGhostPosition(window.lastMouseX, window.lastMouseY);
+        }
         window.drawTimeline();
     }
 });
 
-// 🎯 FIX: Blindaje Estricto para el Evento DragOver. Imán optimizado a 2 puntos.
-canvas?.addEventListener('dragenter', (e) => {
-    e.preventDefault();
-});
-
-canvas?.addEventListener('dragover', (e) => {
-    e.preventDefault(); 
-    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-    
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
-    
+function updateGhostPosition(mouseX, mouseY) {
+    if (!window.timelineGhostPreset) return;
     let hoverTimeMs = xToTime(mouseX);
     let hoverPosRaw = yToPos(mouseY);
     
@@ -525,9 +538,7 @@ canvas?.addEventListener('dragover', (e) => {
 
         const actions = getSafeActions();
         const playheadTimeMs = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
-        
         const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
-        
         const snapDistMs = 250; 
         let bestOffset = hoverTimeMs;
         let minDistance = snapDistMs;
@@ -557,84 +568,11 @@ canvas?.addEventListener('dragover', (e) => {
         const basePos = window.timelineGhostPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
     }
-});
+}
 
-// 🎯 FIX: Drop Diferido con setTimeout para soltar el cursor ANTES de manipular memoria
-canvas?.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-    
-    // Captura los valores del ratón ANTES de pausar
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
-    
-    let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
-    const deltaY = window.timelineGhostDeltaPos || 0;
-    const snap = window.snapValue || 5;
-    
-    const presetToInject = JSON.parse(JSON.stringify(window.timelineGhostPreset));
-    const targetEnd = window.timelineGhostTargetEnd;
-    const targetMarkers = window.timelineGhostMarkers;
-
-    // Retraso maestro para engañar a Chrome
-    setTimeout(() => {
-        ensureTrackExists();
-        let actions = getSafeActions();
-
-        if (targetEnd) {
-            const morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
-            if (morphed) {
-                saveHistoryState();
-                
-                let tStart = dropTimeMs;
-                let tEnd = targetEnd;
-                
-                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-
-                actions.forEach(a => a.selected = false);
-                morphed.forEach(m => m.selected = true);
-                actions.push(...morphed);
-                
-                cleanDuplicates();
-                window.isDraggingPreset = false; window.timelineGhostPreset = null;
-                window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
-                
-                if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
-
-                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-                notifyCloud(); window.updateHeatmapAndStats();
-                if (typeof window.drawTimeline === 'function') window.drawTimeline();
-                return;
-            }
-        }
-        
-        saveHistoryState();
-        
-        const newActions = presetToInject.map(act => ({
-            at: Math.round(dropTimeMs + act.at),
-            pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
-            selected: true,
-            isSync: act.isSync || false
-        }));
-        
-        let tStart = newActions[0].at;
-        let tEnd = newActions[newActions.length - 1].at;
-        
-        actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-
-        actions.forEach(a => a.selected = false); 
-        actions.push(...newActions);
-        
-        cleanDuplicates(); 
-        window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
-        
-        if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
-
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    }, 10);
-});
+canvas?.addEventListener('dragenter', (e) => { e.preventDefault(); });
+canvas?.addEventListener('dragover', (e) => { e.preventDefault(); });
+canvas?.addEventListener('drop', (e) => { e.preventDefault(); });
 
 canvas?.addEventListener('dragleave', () => {
     if(window.isDraggingPreset) {
@@ -669,6 +607,8 @@ sliderA?.addEventListener('mouseup', blurSliders); sliderB?.addEventListener('mo
 
 window.addEventListener('injectPoint', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
+    
     ensureTrackExists(); 
     const actions = getSafeActions();
 
@@ -700,6 +640,8 @@ window.addEventListener('injectPoint', function(e) {
 
 window.addEventListener('nudgeTime', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
+    
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
     actions.forEach(act => {
@@ -718,29 +660,7 @@ window.addEventListener('nudgeTime', function(e) {
 
 window.addEventListener('nudgePoints', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
-    
-    const modal = document.getElementById('preset-editor-modal');
-    if (modal && modal.style.display === 'flex') {
-        if (window.presetEditorActions) {
-            const snap = window.snapValue || 5;
-            let moved = false;
-            window.presetEditorActions.forEach(act => {
-                if (act.selected) {
-                    if (e.detail === 'up') {
-                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
-                        else act.pos = Math.min(100, act.pos + snap);
-                    }
-                    if (e.detail === 'down') {
-                        if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
-                        else act.pos = Math.max(0, act.pos - snap);
-                    }
-                    moved = true;
-                }
-            });
-            if (moved && typeof window.drawPresetEditor === 'function') window.drawPresetEditor();
-        }
-        return;
-    }
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
 
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     const snap = window.snapValue || 5;
@@ -774,6 +694,7 @@ window.addEventListener('nudgePoints', function(e) {
 
 window.addEventListener('magnetPoint', function() {
     if (document.body.classList.contains('panic-mode-active')) return;
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
     const actions = getSafeActions();
     const timeMs = Math.round(window.getActualTimeMs());
     let moved = false; saveHistoryState();
@@ -787,6 +708,7 @@ window.addEventListener('magnetPoint', function() {
 
 window.addEventListener('deletePoints', () => {
     if (document.body.classList.contains('panic-mode-active')) return; 
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
 
     let deletedMarker = false;
     const initialMarkerCount = window.timelineMarkers.length;
@@ -810,11 +732,20 @@ window.addEventListener('deletePoints', () => {
     }
 });
 
-window.addEventListener('undoAction', () => { undo(); });
-window.addEventListener('redoAction', () => { redo(); });
+window.addEventListener('undoAction', () => { 
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
+    undo(); 
+});
+window.addEventListener('redoAction', () => { 
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
+    redo(); 
+});
+
 window.addEventListener('selectAllPoints', () => {
+    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
     getSafeActions().forEach(a => a.selected = true);
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    if (typeof window.drawTimeline === 'function') window.drawTimeline();
 });
 
 function ensureCanvasSize() {
@@ -835,6 +766,7 @@ function undo() {
         window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); window.updateHeatmapAndStats();
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 }
 function redo() {
@@ -844,6 +776,7 @@ function redo() {
         window.funscriptActions.splice(0, window.funscriptActions.length, ...parsed);
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); window.updateHeatmapAndStats();
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
     }
 }
 function timeToX(timeMs) { return 30 + (timeMs - scrollLeftMs) * (basePixelsPerMs * zoom); }
@@ -947,13 +880,13 @@ window.drawTimeline = function() {
                 if (w > 0) {
                     ctx.fillStyle = isLight ? '#bae6fd' : '#0ea5e9';
                     ctx.strokeStyle = isLight ? '#38bdf8' : '#0284c7';
-                    ctx.beginPath(); ctx.roundRect(startX, trackY1, w, trackH, 4); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.rect(startX, trackY1, w, trackH); ctx.fill(); ctx.stroke();
                     ctx.fillStyle = isLight ? '#0c4a6e' : '#f0f9ff'; ctx.font = 'bold 11px sans-serif';
                     ctx.fillText(`Cam_0${(i%3)+1}_final.mp4`, startX + 8, trackY1 + 16);
 
                     ctx.fillStyle = isLight ? '#bbf7d0' : '#10b981';
                     ctx.strokeStyle = isLight ? '#34d399' : '#059669';
-                    ctx.beginPath(); ctx.roundRect(startX, trackY2, w, trackH, 4); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.rect(startX, trackY2, w, trackH); ctx.fill(); ctx.stroke();
                     
                     ctx.strokeStyle = isLight ? '#064e3b' : '#a7f3d0';
                     ctx.beginPath();
@@ -1110,7 +1043,7 @@ window.drawTimeline = function() {
 
                     ctx.fillStyle = color;
                     ctx.beginPath();
-                    ctx.roundRect(mx - 15, 0, 30, 25, [0, 0, 4, 4]);
+                    ctx.rect(mx - 15, 0, 30, 25);
                     ctx.fill();
 
                     ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
@@ -1467,37 +1400,58 @@ canvas?.addEventListener('mousedown', (e) => {
 
     const snap = window.snapValue || 5;
 
-    if (window.isPastingMode && window.timelineGhostPreset) {
+    if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset) {
         if (e.button === 0) { 
             ensureTrackExists();
             saveHistoryState();
             let actions = getSafeActions();
             const pos = getMousePos(e);
+            
             let dropTimeMs = Math.round(window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(pos.x)));
             const deltaY = window.timelineGhostDeltaPos || 0;
             
-            const newActions = window.timelineGhostPreset.map(act => ({
-                at: Math.max(0, Math.round(dropTimeMs + act.at)),
-                pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
-                selected: true,
-                isSync: act.isSync || false
-            }));
+            if (window.timelineGhostTargetEnd) {
+                const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
+                if (morphed) {
+                    let tStart = window.timelineGhostTimeMs;
+                    let tEnd = window.timelineGhostTargetEnd;
+                    
+                    actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+                    actions.forEach(a => a.selected = false);
+                    morphed.forEach(m => m.selected = true);
+                    actions.push(...morphed);
+                }
+            } else {
+                const newActions = window.timelineGhostPreset.map(act => ({
+                    at: Math.max(0, Math.round(dropTimeMs + act.at)),
+                    pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
+                    selected: true,
+                    isSync: act.isSync || false
+                }));
+                
+                const newTimes = new Set(newActions.map(a => a.at));
+                actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
+                actions.forEach(a => a.selected = false);
+                actions.push(...newActions);
+            }
             
-            const newTimes = new Set(newActions.map(a => a.at));
-            actions.splice(0, actions.length, ...actions.filter(a => !newTimes.has(a.at)));
-            actions.forEach(a => a.selected = false);
-            actions.push(...newActions);
             cleanDuplicates(); 
             
-            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            window.isPastingMode = false; window.isDraggingPreset = false;
+            window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
+            window.timelineGhostDeltaPos = 0; window.timelineGhostTargetEnd = null; window.timelineGhostMarkers = null;
             
+            document.body.style.cursor = 'default';
             if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
 
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
             notifyCloud(); window.updateHeatmapAndStats();
+            if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         } else if (e.button === 2) { 
-            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            window.isPastingMode = false; window.isDraggingPreset = false;
+            window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; window.timelineGhostDeltaPos = 0;
+            document.body.style.cursor = 'default';
             if (typeof window.drawTimeline === 'function') window.drawTimeline();
             return;
         }
@@ -1684,65 +1638,6 @@ canvas?.addEventListener('mousemove', (e) => {
         return;
     }
 
-    if (window.isPastingMode && window.timelineGhostPreset) {
-        let hoverTimeMs = xToTime(mouseX);
-        let hoverPosRaw = yToPos(mouseY);
-        
-        window.timelineGhostMouseX = mouseX;
-        window.timelineGhostMouseY = mouseY;
-        
-        const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
-        
-        if (selectedMarkers.length >= 2) {
-            window.timelineGhostTimeMs = selectedMarkers[0].at;
-            window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
-            window.timelineGhostMarkers = selectedMarkers;
-
-            if (!window.presetFillInitialized) {
-                const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
-                window.presetFillMode = 'stretch';
-                window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
-                window.presetFillInitialized = true;
-            }
-        } else {
-            window.timelineGhostMarkers = null;
-            window.timelineGhostTargetEnd = null;
-            window.presetFillInitialized = false;
-
-            const actions = getSafeActions();
-            const playheadTimeMs = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0;
-            const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
-            const snapDistMs = 250; 
-            let bestOffset = hoverTimeMs;
-            let minDistance = snapDistMs;
-            let isSnapped = false;
-
-            const pointsToCheck = [window.timelineGhostPreset[0]];
-            if (window.timelineGhostPreset.length > 1) {
-                pointsToCheck.push(window.timelineGhostPreset[window.timelineGhostPreset.length - 1]);
-            }
-
-            pointsToCheck.forEach(pAct => {
-                let projectedTime = hoverTimeMs + pAct.at;
-                for (let i = 0; i < snapTargets.length; i++) {
-                    let dist = Math.abs(projectedTime - snapTargets[i]);
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                        bestOffset = snapTargets[i] - pAct.at;
-                        isSnapped = true;
-                    }
-                }
-            });
-
-            window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
-            
-            const snap = window.snapValue || 5;
-            let hoverPos = Math.round(hoverPosRaw / snap) * snap;
-            const basePos = window.timelineGhostPreset[0].pos;
-            window.timelineGhostDeltaPos = hoverPos - basePos;
-        }
-    }
-
     const actions = getSafeActions();
 
     window.activeSuggestion = null;
@@ -1754,7 +1649,7 @@ canvas?.addEventListener('mousemove', (e) => {
         hwMin = device.overclock.min;
     }
 
-    if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers) {
+    if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers && !window.isDraggingPreset) {
         for (let i = 0; i < actions.length - 1; i++) {
             let act1 = actions[i]; let act2 = actions[i+1];
             let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
@@ -1784,6 +1679,17 @@ canvas?.addEventListener('mousemove', (e) => {
         const rawPosDelta = yToPos(mouseY) - dragStartYPos;
         snappedTimeDelta = Math.round(rawTimeDelta / 50) * 50; 
         snappedPosDelta = Math.round(rawPosDelta / snap) * snap;
+
+        // 🎯 FIX: Magnetismo Mágico. Si el punto pasa cerca de la Línea Naranja, se ancla.
+        const playhead = Math.round(window.getActualTimeMs());
+        dragSelectionInitialStates.forEach((initialAct) => {
+            if (initialAct.selected) {
+                let proposedTime = initialAct.at + snappedTimeDelta;
+                if (Math.abs(proposedTime - playhead) <= 30) {
+                    snappedTimeDelta = playhead - initialAct.at;
+                }
+            }
+        });
 
         actions.forEach((act, i) => {
             if (dragSelectionInitialStates[i].selected) {
