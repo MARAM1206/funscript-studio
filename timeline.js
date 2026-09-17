@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.26.2 (CENTRADOS Q/W CORREGIDOS Y MOMENTUM RESTAURADO)
+// TIMELINE V1.26.4 (AUDIO HD, GRADIENTES ATMOSFÉRICOS Y CENTRADO DE ATAJOS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -320,7 +320,7 @@ function redo() {
     }
 }
 
-// 🎯 FIX 1: Lógica para forzar el encuadre (Pan) desde atajos como Q y W
+// 🎯 FIX: Centrado absoluto cuando usamos los atajos de teclado o al brincar.
 window.addEventListener('forceTimelinePan', (e) => {
     const canvas = document.getElementById('timeline-canvas');
     if (!canvas || canvas.width === 0) return;
@@ -333,244 +333,6 @@ window.addEventListener('forceTimelinePan', (e) => {
     
     window.scrollLeftMs = Math.max(0, targetTime - (visibleMs / 2));
     window.drawTimeline();
-});
-
-// ==========================================
-// EVENTOS PERSONALIZADOS (ATAJOS Y BOTONES)
-// ==========================================
-window.addEventListener('toggleSyncPoint', () => {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-
-    ensureTrackExists();
-    const actions = getSafeActions();
-    let selected = actions.filter(act => act.selected);
-
-    if (selected.length === 0) {
-        saveHistoryState();
-        let safeTime = 0;
-        try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
-        const timeMs = Math.round(safeTime);
-        const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
-        
-        if (existingIdx !== -1) {
-            actions[existingIdx].isSync = !actions[existingIdx].isSync;
-            actions[existingIdx].selected = true; 
-        } else {
-            actions.push({ at: timeMs, pos: 50, selected: true, isSync: true });
-        }
-        
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud();
-        window.updateHeatmapAndStats();
-        window.drawTimeline();
-    } else {
-        let moved = false;
-        actions.forEach(act => {
-            if (act.selected) { act.isSync = !act.isSync; moved = true; }
-        });
-        if (moved) {
-            saveHistoryState();
-            window.drawTimeline();
-            notifyCloud();
-        }
-    }
-});
-
-window.addEventListener('injectPoint', function(e) {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    
-    ensureTrackExists(); 
-    const actions = getSafeActions();
-
-    let safeTime = 0;
-    try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
-    const timeMs = Math.round(safeTime);
-    
-    const sliderA = document.getElementById('min-slider'); 
-    const sliderB = document.getElementById('max-slider');
-    const valA = parseInt(sliderA?.value || '20', 10); 
-    const valB = parseInt(sliderB?.value || '70', 10);
-    const currentMin = Math.min(valA, valB); 
-    const currentMax = Math.max(valA, valB);
-    let pos = (e.detail.dir === 'up') ? currentMax : currentMin;
-
-    saveHistoryState();
-    actions.forEach(a => { a.selected = false; }); 
-    
-    const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
-    if (existingIdx !== -1) { 
-        actions[existingIdx].pos = pos; 
-        actions[existingIdx].at = timeMs;
-        actions[existingIdx].selected = true; 
-    } 
-    else { 
-        actions.push({ at: timeMs, pos: pos, selected: true }); 
-    }
-    
-    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
-
-    cleanDuplicates();
-    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    notifyCloud(); window.updateHeatmapAndStats(); 
-    window.drawTimeline();
-});
-
-window.addEventListener('nudgeTime', function(e) {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    
-    const actions = getSafeActions(); const dir = e.detail; let moved = false;
-    saveHistoryState();
-    actions.forEach(act => {
-        if (act.selected) {
-            if (dir === 'left') act.at = Math.max(0, act.at - 50); 
-            if (dir === 'right') act.at = act.at + 50; 
-            moved = true;
-        }
-    });
-    if (moved) {
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-        window.drawTimeline();
-    }
-});
-
-window.addEventListener('nudgePoints', function(e) {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-
-    const actions = getSafeActions(); const dir = e.detail; let moved = false;
-    const snap = window.snapValue || 5;
-    saveHistoryState();
-    
-    let hasSelection = actions.some(a => a.selected);
-    if (!hasSelection) {
-        const closest = getPointUnderPlayhead(actions);
-        if (closest) closest.selected = true; 
-    }
-
-    actions.forEach(act => {
-        if (act.selected) {
-            if (dir === 'up') {
-                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.ceil(act.pos / snap) * snap;
-                else act.pos = Math.min(100, act.pos + snap);
-            }
-            if (dir === 'down') {
-                if (snap > 1 && act.pos % snap !== 0) act.pos = Math.floor(act.pos / snap) * snap;
-                else act.pos = Math.max(0, act.pos - snap);
-            }
-            moved = true;
-        }
-    });
-    
-    if (moved) {
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats(); 
-        window.drawTimeline();
-    }
-});
-
-window.addEventListener('magnetPoint', function() {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    const actions = getSafeActions();
-    let safeTime = 0;
-    try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
-    const timeMs = Math.round(safeTime);
-    let moved = false; saveHistoryState();
-    actions.forEach(act => { if (act.selected) { act.at = timeMs; moved = true; } });
-    if (moved) {
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-        window.drawTimeline();
-    }
-});
-
-window.addEventListener('deletePoints', () => {
-    if (document.body.classList.contains('panic-mode-active')) return; 
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-
-    let deletedMarker = false;
-    const initialMarkerCount = window.timelineMarkers.length;
-    window.timelineMarkers = window.timelineMarkers.filter(m => !m.selected);
-    if (window.timelineMarkers.length !== initialMarkerCount) {
-        deletedMarker = true;
-    }
-
-    const actions = getSafeActions();
-    let hasSelection = actions.some(a => a.selected);
-    if (!hasSelection && !deletedMarker) {
-        const closest = getPointUnderPlayhead(actions);
-        if (closest) closest.selected = true; 
-    }
-    
-    if (actions.some(a => a.selected) || deletedMarker) {
-        saveHistoryState();
-        actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
-        notifyCloud(); window.updateHeatmapAndStats();
-        window.drawTimeline();
-    }
-});
-
-window.addEventListener('undoAction', () => { 
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    undo(); 
-});
-window.addEventListener('redoAction', () => { 
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    redo(); 
-});
-
-window.addEventListener('selectAllPoints', () => {
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    getSafeActions().forEach(a => a.selected = true);
-    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    window.drawTimeline();
-});
-
-window.addEventListener('copyPoints', () => {
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    const selected = getSafeActions().filter(a => a.selected);
-    if (selected.length > 0) {
-        const baseTime = selected[0].at;
-        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos), isSync: a.isSync||false }));
-    }
-});
-
-window.addEventListener('cutPoints', () => {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    const actions = getSafeActions();
-    const selected = actions.filter(a => a.selected);
-    if (selected.length > 0) {
-        const baseTime = selected[0].at;
-        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos), isSync: a.isSync||false }));
-        saveHistoryState();
-        actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-        window.drawTimeline();
-    }
-});
-
-window.addEventListener('pastePoints', () => {
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    if (window.clipboardFunscript && window.clipboardFunscript.length > 0) {
-        getSafeActions().forEach(a => a.selected = false); 
-        window.isPastingMode = true;
-        window.timelineGhostPreset = window.clipboardFunscript;
-        window.timelineGhostTimeMs = null;
-        if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
-            updateGhostPosition(window.lastMouseX, window.lastMouseY);
-        }
-        window.drawTimeline();
-    }
 });
 
 // ==========================================
@@ -886,26 +648,36 @@ window.drawTimeline = function() {
             return; 
         }
 
+        // 🎯 FIX: Gráfico de Sonido de Alta Fidelidad
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
-            ctx.lineWidth = 1;
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
-            ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.9)' : (isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)'); 
+            ctx.fillStyle = isMuted ? 'rgba(239, 68, 68, 0.4)' : (isLight ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255, 255, 255, 0.25)'); 
             ctx.beginPath();
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
             const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
             const yCenter = canvas.height / 2;
-            const boostHeight = canvas.height * 0.30; 
-
+            const boostHeight = canvas.height * 0.40; 
+            
+            let started = false;
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
                 if (x >= 30) {
-                    const amplitude = (window.audioPeaks[i] / window.audioMaxPeak) * boostHeight; 
-                    ctx.moveTo(x, yCenter - amplitude);
+                    const amplitude = (window.audioPeaks[i].max / window.audioMaxPeak) * boostHeight; 
+                    if (!started) { ctx.moveTo(x, yCenter - amplitude); started = true; }
+                    else { ctx.lineTo(x, yCenter - amplitude); }
+                }
+            }
+            for(let i = endIdx; i >= startIdx; i--) {
+                const timeMs = (i / window.audioPeaksSampleRate) * 1000;
+                const x = timeToX(timeMs);
+                if (x >= 30) {
+                    const amplitude = (Math.abs(window.audioPeaks[i].min) / window.audioMaxPeak) * boostHeight; 
                     ctx.lineTo(x, yCenter + amplitude);
                 }
             }
-            ctx.stroke();
+            ctx.closePath();
+            ctx.fill();
         }
 
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
@@ -1242,15 +1014,23 @@ window.drawTimeline = function() {
             ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
         }
 
-        // 🎯 FIX 2: Animación y Decaimiento del Momentum del Scroll (⏩ / ⏪)
+        // 🎯 FIX: Gradiente atmosférico lateral basado en la inercia (Momentum)
         if (Math.abs(window.scrollMomentum) > 0.5) {
-            ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255, 255, 255, 0.6)';
-            ctx.font = '24px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText(window.scrollMomentum > 0 ? '⏩' : '⏪', canvas.width - 20, 30);
-            ctx.textAlign = 'left';
+            const alpha = Math.min(0.5, Math.abs(window.scrollMomentum) / 20);
+            if (window.scrollMomentum > 0) {
+                const grad = ctx.createLinearGradient(canvas.width - 100, 0, canvas.width, 0);
+                grad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+                grad.addColorStop(1, `rgba(56, 189, 248, ${alpha})`);
+                ctx.fillStyle = grad;
+                ctx.fillRect(canvas.width - 100, 0, 100, canvas.height);
+            } else {
+                const grad = ctx.createLinearGradient(30, 0, 130, 0);
+                grad.addColorStop(0, `rgba(56, 189, 248, ${alpha})`);
+                grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(30, 0, 100, canvas.height);
+            }
             
-            // Fricción (decay) para ir frenando la animación
             window.scrollMomentum *= 0.9;
             if (Math.abs(window.scrollMomentum) < 0.5) window.scrollMomentum = 0;
         }
