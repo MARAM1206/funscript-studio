@@ -1,5 +1,5 @@
 // ==========================================================================
-// WORKSPACE MANAGER V1.14.3 (100% RESPONSIVO, BARRERAS FÍSICAS Y MEMORIA)
+// WORKSPACE MANAGER V1.14.4 (100% RESPONSIVO Y DUAL SLIDER INTEGRADO)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -337,4 +337,31 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
+
+    // 🎯 FIX 4: Lógica de la interfaz gráfica del Inyector Rápido (Dual Slider)
+    const minSlider = document.getElementById('min-slider');
+    const maxSlider = document.getElementById('max-slider');
+    const dualFill = document.getElementById('dual-slider-fill');
+    const minLabel = document.getElementById('min-label');
+    const maxLabel = document.getElementById('max-label');
+
+    function updateDualSlider() {
+        if (!minSlider || !maxSlider || !dualFill) return;
+        let val1 = parseInt(minSlider.value);
+        let val2 = parseInt(maxSlider.value);
+        let minVal = Math.min(val1, val2);
+        let maxVal = Math.max(val1, val2);
+        
+        dualFill.style.left = `${minVal}%`;
+        dualFill.style.width = `${maxVal - minVal}%`;
+        
+        if (minLabel) minLabel.innerText = `⬇️ Min: ${minVal}%`;
+        if (maxLabel) maxLabel.innerText = `⬆️ Max: ${maxVal}%`;
+    }
+
+    if (minSlider && maxSlider) {
+        minSlider.addEventListener('input', updateDualSlider);
+        maxSlider.addEventListener('input', updateDualSlider);
+        updateDualSlider();
+    }
 });
