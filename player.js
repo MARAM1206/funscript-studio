@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.26.2 (IMPORTADOR UNIVERSAL BLINDADO)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.26.3 (AUDIO HD Y ONBOARDING ANIMADO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -22,7 +22,7 @@ document.addEventListener('mousemove', (e) => {
     window.globalMouseY = e.clientY;
 });
 
-// 🎯 FIX 1: Listeners Globales Anti-Navegador para Drag & Drop
+// Listeners Globales Anti-Navegador para Drag & Drop
 document.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -32,7 +32,7 @@ document.addEventListener('dragenter', (e) => {
     e.stopPropagation();
 });
 document.addEventListener('drop', (e) => {
-    if (window.isDraggingPreset) return; // Si arrastramos presets dentro de la app, ignoramos
+    if (window.isDraggingPreset) return; 
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer && e.dataTransfer.files.length > 0) {
@@ -47,7 +47,7 @@ universalInput?.addEventListener('change', (e) => {
     e.target.value = '';
 });
 
-// 🎯 FIX 1: Motor Universal de Importación (Videos + Funscripts)
+// Motor Universal de Importación (Videos + Funscripts)
 window.handleUniversalFiles = function(filesArray) {
     let funscripts = [];
     for(let i=0; i<filesArray.length; i++) {
@@ -65,14 +65,14 @@ window.handleUniversalFiles = function(filesArray) {
                 if(typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
                 if(typeof window.checkEmptyState === 'function') window.checkEmptyState();
                 
-                // Extracción agresiva de audio para BPM y Heatmap
+                // 🎯 FIX: Extracción de audio en Alta Definición (8000 muestras con envolvente)
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     audioCtx.decodeAudioData(e.target.result, function(buffer) {
                         window.currentAudioBuffer = buffer;
                         const data = buffer.getChannelData(0);
-                        const step = Math.ceil(data.length / 3000); 
+                        const step = Math.ceil(data.length / 8000); 
                         window.audioPeaks = [];
                         let maxPeak = 0;
                         for(let j=0; j<data.length; j+=step) {
@@ -82,9 +82,9 @@ window.handleUniversalFiles = function(filesArray) {
                                 if(val < min) min = val;
                                 if(val > max) max = val;
                             }
-                            let peak = Math.max(Math.abs(min), Math.abs(max));
-                            window.audioPeaks.push(peak);
-                            if(peak > maxPeak) maxPeak = peak;
+                            window.audioPeaks.push({min: min, max: max}); 
+                            if(Math.abs(min) > maxPeak) maxPeak = Math.abs(min);
+                            if(Math.abs(max) > maxPeak) maxPeak = Math.abs(max);
                         }
                         window.audioMaxPeak = maxPeak;
                         window.audioPeaksSampleRate = buffer.sampleRate / step;
@@ -186,6 +186,56 @@ function virtualPlayLoop() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // 🎯 FIX: Lógica de Bienvenida (Onboarding) y Animación de Vuelo
+    const onboardingModal = document.getElementById('device-onboarding-modal');
+    const hasOnboarded = localStorage.getItem('funscript_has_onboarded');
+    
+    if (!hasOnboarded && onboardingModal) {
+        onboardingModal.style.display = 'flex';
+        
+        document.querySelectorAll('.onboarding-device-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const dev = btn.getAttribute('data-device');
+                window.activeDevice = dev;
+                localStorage.setItem('funscript_has_onboarded', 'true');
+                
+                // Actualiza el texto en el menú principal
+                const menuBtn = document.getElementById('device-menu-btn');
+                if (menuBtn) {
+                    menuBtn.innerText = `📱 ${btn.innerText}`;
+                    menuBtn.classList.remove('device-alert-pulse');
+                }
+                
+                // Marca como seleccionado en la lista desplegable interna
+                document.querySelectorAll('#device-dropdown-list a').forEach(el => el.classList.remove('selected-device'));
+                const targetLink = document.querySelector(`#device-dropdown-list a[data-device="${dev}"]`);
+                if (targetLink) targetLink.classList.add('selected-device');
+
+                // Calcula la trayectoria de vuelo hacia el botón de dispositivos
+                const rectBtn = btn.getBoundingClientRect();
+                const rectTarget = menuBtn ? menuBtn.getBoundingClientRect() : {left: window.innerWidth/2, top: 0, width: 0, height: 0};
+                const tgtCx = rectTarget.left + rectTarget.width/2;
+                const tgtCy = rectTarget.top + rectTarget.height/2;
+                
+                const card = document.querySelector('.onboarding-card');
+                if (card) {
+                    card.style.setProperty('--fly-x', `${tgtCx - (window.innerWidth/2)}px`);
+                    card.style.setProperty('--fly-y', `${tgtCy - (window.innerHeight/2)}px`);
+                    card.classList.add('fly-away');
+                    
+                    setTimeout(() => {
+                        onboardingModal.style.display = 'none';
+                        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                    }, 600);
+                } else {
+                    onboardingModal.style.display = 'none';
+                    if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                }
+            });
+        });
+    }
+
     const savedTheme = localStorage.getItem('funscript_theme');
     if (savedTheme === 'light') {
         document.body.classList.add('light-theme');
@@ -808,19 +858,22 @@ window.addEventListener('keydown', (event) => {
     const msPerFrame = 1000 / window.videoFPS;
     const stepTimePrecision = (framesToJump * msPerFrame) / 1000; 
 
+    // 🎯 FIX: Momentum inyectado a los saltos manuales con Q/W y A/S
     if (key === 'q' && !event.ctrlKey) { 
         event.preventDefault(); 
         window.setActualTimeMs(window.getActualTimeMs() - stepTimePrecision * 1000); 
+        window.scrollMomentum = -5;
         forcePan(); 
     }
     if (key === 'w' && !event.ctrlKey) { 
         event.preventDefault(); 
         window.setActualTimeMs(window.getActualTimeMs() + stepTimePrecision * 1000); 
+        window.scrollMomentum = 5;
         forcePan(); 
     }
     
-    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() - 5000); forcePan(); }
-    if (key === 's' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() + 5000); forcePan(); }
+    if (key === 'a' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() - 5000); window.scrollMomentum = -10; forcePan(); }
+    if (key === 's' && !event.ctrlKey) { event.preventDefault(); window.setActualTimeMs(window.getActualTimeMs() + 5000); window.scrollMomentum = 10; forcePan(); }
 
     const syncSlider = () => { if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection(); };
 
