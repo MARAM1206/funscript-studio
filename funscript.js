@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V49.0 (BLINDAJE GLOBAL DE ARRASTRE ANTI-CRASH)
+// GESTOR DE ARCHIVOS V50.0 (EVITA DUPLICADOS Y TRUNCA NOMBRES LARGOS)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -7,6 +7,53 @@ window.loadedFunscriptTracks = [];
 const funscriptInput = document.getElementById('funscript-input');
 const exportBtn = document.getElementById('export-btn');
 const tracksListContainer = document.getElementById('tracks-list');
+
+window.loadVideoFile = async function(file, hasFunscripts = false) {
+    const videoURL = URL.createObjectURL(file);
+    const videoPlayer = document.getElementById('video-player');
+    if (!videoPlayer) return;
+    videoPlayer.src = videoURL;
+    videoPlayer.load();
+    const videoVolume = document.getElementById('video-volume');
+    if (videoVolume) videoPlayer.volume = videoVolume.value;
+    window.currentVideoName = file.name;
+    
+    const vName = document.getElementById('v-name');
+    if (vName) { vName.innerText = file.name; vName.title = file.name; }
+    
+    if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
+    if (typeof window.checkEmptyState === 'function') window.checkEmptyState();
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); 
+        const audioData = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        window.currentAudioBuffer = audioData; 
+        
+        const channelData = audioData.getChannelData(0); 
+        const samplesPerSec = 100; 
+        const step = Math.floor(audioData.sampleRate / samplesPerSec);
+        const peaks = new Float32Array(Math.floor(channelData.length / step));
+        
+        let absoluteMaxPeak = 0;
+        for(let i = 0; i < peaks.length; i++) {
+            let max = 0;
+            for(let j = 0; j < step; j++) {
+                let val = Math.abs(channelData[i*step + j]);
+                if(val > max) max = val;
+            }
+            peaks[i] = max;
+            if (max > absoluteMaxPeak) absoluteMaxPeak = max;
+        }
+        
+        window.audioPeaks = peaks;
+        window.audioPeaksSampleRate = samplesPerSec;
+        window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; 
+        
+        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+    } catch (err) {}
+};
 
 window.createEmptyTrack = function(baseName) {
     const colorIndex = window.loadedFunscriptTracks.length % TRACK_COLORS.length;
@@ -77,15 +124,16 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
+// 🎯 FIX: Flexbox con min-width: 0 para que los ... funcionen perfectamente sin expandir el panel
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
     let htmlContent = '';
 
     if (window.currentVideoName) {
         htmlContent += `
-        <div class="file-manager-video" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--bg-hover); border-radius: 6px; border-left: 3px solid #facc15; margin-bottom: 6px;">
-            <span style="font-weight: 600; font-size: 0.75rem; color: #facc15; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${window.currentVideoName}">${window.currentVideoName}</span>
-            <button class="track-btn delete-video-btn" style="color: #ef4444; margin-left: 10px; font-size: 0.8rem;" title="Quitar Video">🗑️</button>
+        <div class="file-manager-video" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--bg-hover); border-radius: 6px; border-left: 3px solid #facc15; margin-bottom: 6px; min-width: 0;">
+            <span style="font-weight: 600; font-size: 0.75rem; color: #facc15; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; min-width: 0; flex-grow: 1;" title="${window.currentVideoName}">${window.currentVideoName}</span>
+            <button class="track-btn delete-video-btn" style="color: #ef4444; margin-left: 10px; font-size: 0.8rem; flex-shrink: 0;" title="Quitar Video">🗑️</button>
         </div>`;
     }
 
@@ -101,12 +149,12 @@ window.updateFileManagerUI = function() {
             const isLast = idx === window.loadedFunscriptTracks.length - 1;
             return `
             <div style="display: flex; align-items: center;">
-                ${window.currentVideoName ? `<span style="color: var(--border-color); font-family: monospace; margin-left: 10px; margin-right: 5px; font-size: 0.7rem;">${isLast ? '└─' : '├─'}</span>` : ''}
-                <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="flex-grow: 1; display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: var(--bg-input); border-radius: 6px; border-left: 3px solid ${track.color};">
-                    <div class="track-info" style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                        <span class="track-name" style="color: ${track.color}; font-size: 0.7rem; font-weight: normal; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${track.name}">${track.name}</span>
+                ${window.currentVideoName ? `<span style="color: var(--border-color); font-family: monospace; margin-left: 10px; margin-right: 5px; font-size: 0.7rem; flex-shrink: 0;">${isLast ? '└─' : '├─'}</span>` : ''}
+                <div class="file-manager-script ${track.isPrimary ? 'is-primary' : ''}" style="flex-grow: 1; display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: var(--bg-input); border-radius: 6px; border-left: 3px solid ${track.color}; min-width: 0;">
+                    <div class="track-info" style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex-grow: 1; min-width: 0;">
+                        <span class="track-name" style="color: ${track.color}; font-size: 0.7rem; font-weight: normal; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; display: block; min-width: 0;" title="${track.name}">${track.name}</span>
                     </div>
-                    <div class="track-actions" style="display: flex; align-items: center; gap: 6px;">
+                    <div class="track-actions" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
                         ${showExtraControls ? (track.isPrimary ? `<span class="primary-badge" style="background: ${track.color}; font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; color: #fff;">PRINCIPAL</span>` : `<button class="track-btn set-primary-btn" data-id="${track.id}" style="font-size: 0.75rem;">⭐</button>`) : ''}
                         <button class="track-btn toggle-vis-btn" data-id="${track.id}" style="font-size: 0.75rem; display: ${showExtraControls ? 'inline-block' : 'none'};">${track.visible ? '👁️' : '🙈'}</button>
                         <button class="track-btn delete-track-btn" data-id="${track.id}" style="color: #ef4444; font-size: 0.75rem;">🗑️</button>
@@ -120,8 +168,9 @@ window.updateFileManagerUI = function() {
     tracksListContainer.innerHTML = htmlContent;
 
     document.querySelectorAll('.delete-video-btn').forEach(btn => btn.addEventListener('click', function() {
-        if (window.videoPlayer) {
-            window.videoPlayer.src = "";
+        const videoPlayer = document.getElementById('video-player');
+        if (videoPlayer) {
+            videoPlayer.src = "";
             window.currentVideoName = null;
             window.audioPeaks = null; 
             const vName = document.getElementById('v-name');
@@ -183,9 +232,9 @@ exportBtn?.addEventListener('click', () => {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
 });
 
-// 🎯 FIX: Eventos globales de Drag and Drop blindados con preventDefault() absoluto
+// 🎯 FIX: Eventos globales de arrastre unificados aquí para que no haya archivos duplicados
 window.addEventListener('dragover', (e) => { 
-    e.preventDefault(); // NUNCA remover esta línea. Evita el cursor congelado.
+    e.preventDefault(); 
     if (window.isDraggingPreset) return; 
     if (!e.dataTransfer || !e.dataTransfer.types || !e.dataTransfer.types.includes('Files')) return; 
 });
@@ -200,6 +249,6 @@ window.addEventListener('drop', (e) => {
     const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
 
     const hasFunscripts = funscriptFiles.length > 0;
-    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
+    if (videoFiles.length > 0) window.loadVideoFile(videoFiles[0], hasFunscripts);
     if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
