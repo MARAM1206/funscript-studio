@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.26.0 (MARCADORES Y CTRL+V BLINDADOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.26.2 (IMPORTADOR UNIVERSAL BLINDADO)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -14,13 +14,94 @@ window.isPastingMode = false;
 window.currentAudioBuffer = null;
 window.fsTimelineVisible = true; 
 
-// 🎯 FIX: Rastreador Global de Ratón para poder pegar (Ctrl+V) sin arrastrar
+// Rastreador Global de Ratón para poder pegar (Ctrl+V) sin arrastrar
 window.globalMouseX = 0;
 window.globalMouseY = 0;
 document.addEventListener('mousemove', (e) => {
     window.globalMouseX = e.clientX;
     window.globalMouseY = e.clientY;
 });
+
+// 🎯 FIX 1: Listeners Globales Anti-Navegador para Drag & Drop
+document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+});
+document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+});
+document.addEventListener('drop', (e) => {
+    if (window.isDraggingPreset) return; // Si arrastramos presets dentro de la app, ignoramos
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+        window.handleUniversalFiles(e.dataTransfer.files);
+    }
+});
+
+universalInput?.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        window.handleUniversalFiles(e.target.files);
+    }
+    e.target.value = '';
+});
+
+// 🎯 FIX 1: Motor Universal de Importación (Videos + Funscripts)
+window.handleUniversalFiles = function(filesArray) {
+    let funscripts = [];
+    for(let i=0; i<filesArray.length; i++) {
+        let file = filesArray[i];
+        let ext = file.name.split('.').pop().toLowerCase();
+        
+        if (file.type.startsWith('video/') || ['mp4','webm','mov','mkv'].includes(ext)) {
+            if (videoPlayer) {
+                videoPlayer.src = URL.createObjectURL(file);
+                window.currentVideoName = file.name;
+                const vName = document.getElementById('v-name');
+                if(vName) vName.innerText = file.name;
+                
+                window.audioPeaks = null;
+                if(typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
+                if(typeof window.checkEmptyState === 'function') window.checkEmptyState();
+                
+                // Extracción agresiva de audio para BPM y Heatmap
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    audioCtx.decodeAudioData(e.target.result, function(buffer) {
+                        window.currentAudioBuffer = buffer;
+                        const data = buffer.getChannelData(0);
+                        const step = Math.ceil(data.length / 3000); 
+                        window.audioPeaks = [];
+                        let maxPeak = 0;
+                        for(let j=0; j<data.length; j+=step) {
+                            let min = 1.0, max = -1.0;
+                            for(let k=0; k<step && (j+k)<data.length; k++) {
+                                let val = data[j+k];
+                                if(val < min) min = val;
+                                if(val > max) max = val;
+                            }
+                            let peak = Math.max(Math.abs(min), Math.abs(max));
+                            window.audioPeaks.push(peak);
+                            if(peak > maxPeak) maxPeak = peak;
+                        }
+                        window.audioMaxPeak = maxPeak;
+                        window.audioPeaksSampleRate = buffer.sampleRate / step;
+                        if (typeof window.drawTimeline === 'function') window.drawTimeline();
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        } else if (['funscript','json'].includes(ext)) {
+            funscripts.push(file);
+        }
+    }
+    
+    if (funscripts.length > 0 && typeof window.loadFunscriptFiles === 'function') {
+        window.loadFunscriptFiles(funscripts);
+    }
+};
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -331,7 +412,6 @@ videoPlayer?.addEventListener('seeked', () => {
     if (!videoPlayer.paused && typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
-// 🎯 FIX: Marcadores exactos limitados a 4px de alto, centrados milimétricamente.
 window.drawProgressMarkers = function() {
     const c = document.getElementById('progress-markers-canvas');
     if(!c || !videoPlayer || !videoPlayer.duration || !window.timelineMarkers) return;
@@ -339,7 +419,7 @@ window.drawProgressMarkers = function() {
     const rect = c.parentElement.getBoundingClientRect();
     if (rect.width === 0) return;
     c.width = rect.width; 
-    c.height = 4; // Fijo a la altura de la pista visual, jamás invadirá el Heatmap
+    c.height = 4; 
 
     const ctx = c.getContext('2d');
     ctx.clearRect(0,0, c.width, c.height);
@@ -347,12 +427,11 @@ window.drawProgressMarkers = function() {
     const totalMs = videoPlayer.duration * 1000;
     if(totalMs <= 0) return;
     
-    const thumbW = 12; // Ancho del Thumb del CSS
+    const thumbW = 12; 
     const usableWidth = c.width - thumbW;
     
     window.timelineMarkers.forEach(m => {
         ctx.fillStyle = m.isBPM ? '#0ea5e9' : '#facc15'; 
-        // Se alinea la barra calculando exactamente el centro de la bolita azul
         const px = (thumbW / 2) + (m.at / totalMs) * usableWidth;
         ctx.fillRect(px - 1, 0, 2, c.height);
     });
@@ -649,7 +728,6 @@ window.addEventListener('keydown', (event) => {
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
         
-        // 🎯 FIX: Capturamos la posición del ratón para que el Ctrl+V sepa dónde renderizar la vista previa
         if (key === 'v') { 
             event.preventDefault(); 
             const c = document.getElementById('timeline-canvas');
