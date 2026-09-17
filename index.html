@@ -135,9 +135,11 @@
     <div class="workspace-container">
         
         <div id="panel-video" class="workspace-panel" data-title="Reproductor">
-            <div class="panel-header video-info-bar" style="display: flex; justify-content: space-between;">
-                <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; max-width: 400px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">Sin video</span>
-                <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal; margin-left: auto;">
+            <!-- 🎯 FIX: Título truncado elegantemente sin aplastar los controles de la derecha -->
+            <div class="panel-header video-info-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap;">
+                <span id="v-name" class="info-text-white" style="flex-grow: 1; text-align: left; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 15px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0; text-shadow:none;">Sin video</span>
+                
+                <div class="video-info-right" onmousedown="event.stopPropagation()" style="cursor: default; font-weight: normal; margin-left: auto; flex-shrink: 0; display: flex; align-items: center;">
                     <span id="v-res" class="fixed-info" style="color:#38bdf8; font-weight: normal;">--x--</span> <span class="divider">|</span> 
                     <span id="v-fps" class="fixed-info" style="color:#38bdf8; font-weight: normal;">-- fps</span> <span class="divider">|</span> 
                     <span id="v-speed" class="fixed-info" style="color:#38bdf8; font-weight: normal;">⚡ Vel: 1.0x</span> <span class="divider">|</span> 
@@ -161,28 +163,28 @@
                     <canvas id="fs-timeline-canvas" class="fs-timeline"></canvas>
                 </div>
 
-                <div class="video-bottom-unified-bar" style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 15px; border-top: 1px solid var(--border-color); width: 100%; background: var(--bg-panel); z-index: 20;">
+                <div class="video-bottom-unified-bar" style="display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 15px 4px 15px; border-top: 1px solid var(--border-color); width: 100%; background: var(--bg-panel); z-index: 20;">
                     
-                    <div style="display: flex; align-items: center; width: 100%; gap: 12px;">
-                        <span id="v-time-current" style="width: 40px; text-align: right; font-family: 'Inter', monospace; font-size: 0.65rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none;" title="Clic para alternar tiempo restante">00:00</span>
+                    <div style="display: flex; align-items: center; width: 100%; gap: 12px; height: 14px;">
+                        <span id="v-time-current" style="width: 45px; text-align: right; font-family: 'Inter', monospace; font-size: 0.6rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none; line-height: 1;" title="Clic para alternar tiempo restante">00:00</span>
                         
-                        <div class="progress-slider-wrapper" style="flex-grow: 1; position: relative; height: 14px; display: flex; align-items: center;">
+                        <div class="progress-slider-wrapper">
                             <input type="range" id="video-progress" class="custom-progress" min="0" max="100" step="0.1" value="0">
                             <div id="ghost-thumb" class="ghost-thumb"></div> 
-                            <canvas id="progress-markers-canvas" class="heatmap-canvas" style="position:absolute; top:0; left:0; pointer-events:none; z-index:4; opacity: 1;"></canvas>
+                            <canvas id="progress-markers-canvas"></canvas>
                         </div>
                         
-                        <span id="v-time-total" style="width: 40px; text-align: left; font-family: 'Inter', monospace; font-size: 0.65rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none;" title="Clic para alternar tiempo restante">00:00</span>
+                        <span id="v-time-total" style="width: 45px; text-align: left; font-family: 'Inter', monospace; font-size: 0.6rem; color: #e2e8f0; font-weight: 600; cursor: pointer; user-select: none; line-height: 1;" title="Clic para alternar tiempo restante">00:00</span>
                     </div>
 
                     <div style="display: flex; width: 100%; gap: 12px; align-items: center;">
-                        <div style="width: 40px; flex-shrink: 0;"></div>
+                        <div style="width: 45px; flex-shrink: 0;"></div>
                         
                         <div class="heatmap-wrapper" style="flex-grow: 1; position: relative; height: 15px; border-radius: 2px; overflow: hidden; background: transparent; border: 1px solid var(--border-color);">
                             <canvas id="heatmap-canvas" class="heatmap-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 1;"></canvas>
                         </div>
                         
-                        <div style="width: 40px; flex-shrink: 0;"></div>
+                        <div style="width: 45px; flex-shrink: 0;"></div>
                     </div>
 
                 </div>
@@ -357,15 +359,15 @@
 
     </div>
 
-    <script src="workspace.js?v=1.15.0"></script>
-    <script src="handy.js?v=1.15.0"></script> 
-    <script src="funscript.js?v=1.15.0"></script>
-    <script src="player.js?v=1.15.0"></script>
-    <script src="presets.js?v=1.15.0"></script>
-    <script src="timeline.js?v=1.15.0"></script>
-    <script src="twin.js?v=1.15.0"></script>
-    <script src="humanizer.js?v=1.15.0"></script>
-    <script src="bpm.js?v=1.15.0"></script>
-    <script src="mass.js?v=1.15.0"></script>
+    <script src="workspace.js?v=1.14.8"></script>
+    <script src="handy.js?v=1.14.8"></script> 
+    <script src="funscript.js?v=1.14.8"></script>
+    <script src="player.js?v=1.14.8"></script>
+    <script src="presets.js?v=1.14.8"></script>
+    <script src="timeline.js?v=1.14.8"></script>
+    <script src="twin.js?v=1.14.8"></script>
+    <script src="humanizer.js?v=1.14.8"></script>
+    <script src="bpm.js?v=1.14.8"></script>
+    <script src="mass.js?v=1.14.8"></script>
 </body>
 </html>
