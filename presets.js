@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.24.0 (CONTROL AISLADO Y ARRASTRE NATIVO SEGURO)
+// PRESETS MANAGER V1.26.0 (CONTROL AISLADO Y DIAMANTE ANCLA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -425,13 +425,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
                 if (x >= 20 && x <= pCanvas.width + 20) {
                     if (a.isSync) {
-                        pCtx.fillStyle = '#facc15'; 
+                        // 🎯 FIX: Diamante de Ancla en el Editor
+                        pCtx.fillStyle = '#06b6d4'; 
                         pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
                         pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
-                        pCtx.fillStyle = '#0f172a'; 
+                        pCtx.fillStyle = '#ffffff'; 
                         pCtx.font = '12px monospace'; 
                         pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
-                        pCtx.fillText('⚓', x, y+1); 
+                        pCtx.fillText('♦', x, y+1); 
                         pCtx.textAlign = 'left'; pCtx.textBaseline = 'alphabetic';
                     } else {
                         pCtx.fillStyle = a.selected ? '#f59e0b' : '#0284c7';
@@ -538,7 +539,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
 
-    // 🎯 FIX: Controles exclusivos para el Editor de Presets (Ctrl+Z y más)
     window.addEventListener('undoAction', () => { if (modal && modal.style.display === 'flex') pUndo(); });
     window.addEventListener('redoAction', () => { if (modal && modal.style.display === 'flex') pRedo(); });
     
