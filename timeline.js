@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.26.1 (MOTOR DE ARRANQUE BLINDADO Y EVENTOS AISLADOS)
+// TIMELINE V1.26.2 (CENTRADOS Q/W CORREGIDOS Y MOMENTUM RESTAURADO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -290,7 +290,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
 };
 
 // ==========================================
-// HISTORIAL (UNDO/REDO)
+// HISTORIAL (UNDO/REDO) Y SCROLL PAN
 // ==========================================
 function saveHistoryState() { 
     undoStack.push(JSON.stringify(getSafeActions())); 
@@ -319,6 +319,21 @@ function redo() {
         window.drawTimeline();
     }
 }
+
+// 🎯 FIX 1: Lógica para forzar el encuadre (Pan) desde atajos como Q y W
+window.addEventListener('forceTimelinePan', (e) => {
+    const canvas = document.getElementById('timeline-canvas');
+    if (!canvas || canvas.width === 0) return;
+    const visibleMs = (canvas.width - 30) / (window.basePixelsPerMs * window.zoom);
+    
+    let targetTime = window.getActualTimeMs();
+    if (e && e.detail && e.detail.timeMs !== undefined) {
+        targetTime = e.detail.timeMs;
+    }
+    
+    window.scrollLeftMs = Math.max(0, targetTime - (visibleMs / 2));
+    window.drawTimeline();
+});
 
 // ==========================================
 // EVENTOS PERSONALIZADOS (ATAJOS Y BOTONES)
@@ -771,7 +786,7 @@ window.drawTimeline = function() {
     try {
         if (!ensureCanvasSize()) return;
         const canvas = document.getElementById('timeline-canvas');
-        if (!canvas || canvas.width === 0 || canvas.height === 0) return; // 🎯 FIX: Blindaje absoluto contra anchos cero
+        if (!canvas || canvas.width === 0 || canvas.height === 0) return; 
         
         const ctx = canvas.getContext('2d');
         
@@ -805,7 +820,7 @@ window.drawTimeline = function() {
             const startTimeMs = Math.max(0, xToTime(30));
             const endTimeMs = xToTime(canvas.width);
             
-            if (!isFinite(endTimeMs) || stepMs <= 0) return; // 🎯 FIX: Blindaje contra bucles infinitos en modo pánico
+            if (!isFinite(endTimeMs) || stepMs <= 0) return;
             
             let t = Math.floor(startTimeMs / stepMs) * stepMs;
 
@@ -923,7 +938,7 @@ window.drawTimeline = function() {
         const startTimeMs = Math.max(0, xToTime(30));
         const endTimeMs = xToTime(canvas.width);
         
-        if (!isFinite(endTimeMs) || stepMs <= 0) return; // 🎯 FIX: Blindaje contra bucles infinitos en el grid estándar
+        if (!isFinite(endTimeMs) || stepMs <= 0) return; 
 
         let t = Math.floor(startTimeMs / stepMs) * stepMs;
 
@@ -1227,6 +1242,19 @@ window.drawTimeline = function() {
             ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(playheadX - 6, 0); ctx.lineTo(playheadX + 6, 0); ctx.lineTo(playheadX, 8); ctx.closePath(); ctx.fill();
         }
 
+        // 🎯 FIX 2: Animación y Decaimiento del Momentum del Scroll (⏩ / ⏪)
+        if (Math.abs(window.scrollMomentum) > 0.5) {
+            ctx.fillStyle = isLight ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '24px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(window.scrollMomentum > 0 ? '⏩' : '⏪', canvas.width - 20, 30);
+            ctx.textAlign = 'left';
+            
+            // Fricción (decay) para ir frenando la animación
+            window.scrollMomentum *= 0.9;
+            if (Math.abs(window.scrollMomentum) < 0.5) window.scrollMomentum = 0;
+        }
+
         if (document.fullscreenElement) {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) {
@@ -1305,7 +1333,6 @@ function initTimelineEvents() {
         } else {
             const panStep = (w / (bpm * z)) * 0.10; 
             if (e.deltaY < 0) {
-                // 🎯 FIX: Scroll invertido. Ahora la rueda sigue la dirección natural.
                 window.scrollLeftMs += panStep; 
                 window.scrollMomentum = Math.min((window.scrollMomentum || 0) + 3, 10);
             } else {
@@ -1343,7 +1370,6 @@ function initTimelineEvents() {
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         }
 
-        // 🎯 FIX: Redibujo inmediato del Canvas para que la Rueda del ratón avance suavemente
         window.drawTimeline();
     }, { passive: false });
 
@@ -1782,7 +1808,6 @@ function initTimelineEvents() {
 // ==========================================
 function bootTimelineEngine() {
     const c = document.getElementById('timeline-canvas');
-    // Esperamos activamente a que workspace.js le dé un ancho real al contenedor
     if (!c || c.parentElement.clientWidth === 0) {
         requestAnimationFrame(bootTimelineEngine);
         return;
