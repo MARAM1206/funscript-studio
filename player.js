@@ -1,5 +1,5 @@
 // ==========================================================================
-// REPRODUCTOR Y MOTOR DE ATAJOS V1.24.0 (MARCADORES Y TOGGLE BLINDADOS)
+// REPRODUCTOR Y MOTOR DE ATAJOS V1.26.0 (MARCADORES Y CTRL+V BLINDADOS)
 // ==========================================================================
 
 const videoPlayer = document.getElementById('video-player');
@@ -13,6 +13,14 @@ window.clipboardFunscript = null;
 window.isPastingMode = false; 
 window.currentAudioBuffer = null;
 window.fsTimelineVisible = true; 
+
+// 🎯 FIX: Rastreador Global de Ratón para poder pegar (Ctrl+V) sin arrastrar
+window.globalMouseX = 0;
+window.globalMouseY = 0;
+document.addEventListener('mousemove', (e) => {
+    window.globalMouseX = e.clientX;
+    window.globalMouseY = e.clientY;
+});
 
 const vName = document.getElementById('v-name');
 const vRes = document.getElementById('v-res');
@@ -268,92 +276,6 @@ videoPlayer?.addEventListener('click', () => {
     togglePlayback();
 });
 
-universalInput?.addEventListener('change', function(event) {
-    const files = Array.from(event.target.files);
-    const videoFiles = files.filter(f => f.type.startsWith('video/'));
-    const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-
-    const hasFunscripts = funscriptFiles.length > 0;
-    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
-    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
-    
-    event.target.value = '';
-    window.checkEmptyState();
-});
-
-window.addEventListener('drop', (e) => {
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); 
-    
-    const files = Array.from(e.dataTransfer.files);
-    const videoFiles = files.filter(f => f.type.startsWith('video/'));
-    const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-
-    const hasFunscripts = funscriptFiles.length > 0;
-    if (videoFiles.length > 0) loadVideoFile(videoFiles[0], hasFunscripts);
-    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
-});
-
-window.addEventListener('dragover', (e) => { 
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer.types.includes('Files')) return; 
-    e.preventDefault(); 
-});
-
-async function loadVideoFile(file, hasFunscripts = false) {
-    const videoURL = URL.createObjectURL(file);
-    videoPlayer.src = videoURL;
-    videoPlayer.load();
-    videoPlayer.playbackRate = currentSpeed;
-    const videoVolume = document.getElementById('video-volume');
-    if (videoVolume) videoPlayer.volume = videoVolume.value;
-    window.currentVideoName = file.name;
-    
-    if (vName) {
-        vName.innerText = file.name;
-        vName.title = file.name; 
-    }
-    
-    if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
-    window.checkEmptyState();
-
-    updateVolumeUI(videoPlayer.volume);
-    
-    try {
-        const arrayBuffer = await file.arrayBuffer();
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); 
-        const audioData = await audioCtx.decodeAudioData(arrayBuffer);
-        
-        window.currentAudioBuffer = audioData; 
-        
-        const channelData = audioData.getChannelData(0); 
-        const samplesPerSec = 100; 
-        const step = Math.floor(audioData.sampleRate / samplesPerSec);
-        const peaks = new Float32Array(Math.floor(channelData.length / step));
-        
-        let absoluteMaxPeak = 0;
-
-        for(let i = 0; i < peaks.length; i++) {
-            let max = 0;
-            for(let j = 0; j < step; j++) {
-                let val = Math.abs(channelData[i*step + j]);
-                if(val > max) max = val;
-            }
-            peaks[i] = max;
-            if (max > absoluteMaxPeak) absoluteMaxPeak = max;
-        }
-        
-        window.audioPeaks = peaks;
-        window.audioPeaksSampleRate = samplesPerSec;
-        window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; 
-        
-        updateVolumeUI(videoPlayer.muted ? 0 : videoPlayer.volume);
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-
-    } catch (err) {}
-}
-
 const fsMiniBtn = document.getElementById('fs-mini-btn');
 const videoContainer = document.getElementById('video-container-wrapper');
 
@@ -409,15 +331,15 @@ videoPlayer?.addEventListener('seeked', () => {
     if (!videoPlayer.paused && typeof window.playHandy === 'function') window.playHandy(videoPlayer.currentTime * 1000);
 });
 
-// 🎯 FIX: Marcadores exactos limitados a 4px de alto, centrados con la bolita
+// 🎯 FIX: Marcadores exactos limitados a 4px de alto, centrados milimétricamente.
 window.drawProgressMarkers = function() {
     const c = document.getElementById('progress-markers-canvas');
     if(!c || !videoPlayer || !videoPlayer.duration || !window.timelineMarkers) return;
     
-    const rect = c.getBoundingClientRect();
+    const rect = c.parentElement.getBoundingClientRect();
     if (rect.width === 0) return;
     c.width = rect.width; 
-    c.height = 4; // Fijo a la altura de la pista visual
+    c.height = 4; // Fijo a la altura de la pista visual, jamás invadirá el Heatmap
 
     const ctx = c.getContext('2d');
     ctx.clearRect(0,0, c.width, c.height);
@@ -430,7 +352,7 @@ window.drawProgressMarkers = function() {
     
     window.timelineMarkers.forEach(m => {
         ctx.fillStyle = m.isBPM ? '#0ea5e9' : '#facc15'; 
-        // Desplazamos la posición X para empatar milimétricamente con el centro del thumb (6px offset)
+        // Se alinea la barra calculando exactamente el centro de la bolita azul
         const px = (thumbW / 2) + (m.at / totalMs) * usableWidth;
         ctx.fillRect(px - 1, 0, 2, c.height);
     });
@@ -726,7 +648,19 @@ window.addEventListener('keydown', (event) => {
         
         if (key === 'c') { event.preventDefault(); window.dispatchEvent(new Event('copyPoints')); return; }
         if (key === 'x') { event.preventDefault(); window.dispatchEvent(new Event('cutPoints')); return; }
-        if (key === 'v') { event.preventDefault(); window.dispatchEvent(new Event('pastePoints')); return; }
+        
+        // 🎯 FIX: Capturamos la posición del ratón para que el Ctrl+V sepa dónde renderizar la vista previa
+        if (key === 'v') { 
+            event.preventDefault(); 
+            const c = document.getElementById('timeline-canvas');
+            if (c) {
+                const rect = c.getBoundingClientRect();
+                window.lastMouseX = (window.globalMouseX - rect.left) * (c.width / rect.width);
+                window.lastMouseY = (window.globalMouseY - rect.top) * (c.height / rect.height);
+            }
+            window.dispatchEvent(new Event('pastePoints')); 
+            return; 
+        }
         
         if (key === 'arrowup' || key === 'arrowdown') {
             event.preventDefault(); event.stopPropagation();
