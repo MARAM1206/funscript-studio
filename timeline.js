@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.26.5 (RESTAURACIÓN DE COMANDOS GLOBALES Y ATAJOS)
+// TIMELINE V1.26.6 (AUDIO CLÁSICO, AUTO-CORRECCIÓN Y DIAMANTE ANCLA)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -145,7 +145,7 @@ function yToPos(y) {
 }
 
 // ==========================================
-// INTELIGENCIA ARTIFICIAL DE ESCALA (ANCLAS)
+// INTELIGENCIA ARTIFICIAL DE ESCALA (ANCLAS Y AUTO-CORRECCIÓN)
 // ==========================================
 function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
     if (pSyncVal !== null && tSyncVal !== null) {
@@ -289,8 +289,72 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
+// 🎯 FIX: Corrección Automática Lineal y Continua para Presets Inyectados
+function applyAutoCorrection(pointsArray) {
+    if (!pointsArray || pointsArray.length < 2) return pointsArray;
+    const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
+    let hwMax = device.standard.max;
+    let hwMin = device.standard.min;
+    if (device.supports_overclock && window.isOverclockEnabled && device.overclock) {
+        hwMax = device.overclock.max;
+        hwMin = device.overclock.min;
+    }
+
+    for (let i = 0; i < pointsArray.length - 1; i++) {
+        let act1 = pointsArray[i];
+        let act2 = pointsArray[i+1];
+        let dt = act2.at - act1.at;
+        let dp = Math.abs(act2.pos - act1.pos);
+        if (dt <= 0) continue;
+
+        let speed = (dp * device.factor) / (dt / 1000);
+        let requiredDt = dt;
+
+        if (speed > hwMax) {
+            requiredDt = (dp * device.factor) / hwMax * 1000;
+        } else if (speed < hwMin && dp > 0) {
+            requiredDt = (dp * device.factor) / hwMin * 1000;
+        }
+
+        if (requiredDt !== dt) {
+            let shift = requiredDt - dt;
+            for (let j = i + 1; j < pointsArray.length; j++) {
+                pointsArray[j].at += shift;
+            }
+        }
+    }
+    return pointsArray;
+}
+
+// Herramienta global de corrección para el clic derecho
+function massCorrectSelection(actionsToFix, hwMax, hwMin, factor) {
+    let fixed = false;
+    let shiftAcc = 0;
+    for (let i = 0; i < actionsToFix.length; i++) {
+        if (shiftAcc !== 0) actionsToFix[i].at += shiftAcc;
+        
+        if (i < actionsToFix.length - 1 && actionsToFix[i].selected && actionsToFix[i+1].selected) {
+            let dt = actionsToFix[i+1].at - actionsToFix[i].at;
+            let dp = Math.abs(actionsToFix[i+1].pos - actionsToFix[i].pos);
+            if (dt > 0) {
+                let speed = (dp * factor) / (dt / 1000);
+                let reqDt = dt;
+                if (speed > hwMax) reqDt = (dp * factor) / hwMax * 1000;
+                else if (speed < hwMin && dp > 0) reqDt = (dp * factor) / hwMin * 1000;
+                
+                if (reqDt !== dt) {
+                    let shift = reqDt - dt;
+                    shiftAcc += shift;
+                    fixed = true;
+                }
+            }
+        }
+    }
+    return fixed;
+}
+
 // ==========================================
-// HISTORIAL (UNDO/REDO) Y SCROLL PAN
+// HISTORIAL (UNDO/REDO)
 // ==========================================
 function saveHistoryState() { 
     undoStack.push(JSON.stringify(getSafeActions())); 
@@ -320,11 +384,6 @@ function redo() {
     }
 }
 
-// ==========================================
-// EVENTOS PERSONALIZADOS (ATAJOS Y BOTONES)
-// ==========================================
-
-// 🎯 FIX: Restauración de los escuchadores globales de atajos
 window.addEventListener('forceTimelinePan', (e) => {
     const canvas = document.getElementById('timeline-canvas');
     if (!canvas || canvas.width === 0) return;
@@ -339,6 +398,9 @@ window.addEventListener('forceTimelinePan', (e) => {
     window.drawTimeline();
 });
 
+// ==========================================
+// EVENTOS PERSONALIZADOS (ATAJOS Y BOTONES)
+// ==========================================
 window.addEventListener('toggleSyncPoint', () => {
     if (document.body.classList.contains('panic-mode-active')) return;
     if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
@@ -887,35 +949,28 @@ window.drawTimeline = function() {
             return; 
         }
 
+        // 🎯 FIX 1: Onda de sonido clásica por trazos verticales individuales
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
-            ctx.fillStyle = isMuted ? 'rgba(239, 68, 68, 0.4)' : (isLight ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255, 255, 255, 0.25)'); 
+            ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.5)' : (isLight ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255, 255, 255, 0.25)'); 
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
             const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
             const yCenter = canvas.height / 2;
-            const boostHeight = canvas.height * 0.40; 
+            const boostHeight = canvas.height * 0.35; 
             
-            let started = false;
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
                 if (x >= 30) {
-                    const amplitude = (window.audioPeaks[i].max / window.audioMaxPeak) * boostHeight; 
-                    if (!started) { ctx.moveTo(x, yCenter - amplitude); started = true; }
-                    else { ctx.lineTo(x, yCenter - amplitude); }
+                    const ampMax = (window.audioPeaks[i].max / window.audioMaxPeak) * boostHeight;
+                    const ampMin = (Math.abs(window.audioPeaks[i].min) / window.audioMaxPeak) * boostHeight;
+                    ctx.moveTo(x, yCenter - ampMax);
+                    ctx.lineTo(x, yCenter + ampMin);
                 }
             }
-            for(let i = endIdx; i >= startIdx; i--) {
-                const timeMs = (i / window.audioPeaksSampleRate) * 1000;
-                const x = timeToX(timeMs);
-                if (x >= 30) {
-                    const amplitude = (Math.abs(window.audioPeaks[i].min) / window.audioMaxPeak) * boostHeight; 
-                    ctx.lineTo(x, yCenter + amplitude);
-                }
-            }
-            ctx.closePath();
-            ctx.fill();
+            ctx.stroke();
         }
 
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
@@ -1078,14 +1133,15 @@ window.drawTimeline = function() {
                     const y = posToY(act.pos); 
 
                     if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; 
+                        // 🎯 FIX 3: Nuevo diseño de ancla (Diamante Cyan)
+                        ctx.fillStyle = '#06b6d4'; 
                         ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
                         
-                        ctx.fillStyle = '#0f172a'; 
+                        ctx.fillStyle = '#ffffff'; 
                         ctx.font = '12px monospace'; 
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        ctx.fillText('⚓', x, y+1); 
+                        ctx.fillText('♦', x, y+1); 
                         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                     } else {
                         let dotColor = isLight ? '#0284c7' : '#38bdf8';
@@ -1134,10 +1190,10 @@ window.drawTimeline = function() {
                     morphed.forEach(act => {
                         const x = timeToX(act.at); const y = posToY(act.pos);
                         if (act.isSync) {
-                            ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                            ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
                             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                            ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
+                            ctx.fillStyle = '#ffffff'; ctx.font = '12px monospace'; 
+                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♦', x, y+1); 
                             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                         } else {
                             ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
@@ -1176,10 +1232,10 @@ window.drawTimeline = function() {
                     const scaledPos = getSmartMappedPos(act.pos, pAnchor.pos, window.timelineGhostTargetAnchor.pos, pMin, pMax, 0, 100, false);
                     const y = posToY(scaledPos);
                     if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                        ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
+                        ctx.fillStyle = '#ffffff'; ctx.font = '12px monospace'; 
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♦', x, y+1); 
                         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                     } else {
                         ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
@@ -1206,10 +1262,10 @@ window.drawTimeline = function() {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
                     if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                        ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
+                        ctx.fillStyle = '#ffffff'; ctx.font = '12px monospace'; 
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♦', x, y+1); 
                         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                     } else {
                         ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
@@ -1723,6 +1779,7 @@ function initTimelineEvents() {
         } catch(err) {}
     });
 
+    // 🎯 FIX: Auto-Corrección disparada al soltar el Preset (Drop)
     c.addEventListener('drop', (e) => {
         e.preventDefault();
         try {
@@ -1745,9 +1802,11 @@ function initTimelineEvents() {
                 let actions = getSafeActions();
 
                 if (targetEnd) {
-                    const morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
+                    let morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
                     if (morphed) {
                         saveHistoryState();
+                        morphed = applyAutoCorrection(morphed); // <--- Auto-Corrección Continua
+
                         let tStart = dropTimeMs;
                         let tEnd = targetEnd;
                         actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
@@ -1756,6 +1815,8 @@ function initTimelineEvents() {
                         actions.push(...morphed);
                         
                         cleanDuplicates();
+                        actions.sort((a,b) => a.at - b.at);
+                        
                         window.isDraggingPreset = false; window.timelineGhostPreset = null;
                         window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; 
                         window.timelineGhostMarkers = null; window.timelineGhostTargetAnchor = null;
@@ -1790,6 +1851,8 @@ function initTimelineEvents() {
                         isSync: act.isSync || false
                     }));
                 }
+
+                newActions = applyAutoCorrection(newActions); // <--- Auto-Corrección Continua
                 
                 let tStart = newActions[0].at;
                 let tEnd = newActions[newActions.length - 1].at;
@@ -1799,6 +1862,8 @@ function initTimelineEvents() {
                 actions.push(...newActions);
                 
                 cleanDuplicates(); 
+                actions.sort((a,b) => a.at - b.at);
+
                 window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
                 window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null;
                 
