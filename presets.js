@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.26.0 (CONTROL AISLADO Y ANCLA MAGENTA)
+// PRESETS MANAGER V1.26.1 (CONTROL AISLADO Y ANCLA MAGENTA DIAMANTE)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -425,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
                 if (x >= 20 && x <= pCanvas.width + 20) {
                     if (a.isSync) {
-                        // 🎯 FIX: Diamante de Ancla Magenta en el Editor
+                        // 🎯 FIX: Diamante Ancla Magenta
                         pCtx.fillStyle = '#ec4899'; 
                         pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
                         pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
