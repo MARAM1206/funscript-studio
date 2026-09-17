@@ -1,5 +1,5 @@
 /* =========================================
-   ESTILOS MAESTROS Y VARIABLES (V1.18.0)
+   ESTILOS MAESTROS Y VARIABLES (V1.26.0 - FINAL UI)
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -38,10 +38,7 @@ body {
     user-select: none;
 }
 
-/* 🎯 FIX: Sistema global para forzar la manita sin que Chromium crashee */
-.is-dragging-global, .is-dragging-global * {
-    cursor: grabbing !important;
-}
+.is-dragging-global, .is-dragging-global * { cursor: grabbing !important; }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-main); }
@@ -96,7 +93,6 @@ body {
 .sub-dropdown { position: relative; }
 .sub-dropdown:hover .sub-dropdown-content { display: block !important; }
 .sub-dropdown-content { display: none; position: absolute; left: 100%; top: 0; background-color: var(--bg-panel); border: 1px solid var(--border-color); min-width: 160px; border-radius: 6px; margin-left: -2px; z-index: 9600; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
-
 .sub-arrow { margin-left: auto; font-size: 0.6rem; }
 
 @keyframes pulse-alert {
@@ -125,63 +121,47 @@ body {
     user-select: none; 
     color: var(--text-main); 
 }
-.panel-header span { 
-    font-weight: normal; 
-    font-size: 0.7rem; 
-}
+.panel-header span { font-weight: normal; font-size: 0.7rem; }
 .panel-content { flex-grow: 1; position: relative; overflow-y: auto; display: flex; flex-direction: column; }
 
 /* =========================================
    REPRODUCTOR Y GRÁFICAS DE TIEMPO
    ========================================= */
-.video-info-bar { font-family: 'Inter', monospace; padding: 6px 12px; }
-.video-info-right { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 0.75rem; }
+/* 🎯 FIX: Título truncado elegantemente sin aplastar botones */
+.video-info-bar { 
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; padding: 6px 12px; font-family: 'Inter', monospace;
+}
+#v-name {
+    flex-grow: 1; text-align: left; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 15px; font-weight: normal; font-size: 0.75rem; color:#e2e8f0;
+}
+.video-info-right { 
+    flex-shrink: 0; display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 0.75rem; 
+}
 .divider { color: var(--text-muted); }
 .video-container { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; background-color: #000 !important; overflow: hidden; border-radius: 4px; }
 #video-empty-state { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 80%; height: 30%; color: rgba(255,255,255,0.4); font-size: 1.2rem; font-family: monospace; border: 2px dashed rgba(255,255,255,0.2); border-radius: 12px; pointer-events: none; }
 
+/* 🎯 FIX: Barra inferior restaurada y compactada */
 .video-bottom-unified-bar {
-    height: 52px;
+    height: 60px; /* Altura original recuperada */
     background: var(--bg-panel);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 15px;
-    border-top: 1px solid var(--border-color);
-    width: 100%;
-    z-index: 20;
-    gap: 10px;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 6px 15px; border-top: 1px solid var(--border-color); width: 100%; z-index: 20; gap: 6px;
 }
 
-.sync-container { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
-.progress-slider-wrapper { position: relative; height: 16px; display: flex; align-items: center; }
-
+/* 🎯 FIX: Slider Hitbox Gigante (24px) */
+.progress-slider-wrapper { position: relative; display: flex; align-items: center; width: 100%; height: 24px; margin-top: -4px;}
 .custom-progress { 
-    position: absolute; 
-    top: 50%; left: 0; 
-    width: 100%; height: 4px; 
-    transform: translateY(-50%);
-    cursor: pointer; z-index: 5; margin: 0; padding: 0; outline: none;
-    -webkit-appearance: none; background: transparent;
+    width: 100%; height: 24px; cursor: pointer; z-index: 5; margin: 0; padding: 0; outline: none; -webkit-appearance: none; background: transparent;
 }
-.custom-progress::-webkit-slider-runnable-track {
-    background: rgba(255,255,255,0.15); 
-    height: 4px; 
-    border-radius: 2px; 
-}
-.custom-progress::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 12px; height: 12px;
-    background: #38bdf8; border-radius: 50%;
-    cursor: pointer; box-shadow: 0 0 5px rgba(56, 189, 248, 0.8);
-    margin-top: -4px; 
-}
+.custom-progress::-webkit-slider-runnable-track { background: rgba(255,255,255,0.15); height: 4px; border-radius: 2px; margin-top: 10px; }
+.custom-progress::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; background: #38bdf8; border-radius: 50%; cursor: pointer; box-shadow: 0 0 5px rgba(56, 189, 248, 0.8); margin-top: -4px; }
 
 .ghost-thumb { position: absolute; width: 2px; height: 100%; background: white; z-index: 6; pointer-events: none; box-shadow: 0 0 8px white; top: 0; display: none; }
+#progress-markers-canvas { position:absolute; top: 10px; left:0; pointer-events:none; z-index:4; opacity: 1; height: 4px; border-radius: 2px; }
 
 .fs-mini-icon { position: absolute; bottom: 50px; right: 15px; background: rgba(15, 23, 42, 0.8); color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; z-index: 10; border: 1px solid rgba(255,255,255,0.2); font-weight: bold; transition: background 0.2s; }
 .fs-mini-icon:hover { background: rgba(56, 189, 248, 0.9); border-color: white; }
-
 #fs-timeline-canvas { display: none; position: absolute; bottom: 50px; left: 15px; width: calc(100% - 75px); height: 80px; background: rgba(0,0,0,0.6); border-radius: 6px; pointer-events: none; z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
 #timeline-canvas { display: block; width: 100%; height: 100%; border-radius: 4px; }
 .fps-control { display: flex; align-items: center; gap: 5px; background: var(--bg-input); border-radius: 4px; padding: 2px 4px; border: 1px solid var(--border-color); }
@@ -193,25 +173,8 @@ body {
    INPUTS Y SLIDERS
    ========================================= */
 .handy-input, .modal-input, textarea, select { background-color: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); font-family: inherit; padding: 6px; border-radius: 4px; outline: none; }
-
-.volume-slider { 
-    -webkit-appearance: none; 
-    width: 70px; 
-    height: 4px; 
-    background: rgba(255, 255, 255, 0.2); 
-    border-radius: 2px; 
-    outline: none; 
-    cursor: pointer; 
-}
-.volume-slider::-webkit-slider-thumb { 
-    -webkit-appearance: none; 
-    width: 10px; 
-    height: 10px; 
-    border-radius: 50%; 
-    background: var(--accent); 
-    cursor: pointer; 
-    transition: transform 0.1s; 
-}
+.volume-slider { -webkit-appearance: none; width: 70px; height: 4px; background: rgba(255, 255, 255, 0.2); border-radius: 2px; outline: none; cursor: pointer; }
+.volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); cursor: pointer; transition: transform 0.1s; }
 .volume-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
 body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 
@@ -238,22 +201,7 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .file-actions { display: flex; align-items: center; gap: 6px; }
 .empty-tracks-msg, .empty-log { color: var(--text-muted); font-size: 0.75rem; font-style: italic; text-align: center; margin-top: 10px; }
 
-/* 🎯 FIX: Eliminados los estatus nativos que volvían loco al cursor. Ahora es puro CSS sintético. */
-.preset-card { 
-    background: var(--bg-input); 
-    border: 1px solid var(--border-color); 
-    border-radius: 6px; 
-    padding: 6px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-    margin-bottom: 6px; 
-    cursor: grab; 
-}
-.preset-card:active {
-    cursor: grabbing;
-}
-
+.preset-card { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; cursor: grab; }
 .preset-card-title { font-size: 0.75rem; font-weight: 600; color: var(--text-main); }
 .preset-card-meta { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; font-family: monospace;}
 .delete-preset-btn { background: transparent; border: none; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; font-size: 0.8rem; }
@@ -275,12 +223,7 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .resize-handle-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
 .resize-handle-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
 
-/* Efecto Ripple Modo Claro/Oscuro */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-old(root) { z-index: 1; }
-::view-transition-new(root) {
-    z-index: 9999;
-    clip-path: circle(0% at var(--ripple-x, 50%) var(--ripple-y, 50%));
-    animation: ripple 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
+::view-transition-new(root) { z-index: 9999; clip-path: circle(0% at var(--ripple-x, 50%) var(--ripple-y, 50%)); animation: ripple 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 @keyframes ripple { to { clip-path: circle(150% at var(--ripple-x, 50%) var(--ripple-y, 50%)); } }
