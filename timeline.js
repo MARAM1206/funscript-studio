@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.26.6 (AUDIO CLÁSICO, AUTO-CORRECCIÓN Y DIAMANTE ANCLA)
+// TIMELINE V1.26.7 (AUDIO ENVOLVENTE, ANCLAS MAGENTA Y AUTO-DESELECCIÓN)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -289,7 +289,6 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
-// 🎯 FIX: Corrección Automática Lineal y Continua para Presets Inyectados
 function applyAutoCorrection(pointsArray) {
     if (!pointsArray || pointsArray.length < 2) return pointsArray;
     const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
@@ -326,7 +325,6 @@ function applyAutoCorrection(pointsArray) {
     return pointsArray;
 }
 
-// Herramienta global de corrección para el clic derecho
 function massCorrectSelection(actionsToFix, hwMax, hwMin, factor) {
     let fixed = false;
     let shiftAcc = 0;
@@ -416,11 +414,12 @@ window.addEventListener('toggleSyncPoint', () => {
         const timeMs = Math.round(safeTime);
         const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
         
+        // 🎯 FIX: El ancla siempre se deselecciona tras ser creada/modificada
         if (existingIdx !== -1) {
             actions[existingIdx].isSync = !actions[existingIdx].isSync;
-            actions[existingIdx].selected = true; 
+            actions[existingIdx].selected = false; 
         } else {
-            actions.push({ at: timeMs, pos: 50, selected: true, isSync: true });
+            actions.push({ at: timeMs, pos: 50, selected: false, isSync: true });
         }
         
         cleanDuplicates();
@@ -431,7 +430,7 @@ window.addEventListener('toggleSyncPoint', () => {
     } else {
         let moved = false;
         actions.forEach(act => {
-            if (act.selected) { act.isSync = !act.isSync; moved = true; }
+            if (act.selected) { act.isSync = !act.isSync; moved = true; act.selected = false; }
         });
         if (moved) {
             saveHistoryState();
@@ -949,28 +948,45 @@ window.drawTimeline = function() {
             return; 
         }
 
-        // 🎯 FIX 1: Onda de sonido clásica por trazos verticales individuales
+        // 🎯 FIX: Onda de sonido como polígono continuo con gradiente (Estilo Envelope)
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
-            ctx.strokeStyle = isMuted ? 'rgba(239, 68, 68, 0.5)' : (isLight ? 'rgba(15, 23, 42, 0.3)' : 'rgba(255, 255, 255, 0.25)'); 
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
-            const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
             const yCenter = canvas.height / 2;
             const boostHeight = canvas.height * 0.35; 
             
+            const grad = ctx.createLinearGradient(0, yCenter - boostHeight, 0, yCenter + boostHeight);
+            grad.addColorStop(0, isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.05)');
+            grad.addColorStop(0.5, isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.4)');
+            grad.addColorStop(1, isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.05)');
+            
+            ctx.fillStyle = isMuted ? 'rgba(239, 68, 68, 0.4)' : grad;
+            ctx.beginPath();
+            
+            const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
+            const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
+            
+            let started = false;
+            // Trazamos el contorno superior
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
                 if (x >= 30) {
                     const ampMax = (window.audioPeaks[i].max / window.audioMaxPeak) * boostHeight;
+                    if (!started) { ctx.moveTo(x, yCenter - ampMax); started = true; }
+                    else { ctx.lineTo(x, yCenter - ampMax); }
+                }
+            }
+            // Trazamos el contorno inferior de reversa para cerrar la figura
+            for(let i = endIdx; i >= startIdx; i--) {
+                const timeMs = (i / window.audioPeaksSampleRate) * 1000;
+                const x = timeToX(timeMs);
+                if (x >= 30) {
                     const ampMin = (Math.abs(window.audioPeaks[i].min) / window.audioMaxPeak) * boostHeight;
-                    ctx.moveTo(x, yCenter - ampMax);
                     ctx.lineTo(x, yCenter + ampMin);
                 }
             }
-            ctx.stroke();
+            ctx.closePath();
+            ctx.fill();
         }
 
         const y100 = posToY(100); const y70 = posToY(70); const y20 = posToY(20); const y0 = posToY(0);
@@ -1133,8 +1149,8 @@ window.drawTimeline = function() {
                     const y = posToY(act.pos); 
 
                     if (act.isSync) {
-                        // 🎯 FIX 3: Nuevo diseño de ancla (Diamante Cyan)
-                        ctx.fillStyle = '#06b6d4'; 
+                        // 🎯 FIX 2: Ancla Magenta Vibrante
+                        ctx.fillStyle = '#ec4899'; 
                         ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
                         
@@ -1190,7 +1206,7 @@ window.drawTimeline = function() {
                     morphed.forEach(act => {
                         const x = timeToX(act.at); const y = posToY(act.pos);
                         if (act.isSync) {
-                            ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                            ctx.fillStyle = '#ec4899'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
                             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
                             ctx.fillStyle = '#ffffff'; ctx.font = '12px monospace'; 
                             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♦', x, y+1); 
@@ -1232,7 +1248,7 @@ window.drawTimeline = function() {
                     const scaledPos = getSmartMappedPos(act.pos, pAnchor.pos, window.timelineGhostTargetAnchor.pos, pMin, pMax, 0, 100, false);
                     const y = posToY(scaledPos);
                     if (act.isSync) {
-                        ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#ec4899'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
                         ctx.fillStyle = '#ffffff'; ctx.font = '12px monospace'; 
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♦', x, y+1); 
@@ -1262,7 +1278,7 @@ window.drawTimeline = function() {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
                     if (act.isSync) {
-                        ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#ec4899'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
                         ctx.fillStyle = '#ffffff'; ctx.font = '12px monospace'; 
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♦', x, y+1); 
@@ -1779,7 +1795,6 @@ function initTimelineEvents() {
         } catch(err) {}
     });
 
-    // 🎯 FIX: Auto-Corrección disparada al soltar el Preset (Drop)
     c.addEventListener('drop', (e) => {
         e.preventDefault();
         try {
@@ -1805,7 +1820,7 @@ function initTimelineEvents() {
                     let morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
                     if (morphed) {
                         saveHistoryState();
-                        morphed = applyAutoCorrection(morphed); // <--- Auto-Corrección Continua
+                        morphed = applyAutoCorrection(morphed); 
 
                         let tStart = dropTimeMs;
                         let tEnd = targetEnd;
@@ -1852,7 +1867,7 @@ function initTimelineEvents() {
                     }));
                 }
 
-                newActions = applyAutoCorrection(newActions); // <--- Auto-Corrección Continua
+                newActions = applyAutoCorrection(newActions); 
                 
                 let tStart = newActions[0].at;
                 let tEnd = newActions[newActions.length - 1].at;
