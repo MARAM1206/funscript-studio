@@ -1,5 +1,5 @@
 // ==========================================================================
-// GESTOR DE ARCHIVOS V50.0 (EVITA DUPLICADOS Y TRUNCA NOMBRES LARGOS)
+// GESTOR DE ARCHIVOS V51.0 (BLINDAJE ANTI-DUPLICADOS Y NOMBRES LARGOS)
 // ==========================================================================
 
 const TRACK_COLORS = ['#38bdf8', '#ec4899', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16'];
@@ -7,53 +7,6 @@ window.loadedFunscriptTracks = [];
 const funscriptInput = document.getElementById('funscript-input');
 const exportBtn = document.getElementById('export-btn');
 const tracksListContainer = document.getElementById('tracks-list');
-
-window.loadVideoFile = async function(file, hasFunscripts = false) {
-    const videoURL = URL.createObjectURL(file);
-    const videoPlayer = document.getElementById('video-player');
-    if (!videoPlayer) return;
-    videoPlayer.src = videoURL;
-    videoPlayer.load();
-    const videoVolume = document.getElementById('video-volume');
-    if (videoVolume) videoPlayer.volume = videoVolume.value;
-    window.currentVideoName = file.name;
-    
-    const vName = document.getElementById('v-name');
-    if (vName) { vName.innerText = file.name; vName.title = file.name; }
-    
-    if (typeof window.updateFileManagerUI === 'function') window.updateFileManagerUI();
-    if (typeof window.checkEmptyState === 'function') window.checkEmptyState();
-
-    try {
-        const arrayBuffer = await file.arrayBuffer();
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); 
-        const audioData = await audioCtx.decodeAudioData(arrayBuffer);
-        
-        window.currentAudioBuffer = audioData; 
-        
-        const channelData = audioData.getChannelData(0); 
-        const samplesPerSec = 100; 
-        const step = Math.floor(audioData.sampleRate / samplesPerSec);
-        const peaks = new Float32Array(Math.floor(channelData.length / step));
-        
-        let absoluteMaxPeak = 0;
-        for(let i = 0; i < peaks.length; i++) {
-            let max = 0;
-            for(let j = 0; j < step; j++) {
-                let val = Math.abs(channelData[i*step + j]);
-                if(val > max) max = val;
-            }
-            peaks[i] = max;
-            if (max > absoluteMaxPeak) absoluteMaxPeak = max;
-        }
-        
-        window.audioPeaks = peaks;
-        window.audioPeaksSampleRate = samplesPerSec;
-        window.audioMaxPeak = absoluteMaxPeak > 0 ? absoluteMaxPeak : 1.0; 
-        
-        if (typeof window.drawTimeline === 'function') window.drawTimeline();
-    } catch (err) {}
-};
 
 window.createEmptyTrack = function(baseName) {
     const colorIndex = window.loadedFunscriptTracks.length % TRACK_COLORS.length;
@@ -85,6 +38,15 @@ window.loadFunscriptFiles = function(filesArray) {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data && Array.isArray(data.actions)) {
+                    
+                    const baseName = file.name.replace(/\.(funscript|json)$/i, '');
+                    
+                    // 🎯 FIX: Sistema de Seguridad Anti-Duplicados (Ignora si ya existe)
+                    if (window.loadedFunscriptTracks.some(t => t.name === baseName)) {
+                        loadedCount++;
+                        return; 
+                    }
+
                     const actions = data.actions.map(act => ({
                         at: Math.round(Number(act.at)),
                         pos: Math.max(0, Math.min(100, Math.round(Number(act.pos)))),
@@ -96,7 +58,7 @@ window.loadFunscriptFiles = function(filesArray) {
 
                     window.loadedFunscriptTracks.push({
                         id: 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                        name: file.name.replace(/\.(funscript|json)$/i, ''),
+                        name: baseName,
                         color: TRACK_COLORS[colorIndex],
                         actions: actions,
                         visible: true,
@@ -124,7 +86,6 @@ funscriptInput?.addEventListener('change', function(event) {
     event.target.value = '';
 });
 
-// 🎯 FIX: Flexbox con min-width: 0 para que los ... funcionen perfectamente sin expandir el panel
 window.updateFileManagerUI = function() {
     if (!tracksListContainer) return;
     let htmlContent = '';
@@ -230,25 +191,4 @@ exportBtn?.addEventListener('click', () => {
     link.href = URL.createObjectURL(blob);
     link.download = currentPrimary ? `${currentPrimary.name}.funscript` : "script.funscript";
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
-});
-
-// 🎯 FIX: Eventos globales de arrastre unificados aquí para que no haya archivos duplicados
-window.addEventListener('dragover', (e) => { 
-    e.preventDefault(); 
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer || !e.dataTransfer.types || !e.dataTransfer.types.includes('Files')) return; 
-});
-
-window.addEventListener('drop', (e) => {
-    e.preventDefault(); 
-    if (window.isDraggingPreset) return; 
-    if (!e.dataTransfer || !e.dataTransfer.types || !e.dataTransfer.types.includes('Files')) return; 
-    
-    const files = Array.from(e.dataTransfer.files);
-    const videoFiles = files.filter(f => f.type.startsWith('video/'));
-    const funscriptFiles = files.filter(f => f.name.toLowerCase().endsWith('.funscript') || f.name.toLowerCase().endsWith('.json'));
-
-    const hasFunscripts = funscriptFiles.length > 0;
-    if (videoFiles.length > 0) window.loadVideoFile(videoFiles[0], hasFunscripts);
-    if (hasFunscripts && typeof window.loadFunscriptFiles === 'function') window.loadFunscriptFiles(funscriptFiles);
 });
