@@ -1,5 +1,5 @@
 /* =========================================
-   ESTILOS MAESTROS Y VARIABLES (V1.26.5 - FINAL UI)
+   ESTILOS MAESTROS Y VARIABLES (V1.26.6 - FINAL UI)
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -79,7 +79,6 @@ body {
 .track-btn { background: transparent; border: none; cursor: pointer; transition: transform 0.1s; }
 .track-btn:hover { transform: scale(1.2); }
 
-/* 🎯 FIX 1: Hover perfecto continuo (display: flex height 100%) */
 .dropdown { position: relative; display: flex; align-items: center; height: 100%; padding: 0 4px; }
 .dropdown-content {
     display: none; position: absolute; top: 100%; left: 0;
@@ -92,7 +91,6 @@ body {
 .dropdown-content a, .dropdown-content label { color: var(--text-main); padding: 8px 15px; text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 0.75rem; cursor: pointer; border-bottom: 1px solid transparent; }
 .dropdown-content a:hover, .dropdown-content label:hover { background-color: var(--bg-hover); }
 
-/* 🎯 FIX 2: Menú lateral sin recortes */
 .sub-dropdown { position: relative; }
 .sub-dropdown:hover .sub-dropdown-content { display: block !important; }
 .sub-dropdown-content { 
@@ -170,7 +168,7 @@ body {
 #fs-timeline-canvas { display: none; position: absolute; bottom: 50px; left: 15px; width: calc(100% - 75px); height: 80px; background: rgba(0,0,0,0.6); border-radius: 6px; pointer-events: none; z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
 #timeline-canvas { display: block; width: 100%; height: 100%; border-radius: 4px; }
 
-/* 🎯 FIX 4: Diseño limpio y elegante para los Saltos (FPS) */
+/* 🎯 FIX: Input FPS Desbloqueado para Selección */
 .fps-control { 
     display: flex; align-items: center; gap: 4px;
     background: var(--bg-input); border-radius: 12px; 
@@ -182,6 +180,7 @@ body {
     width: 25px; background: transparent; border: none; 
     color: var(--accent); text-align: center; font-size: 0.8rem; 
     font-family: monospace; outline: none; font-weight: bold; 
+    user-select: text; -webkit-user-select: text; cursor: text;
 }
 .fps-input::-webkit-outer-spin-button, 
 .fps-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -199,8 +198,6 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .dual-slider-labels { display: flex; justify-content: space-between; width: 100%; font-size: 0.65rem; font-weight: bold; margin-bottom: 5px; }
 .dual-slider-container { position: relative; width: 100%; height: 20px; }
 .dual-slider-track { position: absolute; top: 50%; width: 100%; height: 6px; transform: translateY(-50%); background: var(--bg-input); border-radius: 3px; border: 1px solid var(--border-color); }
-
-/* 🎯 CORRECCIÓN: Corte limpio sin difuminación para el inyector rápido */
 .dual-slider-fill { 
     position: absolute; top: 50%; height: 6px; transform: translateY(-50%); 
     background: linear-gradient(90deg, #38bdf8 0%, #38bdf8 50%, #f97316 50%, #f97316 100%); 
@@ -237,7 +234,6 @@ body.light-theme .volume-slider { background: rgba(15, 23, 42, 0.2); }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
 .modal-content { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
 
-/* 🎯 FIX 3: Estilos y Animaciones de Bienvenida */
 .onboarding-card { transform-origin: center; }
 .onboarding-device-btn { padding: 12px; font-size: 0.85rem; }
 .onboarding-device-btn:hover { background: var(--accent); color: white; border-color: var(--accent-hover); transform: scale(1.05); }
