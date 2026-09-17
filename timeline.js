@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.26.0 (EVENTOS AISLADOS Y SEGUROS EN DOMCONTENTLOADED)
+// TIMELINE V1.26.1 (MOTOR DE ARRANQUE BLINDADO Y EVENTOS AISLADOS)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -771,8 +771,9 @@ window.drawTimeline = function() {
     try {
         if (!ensureCanvasSize()) return;
         const canvas = document.getElementById('timeline-canvas');
-        const ctx = canvas ? canvas.getContext('2d') : null;
-        if (!ctx || !canvas) return;
+        if (!canvas || canvas.width === 0 || canvas.height === 0) return; // 🎯 FIX: Blindaje absoluto contra anchos cero
+        
+        const ctx = canvas.getContext('2d');
         
         let safeTime = 0;
         try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
@@ -803,6 +804,9 @@ window.drawTimeline = function() {
             let stepMs = 1000;
             const startTimeMs = Math.max(0, xToTime(30));
             const endTimeMs = xToTime(canvas.width);
+            
+            if (!isFinite(endTimeMs) || stepMs <= 0) return; // 🎯 FIX: Blindaje contra bucles infinitos en modo pánico
+            
             let t = Math.floor(startTimeMs / stepMs) * stepMs;
 
             ctx.fillStyle = textDimColor; ctx.font = '10px monospace';
@@ -918,6 +922,9 @@ window.drawTimeline = function() {
 
         const startTimeMs = Math.max(0, xToTime(30));
         const endTimeMs = xToTime(canvas.width);
+        
+        if (!isFinite(endTimeMs) || stepMs <= 0) return; // 🎯 FIX: Blindaje contra bucles infinitos en el grid estándar
+
         let t = Math.floor(startTimeMs / stepMs) * stepMs;
 
         ctx.fillStyle = textDimColor; ctx.font = '10px monospace';
@@ -1088,7 +1095,6 @@ window.drawTimeline = function() {
             });
         }
 
-        // 🎯 FIX: El fantasma del Preset muestra el cálculo de la IA Geométrica en Vivo
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
             if (window.timelineGhostTargetEnd) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
@@ -1771,12 +1777,27 @@ function initTimelineEvents() {
     c.addEventListener('contextmenu', e => e.preventDefault());
 }
 
-// 🎯 FIX: Blindaje absoluto. El Canvas espera a existir antes de conectar el ratón.
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTimelineEvents);
-} else {
+// ==========================================
+// INICIALIZACIÓN Y BUCLE PRINCIPAL (BLINDADOS)
+// ==========================================
+function bootTimelineEngine() {
+    const c = document.getElementById('timeline-canvas');
+    // Esperamos activamente a que workspace.js le dé un ancho real al contenedor
+    if (!c || c.parentElement.clientWidth === 0) {
+        requestAnimationFrame(bootTimelineEngine);
+        return;
+    }
     initTimelineEvents();
+    requestAnimationFrame(animationLoop);
 }
 
-function animationLoop() { window.drawTimeline(); requestAnimationFrame(animationLoop); }
-requestAnimationFrame(animationLoop);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootTimelineEngine);
+} else {
+    bootTimelineEngine();
+}
+
+function animationLoop() {
+    window.drawTimeline();
+    requestAnimationFrame(animationLoop);
+}
