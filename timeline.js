@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.26.8 (AUTO-CORRECCIÓN INTELIGENTE DE TIEMPO/DISTANCIA Y ONDA 45%)
+// TIMELINE V1.26.7 (AUDIO ENVOLVENTE, ANCLAS MAGENTA Y AUTO-DESELECCIÓN)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -289,8 +289,7 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
     return result;
 };
 
-// 🎯 FIX: Auto-Corrección Bounded (Mantiene el tiempo intacto si hay marcadores/anclas)
-function applyAutoCorrection(pointsArray, preserveTime = false) {
+function applyAutoCorrection(pointsArray) {
     if (!pointsArray || pointsArray.length < 2) return pointsArray;
     const device = window.hardwareDB[window.activeDevice] || window.hardwareDB['handy_std'];
     let hwMax = device.standard.max;
@@ -308,38 +307,18 @@ function applyAutoCorrection(pointsArray, preserveTime = false) {
         if (dt <= 0) continue;
 
         let speed = (dp * device.factor) / (dt / 1000);
+        let requiredDt = dt;
 
         if (speed > hwMax) {
-            if (preserveTime) {
-                // El tiempo es fijo (marcadores), corregimos aplastando la distancia
-                let safeDp = (hwMax * (dt / 1000)) / device.factor;
-                let sign = Math.sign(act2.pos - act1.pos);
-                let newPos = act1.pos + (sign * safeDp);
-                act2.pos = Math.max(0, Math.min(100, newPos));
-            } else {
-                // No hay marcadores, corregimos expandiendo el tiempo libremente
-                let requiredDt = (dp * device.factor) / hwMax * 1000;
-                let shift = requiredDt - dt;
-                for (let j = i + 1; j < pointsArray.length; j++) {
-                    pointsArray[j].at += shift;
-                }
-            }
+            requiredDt = (dp * device.factor) / hwMax * 1000;
         } else if (speed < hwMin && dp > 0) {
-            if (preserveTime) {
-                // El tiempo es fijo, expandimos un poco la distancia si los límites lo permiten
-                let safeDp = (hwMin * (dt / 1000)) / device.factor;
-                let sign = Math.sign(act2.pos - act1.pos) || 1;
-                let newPos = act1.pos + (sign * safeDp);
-                if (newPos >= 0 && newPos <= 100) {
-                    act2.pos = newPos;
-                }
-            } else {
-                // No hay marcadores, contraemos el tiempo libremente
-                let requiredDt = (dp * device.factor) / hwMin * 1000;
-                let shift = requiredDt - dt; 
-                for (let j = i + 1; j < pointsArray.length; j++) {
-                    pointsArray[j].at += shift;
-                }
+            requiredDt = (dp * device.factor) / hwMin * 1000;
+        }
+
+        if (requiredDt !== dt) {
+            let shift = requiredDt - dt;
+            for (let j = i + 1; j < pointsArray.length; j++) {
+                pointsArray[j].at += shift;
             }
         }
     }
@@ -435,6 +414,7 @@ window.addEventListener('toggleSyncPoint', () => {
         const timeMs = Math.round(safeTime);
         const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
         
+        // 🎯 FIX: El ancla siempre se deselecciona tras ser creada/modificada
         if (existingIdx !== -1) {
             actions[existingIdx].isSync = !actions[existingIdx].isSync;
             actions[existingIdx].selected = false; 
@@ -968,24 +948,25 @@ window.drawTimeline = function() {
             return; 
         }
 
-        // 🎯 FIX: Onda de Sonido Opacidad 45% (0.18 Alpha)
+        // 🎯 FIX: Onda de sonido como polígono continuo con gradiente (Estilo Envelope)
         if (window.audioPeaks && window.audioPeaksSampleRate && window.audioMaxPeak) {
             const isMuted = videoNode && (videoNode.muted || videoNode.volume === 0);
             const yCenter = canvas.height / 2;
             const boostHeight = canvas.height * 0.35; 
             
             const grad = ctx.createLinearGradient(0, yCenter - boostHeight, 0, yCenter + boostHeight);
-            grad.addColorStop(0, isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(255, 255, 255, 0.02)');
-            grad.addColorStop(0.5, isLight ? 'rgba(15, 23, 42, 0.18)' : 'rgba(255, 255, 255, 0.18)'); // 45% de la opacidad anterior
-            grad.addColorStop(1, isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(255, 255, 255, 0.02)');
+            grad.addColorStop(0, isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.05)');
+            grad.addColorStop(0.5, isLight ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.4)');
+            grad.addColorStop(1, isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.05)');
             
-            ctx.fillStyle = isMuted ? 'rgba(239, 68, 68, 0.18)' : grad;
+            ctx.fillStyle = isMuted ? 'rgba(239, 68, 68, 0.4)' : grad;
             ctx.beginPath();
             
             const startIdx = Math.max(0, Math.floor(xToTime(30) / 1000 * window.audioPeaksSampleRate));
             const endIdx = Math.min(window.audioPeaks.length - 1, Math.ceil(xToTime(canvas.width) / 1000 * window.audioPeaksSampleRate));
             
             let started = false;
+            // Trazamos el contorno superior
             for(let i = startIdx; i <= endIdx; i++) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
@@ -995,6 +976,7 @@ window.drawTimeline = function() {
                     else { ctx.lineTo(x, yCenter - ampMax); }
                 }
             }
+            // Trazamos el contorno inferior de reversa para cerrar la figura
             for(let i = endIdx; i >= startIdx; i--) {
                 const timeMs = (i / window.audioPeaksSampleRate) * 1000;
                 const x = timeToX(timeMs);
@@ -1167,6 +1149,7 @@ window.drawTimeline = function() {
                     const y = posToY(act.pos); 
 
                     if (act.isSync) {
+                        // 🎯 FIX 2: Ancla Magenta Vibrante
                         ctx.fillStyle = '#ec4899'; 
                         ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
@@ -1837,8 +1820,7 @@ function initTimelineEvents() {
                     let morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
                     if (morphed) {
                         saveHistoryState();
-                        // 🎯 FIX: Corrección aplastando distancia para no romper el tiempo del marcador
-                        morphed = applyAutoCorrection(morphed, true); 
+                        morphed = applyAutoCorrection(morphed); 
 
                         let tStart = dropTimeMs;
                         let tEnd = targetEnd;
@@ -1864,10 +1846,8 @@ function initTimelineEvents() {
                 
                 saveHistoryState();
                 let newActions = [];
-                let isTimeBounded = false;
                 
                 if (targetAnchor) {
-                    isTimeBounded = true;
                     let pAnchor = presetToInject.find(a => a.isSync);
                     let pMin = Math.min(...presetToInject.map(a => a.pos));
                     let pMax = Math.max(...presetToInject.map(a => a.pos));
@@ -1879,7 +1859,6 @@ function initTimelineEvents() {
                         isSync: act.isSync || false
                     }));
                 } else {
-                    isTimeBounded = false;
                     newActions = presetToInject.map(act => ({
                         at: Math.round(dropTimeMs + act.at),
                         pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
@@ -1888,8 +1867,7 @@ function initTimelineEvents() {
                     }));
                 }
 
-                // 🎯 FIX: Corrección expandiendo/contrayendo el tiempo libremente
-                newActions = applyAutoCorrection(newActions, isTimeBounded); 
+                newActions = applyAutoCorrection(newActions); 
                 
                 let tStart = newActions[0].at;
                 let tEnd = newActions[newActions.length - 1].at;
