@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.26.1 (CONTROL AISLADO Y ANCLA MAGENTA DIAMANTE)
+// PRESETS MANAGER V1.28.0 (MULTI-SELECTION, RANDOMIZER LINK & ANCHOR FIX)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const pCanvas = document.getElementById('preset-editor-canvas');
     const pNameInput = document.getElementById('preset-editor-name');
     const modalPresetsList = document.getElementById('modal-presets-library-list');
+
+    window.selectedPresets = window.selectedPresets || []; // Array para guardar presets seleccionados
 
     try {
         let stored = JSON.parse(localStorage.getItem('funscript_presets'));
@@ -85,6 +87,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return finalName;
     }
 
+    // Función auxiliar para actualizar estilos visuales de selección sin re-renderizar todo el DOM
+    function updateCardStyles() {
+        document.querySelectorAll('.preset-card').forEach(card => {
+            const id = card.dataset.id;
+            if (window.selectedPresets.includes(id)) {
+                card.style.outline = '2px solid #38bdf8';
+                card.style.backgroundColor = 'rgba(56, 189, 248, 0.15)';
+            } else {
+                card.style.outline = 'none';
+                card.style.backgroundColor = ''; 
+            }
+        });
+    }
+
     function renderPresetsLibrary() {
         const renderList = (container, isModal = false) => {
             if (!container) return;
@@ -102,10 +118,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 card.draggable = true;
                 
+                // EVENTO CLIC: Gestión de selección múltiple con Ctrl / Cmd
+                if (!isModal) {
+                    card.addEventListener('click', (e) => {
+                        if (e.target.closest('button')) return; // Evita seleccionar si se clicó el botón editar/eliminar
+                        if (e.ctrlKey || e.metaKey) {
+                            const idx = window.selectedPresets.indexOf(preset.id);
+                            if (idx > -1) window.selectedPresets.splice(idx, 1);
+                            else window.selectedPresets.push(preset.id);
+                        } else {
+                            window.selectedPresets = [preset.id];
+                        }
+                        updateCardStyles();
+                    });
+                }
+
                 card.addEventListener('dragstart', (e) => {
+                    // Si el preset que arrastramos no está en la selección actual, lo seleccionamos como único
+                    if (!window.selectedPresets.includes(preset.id)) {
+                        window.selectedPresets = [preset.id];
+                        updateCardStyles();
+                    }
+
                     window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
-                    window.timelineGhostPreset = JSON.parse(JSON.stringify(preset.actions));
+                    
+                    // Empaquetamos todos los presets seleccionados para el Randomizer
+                    window.timelineGhostPreset = window.selectedPresets.map(id => {
+                        const p = window.presetsLibrary.find(x => x.id === id);
+                        return JSON.parse(JSON.stringify(p.actions));
+                    });
+
                     window.presetFillInitialized = false; 
                     
                     if (e.dataTransfer) {
@@ -115,7 +158,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.dataTransfer.setDragImage(img, 0, 0);
                         e.dataTransfer.setData('text/plain', preset.id); 
                     }
-                    setTimeout(() => card.style.opacity = '0.4', 0);
+                    setTimeout(() => {
+                        document.querySelectorAll('.preset-card').forEach(c => {
+                            if (window.selectedPresets.includes(c.dataset.id)) c.style.opacity = '0.4';
+                        });
+                    }, 0);
                 });
                 
                 card.addEventListener('dragover', (e) => {
@@ -137,6 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault();
                     card.style.boxShadow = "";
                     
+                    // EVITAR CORRUPCIÓN: Si se seleccionaron múltiples, no permitimos reordenar en la librería
+                    if (window.selectedPresets && window.selectedPresets.length > 1) {
+                        return;
+                    }
+                    
                     if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
                         const rect = card.getBoundingClientRect();
                         const relY = e.clientY - rect.top;
@@ -155,8 +207,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.addEventListener('dragend', () => {
                     window.isDraggingPreset = false;
                     window.draggedPresetIndex = undefined;
-                    card.style.opacity = '1';
-                    card.style.boxShadow = "";
+                    
+                    document.querySelectorAll('.preset-card').forEach(c => {
+                        c.style.opacity = '1';
+                        c.style.boxShadow = "";
+                    });
                     
                     window.timelineGhostPreset = null;
                     window.timelineGhostTimeMs = null;
@@ -210,6 +265,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.stopPropagation();
                         if (confirm(`¿Eliminar el preset "${preset.name}"?`)) {
                             window.presetsLibrary.splice(index, 1);
+                            
+                            // Remover de la selección actual si fue eliminado
+                            const sIdx = window.selectedPresets.indexOf(preset.id);
+                            if (sIdx > -1) window.selectedPresets.splice(sIdx, 1);
+                            
                             localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                             renderPresetsLibrary();
                         }
@@ -236,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }, 10);
             });
+            updateCardStyles(); // Asegurar consistencia visual tras re-renderizar
         };
 
         renderList(presetsList, false);
@@ -425,7 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
                 if (x >= 20 && x <= pCanvas.width + 20) {
                     if (a.isSync) {
-                        // 🎯 FIX: Diamante Ancla Magenta
                         pCtx.fillStyle = '#ec4899'; 
                         pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
                         pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
@@ -627,6 +687,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             window.presetEditorActions.sort((a,b)=>a.at-b.at);
             drawPresetEditor();
+        }
+    });
+
+    // 🎯 FIX: Evento exclusivo para la tecla "." dentro del editor de presets
+    document.addEventListener('keydown', (e) => {
+        const modalElement = document.getElementById('preset-editor-modal');
+        if (modalElement && modalElement.style.display === 'flex') {
+            if (e.key === '.') {
+                e.preventDefault();
+                let moved = false;
+                savePresetHistoryState(); // Rescatamos el estado para el Ctrl+Z
+                window.presetEditorActions.forEach(a => {
+                    if (a.selected) {
+                        a.isSync = !a.isSync;
+                        moved = true;
+                    }
+                });
+                if (moved) drawPresetEditor(); // Redibujar si hubo cambios
+            }
         }
     });
 
