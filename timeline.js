@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.26.5 (RESTAURACIÓN DE COMANDOS GLOBALES Y ATAJOS)
+// TIMELINE V1.27.0 (MOTOR RANDOMIZER Y REPETIDOR INTERACTIVO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -145,7 +145,7 @@ function yToPos(y) {
 }
 
 // ==========================================
-// INTELIGENCIA ARTIFICIAL DE ESCALA (ANCLAS)
+// INTELIGENCIA ARTIFICIAL DE ESCALA (ANCLAS Y MÚLTIPLES PRESETS)
 // ==========================================
 function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
     if (pSyncVal !== null && tSyncVal !== null) {
@@ -170,71 +170,30 @@ function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax
     return presetVal;
 }
 
-window.getMorphedPreset = function(preset, startOrMarkers, end) {
-    if (!preset || preset.length === 0) return null;
+window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
+    if (!presetInput || presetInput.length === 0) return null;
+    
+    // Normalizar a un arreglo de presets para poder iterar o seleccionar al azar
+    let presets = Array.isArray(presetInput[0]) ? presetInput : [presetInput];
     let result = [];
-    const p_dur = preset[preset.length - 1].at;
-    if (p_dur <= 0) return null;
+    
+    // Función para obtener un preset aleatorio del pool seleccionado
+    const getRandomPreset = () => presets[Math.floor(Math.random() * presets.length)];
 
-    let presetMin = Math.min(...preset.map(a => a.pos));
-    let presetMax = Math.max(...preset.map(a => a.pos));
-    let presetSync = preset.find(a => a.isSync);
-    let pSyncVal = presetSync ? presetSync.pos : null;
+    // Mapeo individual de un preset a un rango de tiempo
+    const mapSinglePreset = (p, t_start, t_end, existing) => {
+        const p_dur = p[p.length - 1].at;
+        if (p_dur <= 0) return [];
+        let pMin = Math.min(...p.map(a => a.pos));
+        let pMax = Math.max(...p.map(a => a.pos));
+        let pSync = p.find(a => a.isSync);
+        let pSyncVal = pSync ? pSync.pos : null;
 
-    if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
-        for (let i = 0; i < startOrMarkers.length - 1; i++) {
-            let t1 = startOrMarkers[i].at;
-            let t2 = startOrMarkers[i+1].at;
-            let targetDuration = t2 - t1;
-            if (targetDuration <= 0) continue;
-
-            let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
-            let targetSync = existing.find(a => a.isSync);
-            let tSyncVal = targetSync ? targetSync.pos : null;
-            
-            let oMin = 0, oMax = 100;
-            let hasExisting = existing.length > 0;
-            if (hasExisting) {
-                oMin = Math.min(...existing.map(a => a.pos));
-                oMax = Math.max(...existing.map(a => a.pos));
-            }
-
-            for (let j = 0; j < preset.length; j++) {
-                if (i > 0 && j === 0 && preset[0].pos === preset[preset.length - 1].pos) continue; 
-                
-                let mappedPos = getSmartMappedPos(preset[j].pos, pSyncVal, tSyncVal, presetMin, presetMax, oMin, oMax, hasExisting);
-                let newAt = 0;
-                
-                if (presetSync && targetSync) {
-                    if (preset[j].at <= presetSync.at) {
-                        let ratio = presetSync.at > 0 ? (preset[j].at / presetSync.at) : 0;
-                        newAt = t1 + ratio * (targetSync.at - t1);
-                    } else {
-                        let remP = p_dur - presetSync.at;
-                        let remT = t2 - targetSync.at;
-                        let ratio = remP > 0 ? ((preset[j].at - presetSync.at) / remP) : 0;
-                        newAt = targetSync.at + ratio * remT;
-                    }
-                } else {
-                    newAt = t1 + (preset[j].at / p_dur) * targetDuration;
-                }
-
-                result.push({
-                    at: Math.round(newAt),
-                    pos: mappedPos,
-                    isSync: preset[j].isSync || false
-                });
-            }
-        }
-    } else {
-        let t_start = Array.isArray(startOrMarkers) ? startOrMarkers[0].at : startOrMarkers;
-        let t_end = Array.isArray(startOrMarkers) ? startOrMarkers[startOrMarkers.length - 1].at : end;
         let targetDuration = t_end - t_start;
-        if (targetDuration <= 0) return null;
+        if (targetDuration <= 0) return [];
 
-        let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
-        let targetSync = existing.find(a => a.isSync);
-        let tSyncVal = targetSync ? targetSync.pos : null;
+        let tSync = existing.find(a => a.isSync);
+        let tSyncVal = tSync ? tSync.pos : null;
         let oMin = 0, oMax = 100;
         let hasExisting = existing.length > 0;
         if (hasExisting) {
@@ -242,46 +201,70 @@ window.getMorphedPreset = function(preset, startOrMarkers, end) {
             oMax = Math.max(...existing.map(a => a.pos));
         }
 
-        if (window.presetFillMode === 'stretch') {
-            for (let j = 0; j < preset.length; j++) {
-                let mappedPos = getSmartMappedPos(preset[j].pos, pSyncVal, tSyncVal, presetMin, presetMax, oMin, oMax, hasExisting);
-                let newAt = 0;
-                
-                if (presetSync && targetSync) {
-                    if (preset[j].at <= presetSync.at) {
-                        let ratio = presetSync.at > 0 ? (preset[j].at / presetSync.at) : 0;
-                        newAt = t_start + ratio * (targetSync.at - t_start);
-                    } else {
-                        let remP = p_dur - presetSync.at;
-                        let remT = t_end - targetSync.at;
-                        let ratio = remP > 0 ? ((preset[j].at - presetSync.at) / remP) : 0;
-                        newAt = targetSync.at + ratio * remT;
-                    }
+        let mapped = [];
+        for (let j = 0; j < p.length; j++) {
+            let mappedPos = getSmartMappedPos(p[j].pos, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting);
+            let newAt = 0;
+            
+            if (pSync && tSync) {
+                if (p[j].at <= pSync.at) {
+                    let ratio = pSync.at > 0 ? (p[j].at / pSync.at) : 0;
+                    newAt = t_start + ratio * (tSync.at - t_start);
                 } else {
-                    newAt = t_start + (preset[j].at / p_dur) * targetDuration;
+                    let remP = p_dur - pSync.at;
+                    let remT = t_end - tSync.at;
+                    let ratio = remP > 0 ? ((p[j].at - pSync.at) / remP) : 0;
+                    newAt = tSync.at + ratio * remT;
                 }
-
-                result.push({
-                    at: Math.round(newAt),
-                    pos: mappedPos,
-                    isSync: preset[j].isSync || false
-                });
+            } else {
+                newAt = t_start + (p[j].at / p_dur) * targetDuration;
             }
+
+            mapped.push({
+                at: Math.round(newAt),
+                pos: mappedPos,
+                isSync: p[j].isSync || false
+            });
+        }
+        return mapped;
+    };
+
+    // MÚLTIPLES MARCADORES
+    if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
+        for (let i = 0; i < startOrMarkers.length - 1; i++) {
+            let t1 = startOrMarkers[i].at;
+            let t2 = startOrMarkers[i+1].at;
+            let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
+            let chosenPreset = getRandomPreset();
+            let mappedSeg = mapSinglePreset(chosenPreset, t1, t2, existing);
+
+            for (let m = 0; m < mappedSeg.length; m++) {
+                if (i > 0 && m === 0 && result.length > 0 && result[result.length - 1].pos === mappedSeg[0].pos) continue; 
+                result.push(mappedSeg[m]);
+            }
+        }
+    } else {
+        // 2 MARCADORES (STRETCH O REPETICIÓN INTERACTIVA)
+        let t_start = Array.isArray(startOrMarkers) ? startOrMarkers[0].at : startOrMarkers;
+        let t_end = Array.isArray(startOrMarkers) ? startOrMarkers[startOrMarkers.length - 1].at : end;
+        let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
+        let targetDuration = t_end - t_start;
+        if (targetDuration <= 0) return null;
+
+        if (window.presetFillMode === 'stretch') {
+            let chosenPreset = getRandomPreset();
+            result = mapSinglePreset(chosenPreset, t_start, t_end, existing);
         } else {
             const reps = window.presetFillReps || 1;
             const repDuration = targetDuration / reps;
             for (let r = 0; r < reps; r++) {
                 const offset = t_start + (r * repDuration);
-                for (let i = 0; i < preset.length; i++) {
-                    if (r > 0 && i === 0 && preset[0].pos === preset[preset.length - 1].pos) continue;
-                    
-                    let mappedPos = getSmartMappedPos(preset[i].pos, pSyncVal, tSyncVal, presetMin, presetMax, oMin, oMax, hasExisting);
-                    
-                    result.push({
-                        at: Math.round(offset + (preset[i].at / p_dur) * repDuration),
-                        pos: mappedPos,
-                        isSync: preset[i].isSync || false
-                    });
+                let chosenPreset = getRandomPreset();
+                let mappedSeg = mapSinglePreset(chosenPreset, offset, offset + repDuration, existing);
+                
+                for (let m = 0; m < mappedSeg.length; m++) {
+                    if (r > 0 && m === 0 && result.length > 0 && result[result.length - 1].pos === mappedSeg[0].pos) continue;
+                    result.push(mappedSeg[m]);
                 }
             }
         }
@@ -324,7 +307,6 @@ function redo() {
 // EVENTOS PERSONALIZADOS (ATAJOS Y BOTONES)
 // ==========================================
 
-// 🎯 FIX: Restauración de los escuchadores globales de atajos
 window.addEventListener('forceTimelinePan', (e) => {
     const canvas = document.getElementById('timeline-canvas');
     if (!canvas || canvas.width === 0) return;
@@ -693,6 +675,10 @@ window.updateActionsLog = function() {
 
 function updateGhostPosition(mouseX, mouseY) {
     if (!window.timelineGhostPreset) return;
+    
+    // Extracción segura del preset primario para alinear y calcular dimensiones base
+    let primaryPreset = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
+    
     let hoverTimeMs = xToTime(mouseX);
     let hoverPosRaw = yToPos(mouseY);
     
@@ -707,7 +693,7 @@ function updateGhostPosition(mouseX, mouseY) {
         window.timelineGhostMarkers = selectedMarkers;
 
         if (!window.presetFillInitialized) {
-            const pDur = window.timelineGhostPreset[window.timelineGhostPreset.length - 1].at;
+            const pDur = primaryPreset[primaryPreset.length - 1].at;
             window.presetFillMode = 'stretch';
             window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
             window.presetFillInitialized = true;
@@ -727,7 +713,7 @@ function updateGhostPosition(mouseX, mouseY) {
         let minDistance = snapDistMs;
         let isSnapped = false;
 
-        let pAnchor = window.timelineGhostPreset.find(a => a.isSync);
+        let pAnchor = primaryPreset.find(a => a.isSync);
         let tAnchors = actions.filter(a => a.isSync);
         window.timelineGhostTargetAnchor = null;
 
@@ -743,8 +729,8 @@ function updateGhostPosition(mouseX, mouseY) {
                 }
             });
         } else {
-            const pointsToCheck = [window.timelineGhostPreset[0]];
-            if (window.timelineGhostPreset.length > 1) pointsToCheck.push(window.timelineGhostPreset[window.timelineGhostPreset.length - 1]);
+            const pointsToCheck = [primaryPreset[0]];
+            if (primaryPreset.length > 1) pointsToCheck.push(primaryPreset[primaryPreset.length - 1]);
             pointsToCheck.forEach(pAct => {
                 let projectedTime = hoverTimeMs + pAct.at;
                 for (let i = 0; i < snapTargets.length; i++) {
@@ -762,7 +748,7 @@ function updateGhostPosition(mouseX, mouseY) {
         
         const snap = window.snapValue || 5;
         let hoverPos = Math.round(hoverPosRaw / snap) * snap;
-        const basePos = window.timelineGhostPreset[0].pos;
+        const basePos = primaryPreset[0].pos;
         window.timelineGhostDeltaPos = hoverPos - basePos;
     }
 }
@@ -1121,6 +1107,8 @@ window.drawTimeline = function() {
         }
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+            let primaryPreset = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
+            
             if (window.timelineGhostTargetEnd) {
                 const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
                 if (morphed) {
@@ -1152,18 +1140,18 @@ window.drawTimeline = function() {
                         ctx.fillText("Modo: Adaptación Múltiple", cursorX + 15, cursorY + 30);
                     } else {
                         ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Auto-Ajuste Cuántico" : `Modo: Repetir (${window.presetFillReps || 1}x)`;
+                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Auto-Ajuste Cuántico (↑/↓)" : `Modo: Repetir (${window.presetFillReps || 1}x) (←/→ cambiar)`;
                         ctx.fillText(modeText, cursorX + 15, cursorY + 30);
                     }
                 }
             } else if (window.timelineGhostTargetAnchor) {
-                let pAnchor = window.timelineGhostPreset.find(a => a.isSync);
-                let pMin = Math.min(...window.timelineGhostPreset.map(a => a.pos));
-                let pMax = Math.max(...window.timelineGhostPreset.map(a => a.pos));
+                let pAnchor = primaryPreset.find(a => a.isSync);
+                let pMin = Math.min(...primaryPreset.map(a => a.pos));
+                let pMax = Math.max(...primaryPreset.map(a => a.pos));
 
                 const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
                 ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
-                window.timelineGhostPreset.forEach((act, index) => {
+                primaryPreset.forEach((act, index) => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const scaledPos = getSmartMappedPos(act.pos, pAnchor.pos, window.timelineGhostTargetAnchor.pos, pMin, pMax, 0, 100, false);
                     const y = posToY(scaledPos); 
@@ -1171,7 +1159,7 @@ window.drawTimeline = function() {
                 });
                 ctx.stroke();
 
-                window.timelineGhostPreset.forEach(act => {
+                primaryPreset.forEach(act => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const scaledPos = getSmartMappedPos(act.pos, pAnchor.pos, window.timelineGhostTargetAnchor.pos, pMin, pMax, 0, 100, false);
                     const y = posToY(scaledPos);
@@ -1196,13 +1184,13 @@ window.drawTimeline = function() {
                 const snap = window.snapValue || 5;
                 const deltaY = window.timelineGhostDeltaPos || 0;
                 ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
-                window.timelineGhostPreset.forEach((act, index) => {
+                primaryPreset.forEach((act, index) => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap))); 
                     if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 });
                 ctx.stroke();
-                window.timelineGhostPreset.forEach(act => {
+                primaryPreset.forEach(act => {
                     const x = timeToX(window.timelineGhostTimeMs + act.at);
                     const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
                     if (act.isSync) {
@@ -1218,7 +1206,7 @@ window.drawTimeline = function() {
                 });
                 
                 const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
-                const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(window.timelineGhostPreset[0].pos + deltaY);
+                const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(primaryPreset[0].pos + deltaY);
                 
                 ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
                 if (window.isPastingMode) {
@@ -1770,20 +1758,21 @@ function initTimelineEvents() {
                 
                 saveHistoryState();
                 let newActions = [];
+                let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[Math.floor(Math.random() * presetToInject.length)] : presetToInject;
                 
                 if (targetAnchor) {
-                    let pAnchor = presetToInject.find(a => a.isSync);
-                    let pMin = Math.min(...presetToInject.map(a => a.pos));
-                    let pMax = Math.max(...presetToInject.map(a => a.pos));
+                    let pAnchor = primaryPreset.find(a => a.isSync);
+                    let pMin = Math.min(...primaryPreset.map(a => a.pos));
+                    let pMax = Math.max(...primaryPreset.map(a => a.pos));
                     
-                    newActions = presetToInject.map(act => ({
+                    newActions = primaryPreset.map(act => ({
                         at: Math.round(dropTimeMs + act.at),
                         pos: getSmartMappedPos(act.pos, pAnchor.pos, targetAnchor.pos, pMin, pMax, 0, 100, false),
                         selected: true,
                         isSync: act.isSync || false
                     }));
                 } else {
-                    newActions = presetToInject.map(act => ({
+                    newActions = primaryPreset.map(act => ({
                         at: Math.round(dropTimeMs + act.at),
                         pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
                         selected: true,
@@ -1818,6 +1807,28 @@ function initTimelineEvents() {
     });
 
     c.addEventListener('contextmenu', e => e.preventDefault());
+
+    // 🎯 ATAJOS EXCLUSIVOS PARA MODO FANTASMA (REPETIDOR Y MODO)
+    document.addEventListener('keydown', (e) => {
+        if (document.body.classList.contains('panic-mode-active')) return;
+        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null && window.timelineGhostTargetEnd) {
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                window.presetFillMode = 'repeat';
+                window.presetFillReps = (window.presetFillReps || 1) + 1;
+                window.drawTimeline();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                window.presetFillMode = 'repeat';
+                window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
+                window.drawTimeline();
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                window.presetFillMode = window.presetFillMode === 'stretch' ? 'repeat' : 'stretch';
+                window.drawTimeline();
+            }
+        }
+    });
 }
 
 // ==========================================
