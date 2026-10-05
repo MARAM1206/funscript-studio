@@ -1,11 +1,10 @@
 // ==========================================================================
-// TIMELINE V1.28.0 (FIX RANDOMIZER FLICKER, REPETIDOR Y PEGADO) - PARTE 1
+// TIMELINE V1.29.0 (REPETICIÓN INTELIGENTE, PEGADO LIBRE Y FLECHAS) - PARTE 1
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
 window.activeSuggestion = null; 
-window.presetFillMode = 'stretch'; 
 window.presetFillReps = 1;
 window.presetFillInitialized = false;
 window.lastMarkerRightClickIdx = -1;
@@ -146,7 +145,7 @@ function yToPos(y) {
 }
 
 // ==========================================
-// FIX: IA DE ESCALA Y RANDOMIZER SIN PARPADEO
+// FIX 1: LLENADO Y REPETICIÓN INTELIGENTE (MULTI-PRESET)
 // ==========================================
 function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
     if (pSyncVal !== null && tSyncVal !== null) {
@@ -176,9 +175,6 @@ window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
     
     let presets = Array.isArray(presetInput[0]) ? presetInput : [presetInput];
     let result = [];
-    
-    // FIX 1: Estabilidad del Randomizer (Evitar parpadeo)
-    // Almacenamos la secuencia de índices aleatorios para que no cambie en cada pixel de arrastre
     if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
 
     const mapSinglePreset = (p, t_start, t_end, existing) => {
@@ -244,31 +240,25 @@ window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
         }
     } else {
         let t_start = Array.isArray(startOrMarkers) ? startOrMarkers[0].at : startOrMarkers;
-        let t_end = Array.isArray(startOrMarkers) ? startOrMarkers[startOrMarkers.length - 1].at : end;
-        let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
-        let targetDuration = t_end - t_start;
-        if (targetDuration <= 0) return null;
-
-        if (window.presetFillMode === 'stretch') {
-            if (window.timelineGhostRandomSequence.length === 0) window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
-            let chosenPreset = presets[window.timelineGhostRandomSequence[0]];
-            result = mapSinglePreset(chosenPreset, t_start, t_end, existing);
-        } else {
-            const reps = window.presetFillReps || 1;
-            const repDuration = targetDuration / reps;
-            for (let r = 0; r < reps; r++) {
-                const offset = t_start + (r * repDuration);
-                
-                if (window.timelineGhostRandomSequence.length <= r) {
-                    window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
-                }
-                let chosenPreset = presets[window.timelineGhostRandomSequence[r]];
-                let mappedSeg = mapSinglePreset(chosenPreset, offset, offset + repDuration, existing);
-                
-                for (let m = 0; m < mappedSeg.length; m++) {
-                    if (r > 0 && m === 0 && result.length > 0 && result[result.length - 1].pos === mappedSeg[0].pos) continue;
-                    result.push(mappedSeg[m]);
-                }
+        let isFreeRepeat = !end; 
+        let reps = window.presetFillReps || 1;
+        
+        for (let r = 0; r < reps; r++) {
+            if (window.timelineGhostRandomSequence.length <= r) {
+                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
+            }
+            let chosenPreset = presets[window.timelineGhostRandomSequence[r]];
+            let p_dur = chosenPreset[chosenPreset.length - 1].at;
+            
+            let repDuration = isFreeRepeat ? p_dur : ((end - t_start) / reps);
+            let offset = t_start + (r * repDuration);
+            
+            let existing = (window.funscriptActions || []).filter(a => a.at >= offset && a.at <= offset + repDuration);
+            let mappedSeg = mapSinglePreset(chosenPreset, offset, offset + repDuration, existing);
+            
+            for (let m = 0; m < mappedSeg.length; m++) {
+                if (r > 0 && m === 0 && result.length > 0 && result[result.length - 1].pos === mappedSeg[0].pos) continue;
+                result.push(mappedSeg[m]);
             }
         }
     }
@@ -531,7 +521,6 @@ window.addEventListener('pastePoints', () => {
     if (window.clipboardFunscript && window.clipboardFunscript.length > 0) {
         getSafeActions().forEach(a => a.selected = false); 
         window.isPastingMode = true;
-        // Reiniciamos secuencia aleatoria y asignamos el portapapeles
         window.timelineGhostRandomSequence = [];
         window.timelineGhostPreset = window.clipboardFunscript;
         window.timelineGhostTimeMs = null;
@@ -679,7 +668,6 @@ function updateGhostPosition(mouseX, mouseY) {
 
         if (!window.presetFillInitialized) {
             const pDur = primaryPreset[primaryPreset.length - 1].at;
-            window.presetFillMode = 'stretch';
             window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
             window.presetFillInitialized = true;
         }
@@ -1120,14 +1108,9 @@ window.drawTimeline = function() {
                     
                     const cursorX = timeToX(window.timelineGhostTimeMs);
                     const cursorY = posToY(50);
-                    if (window.timelineGhostMarkers && window.timelineGhostMarkers.length > 2) {
-                        ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                        ctx.fillText("Modo: Adaptación Múltiple", cursorX + 15, cursorY + 30);
-                    } else {
-                        ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                        let modeText = window.presetFillMode === 'stretch' ? "Modo: Auto-Ajuste Cuántico (↑/↓)" : `Modo: Repetir (${window.presetFillReps || 1}x) (←/→ cambiar)`;
-                        ctx.fillText(modeText, cursorX + 15, cursorY + 30);
-                    }
+                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
+                    let modeText = `Modo: Repetir al Azar (${window.presetFillReps || 1}x) (Presiona ← / →)`;
+                    ctx.fillText(modeText, cursorX + 15, cursorY + 30);
                 }
             } else if (window.timelineGhostTargetAnchor) {
                 let pAnchor = primaryPreset.find(a => a.isSync);
@@ -1195,7 +1178,7 @@ window.drawTimeline = function() {
                 
                 ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
                 if (window.isPastingMode) {
-                    ctx.fillText("📋 PEGAR LIBRE (Click para soltar | ESC para cancelar)", pasteX + 15, pasteY + 30);
+                    ctx.fillText("📋 PEGAR LIBRE (Click izquierdo para soltar | ESC para cancelar)", pasteX + 15, pasteY + 30);
                 } else if (window.isDraggingPreset) {
                     ctx.fillText("✋ SOLTAR AQUÍ", pasteX + 15, pasteY + 30);
                 }
@@ -1514,6 +1497,12 @@ function initTimelineEvents() {
         const mouseX = pos.x; const mouseY = pos.y;
         window.lastMouseX = mouseX;
         window.lastMouseY = mouseY;
+
+        // Actualizamos la posición libre si estamos pegando con el teclado
+        if (window.isPastingMode && window.timelineGhostPreset) {
+            updateGhostPosition(mouseX, mouseY);
+            window.drawTimeline();
+        }
         
         if (isSelectingMarkers) {
             selCurrMarkerT = xToTime(mouseX);
@@ -1560,7 +1549,7 @@ function initTimelineEvents() {
             hwMin = device.overclock.min;
         }
 
-        if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers && !window.isDraggingPreset) {
+        if (!isDraggingNode && !isSelecting && !isDraggingMarker && !isSelectingMarkers && !window.isDraggingPreset && !window.isPastingMode) {
             for (let i = 0; i < actions.length - 1; i++) {
                 let act1 = actions[i]; let act2 = actions[i+1];
                 let px1 = timeToX(act1.at); let py1 = posToY(act1.pos);
@@ -1634,7 +1623,6 @@ function initTimelineEvents() {
     });
 
     c.addEventListener('mouseup', (e) => {
-        // FIX 4: Pegado Congelado (Soltar el fantasma al hacer clic)
         if (window.isPastingMode && window.timelineGhostPreset) {
             ensureTrackExists();
             let actions = getSafeActions();
@@ -1647,25 +1635,39 @@ function initTimelineEvents() {
             
             saveHistoryState();
             
-            let primaryPreset = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
+            let presetToInject = JSON.parse(JSON.stringify(window.timelineGhostPreset));
+            let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
             
-            let newActions = primaryPreset.map(act => ({
-                at: Math.round(dropTimeMs + act.at),
-                pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
-                selected: true,
-                isSync: act.isSync || false
-            }));
+            if (window.timelineGhostTargetEnd) {
+                const morphed = window.getMorphedPreset(presetToInject, window.timelineGhostMarkers || dropTimeMs, window.timelineGhostTargetEnd);
+                if (morphed) {
+                    let tStart = dropTimeMs;
+                    let tEnd = window.timelineGhostTargetEnd;
+                    actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+                    actions.forEach(a => a.selected = false);
+                    morphed.forEach(m => m.selected = true);
+                    actions.push(...morphed);
+                    cleanDuplicates();
+                }
+            } else {
+                let newActions = primaryPreset.map(act => ({
+                    at: Math.round(dropTimeMs + act.at),
+                    pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
+                    selected: true,
+                    isSync: act.isSync || false
+                }));
+                
+                let tStart = newActions[0].at;
+                let tEnd = newActions[newActions.length - 1].at;
+                
+                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+                actions.forEach(a => a.selected = false); 
+                actions.push(...newActions);
+                cleanDuplicates(); 
+            }
             
-            let tStart = newActions[0].at;
-            let tEnd = newActions[newActions.length - 1].at;
-            
-            actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-            actions.forEach(a => a.selected = false); 
-            actions.push(...newActions);
-            
-            cleanDuplicates(); 
             window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
-            window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null;
+            window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null; window.timelineGhostTargetEnd = null;
             window.timelineGhostRandomSequence = []; 
             
             if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -1674,7 +1676,7 @@ function initTimelineEvents() {
             return;
         }
 
-        if (window.isDraggingPreset) return; // Se maneja en el evento 'drop'
+        if (window.isDraggingPreset) return; 
 
         if (isSelectingMarkers) {
             isSelectingMarkers = false;
@@ -1772,7 +1774,7 @@ function initTimelineEvents() {
                         window.isDraggingPreset = false; window.timelineGhostPreset = null;
                         window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; 
                         window.timelineGhostMarkers = null; window.timelineGhostTargetAnchor = null;
-                        window.timelineGhostRandomSequence = []; // Limpiamos memoria del randomizer
+                        window.timelineGhostRandomSequence = []; 
                         
                         if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
                         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -1816,7 +1818,7 @@ function initTimelineEvents() {
                 cleanDuplicates(); 
                 window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
                 window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null;
-                window.timelineGhostRandomSequence = []; // Limpiamos memoria del randomizer
+                window.timelineGhostRandomSequence = []; 
                 
                 if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -1835,11 +1837,10 @@ function initTimelineEvents() {
 
     c.addEventListener('contextmenu', e => e.preventDefault());
 
-    // 🎯 FIX 2: ATAJOS DE TECLADO PARA MODO FANTASMA Y REPETIDOR ACORDE AL DOCUMENTO GLOBAL
+    // 🎯 FIX 3 Y 4: ATAJOS DE TECLADO PARA MODO FANTASMA ACORDE AL DOCUMENTO GLOBAL (SOLO ← y →)
     document.addEventListener('keydown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return;
         
-        // Cancelar pegado con ESC
         if (window.isPastingMode && e.key === 'Escape') {
             e.preventDefault();
             window.isPastingMode = false;
@@ -1852,22 +1853,15 @@ function initTimelineEvents() {
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null && window.timelineGhostTargetEnd) {
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                window.presetFillMode = 'repeat';
                 window.presetFillReps = (window.presetFillReps || 1) + 1;
-                // Agregamos un nuevo índice aleatorio al array si aumentamos las repeticiones
                 if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
                 window.timelineGhostRandomSequence.push(Math.floor(Math.random() * (Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset.length : 1)));
                 window.drawTimeline();
             } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                window.presetFillMode = 'repeat';
                 window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
                 window.drawTimeline();
-            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                e.preventDefault();
-                window.presetFillMode = window.presetFillMode === 'stretch' ? 'repeat' : 'stretch';
-                window.drawTimeline();
-            }
+            } 
         }
     });
 }
