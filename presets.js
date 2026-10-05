@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.28.0 (MULTI-SELECTION, RANDOMIZER LINK & ANCHOR FIX)
+// PRESETS MANAGER V1.29.0 (AUTO-DESMARQUE DE ANCLAS FIX)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pNameInput = document.getElementById('preset-editor-name');
     const modalPresetsList = document.getElementById('modal-presets-library-list');
 
-    window.selectedPresets = window.selectedPresets || []; // Array para guardar presets seleccionados
+    window.selectedPresets = window.selectedPresets || []; 
 
     try {
         let stored = JSON.parse(localStorage.getItem('funscript_presets'));
@@ -87,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return finalName;
     }
 
-    // Función auxiliar para actualizar estilos visuales de selección sin re-renderizar todo el DOM
     function updateCardStyles() {
         document.querySelectorAll('.preset-card').forEach(card => {
             const id = card.dataset.id;
@@ -118,10 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 card.draggable = true;
                 
-                // EVENTO CLIC: Gestión de selección múltiple con Ctrl / Cmd
                 if (!isModal) {
                     card.addEventListener('click', (e) => {
-                        if (e.target.closest('button')) return; // Evita seleccionar si se clicó el botón editar/eliminar
+                        if (e.target.closest('button')) return; 
                         if (e.ctrlKey || e.metaKey) {
                             const idx = window.selectedPresets.indexOf(preset.id);
                             if (idx > -1) window.selectedPresets.splice(idx, 1);
@@ -134,7 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 card.addEventListener('dragstart', (e) => {
-                    // Si el preset que arrastramos no está en la selección actual, lo seleccionamos como único
                     if (!window.selectedPresets.includes(preset.id)) {
                         window.selectedPresets = [preset.id];
                         updateCardStyles();
@@ -143,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
                     
-                    // Empaquetamos todos los presets seleccionados para el Randomizer
                     window.timelineGhostPreset = window.selectedPresets.map(id => {
                         const p = window.presetsLibrary.find(x => x.id === id);
                         return JSON.parse(JSON.stringify(p.actions));
@@ -184,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault();
                     card.style.boxShadow = "";
                     
-                    // EVITAR CORRUPCIÓN: Si se seleccionaron múltiples, no permitimos reordenar en la librería
                     if (window.selectedPresets && window.selectedPresets.length > 1) {
                         return;
                     }
@@ -266,7 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (confirm(`¿Eliminar el preset "${preset.name}"?`)) {
                             window.presetsLibrary.splice(index, 1);
                             
-                            // Remover de la selección actual si fue eliminado
                             const sIdx = window.selectedPresets.indexOf(preset.id);
                             if (sIdx > -1) window.selectedPresets.splice(sIdx, 1);
                             
@@ -296,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }, 10);
             });
-            updateCardStyles(); // Asegurar consistencia visual tras re-renderizar
+            updateCardStyles(); 
         };
 
         renderList(presetsList, false);
@@ -690,21 +684,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 🎯 FIX: Evento exclusivo para la tecla "." dentro del editor de presets
+    // 🎯 FIX 4: Desmarque Automático de Anclas
     document.addEventListener('keydown', (e) => {
         const modalElement = document.getElementById('preset-editor-modal');
         if (modalElement && modalElement.style.display === 'flex') {
             if (e.key === '.') {
                 e.preventDefault();
                 let moved = false;
-                savePresetHistoryState(); // Rescatamos el estado para el Ctrl+Z
+                savePresetHistoryState(); 
                 window.presetEditorActions.forEach(a => {
                     if (a.selected) {
                         a.isSync = !a.isSync;
+                        a.selected = false; // <-- Deselección inmediata
                         moved = true;
                     }
                 });
-                if (moved) drawPresetEditor(); // Redibujar si hubo cambios
+                if (moved) drawPresetEditor(); 
             }
         }
     });
