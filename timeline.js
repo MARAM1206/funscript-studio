@@ -1,12 +1,12 @@
 // ==========================================================================
-// TIMELINE V1.29.0 (REPETICIÓN INTELIGENTE, PEGADO LIBRE Y FLECHAS) - PARTE 1
+// TIMELINE V1.30.0 (FIX EFECTO IMÁN Y FLECHAS EN MODO LIBRE) - PARTE 1
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
 window.activeSuggestion = null; 
 window.presetFillReps = 1;
-window.presetFillInitialized = false;
+window.presetFillModeState = null; // Reemplaza a presetFillInitialized para mejor control
 window.lastMarkerRightClickIdx = -1;
 window.lastMarkerRightClickTime = 0;
 window.activeDevice = null;
@@ -144,9 +144,6 @@ function yToPos(y) {
     return Math.max(0, Math.min(100, Math.round(rawPos))); 
 }
 
-// ==========================================
-// FIX 1: LLENADO Y REPETICIÓN INTELIGENTE (MULTI-PRESET)
-// ==========================================
 function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
     if (pSyncVal !== null && tSyncVal !== null) {
         if (presetVal === pSyncVal) return tSyncVal; 
@@ -1178,9 +1175,9 @@ window.drawTimeline = function() {
                 
                 ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
                 if (window.isPastingMode) {
-                    ctx.fillText("📋 PEGAR LIBRE (Click izquierdo para soltar | ESC para cancelar)", pasteX + 15, pasteY + 30);
+                    ctx.fillText(`📋 PEGAR MÚLTIPLE (${window.presetFillReps || 1}x) (← / →) (ESC cancelar)`, pasteX + 15, pasteY + 30);
                 } else if (window.isDraggingPreset) {
-                    ctx.fillText("✋ SOLTAR AQUÍ", pasteX + 15, pasteY + 30);
+                    ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (← / →)`, pasteX + 15, pasteY + 30);
                 }
             }
         }
@@ -1348,6 +1345,10 @@ function initTimelineEvents() {
 
     c.addEventListener('mousedown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return; 
+        
+        // FIX 1: Bloqueamos cualquier intento de selección o arrastre de puntos mientras estamos en modo pegado o ubicando un preset.
+        // Esto elimina por completo el efecto "imán" accidental.
+        if (window.isPastingMode || window.isDraggingPreset) return; 
 
         const snap = window.snapValue || 5;
         const actions = getSafeActions();
@@ -1837,7 +1838,7 @@ function initTimelineEvents() {
 
     c.addEventListener('contextmenu', e => e.preventDefault());
 
-    // 🎯 FIX 3 Y 4: ATAJOS DE TECLADO PARA MODO FANTASMA ACORDE AL DOCUMENTO GLOBAL (SOLO ← y →)
+    // 🎯 FIX 2: ATAJOS DE TECLADO PARA MODO FANTASMA SIN RESTRICCIONES (← y → funcionan libremente)
     document.addEventListener('keydown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return;
         
@@ -1850,7 +1851,7 @@ function initTimelineEvents() {
             return;
         }
 
-        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null && window.timelineGhostTargetEnd) {
+        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 window.presetFillReps = (window.presetFillReps || 1) + 1;
