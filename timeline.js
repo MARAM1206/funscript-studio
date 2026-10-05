@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.27.0 (MOTOR RANDOMIZER Y REPETIDOR INTERACTIVO)
+// TIMELINE V1.28.0 (FIX RANDOMIZER FLICKER, REPETIDOR Y PEGADO) - PARTE 1
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -36,6 +36,7 @@ let draggedMarkerIndex = -1;
 let lastRightClickTime = 0; 
 let undoStack = [];
 let redoStack = [];
+let hadSelectionBeforeMousedown = false;
 const MAX_HISTORY = 50;
 
 window.hardwareDB = {
@@ -64,7 +65,7 @@ function pDistance(x, y, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor) {
+function getCorrectionSuggestion(act1, act2, hwMax, hwMin, factor, act0, act3) {
     let dt = act2.at - act1.at;
     let dp = Math.abs(act2.pos - act1.pos);
     if (dt <= 0) return null;
@@ -145,7 +146,7 @@ function yToPos(y) {
 }
 
 // ==========================================
-// INTELIGENCIA ARTIFICIAL DE ESCALA (ANCLAS Y MÚLTIPLES PRESETS)
+// FIX: IA DE ESCALA Y RANDOMIZER SIN PARPADEO
 // ==========================================
 function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
     if (pSyncVal !== null && tSyncVal !== null) {
@@ -173,14 +174,13 @@ function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax
 window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
     if (!presetInput || presetInput.length === 0) return null;
     
-    // Normalizar a un arreglo de presets para poder iterar o seleccionar al azar
     let presets = Array.isArray(presetInput[0]) ? presetInput : [presetInput];
     let result = [];
     
-    // Función para obtener un preset aleatorio del pool seleccionado
-    const getRandomPreset = () => presets[Math.floor(Math.random() * presets.length)];
+    // FIX 1: Estabilidad del Randomizer (Evitar parpadeo)
+    // Almacenamos la secuencia de índices aleatorios para que no cambie en cada pixel de arrastre
+    if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
 
-    // Mapeo individual de un preset a un rango de tiempo
     const mapSinglePreset = (p, t_start, t_end, existing) => {
         const p_dur = p[p.length - 1].at;
         if (p_dur <= 0) return [];
@@ -220,22 +220,21 @@ window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
                 newAt = t_start + (p[j].at / p_dur) * targetDuration;
             }
 
-            mapped.push({
-                at: Math.round(newAt),
-                pos: mappedPos,
-                isSync: p[j].isSync || false
-            });
+            mapped.push({ at: Math.round(newAt), pos: mappedPos, isSync: p[j].isSync || false });
         }
         return mapped;
     };
 
-    // MÚLTIPLES MARCADORES
     if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
         for (let i = 0; i < startOrMarkers.length - 1; i++) {
             let t1 = startOrMarkers[i].at;
             let t2 = startOrMarkers[i+1].at;
             let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
-            let chosenPreset = getRandomPreset();
+            
+            if (window.timelineGhostRandomSequence.length <= i) {
+                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
+            }
+            let chosenPreset = presets[window.timelineGhostRandomSequence[i]];
             let mappedSeg = mapSinglePreset(chosenPreset, t1, t2, existing);
 
             for (let m = 0; m < mappedSeg.length; m++) {
@@ -244,7 +243,6 @@ window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
             }
         }
     } else {
-        // 2 MARCADORES (STRETCH O REPETICIÓN INTERACTIVA)
         let t_start = Array.isArray(startOrMarkers) ? startOrMarkers[0].at : startOrMarkers;
         let t_end = Array.isArray(startOrMarkers) ? startOrMarkers[startOrMarkers.length - 1].at : end;
         let existing = (window.funscriptActions || []).filter(a => a.at >= t_start && a.at <= t_end);
@@ -252,14 +250,19 @@ window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
         if (targetDuration <= 0) return null;
 
         if (window.presetFillMode === 'stretch') {
-            let chosenPreset = getRandomPreset();
+            if (window.timelineGhostRandomSequence.length === 0) window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
+            let chosenPreset = presets[window.timelineGhostRandomSequence[0]];
             result = mapSinglePreset(chosenPreset, t_start, t_end, existing);
         } else {
             const reps = window.presetFillReps || 1;
             const repDuration = targetDuration / reps;
             for (let r = 0; r < reps; r++) {
                 const offset = t_start + (r * repDuration);
-                let chosenPreset = getRandomPreset();
+                
+                if (window.timelineGhostRandomSequence.length <= r) {
+                    window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
+                }
+                let chosenPreset = presets[window.timelineGhostRandomSequence[r]];
                 let mappedSeg = mapSinglePreset(chosenPreset, offset, offset + repDuration, existing);
                 
                 for (let m = 0; m < mappedSeg.length; m++) {
@@ -306,17 +309,12 @@ function redo() {
 // ==========================================
 // EVENTOS PERSONALIZADOS (ATAJOS Y BOTONES)
 // ==========================================
-
 window.addEventListener('forceTimelinePan', (e) => {
     const canvas = document.getElementById('timeline-canvas');
     if (!canvas || canvas.width === 0) return;
     const visibleMs = (canvas.width - 30) / (window.basePixelsPerMs * window.zoom);
-    
     let targetTime = window.getActualTimeMs();
-    if (e && e.detail && e.detail.timeMs !== undefined) {
-        targetTime = e.detail.timeMs;
-    }
-    
+    if (e && e.detail && e.detail.timeMs !== undefined) targetTime = e.detail.timeMs;
     window.scrollLeftMs = Math.max(0, targetTime - (visibleMs / 2));
     window.drawTimeline();
 });
@@ -335,29 +333,15 @@ window.addEventListener('toggleSyncPoint', () => {
         try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
         const timeMs = Math.round(safeTime);
         const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
-        
-        if (existingIdx !== -1) {
-            actions[existingIdx].isSync = !actions[existingIdx].isSync;
-            actions[existingIdx].selected = true; 
-        } else {
-            actions.push({ at: timeMs, pos: 50, selected: true, isSync: true });
-        }
-        
+        if (existingIdx !== -1) { actions[existingIdx].isSync = !actions[existingIdx].isSync; actions[existingIdx].selected = true; } 
+        else { actions.push({ at: timeMs, pos: 50, selected: true, isSync: true }); }
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud();
-        window.updateHeatmapAndStats();
-        window.drawTimeline();
+        notifyCloud(); window.updateHeatmapAndStats(); window.drawTimeline();
     } else {
         let moved = false;
-        actions.forEach(act => {
-            if (act.selected) { act.isSync = !act.isSync; moved = true; }
-        });
-        if (moved) {
-            saveHistoryState();
-            window.drawTimeline();
-            notifyCloud();
-        }
+        actions.forEach(act => { if (act.selected) { act.isSync = !act.isSync; moved = true; } });
+        if (moved) { saveHistoryState(); window.drawTimeline(); notifyCloud(); }
     }
 });
 
@@ -547,6 +531,8 @@ window.addEventListener('pastePoints', () => {
     if (window.clipboardFunscript && window.clipboardFunscript.length > 0) {
         getSafeActions().forEach(a => a.selected = false); 
         window.isPastingMode = true;
+        // Reiniciamos secuencia aleatoria y asignamos el portapapeles
+        window.timelineGhostRandomSequence = [];
         window.timelineGhostPreset = window.clipboardFunscript;
         window.timelineGhostTimeMs = null;
         if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
@@ -676,7 +662,6 @@ window.updateActionsLog = function() {
 function updateGhostPosition(mouseX, mouseY) {
     if (!window.timelineGhostPreset) return;
     
-    // Extracción segura del preset primario para alinear y calcular dimensiones base
     let primaryPreset = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
     
     let hoverTimeMs = xToTime(mouseX);
@@ -1210,7 +1195,7 @@ window.drawTimeline = function() {
                 
                 ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
                 if (window.isPastingMode) {
-                    ctx.fillText("📋 PEGAR LIBRE (Click para soltar)", pasteX + 15, pasteY + 30);
+                    ctx.fillText("📋 PEGAR LIBRE (Click para soltar | ESC para cancelar)", pasteX + 15, pasteY + 30);
                 } else if (window.isDraggingPreset) {
                     ctx.fillText("✋ SOLTAR AQUÍ", pasteX + 15, pasteY + 30);
                 }
@@ -1649,7 +1634,47 @@ function initTimelineEvents() {
     });
 
     c.addEventListener('mouseup', (e) => {
-        if (window.isPastingMode || window.isDraggingPreset) return; 
+        // FIX 4: Pegado Congelado (Soltar el fantasma al hacer clic)
+        if (window.isPastingMode && window.timelineGhostPreset) {
+            ensureTrackExists();
+            let actions = getSafeActions();
+            const snap = window.snapValue || 5;
+            
+            const rect = c.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) * (c.width / rect.width);
+            let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
+            const deltaY = window.timelineGhostDeltaPos || 0;
+            
+            saveHistoryState();
+            
+            let primaryPreset = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
+            
+            let newActions = primaryPreset.map(act => ({
+                at: Math.round(dropTimeMs + act.at),
+                pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
+                selected: true,
+                isSync: act.isSync || false
+            }));
+            
+            let tStart = newActions[0].at;
+            let tEnd = newActions[newActions.length - 1].at;
+            
+            actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+            actions.forEach(a => a.selected = false); 
+            actions.push(...newActions);
+            
+            cleanDuplicates(); 
+            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
+            window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null;
+            window.timelineGhostRandomSequence = []; 
+            
+            if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+            notifyCloud(); window.updateHeatmapAndStats();
+            window.drawTimeline();
+            return;
+        }
+
+        if (window.isDraggingPreset) return; // Se maneja en el evento 'drop'
 
         if (isSelectingMarkers) {
             isSelectingMarkers = false;
@@ -1747,6 +1772,7 @@ function initTimelineEvents() {
                         window.isDraggingPreset = false; window.timelineGhostPreset = null;
                         window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; 
                         window.timelineGhostMarkers = null; window.timelineGhostTargetAnchor = null;
+                        window.timelineGhostRandomSequence = []; // Limpiamos memoria del randomizer
                         
                         if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
                         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -1790,6 +1816,7 @@ function initTimelineEvents() {
                 cleanDuplicates(); 
                 window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
                 window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null;
+                window.timelineGhostRandomSequence = []; // Limpiamos memoria del randomizer
                 
                 if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
                 if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -1808,14 +1835,28 @@ function initTimelineEvents() {
 
     c.addEventListener('contextmenu', e => e.preventDefault());
 
-    // 🎯 ATAJOS EXCLUSIVOS PARA MODO FANTASMA (REPETIDOR Y MODO)
+    // 🎯 FIX 2: ATAJOS DE TECLADO PARA MODO FANTASMA Y REPETIDOR ACORDE AL DOCUMENTO GLOBAL
     document.addEventListener('keydown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return;
+        
+        // Cancelar pegado con ESC
+        if (window.isPastingMode && e.key === 'Escape') {
+            e.preventDefault();
+            window.isPastingMode = false;
+            window.timelineGhostPreset = null;
+            window.timelineGhostRandomSequence = [];
+            window.drawTimeline();
+            return;
+        }
+
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null && window.timelineGhostTargetEnd) {
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 window.presetFillMode = 'repeat';
                 window.presetFillReps = (window.presetFillReps || 1) + 1;
+                // Agregamos un nuevo índice aleatorio al array si aumentamos las repeticiones
+                if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
+                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * (Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset.length : 1)));
                 window.drawTimeline();
             } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
