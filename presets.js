@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.31.0 (THUMBNAILS GRANDES FIX & AUTO-DESMARQUE)
+// PRESETS MANAGER V1.32.0 (CUSTOM POINTER-EVENTS DRAG & DROP)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -115,7 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.dataset.id = preset.id;
                 card.title = "Arrastra a la Línea de Tiempo o Reordena";
                 
-                card.draggable = true;
+                // Aplicamos las reglas CSS recomendadas para Custom Drag
+                card.style.touchAction = 'none';
+                card.style.userSelect = 'none';
                 
                 if (!isModal) {
                     card.addEventListener('click', (e) => {
@@ -131,7 +133,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
 
-                card.addEventListener('dragstart', (e) => {
+                // ==========================================
+                // CUSTOM POINTER DRAG & DROP
+                // ==========================================
+                card.addEventListener('pointerdown', (e) => {
+                    if (e.button !== 0 || isModal) return; 
+                    if (e.target.closest('button')) return; 
+
+                    e.preventDefault(); 
+                    
                     if (!window.selectedPresets.includes(preset.id)) {
                         window.selectedPresets = [preset.id];
                         updateCardStyles();
@@ -144,80 +154,120 @@ document.addEventListener('DOMContentLoaded', () => {
                         const p = window.presetsLibrary.find(x => x.id === id);
                         return JSON.parse(JSON.stringify(p.actions));
                     });
-
                     window.presetFillInitialized = false; 
-                    
-                    if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'copyMove';
-                        const img = new Image();
-                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                        e.dataTransfer.setDragImage(img, 0, 0);
-                        e.dataTransfer.setData('text/plain', preset.id); 
-                    }
-                    setTimeout(() => {
+
+                    // Crear Clon Flotante
+                    let floatingClone = card.cloneNode(true);
+                    floatingClone.style.position = 'fixed';
+                    floatingClone.style.pointerEvents = 'none'; 
+                    floatingClone.style.zIndex = '9999';
+                    floatingClone.style.opacity = '0.8';
+                    floatingClone.style.boxShadow = '0 10px 15px rgba(0,0,0,0.5)';
+                    floatingClone.style.width = card.offsetWidth + 'px';
+                    document.body.appendChild(floatingClone);
+
+                    let initialRect = card.getBoundingClientRect();
+                    let offsetX = e.clientX - initialRect.left;
+                    let offsetY = e.clientY - initialRect.top;
+
+                    floatingClone.style.left = (e.clientX - offsetX) + 'px';
+                    floatingClone.style.top = (e.clientY - offsetY) + 'px';
+                    card.style.opacity = '0.4';
+
+                    const onPointerMove = (eMove) => {
+                        floatingClone.style.left = (eMove.clientX - offsetX) + 'px';
+                        floatingClone.style.top = (eMove.clientY - offsetY) + 'px';
+
+                        const canvas = document.getElementById('timeline-canvas');
+                        if (canvas) {
+                            const rect = canvas.getBoundingClientRect();
+                            if (eMove.clientX >= rect.left && eMove.clientX <= rect.right &&
+                                eMove.clientY >= rect.top && eMove.clientY <= rect.bottom) {
+                                // Estamos sobre el Canvas
+                                const mouseX = (eMove.clientX - rect.left) * (canvas.width / rect.width);
+                                const mouseY = (eMove.clientY - rect.top) * (canvas.height / rect.height);
+                                if (typeof window.updateGhostPosition === 'function') {
+                                    window.updateGhostPosition(mouseX, mouseY);
+                                }
+                                window.drawTimeline();
+                            } else {
+                                // Salimos del Canvas
+                                if (window.timelineGhostTimeMs !== null) {
+                                    window.timelineGhostTimeMs = null;
+                                    window.drawTimeline();
+                                }
+                                // Lógica visual de reordenamiento
+                                const hoveredCard = document.elementFromPoint(eMove.clientX, eMove.clientY)?.closest('.preset-card');
+                                document.querySelectorAll('.preset-card').forEach(c => c.style.boxShadow = "");
+                                if (hoveredCard && hoveredCard.dataset.id !== preset.id) {
+                                    const hRect = hoveredCard.getBoundingClientRect();
+                                    const relY = eMove.clientY - hRect.top;
+                                    if (relY < hRect.height / 2) hoveredCard.style.boxShadow = "0 -2px 0 0 #38bdf8"; 
+                                    else hoveredCard.style.boxShadow = "0 2px 0 0 #38bdf8";
+                                }
+                            }
+                        }
+                    };
+
+                    const onPointerUp = (eUp) => {
+                        window.removeEventListener('pointermove', onPointerMove);
+                        window.removeEventListener('pointerup', onPointerUp);
+                        
+                        floatingClone.remove();
                         document.querySelectorAll('.preset-card').forEach(c => {
-                            if (window.selectedPresets.includes(c.dataset.id)) c.style.opacity = '0.4';
+                            c.style.opacity = '1';
+                            c.style.boxShadow = "";
                         });
-                    }, 0);
-                });
-                
-                card.addEventListener('dragover', (e) => {
-                    if (!window.isDraggingPreset) return;
-                    e.preventDefault(); 
-                    e.dataTransfer.dropEffect = 'move';
-                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        const rect = card.getBoundingClientRect();
-                        const relY = e.clientY - rect.top;
-                        if (relY < rect.height / 2) card.style.boxShadow = "0 -2px 0 0 #38bdf8"; 
-                        else card.style.boxShadow = "0 2px 0 0 #38bdf8"; 
-                    }
-                });
 
-                card.addEventListener('dragleave', () => { card.style.boxShadow = ""; });
+                        if (window.isDraggingPreset) {
+                            const canvas = document.getElementById('timeline-canvas');
+                            let droppedOnCanvas = false;
+                            
+                            if (canvas) {
+                                const rect = canvas.getBoundingClientRect();
+                                if (eUp.clientX >= rect.left && eUp.clientX <= rect.right &&
+                                    eUp.clientY >= rect.top && eUp.clientY <= rect.bottom) {
+                                    droppedOnCanvas = true;
+                                    if (typeof window.injectGhostPreset === 'function') {
+                                        window.injectGhostPreset(eUp.clientX, eUp.clientY);
+                                    }
+                                }
+                            }
 
-                card.addEventListener('drop', (e) => {
-                    if (!window.isDraggingPreset) return;
-                    e.preventDefault();
-                    card.style.boxShadow = "";
-                    
-                    if (window.selectedPresets && window.selectedPresets.length > 1) {
-                        return;
-                    }
-                    
-                    if (window.draggedPresetIndex !== undefined && window.draggedPresetIndex !== index) {
-                        const rect = card.getBoundingClientRect();
-                        const relY = e.clientY - rect.top;
-                        let insertIndex = index;
-                        if (relY >= rect.height / 2) insertIndex++;
-                        
-                        const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
-                        if (insertIndex > window.draggedPresetIndex) insertIndex--;
-                        window.presetsLibrary.splice(insertIndex, 0, movedItem);
-                        
-                        localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
-                        window.needsPresetReRender = true; 
-                    }
-                });
+                            if (!droppedOnCanvas) {
+                                // Reordenar en la lista
+                                const targetCard = document.elementFromPoint(eUp.clientX, eUp.clientY)?.closest('.preset-card');
+                                if (targetCard && targetCard.dataset.id !== preset.id && window.selectedPresets.length === 1) {
+                                    const parent = targetCard.parentNode;
+                                    const children = Array.from(parent.children);
+                                    let targetIndex = children.indexOf(targetCard);
+                                    
+                                    const hRect = targetCard.getBoundingClientRect();
+                                    if (eUp.clientY > hRect.top + hRect.height / 2) targetIndex++;
+                                    
+                                    const movedItem = window.presetsLibrary.splice(window.draggedPresetIndex, 1)[0];
+                                    if (targetIndex > window.draggedPresetIndex) targetIndex--;
+                                    window.presetsLibrary.splice(targetIndex, 0, movedItem);
+                                    
+                                    localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
+                                    renderPresetsLibrary();
+                                }
+                            }
 
-                card.addEventListener('dragend', () => {
-                    window.isDraggingPreset = false;
-                    window.draggedPresetIndex = undefined;
-                    
-                    document.querySelectorAll('.preset-card').forEach(c => {
-                        c.style.opacity = '1';
-                        c.style.boxShadow = "";
-                    });
-                    
-                    window.timelineGhostPreset = null;
-                    window.timelineGhostTimeMs = null;
-                    window.timelineGhostTargetEnd = null;
-                    window.timelineGhostMarkers = null;
-                    
-                    if (window.needsPresetReRender) {
-                        window.needsPresetReRender = false;
-                        renderPresetsLibrary();
-                    }
-                    if(typeof window.drawTimeline === 'function') window.drawTimeline();
+                            if (!droppedOnCanvas) {
+                                window.isDraggingPreset = false;
+                                window.draggedPresetIndex = undefined;
+                                window.timelineGhostPreset = null;
+                                window.timelineGhostTimeMs = null;
+                                window.timelineGhostTargetEnd = null;
+                                window.timelineGhostMarkers = null;
+                                window.drawTimeline();
+                            }
+                        }
+                    };
+
+                    window.addEventListener('pointermove', onPointerMove);
+                    window.addEventListener('pointerup', onPointerUp);
                 });
 
                 if (isModal) {
@@ -271,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     delBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
                 }
 
-                // FIX VISTA PREVIA ROTA
                 requestAnimationFrame(() => {
                     const cNode = document.getElementById(canvasId);
                     if (cNode && preset.actions && preset.actions.length > 0) {
@@ -463,231 +512,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
             window.presetEditorActions.forEach(a => {
                 const x = timeToX(a.at); const y = posToY(a.pos);
-                if (x >= 20 && x <= pCanvas.width + 20) {
-                    if (a.isSync) {
-                        pCtx.fillStyle = '#ec4899'; 
-                        pCtx.beginPath(); pCtx.arc(x, y, 10, 0, Math.PI * 2); pCtx.fill();
-                        pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 2; pCtx.stroke();
-                        pCtx.fillStyle = '#ffffff'; 
-                        pCtx.font = '12px monospace'; 
-                        pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
-                        pCtx.fillText('♦', x, y+1); 
-                        pCtx.textAlign = 'left'; pCtx.textBaseline = 'alphabetic';
-                    } else {
-                        pCtx.fillStyle = a.selected ? '#f59e0b' : '#0284c7';
-                        pCtx.beginPath(); pCtx.arc(x, y, a.selected ? 6 : 4, 0, Math.PI * 2); pCtx.fill();
-                        pCtx.strokeStyle = '#ffffff'; pCtx.lineWidth = 1; pCtx.stroke();
-                    }
-                }
-            });
-        }
-    }
-
-    const pXToTime = (x) => pScrollX + (x - 30) / (pBasePixelsPerMs * pZoom);
-    const pYToPos = (y) => { const pad=30; return Math.max(0, Math.min(100, Math.round(((pCanvas.height - pad - y) / (pCanvas.height - 2*pad)) * 100))); };
-
-    pCanvas?.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const rect = pCanvas.getBoundingClientRect(); const mouseX = e.clientX - rect.left;
-        if (e.shiftKey) {
-            const tMouse = pXToTime(mouseX);
-            pZoom = Math.max(0.1, Math.min(15.0, pZoom + (e.deltaY < 0 ? 0.1 : -0.1)));
-            pScrollX = Math.max(0, tMouse - (mouseX - 30)/(pBasePixelsPerMs*pZoom));
-        } else {
-            const pan = ((pCanvas.width-30)/(pBasePixelsPerMs*pZoom)) * 0.1;
-            pScrollX = Math.max(0, pScrollX + (e.deltaY < 0 ? pan : -pan));
-        }
-        drawPresetEditor();
-    }, {passive:false});
-
-    pCanvas?.addEventListener('mousedown', (e) => {
-        const rect = pCanvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-        const clickT = pXToTime(mx); const clickP = pYToPos(my);
-        const timeToX = (t) => 30 + (t - pScrollX) * (pBasePixelsPerMs * pZoom);
-        const posToY = (p) => { const pad = 30; return pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad); };
-
-        if (e.button === 0) {
-            savePresetHistoryState();
-            let clicked = null; let cIdx = -1;
-            for(let i=0; i<window.presetEditorActions.length; i++) {
-                if(Math.hypot(mx - timeToX(window.presetEditorActions[i].at), my - posToY(window.presetEditorActions[i].pos)) <= 8) { clicked = window.presetEditorActions[i]; cIdx = i; break; }
-            }
-            if (clicked) {
-                if(!e.ctrlKey && !clicked.selected) window.presetEditorActions.forEach(a=>a.selected=false);
-                clicked.selected = true; isDraggingPNode = true; draggedPNodeIndex = cIdx;
-                pDragSelectionInitial = window.presetEditorActions.map(a=>({...a}));
-                pDragStartX = clickT; pDragStartY = clickP;
-            } else {
-                hadSelectionBeforePMousedown = window.presetEditorActions.some(a=>a.selected);
-                if(!e.ctrlKey) window.presetEditorActions.forEach(a=>a.selected=false);
-                isSelectingP = true; hasDraggedPSelection = false;
-                pSelStartT = clickT; pSelStartY = my; pSelCurrT = clickT; pSelCurrY = my;
-            }
-        } else if (e.button === 2) {
-            savePresetHistoryState();
-            window.presetEditorActions = window.presetEditorActions.filter(a => Math.hypot(mx - timeToX(a.at), my - posToY(a.pos)) > 10);
-        }
-        drawPresetEditor();
-    });
-
-    pCanvas?.addEventListener('mousemove', (e) => {
-        const rect = pCanvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-        window.pLastMouseX = mx; window.pLastMouseY = my;
-        
-        if (isDraggingPNode && pDragSelectionInitial.length > 0) {
-            const snap = window.snapValue || 5;
-            const dT = Math.round((pXToTime(mx) - pDragStartX)/50)*50;
-            const dP = Math.round((pYToPos(my) - pDragStartY)/snap)*snap;
-            window.presetEditorActions.forEach((a,i) => {
-                if(pDragSelectionInitial[i].selected) {
-                    a.at = Math.max(0, pDragSelectionInitial[i].at + dT);
-                    a.pos = Math.max(0, Math.min(100, Math.round((pDragSelectionInitial[i].pos + dP)/snap)*snap));
-                }
-            });
-        } else if (isSelectingP) {
-            pSelCurrT = pXToTime(mx); pSelCurrY = my;
-            if (Math.hypot(mx - (30+(pSelStartT-pScrollX)*(pBasePixelsPerMs*pZoom)), my - pSelStartY) > 5) hasDraggedPSelection = true;
-            const minT = Math.min(pSelStartT, pSelCurrT); const maxT = Math.max(pSelStartT, pSelCurrT);
-            const pad=30; const minY = Math.max(pad, Math.min(pSelStartY, pSelCurrY)); const maxY = Math.max(pad, Math.max(pSelStartY, pSelCurrY));
-            const posToY = (p) => pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad);
-            window.presetEditorActions.forEach(a => {
-                const ay = posToY(a.pos);
-                a.selected = (a.at >= minT && a.at <= maxT && ay >= minY && ay <= maxY);
-            });
-        }
-        if(isDraggingPNode || isSelectingP) drawPresetEditor();
-    });
-
-    pCanvas?.addEventListener('mouseup', (e) => {
-        const snap = window.snapValue || 5;
-        if (isSelectingP && !hasDraggedPSelection && e.target === pCanvas) {
-            if (!hadSelectionBeforePMousedown) {
-                const rect = pCanvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-                let cTime = Math.max(0, Math.round(pXToTime(mx)/50)*50);
-                let cPos = Math.round(pYToPos(my)/snap)*snap;
-                const eIdx = window.presetEditorActions.findIndex(a=>a.at === cTime);
-                if(eIdx !== -1) { window.presetEditorActions[eIdx].pos = cPos; window.presetEditorActions[eIdx].selected = true; }
-                else { window.presetEditorActions.push({at:cTime, pos:cPos, selected:true}); }
-            }
-        }
-        window.presetEditorActions.sort((a,b)=>a.at-b.at);
-        for(let i=window.presetEditorActions.length-1; i>0; i--) { if(window.presetEditorActions[i].at === window.presetEditorActions[i-1].at) window.presetEditorActions.splice(window.presetEditorActions[i].selected?i-1:i, 1); }
-        isDraggingPNode = false; pDragSelectionInitial = []; isSelectingP = false; draggedPNodeIndex = -1;
-        drawPresetEditor();
-    });
-
-    pCanvas?.addEventListener('contextmenu', e=>e.preventDefault());
-
-    window.addEventListener('undoAction', () => { if (modal && modal.style.display === 'flex') pUndo(); });
-    window.addEventListener('redoAction', () => { if (modal && modal.style.display === 'flex') pRedo(); });
-    
-    window.addEventListener('deletePoints', () => {
-        if (modal && modal.style.display === 'flex') {
-            if(window.presetEditorActions.some(a=>a.selected)){
-                savePresetHistoryState();
-                window.presetEditorActions = window.presetEditorActions.filter(a => !a.selected);
-                drawPresetEditor();
-            }
-        }
-    });
-
-    window.addEventListener('selectAllPoints', () => {
-        if (modal && modal.style.display === 'flex') {
-            window.presetEditorActions.forEach(a => a.selected = true);
-            drawPresetEditor();
-        }
-    });
-
-    window.addEventListener('copyPoints', () => {
-        if (modal && modal.style.display === 'flex') {
-            const sel = window.presetEditorActions.filter(a => a.selected);
-            if(sel.length > 0) {
-                const baseTime = sel[0].at;
-                window.clipboardFunscript = sel.map(a => ({...a, at: a.at - baseTime}));
-            }
-        }
-    });
-
-    window.addEventListener('cutPoints', () => {
-        if (modal && modal.style.display === 'flex') {
-            const sel = window.presetEditorActions.filter(a => a.selected);
-            if(sel.length > 0) {
-                const baseTime = sel[0].at;
-                window.clipboardFunscript = sel.map(a => ({...a, at: a.at - baseTime}));
-                savePresetHistoryState();
-                window.presetEditorActions = window.presetEditorActions.filter(a => !a.selected);
-                drawPresetEditor();
-            }
-        }
-    });
-
-    window.addEventListener('pastePoints', () => {
-        if (modal && modal.style.display === 'flex' && window.clipboardFunscript) {
-            savePresetHistoryState();
-            window.presetEditorActions.forEach(a => a.selected = false);
-            const baseT = Math.max(0, Math.round(pXToTime(window.pLastMouseX || 30) / 50) * 50);
-            const snap = window.snapValue || 5;
-            const deltaP = Math.round(pYToPos(window.pLastMouseY || 150) / snap) * snap - window.clipboardFunscript[0].pos;
-
-            const newPts = window.clipboardFunscript.map(a => ({
-                at: baseT + a.at,
-                pos: Math.max(0, Math.min(100, Math.round((a.pos + deltaP)/snap)*snap)),
-                selected: true,
-                isSync: a.isSync || false
-            }));
-            window.presetEditorActions.push(...newPts);
-            window.presetEditorActions.sort((a,b)=>a.at-b.at);
-            drawPresetEditor();
-        }
-    });
-
-    window.addEventListener('nudgePoints', (e) => {
-        if (modal && modal.style.display === 'flex') {
-            savePresetHistoryState();
-            const snap = window.snapValue || 5;
-            window.presetEditorActions.forEach(act => {
-                if (act.selected) {
-                    if (e.detail === 'up') act.pos = Math.min(100, act.pos + snap);
-                    if (e.detail === 'down') act.pos = Math.max(0, act.pos - snap);
-                }
-            });
-            drawPresetEditor();
-        }
-    });
-
-    window.addEventListener('nudgeTime', (e) => {
-        if (modal && modal.style.display === 'flex') {
-            savePresetHistoryState();
-            window.presetEditorActions.forEach(act => {
-                if (act.selected) {
-                    if (e.detail === 'left') act.at = Math.max(0, act.at - 50);
-                    if (e.detail === 'right') act.at = act.at + 50;
-                }
-            });
-            window.presetEditorActions.sort((a,b)=>a.at-b.at);
-            drawPresetEditor();
-        }
-    });
-
-    // AUTO-DESMARQUE AL PRESIONAR LA TECLA "." (Punto Ancla)
-    document.addEventListener('keydown', (e) => {
-        const modalElement = document.getElementById('preset-editor-modal');
-        if (modalElement && modalElement.style.display === 'flex') {
-            if (e.key === '.') {
-                e.preventDefault();
-                let moved = false;
-                savePresetHistoryState(); 
-                window.presetEditorActions.forEach(a => {
-                    if (a.selected) {
-                        a.isSync = !a.isSync;
-                        a.selected = false; // Deselección inmediata garantizada
-                        moved = true;
-                    }
-                });
-                if (moved) drawPresetEditor(); 
-            }
-        }
-    });
-
-    renderPresetsLibrary();
-});
+                if (x >= 20 && x <= p
