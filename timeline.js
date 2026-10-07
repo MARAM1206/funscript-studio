@@ -1152,41 +1152,54 @@ window.drawTimeline = function() {
                 ctx.fillText("✨ IA: Escala Geométrica", cursorX + 15, cursorY - 15);
 
             } else {
-                const snap = window.snapValue || 5;
-                const deltaY = window.timelineGhostDeltaPos || 0;
-                ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)'; ctx.beginPath();
-                primaryPreset.forEach((act, index) => {
-                    const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap))); 
-                    if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                });
-                ctx.stroke();
-                primaryPreset.forEach(act => {
-                    const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const y = posToY(Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)));
-                    if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                        ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
-                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-                    } else {
-                        ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-                        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                const ghostPoints = window.generateGhostPoints(); // Le pide al motor centralizado los puntos exactos
+                
+                if (ghostPoints && ghostPoints.length > 0) {
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    
+                    ghostPoints.forEach((p, i) => {
+                        const px = timeToX(p.at);
+                        const py = posToY(p.pos);
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    });
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ghostPoints.forEach(p => {
+                        const px = timeToX(p.at);
+                        const py = posToY(p.pos);
+                        if (px >= 20 && px <= canvas.width) {
+                            if (p.isSync) {
+                                ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+                                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+                                ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
+                                ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', px, py+1); 
+                                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                            } else {
+                                ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
+                                ctx.beginPath();
+                                ctx.arc(px, py, 4, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        }
+                    });
+
+                    const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
+                    const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(50);
+                    
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.font = 'bold 12px monospace';
+                    if (window.isPastingMode) {
+                        ctx.fillText(`📋 PEGAR MÚLTIPLE (${window.presetFillReps || 1}x) (← / →) (ESC cancelar)`, pasteX + 15, pasteY + 30);
+                    } else if (window.isDraggingPreset) {
+                        ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (Rueda de Ratón)`, pasteX + 15, pasteY + 30);
                     }
-                });
-                
-                const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
-                const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(primaryPreset[0].pos + deltaY);
-                
-                ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                if (window.isPastingMode) {
-                    ctx.fillText(`📋 PEGAR MÚLTIPLE (${window.presetFillReps || 1}x) (← / →) (ESC cancelar)`, pasteX + 15, pasteY + 30);
-                } else if (window.isDraggingPreset) {
-                    ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (← / →)`, pasteX + 15, pasteY + 30);
                 }
             }
-        }
 
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
