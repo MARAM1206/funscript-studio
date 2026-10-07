@@ -1289,7 +1289,6 @@ function initTimelineEvents() {
     }
 
     c.addEventListener('wheel', (e) => {
-        c.addEventListener('wheel', (e) => {
         // --- FIX RUEDA DEL RATÓN PARA REPETICIONES ---
         if (window.isDraggingPreset || window.isPastingMode) {
             e.preventDefault();
@@ -1365,6 +1364,7 @@ function initTimelineEvents() {
     }, { passive: false });
 
     c.addEventListener('mousedown', (e) => {
+        // ... (el resto del código sigue igual aquí hacia abajo)
         if (document.body.classList.contains('panic-mode-active')) return; 
         
         // FIX 1: Bloqueamos cualquier intento de selección o arrastre de puntos mientras estamos en modo pegado o ubicando un preset.
