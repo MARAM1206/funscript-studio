@@ -1277,76 +1277,97 @@ window.drawTimeline = function() {
 };
 
 // ==========================================
-// FUNCIÓN DE INYECCIÓN DE PRESET (CUSTOM DRAG)
+// NUEVO: GENERADOR DE PUNTOS DINÁMICOS
+// (Aplica Escala de Tiempo y Modificadores)
+// ==========================================
+window.generateGhostPoints = function() {
+    if (!window.timelineGhostPreset || window.timelineGhostTimeMs === null) return [];
+
+    let tMax = parseInt(document.getElementById('rep-max')?.value ?? 100);
+    let tMin = parseInt(document.getElementById('rep-min')?.value ?? 0);
+    let tRand = parseInt(document.getElementById('rep-rand')?.value ?? 0);
+
+    let presetToInject = window.timelineGhostPreset;
+    let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
+    
+    if (primaryPreset.length === 0) return [];
+    
+    let pDuration = primaryPreset[primaryPreset.length - 1].at - primaryPreset[0].at;
+    let pMin = Math.min(...primaryPreset.map(a => a.pos));
+    let pMax = Math.max(...primaryPreset.map(a => a.pos));
+    if (pMax === pMin) pMax = pMin + 1; 
+
+    let dropTimeMs = window.timelineGhostTimeMs;
+    let targetEnd = window.timelineGhostTargetEnd;
+    let reps = window.presetFillReps || 1;
+
+    let timeScale = 1.0;
+    
+    // Si tenemos un target marcado, ESTIRAMOS los puntos para que quepan en el espacio
+    if (targetEnd && reps > 0 && pDuration > 0) {
+        let availableSpace = targetEnd - dropTimeMs;
+        timeScale = availableSpace / (pDuration * reps);
+    }
+
+    let ghostPoints = [];
+    for (let r = 0; r < reps; r++) {
+        let currentBaseOffset = Math.floor(Math.random() * (tRand + 1));
+        let currentTMin = Math.min(100, tMin + currentBaseOffset);
+        let currentTMax = Math.max(currentTMin + 1, tMax); 
+
+        let startOffset = dropTimeMs + (r * pDuration * timeScale);
+        let sequence = Array.isArray(presetToInject[0])
+            ? presetToInject[(window.timelineGhostRandomSequence?.[r] || 0) % presetToInject.length]
+            : primaryPreset;
+
+        sequence.forEach((act, idx) => {
+            if (r > 0 && idx === 0 && act.at === 0) return; 
+            
+            let mappedPos = currentTMin + ((act.pos - pMin) / (pMax - pMin)) * (currentTMax - currentTMin);
+
+            ghostPoints.push({
+                at: startOffset + (act.at * timeScale),
+                pos: Math.max(0, Math.min(100, mappedPos)),
+                isSync: act.isSync || false
+            });
+        });
+    }
+    return ghostPoints;
+};
+
+// ==========================================
+// INYECCIÓN DE PRESET (CUSTOM DRAG)
 // ==========================================
 window.injectGhostPreset = function(clientX, clientY) {
-    const c = document.getElementById('timeline-canvas');
-    if (!c || !window.isDraggingPreset || !window.timelineGhostPreset) return;
+    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
 
-    const rect = c.getBoundingClientRect();
-    const mouseX = (clientX - rect.left) * (c.width / rect.width);
-    
-    let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
-    const deltaY = window.timelineGhostDeltaPos || 0;
-    const snap = window.snapValue || 5;
-
-    const presetToInject = JSON.parse(JSON.stringify(window.timelineGhostPreset));
-    const targetEnd = window.timelineGhostTargetEnd;
-    const targetMarkers = window.timelineGhostMarkers;
-    const targetAnchor = window.timelineGhostTargetAnchor; 
+    const generatedPoints = window.generateGhostPoints();
+    if (!generatedPoints || generatedPoints.length === 0) {
+        resetGhostState();
+        return;
+    }
 
     setTimeout(() => {
         ensureTrackExists();
         let actions = getSafeActions();
-
-        if (targetEnd) {
-            const morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
-            if (morphed) {
-                saveHistoryState();
-                let tStart = dropTimeMs;
-                let tEnd = targetEnd;
-                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-                actions.forEach(a => a.selected = false);
-                morphed.forEach(m => m.selected = true);
-                actions.push(...morphed);
-                
-                cleanDuplicates();
-                resetGhostState();
-                return;
-            }
-        }
-        
+        const snap = window.snapValue || 5;
         saveHistoryState();
-        let newActions = [];
-        let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[Math.floor(Math.random() * presetToInject.length)] : presetToInject;
-        
-        if (targetAnchor) {
-            let pAnchor = primaryPreset.find(a => a.isSync);
-            let pMin = Math.min(...primaryPreset.map(a => a.pos));
-            let pMax = Math.max(...primaryPreset.map(a => a.pos));
-            
-            newActions = primaryPreset.map(act => ({
-                at: Math.round(dropTimeMs + act.at),
-                pos: getSmartMappedPos(act.pos, pAnchor.pos, targetAnchor.pos, pMin, pMax, 0, 100, false),
-                selected: true,
-                isSync: act.isSync || false
-            }));
-        } else {
-            newActions = primaryPreset.map(act => ({
-                at: Math.round(dropTimeMs + act.at),
-                pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
-                selected: true,
-                isSync: act.isSync || false
-            }));
-        }
-        
-        let tStart = newActions[0].at;
-        let tEnd = newActions[newActions.length - 1].at;
-        
+
+        let tStart = generatedPoints[0].at;
+        let tEnd = generatedPoints[generatedPoints.length - 1].at;
+
+        // Borramos los puntos viejos que estorben en el espacio donde soltamos
         actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-        actions.forEach(a => a.selected = false); 
+        actions.forEach(a => a.selected = false);
+
+        let newActions = generatedPoints.map(p => ({
+            at: Math.round(p.at),
+            pos: Math.round(p.pos / snap) * snap,
+            selected: true,
+            isSync: p.isSync
+        }));
+
         actions.push(...newActions);
-        
         cleanDuplicates(); 
         resetGhostState();
     }, 10);
@@ -1386,18 +1407,33 @@ function initTimelineEvents() {
         if (window.isDraggingPreset || window.isPastingMode) {
             e.preventDefault();
             
-            // FIX 2: CÁLCULO DE LÍMITE MÁXIMO DE REPETICIONES
             let maxReps = 999;
             if (window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
-                let presetDuration = 0;
                 let primary = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
-                if (primary && primary.length > 0) {
-                    presetDuration = primary[primary.length - 1].at - primary[0].at;
+                let pDuration = primary[primary.length - 1].at - primary[0].at;
+                
+                let availableSpace = 0;
+                if (window.timelineGhostTargetEnd) {
+                    availableSpace = window.timelineGhostTargetEnd - window.timelineGhostTimeMs;
+                } else {
+                    const vNode = document.getElementById('video-player');
+                    if (vNode && vNode.duration && !isNaN(vNode.duration)) {
+                        availableSpace = (vNode.duration * 1000) - window.timelineGhostTimeMs;
+                    }
                 }
-                const vNode = document.getElementById('video-player');
-                if (vNode && vNode.duration && !isNaN(vNode.duration) && presetDuration > 0) {
-                    const remainingMs = (vNode.duration * 1000) - window.timelineGhostTimeMs;
-                    maxReps = Math.max(1, Math.floor(remainingMs / presetDuration));
+
+                if (availableSpace > 0 && pDuration > 0) {
+                    // FIX: Medimos el gap más pequeño original para evitar que al estrujar, los puntos colapsen
+                    let minGap = 9999;
+                    for(let i=1; i<primary.length; i++) {
+                        let gap = primary[i].at - primary[i-1].at;
+                        if (gap > 0 && gap < minGap) minGap = gap;
+                    }
+                    if(minGap === 9999) minGap = 50;
+
+                    // El límite matemático exacto para que el estiramiento NUNCA aplaste los puntos a menos de 15ms (evitando que desaparezcan)
+                    let absoluteMaxReps = Math.floor((minGap * availableSpace) / (15 * pDuration));
+                    maxReps = Math.max(1, absoluteMaxReps);
                 }
             }
 
@@ -1828,7 +1864,6 @@ function initTimelineEvents() {
             window.drawTimeline();
             return;
         }
-        // FIX 3: Flechas removidas, ahora solo funciona con la rueda del ratón
     });
 }
 
