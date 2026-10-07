@@ -384,6 +384,14 @@ window.addEventListener('nudgeTime', function(e) {
     
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
+
+    // FIX MODO LIBRE: Si no hay selección, atrapa el punto más cercano al playhead
+    let hasSelection = actions.some(a => a.selected);
+    if (!hasSelection) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; 
+    }
+
     actions.forEach(act => {
         if (act.selected) {
             if (dir === 'left') act.at = Math.max(0, act.at - 50); 
@@ -391,6 +399,13 @@ window.addEventListener('nudgeTime', function(e) {
             moved = true;
         }
     });
+    if (moved) {
+        cleanDuplicates();
+        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+        notifyCloud(); window.updateHeatmapAndStats();
+        window.drawTimeline();
+    }
+});
     if (moved) {
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -442,6 +457,14 @@ window.addEventListener('magnetPoint', function() {
     try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
     const timeMs = Math.round(safeTime);
     let moved = false; saveHistoryState();
+
+    // FIX MODO LIBRE: Si no hay selección, atrapa el punto más cercano al playhead
+    let hasSelection = actions.some(a => a.selected);
+    if (!hasSelection) {
+        const closest = getPointUnderPlayhead(actions);
+        if (closest) closest.selected = true; 
+    }
+
     actions.forEach(act => { if (act.selected) { act.at = timeMs; moved = true; } });
     if (moved) {
         cleanDuplicates();
