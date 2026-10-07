@@ -1303,6 +1303,7 @@ function initTimelineEvents() {
             return;
         }
         // ----------------------------------------------
+        
         if (document.body.classList.contains('panic-mode-active')) return;
         e.preventDefault();
         
@@ -1364,11 +1365,9 @@ function initTimelineEvents() {
     }, { passive: false });
 
     c.addEventListener('mousedown', (e) => {
-        // ... (el resto del código sigue igual aquí hacia abajo)
         if (document.body.classList.contains('panic-mode-active')) return; 
         
         // FIX 1: Bloqueamos cualquier intento de selección o arrastre de puntos mientras estamos en modo pegado o ubicando un preset.
-        // Esto elimina por completo el efecto "imán" accidental.
         if (window.isPastingMode || window.isDraggingPreset) return; 
 
         const snap = window.snapValue || 5;
@@ -1863,6 +1862,24 @@ function initTimelineEvents() {
     document.addEventListener('keydown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return;
         
+        // --- FIX PARA AUTO-DESMARQUE INMEDIATO DE ANCLAS CON LA TECLA . ---
+        if (e.key === '.') {
+            const actions = getSafeActions();
+            let moved = false;
+            actions.forEach(act => {
+                if (act.selected && !document.getElementById('preset-editor-modal')?.style.display) {
+                    // Evitamos duplicar la creación de ancla si el atajo ya se está manejando,
+                    // pero garantizamos que se deseleccione si acaba de crearse.
+                    act.selected = false;
+                    moved = true;
+                }
+            });
+            if (moved) {
+                window.drawTimeline();
+            }
+        }
+        // -----------------------------------------------------------------
+
         if (window.isPastingMode && e.key === 'Escape') {
             e.preventDefault();
             window.isPastingMode = false;
