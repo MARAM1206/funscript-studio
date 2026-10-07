@@ -17,33 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.selectedPresets = window.selectedPresets || []; 
 
-    // --- NUEVO: INYECCIÓN DE LA INTERFAZ DE MODIFICADORES DEL REPETIDOR ---
-    const libContainer = document.getElementById('presets-list');
-    if (libContainer && libContainer.parentElement && !document.getElementById('repeater-settings')) {
-        const settingsDiv = document.createElement('div');
-        settingsDiv.id = 'repeater-settings';
-        settingsDiv.style.cssText = "padding:12px; background:#1e293b; border-radius:8px; margin-bottom:15px; border:1px solid #334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);";
-        settingsDiv.innerHTML = `
-            <div style="color:#38bdf8; font-size:13px; font-weight:bold; margin-bottom:10px; display:flex; align-items:center; gap:5px;">
-                <span>⚙️ Ajustes del Repetidor</span>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:12px; color:#cbd5e1;">
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                    <label>Tope Máximo (%)</label>
-                    <input type="number" id="rep-max" value="100" min="0" max="100" style="background:#0f172a; border:1px solid #475569; color:white; border-radius:4px; padding:6px; outline:none;">
-                </div>
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                    <label>Base Mínima (%)</label>
-                    <input type="number" id="rep-min" value="0" min="0" max="100" style="background:#0f172a; border:1px solid #475569; color:white; border-radius:4px; padding:6px; outline:none;">
-                </div>
-                <div style="display:flex; flex-direction:column; gap:4px; grid-column: span 2;">
-                    <label title="Desfase aleatorio que se suma a la Base Mínima en cada repetición">Desfase Aleatorio en Base (%)</label>
-                    <input type="number" id="rep-rand" value="0" min="0" max="100" style="background:#0f172a; border:1px solid #475569; color:white; border-radius:4px; padding:6px; outline:none;">
-                </div>
-            </div>
-        `;
-        libContainer.parentElement.insertBefore(settingsDiv, libContainer);
-    }
     // ----------------------------------------------------------------------
 
     try {
