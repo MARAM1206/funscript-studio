@@ -1947,14 +1947,16 @@ function initTimelineEvents() {
 // ==========================================
 function bootTimelineEngine() {
     const c = document.getElementById('timeline-canvas');
-    if (!c || c.parentElement.clientWidth === 0) {
+    if (!c) {
         requestAnimationFrame(bootTimelineEngine);
         return;
+    }
+    if (c.parentElement.clientWidth === 0) {
+        console.warn("⚠️ El contenedor del timeline tiene ancho 0px. Revisa tu CSS o si está en un tab oculto.");
     }
     initTimelineEvents();
     requestAnimationFrame(animationLoop);
 }
-
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootTimelineEngine);
 } else {
