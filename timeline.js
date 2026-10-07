@@ -1280,13 +1280,27 @@ window.drawTimeline = function() {
 // NUEVO: GENERADOR DE PUNTOS DINÁMICOS
 // (Aplica Escala de Tiempo y Modificadores)
 // ==========================================
+// ==========================================
+// GENERADOR DE PUNTOS DINÁMICOS (ESCALA Y VISTA PREVIA CORREGIDA)
+// ==========================================
 window.generateGhostPoints = function() {
     if (!window.timelineGhostPreset || window.timelineGhostTimeMs === null) return [];
 
-    let tMax = parseInt(document.getElementById('rep-max')?.value ?? 100);
-    let tMin = parseInt(document.getElementById('rep-min')?.value ?? 0);
-    let tRand = parseInt(document.getElementById('rep-rand')?.value ?? 0);
+    // Leemos los valores del nuevo panel Multiplicador y forzamos su formato a Número
+    let tMaxNode = document.getElementById('multi-max');
+    let tMinNode = document.getElementById('multi-min');
+    let tRandNode = document.getElementById('multi-rand');
 
+    let tMax = tMaxNode ? Number(tMaxNode.value) : 100;
+    let tMin = tMinNode ? Number(tMinNode.value) : 0;
+    let tRand = tRandNode ? Number(tRandNode.value) : 0;
+
+    // Blindaje anti-crashes (NaN) y lógica para evitar que el mínimo supere al máximo
+    if (isNaN(tMax)) tMax = 100;
+    if (isNaN(tMin)) tMin = 0;
+    if (isNaN(tRand)) tRand = 0;
+    if (tMax < tMin) tMax = tMin + 1; 
+    
     let presetToInject = window.timelineGhostPreset;
     let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
     
@@ -1295,7 +1309,7 @@ window.generateGhostPoints = function() {
     let pDuration = primaryPreset[primaryPreset.length - 1].at - primaryPreset[0].at;
     let pMin = Math.min(...primaryPreset.map(a => a.pos));
     let pMax = Math.max(...primaryPreset.map(a => a.pos));
-    if (pMax === pMin) pMax = pMin + 1; 
+    if (pMax === pMin) pMax = pMin + 1; // Previene divisiones por cero
 
     let dropTimeMs = window.timelineGhostTimeMs;
     let targetEnd = window.timelineGhostTargetEnd;
@@ -1303,7 +1317,6 @@ window.generateGhostPoints = function() {
 
     let timeScale = 1.0;
     
-    // Si tenemos un target marcado, ESTIRAMOS los puntos para que quepan en el espacio
     if (targetEnd && reps > 0 && pDuration > 0) {
         let availableSpace = targetEnd - dropTimeMs;
         timeScale = availableSpace / (pDuration * reps);
@@ -1323,6 +1336,7 @@ window.generateGhostPoints = function() {
         sequence.forEach((act, idx) => {
             if (r > 0 && idx === 0 && act.at === 0) return; 
             
+            // CÁLCULO DE MAPEO MATEMÁTICO BLINDADO (La vista previa ahora sí escala)
             let mappedPos = currentTMin + ((act.pos - pMin) / (pMax - pMin)) * (currentTMax - currentTMin);
 
             ghostPoints.push({
