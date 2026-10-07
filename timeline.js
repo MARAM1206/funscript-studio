@@ -1277,6 +1277,100 @@ window.drawTimeline = function() {
 };
 
 // ==========================================
+// FUNCIÓN DE INYECCIÓN DE PRESET (CUSTOM DRAG)
+// ==========================================
+window.injectGhostPreset = function(clientX, clientY) {
+    const c = document.getElementById('timeline-canvas');
+    if (!c || !window.isDraggingPreset || !window.timelineGhostPreset) return;
+
+    const rect = c.getBoundingClientRect();
+    const mouseX = (clientX - rect.left) * (c.width / rect.width);
+    
+    let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
+    const deltaY = window.timelineGhostDeltaPos || 0;
+    const snap = window.snapValue || 5;
+
+    const presetToInject = JSON.parse(JSON.stringify(window.timelineGhostPreset));
+    const targetEnd = window.timelineGhostTargetEnd;
+    const targetMarkers = window.timelineGhostMarkers;
+    const targetAnchor = window.timelineGhostTargetAnchor; 
+
+    setTimeout(() => {
+        ensureTrackExists();
+        let actions = getSafeActions();
+
+        if (targetEnd) {
+            const morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
+            if (morphed) {
+                saveHistoryState();
+                let tStart = dropTimeMs;
+                let tEnd = targetEnd;
+                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+                actions.forEach(a => a.selected = false);
+                morphed.forEach(m => m.selected = true);
+                actions.push(...morphed);
+                
+                cleanDuplicates();
+                resetGhostState();
+                return;
+            }
+        }
+        
+        saveHistoryState();
+        let newActions = [];
+        let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[Math.floor(Math.random() * presetToInject.length)] : presetToInject;
+        
+        if (targetAnchor) {
+            let pAnchor = primaryPreset.find(a => a.isSync);
+            let pMin = Math.min(...primaryPreset.map(a => a.pos));
+            let pMax = Math.max(...primaryPreset.map(a => a.pos));
+            
+            newActions = primaryPreset.map(act => ({
+                at: Math.round(dropTimeMs + act.at),
+                pos: getSmartMappedPos(act.pos, pAnchor.pos, targetAnchor.pos, pMin, pMax, 0, 100, false),
+                selected: true,
+                isSync: act.isSync || false
+            }));
+        } else {
+            newActions = primaryPreset.map(act => ({
+                at: Math.round(dropTimeMs + act.at),
+                pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
+                selected: true,
+                isSync: act.isSync || false
+            }));
+        }
+        
+        let tStart = newActions[0].at;
+        let tEnd = newActions[newActions.length - 1].at;
+        
+        actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
+        actions.forEach(a => a.selected = false); 
+        actions.push(...newActions);
+        
+        cleanDuplicates(); 
+        resetGhostState();
+    }, 10);
+};
+
+function resetGhostState() {
+    window.isDraggingPreset = false;
+    window.timelineGhostPreset = null;
+    window.presetFillInitialized = false;
+    window.timelineGhostTargetEnd = null;
+    window.timelineGhostMarkers = null;
+    window.timelineGhostTargetAnchor = null;
+    window.timelineGhostTimeMs = null;
+    window.timelineGhostDeltaPos = 0;
+    window.timelineGhostRandomSequence = [];
+    window.presetFillReps = 1; 
+    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    notifyCloud();
+    window.updateHeatmapAndStats();
+    window.drawTimeline();
+}
+
+// ==========================================
 // INICIALIZACIÓN DE EVENTOS DEL CANVAS (BLINDADOS)
 // ==========================================
 function initTimelineEvents() {
@@ -1289,7 +1383,6 @@ function initTimelineEvents() {
     }
 
     c.addEventListener('wheel', (e) => {
-        // --- FIX RUEDA DEL RATÓN PARA REPETICIONES ---
         if (window.isDraggingPreset || window.isPastingMode) {
             e.preventDefault();
             if (e.deltaY < 0) {
@@ -1298,11 +1391,10 @@ function initTimelineEvents() {
                 window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
             }
             if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
-            window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10)); // Mantiene la entropía
+            window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10)); 
             window.drawTimeline();
             return;
         }
-        // ----------------------------------------------
         
         if (document.body.classList.contains('panic-mode-active')) return;
         e.preventDefault();
@@ -1366,8 +1458,6 @@ function initTimelineEvents() {
 
     c.addEventListener('mousedown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return; 
-        
-        // FIX 1: Bloqueamos cualquier intento de selección o arrastre de puntos mientras estamos en modo pegado o ubicando un preset.
         if (window.isPastingMode || window.isDraggingPreset) return; 
 
         const snap = window.snapValue || 5;
@@ -1438,7 +1528,6 @@ function initTimelineEvents() {
                 selCurrY = clickY;
             }
         } else if (e.button === 2) { 
-            
             if (window.timelineMarkers && window.timelineMarkers.length > 0) {
                 for (let i = 0; i < window.timelineMarkers.length; i++) {
                     const m = window.timelineMarkers[i];
@@ -1519,7 +1608,6 @@ function initTimelineEvents() {
         window.lastMouseX = mouseX;
         window.lastMouseY = mouseY;
 
-        // Actualizamos la posición libre si estamos pegando con el teclado
         if (window.isPastingMode && window.timelineGhostPreset) {
             updateGhostPosition(mouseX, mouseY);
             window.drawTimeline();
@@ -1645,55 +1733,8 @@ function initTimelineEvents() {
 
     c.addEventListener('mouseup', (e) => {
         if (window.isPastingMode && window.timelineGhostPreset) {
-            ensureTrackExists();
-            let actions = getSafeActions();
-            const snap = window.snapValue || 5;
-            
-            const rect = c.getBoundingClientRect();
-            const mouseX = (e.clientX - rect.left) * (c.width / rect.width);
-            let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
-            const deltaY = window.timelineGhostDeltaPos || 0;
-            
-            saveHistoryState();
-            
-            let presetToInject = JSON.parse(JSON.stringify(window.timelineGhostPreset));
-            let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
-            
-            if (window.timelineGhostTargetEnd) {
-                const morphed = window.getMorphedPreset(presetToInject, window.timelineGhostMarkers || dropTimeMs, window.timelineGhostTargetEnd);
-                if (morphed) {
-                    let tStart = dropTimeMs;
-                    let tEnd = window.timelineGhostTargetEnd;
-                    actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-                    actions.forEach(a => a.selected = false);
-                    morphed.forEach(m => m.selected = true);
-                    actions.push(...morphed);
-                    cleanDuplicates();
-                }
-            } else {
-                let newActions = primaryPreset.map(act => ({
-                    at: Math.round(dropTimeMs + act.at),
-                    pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
-                    selected: true,
-                    isSync: act.isSync || false
-                }));
-                
-                let tStart = newActions[0].at;
-                let tEnd = newActions[newActions.length - 1].at;
-                
-                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-                actions.forEach(a => a.selected = false); 
-                actions.push(...newActions);
-                cleanDuplicates(); 
-            }
-            
-            window.isPastingMode = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
-            window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null; window.timelineGhostTargetEnd = null;
-            window.timelineGhostRandomSequence = []; 
-            
-            if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-            notifyCloud(); window.updateHeatmapAndStats();
-            window.drawTimeline();
+            window.injectGhostPreset(e.clientX, e.clientY);
+            window.isPastingMode = false;
             return;
         }
 
@@ -1714,7 +1755,6 @@ function initTimelineEvents() {
         const snap = window.snapValue || 5;
         let actions = getSafeActions();
         if (isSelecting && !hasDraggedSelection && e.target === c) {
-            
             if (!hadSelectionBeforeMousedown) {
                 ensureTrackExists(); 
                 actions = getSafeActions(); 
@@ -1746,139 +1786,24 @@ function initTimelineEvents() {
         isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1;
     });
 
-    c.addEventListener('dragenter', (e) => { e.preventDefault(); });
-    
-    c.addEventListener('dragover', (e) => { 
-        e.preventDefault(); 
-        try {
-            if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-            e.dataTransfer.dropEffect = 'copy';
-            const rect = c.getBoundingClientRect();
-            updateGhostPosition((e.clientX - rect.left) * (c.width / rect.width), (e.clientY - rect.top) * (c.height / rect.height));
-            window.drawTimeline();
-        } catch(err) {}
-    });
-
-    c.addEventListener('drop', (e) => {
-        e.preventDefault();
-        try {
-            if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-            
-            const rect = c.getBoundingClientRect();
-            const mouseX = (e.clientX - rect.left) * (c.width / rect.width);
-            
-            let dropTimeMs = window.timelineGhostTimeMs !== null ? window.timelineGhostTimeMs : Math.max(0, xToTime(mouseX));
-            const deltaY = window.timelineGhostDeltaPos || 0;
-            const snap = window.snapValue || 5;
-            
-            const presetToInject = JSON.parse(JSON.stringify(window.timelineGhostPreset));
-            const targetEnd = window.timelineGhostTargetEnd;
-            const targetMarkers = window.timelineGhostMarkers;
-            const targetAnchor = window.timelineGhostTargetAnchor; 
-
-            setTimeout(() => {
-                ensureTrackExists();
-                let actions = getSafeActions();
-
-                if (targetEnd) {
-                    const morphed = window.getMorphedPreset(presetToInject, targetMarkers || dropTimeMs, targetEnd);
-                    if (morphed) {
-                        saveHistoryState();
-                        let tStart = dropTimeMs;
-                        let tEnd = targetEnd;
-                        actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-                        actions.forEach(a => a.selected = false);
-                        morphed.forEach(m => m.selected = true);
-                        actions.push(...morphed);
-                        
-                        cleanDuplicates();
-                        window.isDraggingPreset = false; window.timelineGhostPreset = null;
-                        window.presetFillInitialized = false; window.timelineGhostTargetEnd = null; 
-                        window.timelineGhostMarkers = null; window.timelineGhostTargetAnchor = null;
-                        window.timelineGhostRandomSequence = []; 
-                        
-                        if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
-                        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-                        notifyCloud(); window.updateHeatmapAndStats();
-                        window.drawTimeline();
-                        return;
-                    }
-                }
-                
-                saveHistoryState();
-                let newActions = [];
-                let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[Math.floor(Math.random() * presetToInject.length)] : presetToInject;
-                
-                if (targetAnchor) {
-                    let pAnchor = primaryPreset.find(a => a.isSync);
-                    let pMin = Math.min(...primaryPreset.map(a => a.pos));
-                    let pMax = Math.max(...primaryPreset.map(a => a.pos));
-                    
-                    newActions = primaryPreset.map(act => ({
-                        at: Math.round(dropTimeMs + act.at),
-                        pos: getSmartMappedPos(act.pos, pAnchor.pos, targetAnchor.pos, pMin, pMax, 0, 100, false),
-                        selected: true,
-                        isSync: act.isSync || false
-                    }));
-                } else {
-                    newActions = primaryPreset.map(act => ({
-                        at: Math.round(dropTimeMs + act.at),
-                        pos: Math.max(0, Math.min(100, Math.round((act.pos + deltaY)/snap)*snap)),
-                        selected: true,
-                        isSync: act.isSync || false
-                    }));
-                }
-                
-                let tStart = newActions[0].at;
-                let tEnd = newActions[newActions.length - 1].at;
-                
-                actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at > tEnd));
-                actions.forEach(a => a.selected = false); 
-                actions.push(...newActions);
-                
-                cleanDuplicates(); 
-                window.isDraggingPreset = false; window.timelineGhostPreset = null; window.timelineGhostTimeMs = null; 
-                window.timelineGhostDeltaPos = 0; window.timelineGhostTargetAnchor = null;
-                window.timelineGhostRandomSequence = []; 
-                
-                if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
-                if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-                notifyCloud(); window.updateHeatmapAndStats();
-                window.drawTimeline();
-            }, 10);
-        } catch (err) {}
-    });
-
-    c.addEventListener('dragleave', () => {
-        if(window.isDraggingPreset) {
-            window.timelineGhostTimeMs = null;
-            window.drawTimeline();
-        }
-    });
-
     c.addEventListener('contextmenu', e => e.preventDefault());
 
-    // 🎯 FIX 2: ATAJOS DE TECLADO PARA MODO FANTASMA SIN RESTRICCIONES (← y → funcionan libremente)
+    // 🎯 FIX DEFINITIVO: TECLADO Y ANCLAS DURANTE CUSTOM DRAG
     document.addEventListener('keydown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return;
         
-        // --- FIX PARA AUTO-DESMARQUE INMEDIATO DE ANCLAS CON LA TECLA . ---
+        // AUTO-DESMARQUE INMEDIATO DEL PUNTO ANCLA CON "."
         if (e.key === '.') {
             const actions = getSafeActions();
             let moved = false;
             actions.forEach(act => {
                 if (act.selected && !document.getElementById('preset-editor-modal')?.style.display) {
-                    // Evitamos duplicar la creación de ancla si el atajo ya se está manejando,
-                    // pero garantizamos que se deseleccione si acaba de crearse.
-                    act.selected = false;
+                    act.selected = false; 
                     moved = true;
                 }
             });
-            if (moved) {
-                window.drawTimeline();
-            }
+            if (moved) window.drawTimeline();
         }
-        // -----------------------------------------------------------------
 
         if (window.isPastingMode && e.key === 'Escape') {
             e.preventDefault();
@@ -1890,14 +1815,14 @@ function initTimelineEvents() {
         }
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
-            if (e.key === 'ArrowRight') {
-                e.preventDefault(); // <-- Previene bloqueos del navegador
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                e.preventDefault(); 
                 window.presetFillReps = (window.presetFillReps || 1) + 1;
                 if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
                 window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10));
                 window.drawTimeline();
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault(); // <-- Previene bloqueos del navegador
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                e.preventDefault(); 
                 window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
                 window.drawTimeline();
             } 
@@ -1906,7 +1831,7 @@ function initTimelineEvents() {
 }
 
 // ==========================================
-// INICIALIZACIÓN Y BUCLE PRINCIPAL (BLINDADOS)
+// INICIALIZACIÓN Y BUCLE PRINCIPAL
 // ==========================================
 function bootTimelineEngine() {
     const c = document.getElementById('timeline-canvas');
