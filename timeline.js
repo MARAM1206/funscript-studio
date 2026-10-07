@@ -327,7 +327,13 @@ window.addEventListener('toggleSyncPoint', () => {
         notifyCloud(); window.updateHeatmapAndStats(); window.drawTimeline();
     } else {
         let moved = false;
-        actions.forEach(act => { if (act.selected) { act.isSync = !act.isSync; moved = true; } });
+        actions.forEach(act => { 
+            if (act.selected) { 
+                act.isSync = !act.isSync; 
+                act.selected = false; // <-- Esto es lo que faltaba para el auto-desmarque
+                moved = true; 
+            } 
+        });
         if (moved) { saveHistoryState(); window.drawTimeline(); notifyCloud(); }
     }
 });
@@ -1283,6 +1289,21 @@ function initTimelineEvents() {
     }
 
     c.addEventListener('wheel', (e) => {
+        c.addEventListener('wheel', (e) => {
+        // --- FIX RUEDA DEL RATÓN PARA REPETICIONES ---
+        if (window.isDraggingPreset || window.isPastingMode) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                window.presetFillReps = (window.presetFillReps || 1) + 1;
+            } else {
+                window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
+            }
+            if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
+            window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10)); // Mantiene la entropía
+            window.drawTimeline();
+            return;
+        }
+        // ----------------------------------------------
         if (document.body.classList.contains('panic-mode-active')) return;
         e.preventDefault();
         
@@ -1853,13 +1874,13 @@ function initTimelineEvents() {
 
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
             if (e.key === 'ArrowRight') {
-                e.preventDefault();
+                e.preventDefault(); // <-- Previene bloqueos del navegador
                 window.presetFillReps = (window.presetFillReps || 1) + 1;
                 if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
-                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * (Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset.length : 1)));
+                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10));
                 window.drawTimeline();
             } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
+                e.preventDefault(); // <-- Previene bloqueos del navegador
                 window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
                 window.drawTimeline();
             } 
