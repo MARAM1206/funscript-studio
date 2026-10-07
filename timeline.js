@@ -774,11 +774,16 @@ window.drawTimeline = function() {
         const canvas = document.getElementById('timeline-canvas');
         if (!canvas || canvas.width === 0 || canvas.height === 0) return; 
         
+        // FIX: Protección contra valores nulos que rompen y desaparecen el canvas
+        if (isNaN(window.scrollLeftMs)) window.scrollLeftMs = 0;
+        if (isNaN(window.zoom) || window.zoom <= 0) window.zoom = 1.0;
+        if (isNaN(window.basePixelsPerMs) || window.basePixelsPerMs <= 0) window.basePixelsPerMs = 0.1;
+
         const ctx = canvas.getContext('2d');
         
         let safeTime = 0;
         try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
-        let actualTime = safeTime;
+        let actualTime = isNaN(safeTime) ? 0 : safeTime;
         
         const videoNode = document.getElementById('video-player');
         if ((videoNode && !videoNode.paused) || window.isPlayingVirtual) {
@@ -1309,7 +1314,9 @@ window.drawTimeline = function() {
             const fsCanvas = document.getElementById('fs-timeline-canvas');
             if (fsCanvas) fsCanvas.style.display = 'none';
         }
-    } catch (err) { }
+    } catch (err) { 
+        console.error("🔥 ERROR CRÍTICO AL DIBUJAR TIMELINE:", err);
+    }
 };
 
 // ==========================================
