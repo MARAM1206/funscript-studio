@@ -281,6 +281,31 @@
                 </div>
 
                 <button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%; margin-top: auto; font-size: 0.75rem;">🎲 Aplicar a Selección</button>
+            </di<button id="apply-humanizer-btn" class="menu-btn purple-btn" style="width: 100%; margin-top: auto; font-size: 0.75rem;">🎲 Aplicar a Selección</button>
+            </div>
+        </div>
+
+        <div id="panel-multiplicador" class="workspace-panel" data-title="Multiplicador">
+            <div class="panel-header">
+                <span style="flex-grow: 1; text-align: left; color:#94a3b8;">Multiplicador de Presets</span>
+            </div>
+            <div class="panel-content" style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 12px; overflow-y: auto;">
+                <p style="font-size: 0.65rem; color: #94a3b8; text-align: center; margin-bottom: 8px; line-height: 1.3;">Ajusta los límites para el estiramiento de los presets.</p>
+                
+                <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; color: #cbd5e1; font-size: 0.65rem;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label>Tope Máximo (%)</label>
+                        <input type="number" id="multi-max" value="100" min="0" max="100" style="background:#0f172a; border:1px solid #475569; color:white; border-radius:4px; padding:6px; outline:none; width: 100%; box-sizing: border-box; font-size: 0.75rem;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label>Base Mínima (%)</label>
+                        <input type="number" id="multi-min" value="0" min="0" max="100" style="background:#0f172a; border:1px solid #475569; color:white; border-radius:4px; padding:6px; outline:none; width: 100%; box-sizing: border-box; font-size: 0.75rem;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px; grid-column: span 2;">
+                        <label title="Desfase aleatorio que se suma a la base en cada repetición">Desfase Aleatorio en Base (%)</label>
+                        <input type="number" id="multi-rand" value="0" min="0" max="100" style="background:#0f172a; border:1px solid #475569; color:white; border-radius:4px; padding:6px; outline:none; width: 100%; box-sizing: border-box; font-size: 0.75rem;">
+                    </div>
+                </div>
             </div>
         </div>
 
