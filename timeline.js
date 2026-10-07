@@ -1385,11 +1385,28 @@ function initTimelineEvents() {
     c.addEventListener('wheel', (e) => {
         if (window.isDraggingPreset || window.isPastingMode) {
             e.preventDefault();
+            
+            // FIX 2: CÁLCULO DE LÍMITE MÁXIMO DE REPETICIONES
+            let maxReps = 999;
+            if (window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
+                let presetDuration = 0;
+                let primary = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
+                if (primary && primary.length > 0) {
+                    presetDuration = primary[primary.length - 1].at - primary[0].at;
+                }
+                const vNode = document.getElementById('video-player');
+                if (vNode && vNode.duration && !isNaN(vNode.duration) && presetDuration > 0) {
+                    const remainingMs = (vNode.duration * 1000) - window.timelineGhostTimeMs;
+                    maxReps = Math.max(1, Math.floor(remainingMs / presetDuration));
+                }
+            }
+
             if (e.deltaY < 0) {
-                window.presetFillReps = (window.presetFillReps || 1) + 1;
+                window.presetFillReps = Math.min((window.presetFillReps || 1) + 1, maxReps);
             } else {
                 window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
             }
+            
             if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
             window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10)); 
             window.drawTimeline();
@@ -1788,11 +1805,9 @@ function initTimelineEvents() {
 
     c.addEventListener('contextmenu', e => e.preventDefault());
 
-    // 🎯 FIX DEFINITIVO: TECLADO Y ANCLAS DURANTE CUSTOM DRAG
     document.addEventListener('keydown', (e) => {
         if (document.body.classList.contains('panic-mode-active')) return;
         
-        // AUTO-DESMARQUE INMEDIATO DEL PUNTO ANCLA CON "."
         if (e.key === '.') {
             const actions = getSafeActions();
             let moved = false;
@@ -1813,20 +1828,7 @@ function initTimelineEvents() {
             window.drawTimeline();
             return;
         }
-
-        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
-            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-                e.preventDefault(); 
-                window.presetFillReps = (window.presetFillReps || 1) + 1;
-                if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
-                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10));
-                window.drawTimeline();
-            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-                e.preventDefault(); 
-                window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
-                window.drawTimeline();
-            } 
-        }
+        // FIX 3: Flechas removidas, ahora solo funciona con la rueda del ratón
     });
 }
 
