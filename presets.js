@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.29.0 (AUTO-DESMARQUE DE ANCLAS FIX)
+// PRESETS MANAGER V1.31.0 (THUMBNAILS GRANDES FIX & AUTO-DESMARQUE)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -230,13 +230,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const canvasId = `preset-thumb-${isModal ? 'm-' : ''}${preset.id}`;
+                let durationMs = preset.actions.length > 0 ? (preset.actions[preset.actions.length-1].at - preset.actions[0].at) : 0;
                 
                 card.innerHTML = `
                     <div style="flex-grow: 1; min-width: 0; pointer-events: none;">
                         <div class="preset-card-title">${preset.name}</div>
-                        <div class="preset-card-meta">${preset.actions.length} ptos | ${Math.round(preset.actions[preset.actions.length-1].at / 1000)}s</div>
+                        <div class="preset-card-meta">${preset.actions.length} ptos | ${(durationMs / 1000).toFixed(1)}s</div>
                     </div>
-                    <canvas id="${canvasId}" width="60" height="30" style="background:#0f172a; border-radius:4px; margin:0 10px; pointer-events: none;"></canvas>
+                    <canvas id="${canvasId}" width="100" height="40" style="background:#0f172a; border-radius:4px; border: 1px solid #1e293b; margin:0 10px; pointer-events: none;"></canvas>
                     ${!isModal ? `
                     <div style="display:flex; flex-direction:column; gap:4px; align-items: center; z-index: 2;">
                         <button class="edit-preset-btn" title="Editar Preset" style="background:none; border:none; cursor:pointer; font-size:0.9rem; opacity:0.7;">✏️</button>
@@ -260,10 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.stopPropagation();
                         if (confirm(`¿Eliminar el preset "${preset.name}"?`)) {
                             window.presetsLibrary.splice(index, 1);
-                            
                             const sIdx = window.selectedPresets.indexOf(preset.id);
                             if (sIdx > -1) window.selectedPresets.splice(sIdx, 1);
-                            
                             localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                             renderPresetsLibrary();
                         }
@@ -272,23 +271,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     delBtn.addEventListener('mouseleave', e => e.target.style.opacity = '0.7');
                 }
 
-                setTimeout(() => {
+                // FIX VISTA PREVIA ROTA
+                requestAnimationFrame(() => {
                     const cNode = document.getElementById(canvasId);
-                    if (cNode && preset.actions.length > 0) {
+                    if (cNode && preset.actions && preset.actions.length > 0) {
                         const tCtx = cNode.getContext('2d');
-                        tCtx.clearRect(0, 0, cNode.width, cNode.height);
-                        const dur = preset.actions[preset.actions.length-1].at;
+                        const w = cNode.width; const h = cNode.height;
+                        tCtx.clearRect(0, 0, w, h);
+                        const minT = preset.actions[0].at;
+                        const maxT = preset.actions[preset.actions.length-1].at;
+                        const dur = maxT - minT;
                         if (dur > 0) {
-                            tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 1.5; tCtx.beginPath();
+                            tCtx.strokeStyle = '#38bdf8'; tCtx.lineWidth = 2; tCtx.lineJoin = 'round'; tCtx.beginPath();
                             preset.actions.forEach((a, i) => {
-                                const x = (a.at / dur) * cNode.width;
-                                const y = cNode.height - (a.pos / 100) * cNode.height;
+                                const x = ((a.at - minT) / dur) * w;
+                                const y = h - (a.pos / 100) * h;
                                 if (i===0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
                             });
                             tCtx.stroke();
                         }
                     }
-                }, 10);
+                });
             });
             updateCardStyles(); 
         };
@@ -371,31 +374,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closePresetEditor() { if (modal) modal.style.display = 'none'; editingPresetId = null; window.presetEditorActions = []; }
 
-    if (modalCancel) {
-        modalCancel.onclick = (e) => {
-            e.preventDefault();
-            closePresetEditor();
-        };
-    }
+    if (modalCancel) { modalCancel.onclick = (e) => { e.preventDefault(); closePresetEditor(); }; }
 
     if (modalSaveNew) {
         modalSaveNew.onclick = (e) => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
-                
                 window.presetEditorActions.sort((a,b) => a.at - b.at);
                 const base = window.presetEditorActions[0].at;
                 window.presetEditorActions.forEach(a => a.at -= base);
-
                 const finalName = getUniqueName(pNameInput.value);
                 const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
                 window.presetsLibrary.push(newPreset);
                 localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                 renderPresetsLibrary(); closePresetEditor();
-            } catch (err) {
-                alert("Error crítico al guardar como nuevo: " + err.message);
-            }
+            } catch (err) {}
         };
     }
 
@@ -404,11 +398,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             try {
                 if (!window.presetEditorActions || window.presetEditorActions.length < 2) { alert('El preset necesita al menos 2 puntos.'); return; }
-                
                 window.presetEditorActions.sort((a,b) => a.at - b.at);
                 const base = window.presetEditorActions[0].at;
                 window.presetEditorActions.forEach(a => a.at -= base);
-
                 if (editingPresetId) {
                     const p = window.presetsLibrary.find(x => x.id === editingPresetId);
                     if (p) { 
@@ -420,30 +412,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     const newPreset = { id: generateId(), name: finalName, actions: JSON.parse(JSON.stringify(window.presetEditorActions)) };
                     window.presetsLibrary.push(newPreset);
                 }
-                
                 localStorage.setItem('funscript_presets', JSON.stringify(window.presetsLibrary));
                 renderPresetsLibrary(); closePresetEditor();
-            } catch (err) {
-                alert("Error crítico al crear preset: " + err.message);
-            }
+            } catch (err) {}
         };
     }
 
     function drawPresetEditor() {
         if (!pCtx || !pCanvas || modal.style.display !== 'flex') return;
-        
         const parent = pCanvas.parentElement;
         if(pCanvas.width !== parent.clientWidth) pCanvas.width = parent.clientWidth;
         if(pCanvas.height !== parent.clientHeight) pCanvas.height = parent.clientHeight;
-
         pCtx.clearRect(0,0, pCanvas.width, pCanvas.height);
-
         const timeToX = (t) => 30 + (t - pScrollX) * (pBasePixelsPerMs * pZoom);
         const xToTime = (x) => pScrollX + (x - 30) / (pBasePixelsPerMs * pZoom);
         const posToY = (p) => { const pad = 30; return pCanvas.height - pad - (p/100)*(pCanvas.height - 2*pad); };
 
         pCtx.fillStyle = '#06090e'; pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
-
         pCtx.strokeStyle = 'rgba(255,255,255,0.05)'; pCtx.lineWidth = 1;
         [0, 25, 50, 75, 100].forEach(p => { const y = posToY(p); pCtx.beginPath(); pCtx.moveTo(30, y); pCtx.lineTo(pCanvas.width, y); pCtx.stroke(); });
 
@@ -684,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 🎯 FIX 4: Desmarque Automático de Anclas
+    // AUTO-DESMARQUE AL PRESIONAR LA TECLA "." (Punto Ancla)
     document.addEventListener('keydown', (e) => {
         const modalElement = document.getElementById('preset-editor-modal');
         if (modalElement && modalElement.style.display === 'flex') {
@@ -695,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.presetEditorActions.forEach(a => {
                     if (a.selected) {
                         a.isSync = !a.isSync;
-                        a.selected = false; // <-- Deselección inmediata
+                        a.selected = false; // Deselección inmediata garantizada
                         moved = true;
                     }
                 });
