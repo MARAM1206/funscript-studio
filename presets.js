@@ -1,5 +1,5 @@
 // ==========================================================================
-// PRESETS MANAGER V1.32.0 (CUSTOM POINTER-EVENTS DRAG & DROP)
+// PRESETS MANAGER V1.32.1 (FIX: SELECCIÓN MÚLTIPLE LIMPIA)
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -114,38 +114,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.className = 'preset-card';
                 card.dataset.id = preset.id;
                 card.title = "Arrastra a la Línea de Tiempo o Reordena";
-                
-                // Aplicamos las reglas CSS recomendadas para Custom Drag
                 card.style.touchAction = 'none';
                 card.style.userSelect = 'none';
-                
-                if (!isModal) {
-                    card.addEventListener('click', (e) => {
-                        if (e.target.closest('button')) return; 
-                        if (e.ctrlKey || e.metaKey) {
-                            const idx = window.selectedPresets.indexOf(preset.id);
-                            if (idx > -1) window.selectedPresets.splice(idx, 1);
-                            else window.selectedPresets.push(preset.id);
-                        } else {
-                            window.selectedPresets = [preset.id];
-                        }
-                        updateCardStyles();
-                    });
-                }
 
-                // ==========================================
-                // CUSTOM POINTER DRAG & DROP
-                // ==========================================
+                // FIX 1: TODO EL CONTROL DE SELECCIÓN Y ARRASTRE AHORA VIVE AQUÍ (pointerdown)
                 card.addEventListener('pointerdown', (e) => {
                     if (e.button !== 0 || isModal) return; 
                     if (e.target.closest('button')) return; 
 
                     e.preventDefault(); 
                     
-                    if (!window.selectedPresets.includes(preset.id)) {
-                        window.selectedPresets = [preset.id];
-                        updateCardStyles();
+                    if (e.ctrlKey || e.metaKey) {
+                        const idx = window.selectedPresets.indexOf(preset.id);
+                        if (idx > -1) {
+                            window.selectedPresets.splice(idx, 1);
+                            updateCardStyles();
+                            return; 
+                        } else {
+                            window.selectedPresets.push(preset.id);
+                        }
+                    } else {
+                        if (!window.selectedPresets.includes(preset.id)) {
+                            window.selectedPresets = [preset.id];
+                        }
                     }
+                    updateCardStyles();
 
                     window.isDraggingPreset = true;
                     window.draggedPresetIndex = index; 
@@ -156,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     window.presetFillInitialized = false; 
 
-                    // Crear Clon Flotante
                     let floatingClone = card.cloneNode(true);
                     floatingClone.style.position = 'fixed';
                     floatingClone.style.pointerEvents = 'none'; 
@@ -183,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             const rect = canvas.getBoundingClientRect();
                             if (eMove.clientX >= rect.left && eMove.clientX <= rect.right &&
                                 eMove.clientY >= rect.top && eMove.clientY <= rect.bottom) {
-                                // Estamos sobre el Canvas
                                 const mouseX = (eMove.clientX - rect.left) * (canvas.width / rect.width);
                                 const mouseY = (eMove.clientY - rect.top) * (canvas.height / rect.height);
                                 if (typeof window.updateGhostPosition === 'function') {
@@ -191,12 +182,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                                 window.drawTimeline();
                             } else {
-                                // Salimos del Canvas
                                 if (window.timelineGhostTimeMs !== null) {
                                     window.timelineGhostTimeMs = null;
                                     window.drawTimeline();
                                 }
-                                // Lógica visual de reordenamiento
                                 const hoveredCard = document.elementFromPoint(eMove.clientX, eMove.clientY)?.closest('.preset-card');
                                 document.querySelectorAll('.preset-card').forEach(c => c.style.boxShadow = "");
                                 if (hoveredCard && hoveredCard.dataset.id !== preset.id) {
@@ -235,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
 
                             if (!droppedOnCanvas) {
-                                // Reordenar en la lista
                                 const targetCard = document.elementFromPoint(eUp.clientX, eUp.clientY)?.closest('.preset-card');
                                 if (targetCard && targetCard.dataset.id !== preset.id && window.selectedPresets.length === 1) {
                                     const parent = targetCard.parentNode;
