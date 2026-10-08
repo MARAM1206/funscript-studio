@@ -1228,6 +1228,7 @@ window.drawTimeline = function() {
                     }
                 }
             }
+            }
 
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
