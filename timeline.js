@@ -406,13 +406,6 @@ window.addEventListener('nudgeTime', function(e) {
         window.drawTimeline();
     }
 });
-    if (moved) {
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-        window.drawTimeline();
-    }
-});
 
 window.addEventListener('nudgePoints', function(e) {
     if (document.body.classList.contains('panic-mode-active')) return;
