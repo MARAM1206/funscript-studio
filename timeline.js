@@ -1173,7 +1173,7 @@ window.drawTimeline = function() {
                 ctx.fillText("✨ IA: Escala Geométrica", cursorX + 15, cursorY - 15);
 
             } else {
-                const ghostPoints = window.generateGhostPoints(); // Le pide al motor centralizado los puntos exactos
+                const ghostPoints = window.generateGhostPoints(); 
                 
                 if (ghostPoints && ghostPoints.length > 0) {
                     ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
