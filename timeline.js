@@ -1,12 +1,12 @@
 // ==========================================================================
-// TIMELINE V1.30.0 (FIX EFECTO IMÁN Y FLECHAS EN MODO LIBRE) - PARTE 1
+// TIMELINE V1.35.0 (VERSIÓN DEFINITIVA - CORRECCIÓN DE SINTAXIS Y MOTOR COMPLETO)
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
 window.timelineMarkers = window.timelineMarkers || []; 
 window.activeSuggestion = null; 
 window.presetFillReps = 1;
-window.presetFillModeState = null; // Reemplaza a presetFillInitialized para mejor control
+window.presetFillModeState = null; 
 window.lastMarkerRightClickIdx = -1;
 window.lastMarkerRightClickTime = 0;
 window.activeDevice = null;
@@ -136,6 +136,7 @@ function posToY(pos) {
     const topPad = 40; const botPad = 20; const usableHeight = canvas.height - topPad - botPad; 
     return canvas.height - botPad - (pos / 100) * usableHeight; 
 }
+
 function yToPos(y) { 
     const canvas = document.getElementById('timeline-canvas');
     if (!canvas) return 0;
@@ -147,7 +148,6 @@ function yToPos(y) {
 function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
     if (pSyncVal !== null && tSyncVal !== null) {
         if (presetVal === pSyncVal) return tSyncVal; 
-        
         if (presetVal > pSyncVal) {
             let distUpP = 100 - pSyncVal;
             let distUpT = 100 - tSyncVal;
@@ -263,7 +263,7 @@ window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
 };
 
 // ==========================================
-// HISTORIAL (UNDO/REDO) Y SCROLL PAN
+// HISTORIAL (UNDO/REDO)
 // ==========================================
 function saveHistoryState() { 
     undoStack.push(JSON.stringify(getSafeActions())); 
@@ -294,7 +294,7 @@ function redo() {
 }
 
 // ==========================================
-// EVENTOS PERSONALIZADOS (ATAJOS Y BOTONES)
+// EVENTOS PERSONALIZADOS
 // ==========================================
 window.addEventListener('forceTimelinePan', (e) => {
     const canvas = document.getElementById('timeline-canvas');
@@ -320,8 +320,13 @@ window.addEventListener('toggleSyncPoint', () => {
         try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
         const timeMs = Math.round(safeTime);
         const existingIdx = actions.findIndex(a => Math.abs(a.at - timeMs) <= 15);
-        if (existingIdx !== -1) { actions[existingIdx].isSync = !actions[existingIdx].isSync; actions[existingIdx].selected = true; } 
-        else { actions.push({ at: timeMs, pos: 50, selected: true, isSync: true }); }
+        if (existingIdx !== -1) { 
+            actions[existingIdx].isSync = !actions[existingIdx].isSync; 
+            actions[existingIdx].selected = false; 
+        } 
+        else { 
+            actions.push({ at: timeMs, pos: 50, selected: false, isSync: true }); 
+        }
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
         notifyCloud(); window.updateHeatmapAndStats(); window.drawTimeline();
@@ -330,7 +335,7 @@ window.addEventListener('toggleSyncPoint', () => {
         actions.forEach(act => { 
             if (act.selected) { 
                 act.isSync = !act.isSync; 
-                act.selected = false; // <-- Esto es lo que faltaba para el auto-desmarque
+                act.selected = false; 
                 moved = true; 
             } 
         });
@@ -385,7 +390,6 @@ window.addEventListener('nudgeTime', function(e) {
     const actions = getSafeActions(); const dir = e.detail; let moved = false;
     saveHistoryState();
 
-    // FIX MODO LIBRE: Si no hay selección, atrapa el punto más cercano al playhead
     let hasSelection = actions.some(a => a.selected);
     if (!hasSelection) {
         const closest = getPointUnderPlayhead(actions);
@@ -399,6 +403,7 @@ window.addEventListener('nudgeTime', function(e) {
             moved = true;
         }
     });
+    
     if (moved) {
         cleanDuplicates();
         if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -451,7 +456,6 @@ window.addEventListener('magnetPoint', function() {
     const timeMs = Math.round(safeTime);
     let moved = false; saveHistoryState();
 
-    // FIX MODO LIBRE: Si no hay selección, atrapa el punto más cercano al playhead
     let hasSelection = actions.some(a => a.selected);
     if (!hasSelection) {
         const closest = getPointUnderPlayhead(actions);
@@ -746,7 +750,127 @@ function updateGhostPosition(mouseX, mouseY) {
 }
 
 // ==========================================
-// NÚCLEO DEL CANVAS Y DIBUJADO (DRAW TIMELINE)
+// GENERADOR DE PUNTOS FANTASMA (AUTO-AJUSTE)
+// ==========================================
+window.generateGhostPoints = function() {
+    if (!window.timelineGhostPreset || window.timelineGhostTimeMs === null) return [];
+
+    let tMaxNode = document.getElementById('multi-max');
+    let tMinNode = document.getElementById('multi-min');
+    let tRandNode = document.getElementById('multi-rand');
+
+    let tMax = tMaxNode ? Number(tMaxNode.value) : 100;
+    let tMin = tMinNode ? Number(tMinNode.value) : 0;
+    let tRand = tRandNode ? Number(tRandNode.value) : 0;
+
+    if (isNaN(tMax)) tMax = 100;
+    if (isNaN(tMin)) tMin = 0;
+    if (isNaN(tRand)) tRand = 0;
+    if (tMax < tMin) tMax = tMin + 1; 
+
+    let presetToInject = window.timelineGhostPreset;
+    let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
+    if (primaryPreset.length === 0) return [];
+
+    let pDuration = primaryPreset[primaryPreset.length - 1].at - primaryPreset[0].at;
+    let pMin = Math.min(...primaryPreset.map(a => a.pos));
+    let pMax = Math.max(...primaryPreset.map(a => a.pos));
+    if (pMax === pMin) pMax = pMin + 1; 
+
+    let dropTimeMs = window.timelineGhostTimeMs;
+    let targetEnd = window.timelineGhostTargetEnd;
+    let reps = window.presetFillReps || 1;
+
+    let timeScale = 1.0;
+    
+    if (targetEnd && reps > 0 && pDuration > 0) {
+        let availableSpace = targetEnd - dropTimeMs;
+        timeScale = availableSpace / (pDuration * reps);
+    }
+
+    let ghostPoints = [];
+    for (let r = 0; r < reps; r++) {
+        let currentBaseOffset = Math.floor(Math.random() * (tRand + 1));
+        let currentTMin = Math.min(100, tMin + currentBaseOffset);
+        let currentTMax = Math.max(currentTMin + 1, tMax); 
+
+        let startOffset = dropTimeMs + (r * pDuration * timeScale);
+        let sequence = Array.isArray(presetToInject[0])
+            ? presetToInject[(window.timelineGhostRandomSequence?.[r] || 0) % presetToInject.length]
+            : primaryPreset;
+
+        sequence.forEach((act, idx) => {
+            if (r > 0 && idx === 0 && act.at === 0) return; 
+            
+            let mappedPos = currentTMin + ((act.pos - pMin) / (pMax - pMin)) * (currentTMax - currentTMin);
+
+            ghostPoints.push({
+                at: startOffset + (act.at * timeScale),
+                pos: Math.max(0, Math.min(100, mappedPos)),
+                isSync: act.isSync || false
+            });
+        });
+    }
+    return ghostPoints;
+};
+
+// ==========================================
+// INYECCIÓN DE PRESET
+// ==========================================
+window.injectGhostPreset = function(clientX, clientY) {
+    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
+
+    const generatedPoints = window.generateGhostPoints();
+    if (!generatedPoints || generatedPoints.length === 0) {
+        resetGhostState();
+        return;
+    }
+
+    setTimeout(() => {
+        ensureTrackExists();
+        let actions = getSafeActions();
+        const snap = window.snapValue || 5;
+        saveHistoryState();
+
+        let tStart = generatedPoints[0].at;
+        let tEnd = generatedPoints[generatedPoints.length - 1].at;
+
+        actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at >= (tEnd + 10)));
+        actions.forEach(a => a.selected = false);
+
+        let newActions = generatedPoints.map(p => ({
+            at: Math.round(p.at),
+            pos: Math.round(p.pos / snap) * snap,
+            selected: true,
+            isSync: p.isSync
+        }));
+
+        actions.push(...newActions);
+        cleanDuplicates(); 
+        resetGhostState();
+    }, 10);
+};
+
+function resetGhostState() {
+    window.isDraggingPreset = false;
+    window.timelineGhostPreset = null;
+    window.presetFillInitialized = false;
+    window.timelineGhostTargetEnd = null;
+    window.timelineGhostMarkers = null;
+    window.timelineGhostTargetAnchor = null;
+    window.timelineGhostTimeMs = null;
+    window.timelineGhostDeltaPos = 0;
+    window.timelineGhostRandomSequence = [];
+    window.presetFillReps = 1; 
+    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
+    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
+    notifyCloud();
+    window.updateHeatmapAndStats();
+    window.drawTimeline();
+}
+
+// ==========================================
+// NÚCLEO DEL CANVAS Y DIBUJADO
 // ==========================================
 window.calculateAdaptiveZoom = function() { window.basePixelsPerMs = 0.1; };
 
@@ -767,7 +891,7 @@ window.drawTimeline = function() {
         const canvas = document.getElementById('timeline-canvas');
         if (!canvas || canvas.width === 0 || canvas.height === 0) return; 
         
-        // FIX: Protección contra valores nulos que rompen y desaparecen el canvas
+        // PROTECCIÓN ANTI NaN QUE ROMPÍA EL CANVAS
         if (isNaN(window.scrollLeftMs)) window.scrollLeftMs = 0;
         if (isNaN(window.zoom) || window.zoom <= 0) window.zoom = 1.0;
         if (isNaN(window.basePixelsPerMs) || window.basePixelsPerMs <= 0) window.basePixelsPerMs = 0.1;
@@ -1103,124 +1227,58 @@ window.drawTimeline = function() {
             });
         }
 
-        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostPreset && window.timelineGhostTimeMs !== null) {
-            let primaryPreset = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
+        // ==========================================
+        // DIBUJO DEL FANTASMA MEJORADO (LEE LA ESCALA Y ALTURAS EN TIEMPO REAL)
+        // ==========================================
+        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
+            const ghostPoints = window.generateGhostPoints(); 
             
-            if (window.timelineGhostTargetEnd) {
-                const morphed = window.getMorphedPreset(window.timelineGhostPreset, window.timelineGhostMarkers || window.timelineGhostTimeMs, window.timelineGhostTargetEnd);
-                if (morphed) {
-                    const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
-                    ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
-                    morphed.forEach((act, index) => {
-                        const x = timeToX(act.at); const y = posToY(act.pos); 
-                        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                    });
-                    ctx.stroke();
-                    morphed.forEach(act => {
-                        const x = timeToX(act.at); const y = posToY(act.pos);
-                        if (act.isSync) {
-                            ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
-                            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                            ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
-                            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-                        } else {
-                            ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
-                            ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
-                        }
-                    });
-                    
-                    const cursorX = timeToX(window.timelineGhostTimeMs);
-                    const cursorY = posToY(50);
-                    ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                    let modeText = `Modo: Repetir al Azar (${window.presetFillReps || 1}x) (Presiona ← / →)`;
-                    ctx.fillText(modeText, cursorX + 15, cursorY + 30);
-                }
-            } else if (window.timelineGhostTargetAnchor) {
-                let pAnchor = primaryPreset.find(a => a.isSync);
-                let pMin = Math.min(...primaryPreset.map(a => a.pos));
-                let pMax = Math.max(...primaryPreset.map(a => a.pos));
-
-                const pulseG = 0.5 + 0.5 * (Math.sin(performance.now() / 250) * 0.5 + 0.5); 
-                ctx.lineWidth = 3; ctx.strokeStyle = `rgba(16, 185, 129, ${pulseG})`; ctx.beginPath();
-                primaryPreset.forEach((act, index) => {
-                    const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const scaledPos = getSmartMappedPos(act.pos, pAnchor.pos, window.timelineGhostTargetAnchor.pos, pMin, pMax, 0, 100, false);
-                    const y = posToY(scaledPos); 
-                    if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            if (ghostPoints && ghostPoints.length > 0) {
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                
+                ghostPoints.forEach((p, i) => {
+                    const px = timeToX(p.at);
+                    const py = posToY(p.pos);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
                 });
                 ctx.stroke();
+                ctx.setLineDash([]);
 
-                primaryPreset.forEach(act => {
-                    const x = timeToX(window.timelineGhostTimeMs + act.at);
-                    const scaledPos = getSmartMappedPos(act.pos, pAnchor.pos, window.timelineGhostTargetAnchor.pos, pMin, pMax, 0, 100, false);
-                    const y = posToY(scaledPos);
-                    if (act.isSync) {
-                        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                        ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', x, y+1); 
-                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-                    } else {
-                        ctx.fillStyle = `rgba(16, 185, 129, ${pulseG})`;
-                        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+                ghostPoints.forEach(p => {
+                    const px = timeToX(p.at);
+                    const py = posToY(p.pos);
+                    if (px >= 20 && px <= canvas.width) {
+                        if (p.isSync) {
+                            ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+                            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+                            ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
+                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', px, py+1); 
+                            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                        } else {
+                            ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
+                            ctx.beginPath();
+                            ctx.arc(px, py, 4, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
                     }
                 });
 
-                const cursorX = timeToX(window.timelineGhostTimeMs);
-                const cursorY = posToY(window.timelineGhostTargetAnchor.pos);
-                ctx.fillStyle = '#10b981'; ctx.font = 'bold 12px monospace';
-                ctx.fillText("✨ IA: Escala Geométrica", cursorX + 15, cursorY - 15);
-
-            } else {
-                const ghostPoints = window.generateGhostPoints(); 
+                const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
+                const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(50);
                 
-                if (ghostPoints && ghostPoints.length > 0) {
-                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    
-                    ghostPoints.forEach((p, i) => {
-                        const px = timeToX(p.at);
-                        const py = posToY(p.pos);
-                        if (i === 0) ctx.moveTo(px, py);
-                        else ctx.lineTo(px, py);
-                    });
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-
-                    ghostPoints.forEach(p => {
-                        const px = timeToX(p.at);
-                        const py = posToY(p.pos);
-                        if (px >= 20 && px <= canvas.width) {
-                            if (p.isSync) {
-                                ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
-                                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-                                ctx.fillStyle = '#0f172a'; ctx.font = '10px monospace'; 
-                                ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', px, py+1); 
-                                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-                            } else {
-                                ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
-                                ctx.beginPath();
-                                ctx.arc(px, py, 4, 0, Math.PI * 2);
-                                ctx.fill();
-                            }
-                        }
-                    });
-
-                    const pasteX = window.timelineGhostMouseX !== undefined ? window.timelineGhostMouseX : timeToX(window.timelineGhostTimeMs);
-                    const pasteY = window.timelineGhostMouseY !== undefined ? window.timelineGhostMouseY : posToY(50);
-                    
-                    ctx.fillStyle = '#38bdf8';
-                    ctx.font = 'bold 12px monospace';
-                    if (window.isPastingMode) {
-                        ctx.fillText(`📋 PEGAR MÚLTIPLE (${window.presetFillReps || 1}x) (← / →) (ESC cancelar)`, pasteX + 15, pasteY + 30);
-                    } else if (window.isDraggingPreset) {
-                        ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (Rueda de Ratón)`, pasteX + 15, pasteY + 30);
-                    }
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 12px monospace';
+                if (window.isPastingMode) {
+                    ctx.fillText(`📋 PEGAR MÚLTIPLE (${window.presetFillReps || 1}x) (+ / -) (ESC cancelar)`, pasteX + 15, pasteY + 30);
+                } else if (window.isDraggingPreset) {
+                    ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (Rueda de Ratón)`, pasteX + 15, pasteY + 30);
                 }
             }
+        }
 
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
@@ -1313,147 +1371,7 @@ window.drawTimeline = function() {
 };
 
 // ==========================================
-// NUEVO: GENERADOR DE PUNTOS DINÁMICOS CON AUTO-AJUSTE
-// ==========================================
-window.generateGhostPoints = function() {
-    if (!window.timelineGhostPreset || window.timelineGhostTimeMs === null) return [];
-
-    let tMaxNode = document.getElementById('multi-max');
-    let tMinNode = document.getElementById('multi-min');
-    let tRandNode = document.getElementById('multi-rand');
-
-    let tMax = tMaxNode ? Number(tMaxNode.value) : 100;
-    let tMin = tMinNode ? Number(tMinNode.value) : 0;
-    let tRand = tRandNode ? Number(tRandNode.value) : 0;
-
-    if (isNaN(tMax)) tMax = 100;
-    if (isNaN(tMin)) tMin = 0;
-    if (isNaN(tRand)) tRand = 0;
-    if (tMax < tMin) tMax = tMin + 1; 
-
-    let presetToInject = window.timelineGhostPreset;
-    let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
-    if (primaryPreset.length === 0) return [];
-
-    let pDuration = primaryPreset[primaryPreset.length - 1].at - primaryPreset[0].at;
-    let pMin = Math.min(...primaryPreset.map(a => a.pos));
-    let pMax = Math.max(...primaryPreset.map(a => a.pos));
-    if (pMax === pMin) pMax = pMin + 1; 
-
-    let dropTimeMs = window.timelineGhostTimeMs;
-    let reps = window.presetFillReps || 1;
-
-    // 🎯 1. CALCULAR ESPACIO DISPONIBLE (Evitar sobreescribir el próximo punto existente)
-    let availableSpace = 9999999;
-    if (window.timelineGhostTargetEnd) {
-        availableSpace = window.timelineGhostTargetEnd - dropTimeMs;
-    } else {
-        let actions = typeof getSafeActions === 'function' ? getSafeActions() : [];
-        let nextPoint = actions.find(a => a.at > dropTimeMs);
-        if (nextPoint) {
-            availableSpace = nextPoint.at - dropTimeMs; // Usamos el siguiente punto como pared
-        } else {
-            let vNode = document.getElementById('video-player');
-            if (vNode && vNode.duration && !isNaN(vNode.duration)) {
-                availableSpace = (vNode.duration * 1000) - dropTimeMs;
-            }
-        }
-    }
-    availableSpace = Math.max(0, availableSpace);
-
-    // 🎯 2. AUTO-AJUSTE (Comprimir el preset para que todas las repeticiones quepan en el hueco)
-    let timeScale = 1.0;
-    if (pDuration > 0 && reps > 0) {
-        let totalNeeded = pDuration * reps;
-        if (totalNeeded > availableSpace) {
-            timeScale = availableSpace / totalNeeded; // Se exprime el tiempo para encajar perfecto
-        }
-    }
-
-    let ghostPoints = [];
-    for (let r = 0; r < reps; r++) {
-        let currentBaseOffset = Math.floor(Math.random() * (tRand + 1));
-        let currentTMin = Math.min(100, tMin + currentBaseOffset);
-        let currentTMax = Math.max(currentTMin + 1, tMax); 
-
-        let startOffset = dropTimeMs + (r * pDuration * timeScale);
-        let sequence = Array.isArray(presetToInject[0])
-            ? presetToInject[(window.timelineGhostRandomSequence?.[r] || 0) % presetToInject.length]
-            : primaryPreset;
-
-        sequence.forEach((act, idx) => {
-            if (r > 0 && idx === 0 && act.at === 0) return; 
-            
-            let mappedPos = currentTMin + ((act.pos - pMin) / (pMax - pMin)) * (currentTMax - currentTMin);
-
-            ghostPoints.push({
-                at: startOffset + (act.at * timeScale),
-                pos: Math.max(0, Math.min(100, mappedPos)),
-                isSync: act.isSync || false
-            });
-        });
-    }
-    return ghostPoints;
-};
-
-// ==========================================
-// INYECCIÓN DE PRESET (CUSTOM DRAG BLINDADO)
-// ==========================================
-window.injectGhostPreset = function(clientX, clientY) {
-    if (!window.isDraggingPreset || !window.timelineGhostPreset) return;
-
-    const generatedPoints = window.generateGhostPoints();
-    if (!generatedPoints || generatedPoints.length === 0) {
-        resetGhostState();
-        return;
-    }
-
-    setTimeout(() => {
-        ensureTrackExists();
-        let actions = getSafeActions();
-        const snap = window.snapValue || 5;
-        saveHistoryState();
-
-        let tStart = generatedPoints[0].at;
-        let tEnd = generatedPoints[generatedPoints.length - 1].at;
-
-        // Borramos SOLO si caen exactamente debajo del fantasma (protege el próximo punto seguro)
-        actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at >= (tEnd + 10)));
-        actions.forEach(a => a.selected = false);
-
-        let newActions = generatedPoints.map(p => ({
-            at: Math.round(p.at),
-            pos: Math.round(p.pos / snap) * snap,
-            selected: true,
-            isSync: p.isSync
-        }));
-
-        actions.push(...newActions);
-        cleanDuplicates(); 
-        resetGhostState();
-    }, 10);
-};
-
-function resetGhostState() {
-    window.isDraggingPreset = false;
-    window.timelineGhostPreset = null;
-    window.presetFillInitialized = false;
-    window.timelineGhostTargetEnd = null;
-    window.timelineGhostMarkers = null;
-    window.timelineGhostTargetAnchor = null;
-    window.timelineGhostTimeMs = null;
-    window.timelineGhostDeltaPos = 0;
-    window.timelineGhostRandomSequence = [];
-    window.presetFillReps = 1; 
-    if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
-    if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-    notifyCloud();
-    window.updateHeatmapAndStats();
-    window.drawTimeline();
-}
-
-// ==========================================
-// INICIALIZACIÓN DE EVENTOS DEL CANVAS (BLINDADOS)
+// INICIALIZACIÓN DE EVENTOS DEL CANVAS
 // ==========================================
 function initTimelineEvents() {
     const c = document.getElementById('timeline-canvas');
@@ -1473,21 +1391,18 @@ function initTimelineEvents() {
                 let primary = Array.isArray(window.timelineGhostPreset[0]) ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
                 let pDuration = primary[primary.length - 1].at - primary[0].at;
                 
-                let dropTimeMs = window.timelineGhostTimeMs;
-                let availableSpace = 9999999;
+                let availableSpace = 0;
+                let actions = typeof getSafeActions === 'function' ? getSafeActions() : (window.funscriptActions || []);
+                let nextAct = actions.find(a => a.at > window.timelineGhostTimeMs);
                 
-                if (window.timelineGhostTargetEnd) {
-                    availableSpace = window.timelineGhostTargetEnd - dropTimeMs;
+                if (nextAct) {
+                    availableSpace = nextAct.at - window.timelineGhostTimeMs;
                 } else {
-                    let actions = typeof getSafeActions === 'function' ? getSafeActions() : [];
-                    let nextPoint = actions.find(a => a.at > dropTimeMs);
-                    if (nextPoint) {
-                        availableSpace = nextPoint.at - dropTimeMs;
+                    const vNode = document.getElementById('video-player');
+                    if (vNode && vNode.duration && !isNaN(vNode.duration)) {
+                        availableSpace = (vNode.duration * 1000) - window.timelineGhostTimeMs;
                     } else {
-                        const vNode = document.getElementById('video-player');
-                        if (vNode && vNode.duration && !isNaN(vNode.duration)) {
-                            availableSpace = (vNode.duration * 1000) - dropTimeMs;
-                        }
+                        availableSpace = 999999;
                     }
                 }
 
@@ -1499,7 +1414,6 @@ function initTimelineEvents() {
                     }
                     if(minGap === 9999) minGap = 50;
 
-                    // El límite ya no es la duración original, sino hasta donde los puntos colapsarían (menos de 15ms)
                     let absoluteMaxReps = Math.floor((minGap * availableSpace) / (15 * pDuration));
                     maxReps = Math.max(1, absoluteMaxReps);
                 }
@@ -1907,6 +1821,13 @@ function initTimelineEvents() {
         isDraggingNode = false; dragSelectionInitialStates = []; isSelecting = false; draggedNodeIndex = -1;
     });
 
+    c.addEventListener('dragleave', () => {
+        if(window.isDraggingPreset) {
+            window.timelineGhostTimeMs = null;
+            window.drawTimeline();
+        }
+    });
+
     c.addEventListener('contextmenu', e => e.preventDefault());
 
     document.addEventListener('keydown', (e) => {
@@ -1932,6 +1853,20 @@ function initTimelineEvents() {
             window.drawTimeline();
             return;
         }
+
+        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
+            if (e.key === '+' || e.key === '=') {
+                e.preventDefault(); 
+                window.presetFillReps = (window.presetFillReps || 1) + 1;
+                if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
+                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10)); 
+                window.drawTimeline();
+            } else if (e.key === '-' || e.key === '_') {
+                e.preventDefault(); 
+                window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
+                window.drawTimeline();
+            } 
+        }
     });
 }
 
@@ -1944,12 +1879,13 @@ function bootTimelineEngine() {
         requestAnimationFrame(bootTimelineEngine);
         return;
     }
-    if (c.parentElement.clientWidth === 0) {
+    if (c.parentElement && c.parentElement.clientWidth === 0) {
         console.warn("⚠️ El contenedor del timeline tiene ancho 0px. Revisa tu CSS o si está en un tab oculto.");
     }
     initTimelineEvents();
     requestAnimationFrame(animationLoop);
 }
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootTimelineEngine);
 } else {
