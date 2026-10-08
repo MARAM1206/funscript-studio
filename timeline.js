@@ -1227,6 +1227,7 @@ window.drawTimeline = function() {
                         ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (Rueda de Ratón)`, pasteX + 15, pasteY + 30);
                     }
                 }
+            }
 
         if (isSelecting) {
             ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'; ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
