@@ -1,5 +1,5 @@
 // ==========================================================================
-// TIMELINE V1.35.0 (VERSIÓN DEFINITIVA - CORRECCIÓN DE SINTAXIS Y MOTOR COMPLETO)
+// TIMELINE V1.32.0 (FIX VIBRACIÓN Y MULTIPLICADOR INTELIGENTE) - PARTE 1
 // ==========================================================================
 
 window.funscriptActions = window.funscriptActions || [];
@@ -145,126 +145,6 @@ function yToPos(y) {
     return Math.max(0, Math.min(100, Math.round(rawPos))); 
 }
 
-function getSmartMappedPos(presetVal, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting) {
-    if (pSyncVal !== null && tSyncVal !== null) {
-        if (presetVal === pSyncVal) return tSyncVal; 
-        if (presetVal > pSyncVal) {
-            let distUpP = 100 - pSyncVal;
-            let distUpT = 100 - tSyncVal;
-            let scale = distUpP > 0 ? (distUpT / distUpP) : 1;
-            return Math.max(0, Math.min(100, Math.round(tSyncVal + (presetVal - pSyncVal) * scale)));
-        } else {
-            let distDownP = pSyncVal; 
-            let distDownT = tSyncVal; 
-            let scale = distDownP > 0 ? (distDownT / distDownP) : 1;
-            return Math.max(0, Math.min(100, Math.round(tSyncVal - (pSyncVal - presetVal) * scale)));
-        }
-    } else if (hasExisting && (oMax - oMin) > 10) {
-        let pRange = pMax - pMin || 1;
-        let norm = (presetVal - pMin) / pRange;
-        return Math.max(0, Math.min(100, Math.round(oMin + norm * (oMax - oMin))));
-    }
-    return presetVal;
-}
-
-window.getMorphedPreset = function(presetInput, startOrMarkers, end) {
-    if (!presetInput || presetInput.length === 0) return null;
-    
-    let presets = Array.isArray(presetInput[0]) ? presetInput : [presetInput];
-    let result = [];
-    if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
-
-    const mapSinglePreset = (p, t_start, t_end, existing) => {
-        const p_dur = p[p.length - 1].at;
-        if (p_dur <= 0) return [];
-        let pMin = Math.min(...p.map(a => a.pos));
-        let pMax = Math.max(...p.map(a => a.pos));
-        let pSync = p.find(a => a.isSync);
-        let pSyncVal = pSync ? pSync.pos : null;
-
-        let targetDuration = t_end - t_start;
-        if (targetDuration <= 0) return [];
-
-        let tSync = existing.find(a => a.isSync);
-        let tSyncVal = tSync ? tSync.pos : null;
-        let oMin = 0, oMax = 100;
-        let hasExisting = existing.length > 0;
-        if (hasExisting) {
-            oMin = Math.min(...existing.map(a => a.pos));
-            oMax = Math.max(...existing.map(a => a.pos));
-        }
-
-        let mapped = [];
-        for (let j = 0; j < p.length; j++) {
-            let mappedPos = getSmartMappedPos(p[j].pos, pSyncVal, tSyncVal, pMin, pMax, oMin, oMax, hasExisting);
-            let newAt = 0;
-            
-            if (pSync && tSync) {
-                if (p[j].at <= pSync.at) {
-                    let ratio = pSync.at > 0 ? (p[j].at / pSync.at) : 0;
-                    newAt = t_start + ratio * (tSync.at - t_start);
-                } else {
-                    let remP = p_dur - pSync.at;
-                    let remT = t_end - tSync.at;
-                    let ratio = remP > 0 ? ((p[j].at - pSync.at) / remP) : 0;
-                    newAt = tSync.at + ratio * remT;
-                }
-            } else {
-                newAt = t_start + (p[j].at / p_dur) * targetDuration;
-            }
-
-            mapped.push({ at: Math.round(newAt), pos: mappedPos, isSync: p[j].isSync || false });
-        }
-        return mapped;
-    };
-
-    if (Array.isArray(startOrMarkers) && startOrMarkers.length > 2) {
-        for (let i = 0; i < startOrMarkers.length - 1; i++) {
-            let t1 = startOrMarkers[i].at;
-            let t2 = startOrMarkers[i+1].at;
-            let existing = (window.funscriptActions || []).filter(a => a.at >= t1 && a.at <= t2);
-            
-            if (window.timelineGhostRandomSequence.length <= i) {
-                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
-            }
-            let chosenPreset = presets[window.timelineGhostRandomSequence[i]];
-            let mappedSeg = mapSinglePreset(chosenPreset, t1, t2, existing);
-
-            for (let m = 0; m < mappedSeg.length; m++) {
-                if (i > 0 && m === 0 && result.length > 0 && result[result.length - 1].pos === mappedSeg[0].pos) continue; 
-                result.push(mappedSeg[m]);
-            }
-        }
-    } else {
-        let t_start = Array.isArray(startOrMarkers) ? startOrMarkers[0].at : startOrMarkers;
-        let isFreeRepeat = !end; 
-        let reps = window.presetFillReps || 1;
-        
-        for (let r = 0; r < reps; r++) {
-            if (window.timelineGhostRandomSequence.length <= r) {
-                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * presets.length));
-            }
-            let chosenPreset = presets[window.timelineGhostRandomSequence[r]];
-            let p_dur = chosenPreset[chosenPreset.length - 1].at;
-            
-            let repDuration = isFreeRepeat ? p_dur : ((end - t_start) / reps);
-            let offset = t_start + (r * repDuration);
-            
-            let existing = (window.funscriptActions || []).filter(a => a.at >= offset && a.at <= offset + repDuration);
-            let mappedSeg = mapSinglePreset(chosenPreset, offset, offset + repDuration, existing);
-            
-            for (let m = 0; m < mappedSeg.length; m++) {
-                if (r > 0 && m === 0 && result.length > 0 && result[result.length - 1].pos === mappedSeg[0].pos) continue;
-                result.push(mappedSeg[m]);
-            }
-        }
-    }
-    return result;
-};
-
-// ==========================================
-// HISTORIAL (UNDO/REDO)
-// ==========================================
 function saveHistoryState() { 
     undoStack.push(JSON.stringify(getSafeActions())); 
     if (undoStack.length > MAX_HISTORY) undoStack.shift(); 
@@ -293,9 +173,6 @@ function redo() {
     }
 }
 
-// ==========================================
-// EVENTOS PERSONALIZADOS
-// ==========================================
 window.addEventListener('forceTimelinePan', (e) => {
     const canvas = document.getElementById('timeline-canvas');
     if (!canvas || canvas.width === 0) return;
@@ -522,29 +399,13 @@ window.addEventListener('copyPoints', () => {
     }
 });
 
-window.addEventListener('cutPoints', () => {
-    if (document.body.classList.contains('panic-mode-active')) return;
-    if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
-    const actions = getSafeActions();
-    const selected = actions.filter(a => a.selected);
-    if (selected.length > 0) {
-        const baseTime = selected[0].at;
-        window.clipboardFunscript = selected.map(a => ({ at: a.at - baseTime, pos: Math.round(a.pos), isSync: a.isSync||false }));
-        saveHistoryState();
-        actions.splice(0, actions.length, ...actions.filter(a => !a.selected));
-        cleanDuplicates();
-        if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
-        notifyCloud(); window.updateHeatmapAndStats();
-        window.drawTimeline();
-    }
-});
-
 window.addEventListener('pastePoints', () => {
     if (document.getElementById('preset-editor-modal')?.style.display === 'flex') return;
     if (window.clipboardFunscript && window.clipboardFunscript.length > 0) {
         getSafeActions().forEach(a => a.selected = false); 
         window.isPastingMode = true;
         window.timelineGhostRandomSequence = [];
+        window.timelineGhostRandomOffsets = []; // Limpieza total de entropía
         window.timelineGhostPreset = window.clipboardFunscript;
         window.timelineGhostTimeMs = null;
         if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
@@ -554,9 +415,6 @@ window.addEventListener('pastePoints', () => {
     }
 });
 
-// ==========================================
-// VISTAS Y HEATMAP
-// ==========================================
 window.updateGhostThumb = function() {
     const ghostThumb = document.getElementById('ghost-thumb');
     const videoNode = document.getElementById('video-player');
@@ -759,16 +617,11 @@ window.generateGhostPoints = function() {
     let tMinNode = document.getElementById('multi-min');
     let tRandNode = document.getElementById('multi-rand');
 
-    let tMax = tMaxNode ? Number(tMaxNode.value) : 100;
-    let tMin = tMinNode ? Number(tMinNode.value) : 0;
-    let tRand = tRandNode ? Number(tRandNode.value) : 0;
-
-    if (isNaN(tMax)) tMax = 100;
-    if (isNaN(tMin)) tMin = 0;
-    if (isNaN(tRand)) tRand = 0;
-    if (tMax < tMin) tMax = tMin + 1; 
-
     let presetToInject = window.timelineGhostPreset;
+    
+    // VERIFICACIÓN INTELIGENTE: ¿Es una selección múltiple o 1 solo preset/copia?
+    let isMulti = Array.isArray(presetToInject[0]) && presetToInject.length > 1;
+    
     let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
     if (primaryPreset.length === 0) return [];
 
@@ -776,6 +629,25 @@ window.generateGhostPoints = function() {
     let pMin = Math.min(...primaryPreset.map(a => a.pos));
     let pMax = Math.max(...primaryPreset.map(a => a.pos));
     if (pMax === pMin) pMax = pMin + 1; 
+
+    let tMax, tMin, tRand;
+
+    if (isMulti) {
+        // Múltiples presets: Aplicar el panel del Multiplicador
+        tMax = tMaxNode ? Number(tMaxNode.value) : 100;
+        tMin = tMinNode ? Number(tMinNode.value) : 0;
+        tRand = tRandNode ? Number(tRandNode.value) : 0;
+
+        if (isNaN(tMax)) tMax = 100;
+        if (isNaN(tMin)) tMin = 0;
+        if (isNaN(tRand)) tRand = 0;
+        if (tMax < tMin) tMax = tMin + 1; 
+    } else {
+        // Solo 1 preset o pegado (Ctrl+V): Mantiene EXACTAMENTE su tamaño original
+        tMax = pMax;
+        tMin = pMin;
+        tRand = 0;
+    }
 
     let dropTimeMs = window.timelineGhostTimeMs;
     let targetEnd = window.timelineGhostTargetEnd;
@@ -788,9 +660,19 @@ window.generateGhostPoints = function() {
         timeScale = availableSpace / (pDuration * reps);
     }
 
+    // ARREGLO DE LA VIBRACIÓN: Memoria de entropía pura estática (0.0 a 1.0)
+    if (!window.timelineGhostRandomOffsets) window.timelineGhostRandomOffsets = [];
+
     let ghostPoints = [];
     for (let r = 0; r < reps; r++) {
-        let currentBaseOffset = Math.floor(Math.random() * (tRand + 1));
+        // Solo inyectar nueva entropía si agregamos más repeticiones con la rueda
+        if (window.timelineGhostRandomOffsets.length <= r) {
+            window.timelineGhostRandomOffsets.push(Math.random());
+        }
+        
+        let currentBaseOffset = Math.floor(window.timelineGhostRandomOffsets[r] * (tRand + 1));
+        if (!isMulti) currentBaseOffset = 0; // Bloqueo de seguridad para copias 
+        
         let currentTMin = Math.min(100, tMin + currentBaseOffset);
         let currentTMax = Math.max(currentTMin + 1, tMax); 
 
@@ -861,6 +743,7 @@ function resetGhostState() {
     window.timelineGhostTimeMs = null;
     window.timelineGhostDeltaPos = 0;
     window.timelineGhostRandomSequence = [];
+    window.timelineGhostRandomOffsets = []; // Limpieza de entropía estática
     window.presetFillReps = 1; 
     if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
@@ -891,7 +774,6 @@ window.drawTimeline = function() {
         const canvas = document.getElementById('timeline-canvas');
         if (!canvas || canvas.width === 0 || canvas.height === 0) return; 
         
-        // PROTECCIÓN ANTI NaN QUE ROMPÍA EL CANVAS
         if (isNaN(window.scrollLeftMs)) window.scrollLeftMs = 0;
         if (isNaN(window.zoom) || window.zoom <= 0) window.zoom = 1.0;
         if (isNaN(window.basePixelsPerMs) || window.basePixelsPerMs <= 0) window.basePixelsPerMs = 0.1;
@@ -1228,10 +1110,10 @@ window.drawTimeline = function() {
         }
 
         // ==========================================
-        // DIBUJO DEL FANTASMA MEJORADO (LEE LA ESCALA Y ALTURAS EN TIEMPO REAL)
+        // DIBUJO DEL FANTASMA (CON AUTO-AJUSTE Y LECTURA DEL MULTIPLICADOR)
         // ==========================================
         if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
-            const ghostPoints = window.generateGhostPoints(); 
+            const ghostPoints = window.generateGhostPoints(); // ← Solicita la matemática del motor nuevo
             
             if (ghostPoints && ghostPoints.length > 0) {
                 ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
@@ -1241,7 +1123,7 @@ window.drawTimeline = function() {
                 
                 ghostPoints.forEach((p, i) => {
                     const px = timeToX(p.at);
-                    const py = posToY(p.pos);
+                    const py = posToY(p.pos); // ← Refleja perfectamente tu panel multiplicador
                     if (i === 0) ctx.moveTo(px, py);
                     else ctx.lineTo(px, py);
                 });
@@ -1273,9 +1155,9 @@ window.drawTimeline = function() {
                 ctx.fillStyle = '#38bdf8';
                 ctx.font = 'bold 12px monospace';
                 if (window.isPastingMode) {
-                    ctx.fillText(`📋 PEGAR MÚLTIPLE (${window.presetFillReps || 1}x) (+ / -) (ESC cancelar)`, pasteX + 15, pasteY + 30);
+                    ctx.fillText(`📋 PEGAR MÚLTIPLE (${window.presetFillReps || 1}x) (Rueda Ratón) (ESC cancelar)`, pasteX + 15, pasteY + 30);
                 } else if (window.isDraggingPreset) {
-                    ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (Rueda de Ratón)`, pasteX + 15, pasteY + 30);
+                    ctx.fillText(`✋ SOLTAR AQUÍ (${window.presetFillReps || 1}x) (Rueda Ratón)`, pasteX + 15, pasteY + 30);
                 }
             }
         }
@@ -1427,6 +1309,7 @@ function initTimelineEvents() {
             
             if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
             window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10)); 
+            
             window.drawTimeline();
             return;
         }
@@ -1850,22 +1733,9 @@ function initTimelineEvents() {
             window.isPastingMode = false;
             window.timelineGhostPreset = null;
             window.timelineGhostRandomSequence = [];
+            window.timelineGhostRandomOffsets = [];
             window.drawTimeline();
             return;
-        }
-
-        if ((window.isDraggingPreset || window.isPastingMode) && window.timelineGhostTimeMs !== null) {
-            if (e.key === '+' || e.key === '=') {
-                e.preventDefault(); 
-                window.presetFillReps = (window.presetFillReps || 1) + 1;
-                if (!window.timelineGhostRandomSequence) window.timelineGhostRandomSequence = [];
-                window.timelineGhostRandomSequence.push(Math.floor(Math.random() * 10)); 
-                window.drawTimeline();
-            } else if (e.key === '-' || e.key === '_') {
-                e.preventDefault(); 
-                window.presetFillReps = Math.max(1, (window.presetFillReps || 1) - 1);
-                window.drawTimeline();
-            } 
         }
     });
 }
