@@ -540,8 +540,12 @@ function updateGhostPosition(mouseX, mouseY) {
     window.timelineGhostMouseX = mouseX;
     window.timelineGhostMouseY = mouseY;
     
-    // 🎯 FIX: Reiniciamos el delta de posición por defecto
+    // Limpiamos variables de memoria
     window.timelineGhostDeltaPos = 0; 
+    window.timelineGhostTAnchorPos = null;
+    window.timelineGhostPAnchorPos = null;
+    window.timelineGhostTargetAnchor = null;
+    window.timelineGhostPresetAnchor = null;
     
     const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
     const actions = getSafeActions();
@@ -549,14 +553,21 @@ function updateGhostPosition(mouseX, mouseY) {
     let pAnchors = primaryPreset.filter(a => a.isSync).sort((a,b) => a.at - b.at);
     let tAnchors = actions.filter(a => a.isSync && a.selected).sort((a,b) => a.at - b.at);
     
+    // Si no hay anclas seleccionadas, buscamos dentro de los marcadores, o por proximidad al ratón
     if (tAnchors.length === 0) {
-        let closest = actions.filter(a => a.isSync).find(a => Math.abs(a.at - hoverTimeMs) < 300);
-        if (closest) tAnchors.push(closest);
+        if (selectedMarkers.length >= 2) {
+            let mStart = selectedMarkers[0].at;
+            let mEnd = selectedMarkers[selectedMarkers.length - 1].at;
+            let anchorsInside = actions.filter(a => a.isSync && a.at >= mStart && a.at <= mEnd);
+            if (anchorsInside.length === 1) tAnchors.push(anchorsInside[0]);
+        }
+        if (tAnchors.length === 0) {
+            let closest = actions.filter(a => a.isSync).find(a => Math.abs(a.at - hoverTimeMs) < 300);
+            if (closest) tAnchors.push(closest);
+        }
     }
 
-    window.timelineGhostTargetAnchor = null;
-
-    // MODO A: Estiramiento/Compresión (2 o más anclas detectadas en ambas partes)
+    // MODO A: Estiramiento/Compresión (2 o más anclas)
     if (tAnchors.length >= 2 && pAnchors.length >= 2) {
         let tStart = tAnchors[0].at;
         let tEnd = tAnchors[tAnchors.length - 1].at;
@@ -566,27 +577,39 @@ function updateGhostPosition(mouseX, mouseY) {
         if (pEnd > pStart && tEnd > tStart) {
             let scale = (tEnd - tStart) / (pEnd - pStart);
             window.timelineGhostTimeMs = Math.max(0, tStart - (pStart * scale));
-            
             let fullPresetDuration = primaryPreset[primaryPreset.length - 1].at;
             window.timelineGhostTargetEnd = window.timelineGhostTimeMs + (fullPresetDuration * scale);
-            
-            if (!window.presetFillInitialized) {
-                window.presetFillReps = 1; 
-                window.presetFillInitialized = true;
-            }
+            if (!window.presetFillInitialized) { window.presetFillReps = 1; window.presetFillInitialized = true; }
             return; 
         }
     }
     
+    // 🎯 NUEVO MODO E: Marcadores (2+) y exactamente 1 Ancla (Estiramiento Asimétrico)
+    if (selectedMarkers.length >= 2 && tAnchors.length === 1 && pAnchors.length === 1) {
+        window.timelineGhostTimeMs = selectedMarkers[0].at;
+        window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
+        
+        // Pasamos las variables para el time-warp
+        window.timelineGhostTargetAnchor = tAnchors[0].at;
+        window.timelineGhostPresetAnchor = pAnchors[0].at;
+        
+        // Pasamos las variables para la escala vertical proporcional
+        window.timelineGhostTAnchorPos = tAnchors[0].pos;
+        window.timelineGhostPAnchorPos = pAnchors[0].pos;
+        
+        window.presetFillReps = 1;
+        window.presetFillInitialized = true;
+        return;
+    }
+
     // MODO B: Ajuste posicional de 1 sola ancla (Sincronización base)
     if (tAnchors.length === 1 && pAnchors.length >= 1) {
         window.timelineGhostTimeMs = Math.max(0, tAnchors[0].at - pAnchors[0].at);
         window.timelineGhostTargetEnd = null; 
         window.presetFillInitialized = false;
         
-        // 🎯 FIX: Calculamos cuánto debe subir o bajar TODO el preset
-        // (Posición del ancla en la línea de tiempo MENOS posición del ancla en el preset)
-        window.timelineGhostDeltaPos = tAnchors[0].pos - pAnchors[0].pos;
+        window.timelineGhostTAnchorPos = tAnchors[0].pos;
+        window.timelineGhostPAnchorPos = pAnchors[0].pos;
         return;
     }
 
@@ -604,7 +627,7 @@ function updateGhostPosition(mouseX, mouseY) {
         return;
     } 
     
-    // MODO D: Pegado Libre (Inyección con imantado por proximidad general)
+    // MODO D: Pegado Libre
     window.timelineGhostMarkers = null;
     window.timelineGhostTargetEnd = null;
     window.presetFillInitialized = false;
@@ -634,12 +657,9 @@ function updateGhostPosition(mouseX, mouseY) {
     });
 
     window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
-    
     const snap = window.snapValue || 5;
     let hoverPos = Math.round(hoverPosRaw / snap) * snap;
     const basePos = primaryPreset[0].pos;
-    
-    // 🎯 FIX: También permitimos que el pegado libre respete la altura del cursor del ratón
     window.timelineGhostDeltaPos = hoverPos - basePos;
 }
 
@@ -655,9 +675,7 @@ window.generateGhostPoints = function() {
 
     let presetToInject = window.timelineGhostPreset;
     
-    // VERIFICACIÓN INTELIGENTE: ¿Es una selección múltiple o 1 solo preset/copia?
     let isMulti = Array.isArray(presetToInject[0]) && presetToInject.length > 1;
-    
     let primaryPreset = Array.isArray(presetToInject[0]) ? presetToInject[0] : presetToInject;
     if (primaryPreset.length === 0) return [];
 
@@ -669,20 +687,13 @@ window.generateGhostPoints = function() {
     let tMax, tMin, tRand;
 
     if (isMulti) {
-        // Múltiples presets: Aplicar el panel del Multiplicador
         tMax = tMaxNode ? Number(tMaxNode.value) : 100;
         tMin = tMinNode ? Number(tMinNode.value) : 0;
         tRand = tRandNode ? Number(tRandNode.value) : 0;
-
-        if (isNaN(tMax)) tMax = 100;
-        if (isNaN(tMin)) tMin = 0;
-        if (isNaN(tRand)) tRand = 0;
+        if (isNaN(tMax)) tMax = 100; if (isNaN(tMin)) tMin = 0; if (isNaN(tRand)) tRand = 0;
         if (tMax < tMin) tMax = tMin + 1; 
     } else {
-        // Solo 1 preset o pegado (Ctrl+V): Mantiene EXACTAMENTE su tamaño original
-        tMax = pMax;
-        tMin = pMin;
-        tRand = 0;
+        tMax = pMax; tMin = pMin; tRand = 0;
     }
 
     let dropTimeMs = window.timelineGhostTimeMs;
@@ -690,24 +701,23 @@ window.generateGhostPoints = function() {
     let reps = window.presetFillReps || 1;
 
     let timeScale = 1.0;
+    let isModeE = (window.timelineGhostTargetAnchor !== null && window.timelineGhostPresetAnchor !== null && targetEnd !== null);
     
-    if (targetEnd && reps > 0 && pDuration > 0) {
+    if (!isModeE && targetEnd && reps > 0 && pDuration > 0) {
         let availableSpace = targetEnd - dropTimeMs;
         timeScale = availableSpace / (pDuration * reps);
     }
 
-    // ARREGLO DE LA VIBRACIÓN: Memoria de entropía pura estática (0.0 a 1.0)
     if (!window.timelineGhostRandomOffsets) window.timelineGhostRandomOffsets = [];
 
     let ghostPoints = [];
     for (let r = 0; r < reps; r++) {
-        // Solo inyectar nueva entropía si agregamos más repeticiones con la rueda
         if (window.timelineGhostRandomOffsets.length <= r) {
             window.timelineGhostRandomOffsets.push(Math.random());
         }
         
         let currentBaseOffset = Math.floor(window.timelineGhostRandomOffsets[r] * (tRand + 1));
-        if (!isMulti) currentBaseOffset = 0; // Bloqueo de seguridad para copias 
+        if (!isMulti) currentBaseOffset = 0; 
         
         let currentTMin = Math.min(100, tMin + currentBaseOffset);
         let currentTMax = Math.max(currentTMin + 1, tMax); 
@@ -722,12 +732,49 @@ window.generateGhostPoints = function() {
             
             let mappedPos = currentTMin + ((act.pos - pMin) / (pMax - pMin)) * (currentTMax - currentTMin);
 
-            // 🎯 FIX: Sumamos la diferencia de altura calculada previamente
-            let finalPos = mappedPos + (window.timelineGhostDeltaPos || 0);
+            // 🎯 FIX: Escala vertical PROPORCIONAL al ancla (evita el aplanamiento)
+            let finalPos = mappedPos;
+            let tA = window.timelineGhostTAnchorPos;
+            let pA = window.timelineGhostPAnchorPos;
+
+            if (tA !== null && tA !== undefined && pA !== null && pA !== undefined) {
+                if (mappedPos > pA) {
+                    let scaleUp = (100 - pA) === 0 ? 1 : (100 - tA) / (100 - pA);
+                    finalPos = tA + (mappedPos - pA) * scaleUp;
+                } else if (mappedPos < pA) {
+                    let scaleDown = pA === 0 ? 1 : tA / pA;
+                    finalPos = tA - (pA - mappedPos) * scaleDown;
+                } else {
+                    finalPos = tA;
+                }
+            } else {
+                finalPos = mappedPos + (window.timelineGhostDeltaPos || 0);
+            }
+
+            // 🎯 FIX: Interpolación temporal (Time-Warp) para Marcadores + Ancla
+            let pointTimeMs;
+            if (isModeE) {
+                let anchorT = window.timelineGhostTargetAnchor;
+                let anchorP = window.timelineGhostPresetAnchor;
+                let tM1 = dropTimeMs;
+                let tM2 = targetEnd;
+                
+                if (Math.abs(act.at - anchorP) < 1) { 
+                    pointTimeMs = anchorT;
+                } else if (act.at < anchorP) {
+                    let scaleLeft = anchorP === 0 ? 1 : (anchorT - tM1) / anchorP;
+                    pointTimeMs = tM1 + (act.at * scaleLeft);
+                } else {
+                    let rightDurP = pDuration - anchorP;
+                    let scaleRight = rightDurP === 0 ? 1 : (tM2 - anchorT) / rightDurP;
+                    pointTimeMs = anchorT + ((act.at - anchorP) * scaleRight);
+                }
+            } else {
+                pointTimeMs = startOffset + (act.at * timeScale);
+            }
 
             ghostPoints.push({
-                at: startOffset + (act.at * timeScale),
-                // Aseguramos que ningún punto baje de 0% ni suba de 100% al sumar el Delta
+                at: pointTimeMs,
                 pos: Math.max(0, Math.min(100, finalPos)),
                 isSync: act.isSync || false
             });
@@ -781,12 +828,19 @@ function resetGhostState() {
     window.presetFillInitialized = false;
     window.timelineGhostTargetEnd = null;
     window.timelineGhostMarkers = null;
+    
+    // Limpieza de nuestras variables avanzadas
     window.timelineGhostTargetAnchor = null;
+    window.timelineGhostPresetAnchor = null;
+    window.timelineGhostTAnchorPos = null;
+    window.timelineGhostPAnchorPos = null;
+    
     window.timelineGhostTimeMs = null;
     window.timelineGhostDeltaPos = 0;
     window.timelineGhostRandomSequence = [];
-    window.timelineGhostRandomOffsets = []; // Limpieza de entropía estática
+    window.timelineGhostRandomOffsets = [];
     window.presetFillReps = 1; 
+    
     if (window.timelineMarkers) window.timelineMarkers.forEach(m => m.selected = false);
     if (typeof window.syncSliderWithSelection === 'function') window.syncSliderWithSelection();
     notifyCloud();
