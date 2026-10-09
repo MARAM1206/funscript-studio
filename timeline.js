@@ -540,16 +540,15 @@ function updateGhostPosition(mouseX, mouseY) {
     window.timelineGhostMouseX = mouseX;
     window.timelineGhostMouseY = mouseY;
     
+    // 🎯 FIX: Reiniciamos el delta de posición por defecto
+    window.timelineGhostDeltaPos = 0; 
+    
     const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
     const actions = getSafeActions();
     
-    // 🎯 FIX: Lectura inteligente de Anclas Físicas (isSync)
     let pAnchors = primaryPreset.filter(a => a.isSync).sort((a,b) => a.at - b.at);
-    
-    // CORRECCIÓN: Filtrar solo anclas seleccionadas explícitamente para el MODO A (evitando leer todo el documento)
     let tAnchors = actions.filter(a => a.isSync && a.selected).sort((a,b) => a.at - b.at);
     
-    // Si no hay anclas seleccionadas, buscamos el ancla más cercana en un radio de 300ms (MODO B - Imantado sutil)
     if (tAnchors.length === 0) {
         let closest = actions.filter(a => a.isSync).find(a => Math.abs(a.at - hoverTimeMs) < 300);
         if (closest) tAnchors.push(closest);
@@ -566,7 +565,6 @@ function updateGhostPosition(mouseX, mouseY) {
         
         if (pEnd > pStart && tEnd > tStart) {
             let scale = (tEnd - tStart) / (pEnd - pStart);
-            
             window.timelineGhostTimeMs = Math.max(0, tStart - (pStart * scale));
             
             let fullPresetDuration = primaryPreset[primaryPreset.length - 1].at;
@@ -585,6 +583,10 @@ function updateGhostPosition(mouseX, mouseY) {
         window.timelineGhostTimeMs = Math.max(0, tAnchors[0].at - pAnchors[0].at);
         window.timelineGhostTargetEnd = null; 
         window.presetFillInitialized = false;
+        
+        // 🎯 FIX: Calculamos cuánto debe subir o bajar TODO el preset
+        // (Posición del ancla en la línea de tiempo MENOS posición del ancla en el preset)
+        window.timelineGhostDeltaPos = tAnchors[0].pos - pAnchors[0].pos;
         return;
     }
 
@@ -636,6 +638,8 @@ function updateGhostPosition(mouseX, mouseY) {
     const snap = window.snapValue || 5;
     let hoverPos = Math.round(hoverPosRaw / snap) * snap;
     const basePos = primaryPreset[0].pos;
+    
+    // 🎯 FIX: También permitimos que el pegado libre respete la altura del cursor del ratón
     window.timelineGhostDeltaPos = hoverPos - basePos;
 }
 
@@ -718,9 +722,13 @@ window.generateGhostPoints = function() {
             
             let mappedPos = currentTMin + ((act.pos - pMin) / (pMax - pMin)) * (currentTMax - currentTMin);
 
+            // 🎯 FIX: Sumamos la diferencia de altura calculada previamente
+            let finalPos = mappedPos + (window.timelineGhostDeltaPos || 0);
+
             ghostPoints.push({
                 at: startOffset + (act.at * timeScale),
-                pos: Math.max(0, Math.min(100, mappedPos)),
+                // Aseguramos que ningún punto baje de 0% ni suba de 100% al sumar el Delta
+                pos: Math.max(0, Math.min(100, finalPos)),
                 isSync: act.isSync || false
             });
         });
