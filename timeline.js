@@ -545,7 +545,15 @@ function updateGhostPosition(mouseX, mouseY) {
     
     // 🎯 FIX: Lectura inteligente de Anclas Físicas (isSync)
     let pAnchors = primaryPreset.filter(a => a.isSync).sort((a,b) => a.at - b.at);
-    let tAnchors = actions.filter(a => a.isSync).sort((a,b) => a.at - b.at);
+    
+    // CORRECCIÓN: Filtrar solo anclas seleccionadas explícitamente para el MODO A (evitando leer todo el documento)
+    let tAnchors = actions.filter(a => a.isSync && a.selected).sort((a,b) => a.at - b.at);
+    
+    // Si no hay anclas seleccionadas, buscamos el ancla más cercana en un radio de 300ms (MODO B - Imantado sutil)
+    if (tAnchors.length === 0) {
+        let closest = actions.filter(a => a.isSync).find(a => Math.abs(a.at - hoverTimeMs) < 300);
+        if (closest) tAnchors.push(closest);
+    }
 
     window.timelineGhostTargetAnchor = null;
 
@@ -559,14 +567,13 @@ function updateGhostPosition(mouseX, mouseY) {
         if (pEnd > pStart && tEnd > tStart) {
             let scale = (tEnd - tStart) / (pEnd - pStart);
             
-            // Retrocedemos el punto de impacto para que el ancla calce exacto
             window.timelineGhostTimeMs = Math.max(0, tStart - (pStart * scale));
             
             let fullPresetDuration = primaryPreset[primaryPreset.length - 1].at;
             window.timelineGhostTargetEnd = window.timelineGhostTimeMs + (fullPresetDuration * scale);
             
             if (!window.presetFillInitialized) {
-                window.presetFillReps = 1; // Prioridad total al calce, sobreescribe las repeticiones a menos que des scroll
+                window.presetFillReps = 1; 
                 window.presetFillInitialized = true;
             }
             return; 
@@ -595,7 +602,7 @@ function updateGhostPosition(mouseX, mouseY) {
         return;
     } 
     
-    // MODO D: Pegado Libre (Inyección con imantado por proximidad)
+    // MODO D: Pegado Libre (Inyección con imantado por proximidad general)
     window.timelineGhostMarkers = null;
     window.timelineGhostTargetEnd = null;
     window.presetFillInitialized = false;
@@ -742,7 +749,9 @@ window.injectGhostPreset = function(clientX, clientY) {
         let tStart = generatedPoints[0].at;
         let tEnd = generatedPoints[generatedPoints.length - 1].at;
 
-        actions.splice(0, actions.length, ...actions.filter(a => a.at < tStart || a.at >= (tEnd + 10)));
+        // CORRECCIÓN: Ampliación del rango de limpieza a 15ms en ambos bordes (<= en lugar de <)
+        // Garantiza que la sobreescritura barra las anclas residuales que causaban colisiones microscópicas
+        actions.splice(0, actions.length, ...actions.filter(a => a.at <= (tStart - 15) || a.at >= (tEnd + 15)));
         actions.forEach(a => a.selected = false);
 
         let newActions = generatedPoints.map(p => ({
