@@ -33,8 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const R_H1 = (H - 3 * GAP) * 0.55; 
         const R_H2 = (H - 3 * GAP) * 0.45; 
 
-        const Slider_W = 80;
-        const Presets_W = R_W - Slider_W - GAP;
+        const Presets_W = R_W; // Se absorbe el espacio del antiguo slider
 
         const cX = GAP + L_W + GAP;
         const rX = cX + C_W + GAP;
@@ -47,12 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
             'panel-video': { left: cX, top: GAP, width: C_W, height: C_H1, visible: true },
             'panel-timeline': { left: cX, top: GAP + C_H1 + GAP, width: C_W, height: C_H2, visible: true },
 
-            'panel-slider': { left: rX, top: GAP, width: Slider_W, height: R_H1, visible: true },
-            'panel-presets': { left: rX + Slider_W + GAP, top: GAP, width: Presets_W, height: R_H1, visible: true },
+            'panel-presets': { left: rX, top: GAP, width: Presets_W, height: R_H1, visible: true },
             'panel-twin': { left: rX, top: GAP + R_H1 + GAP, width: R_W, height: R_H2, visible: true },
 
             'panel-bpm': { left: cX, top: GAP, width: 250, height: 260, visible: false },
-            'panel-mass': { left: cX, top: GAP + 270, width: 250, height: 320, visible: false }
+            'panel-mass': { left: cX, top: GAP + 270, width: 250, height: 320, visible: false },
+            'panel-multiplicador': { left: cX, top: GAP + 100, width: 280, height: 220, visible: false }
         };
     }
 
