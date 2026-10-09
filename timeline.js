@@ -541,7 +541,47 @@ function updateGhostPosition(mouseX, mouseY) {
     window.timelineGhostMouseY = mouseY;
     
     const selectedMarkers = window.timelineMarkers.filter(m => m.selected).sort((a,b) => a.at - b.at);
+    const actions = getSafeActions();
     
+    // 🎯 FIX: Lectura inteligente de Anclas Físicas (isSync)
+    let pAnchors = primaryPreset.filter(a => a.isSync).sort((a,b) => a.at - b.at);
+    let tAnchors = actions.filter(a => a.isSync).sort((a,b) => a.at - b.at);
+
+    window.timelineGhostTargetAnchor = null;
+
+    // MODO A: Estiramiento/Compresión (2 o más anclas detectadas en ambas partes)
+    if (tAnchors.length >= 2 && pAnchors.length >= 2) {
+        let tStart = tAnchors[0].at;
+        let tEnd = tAnchors[tAnchors.length - 1].at;
+        let pStart = pAnchors[0].at;
+        let pEnd = pAnchors[pAnchors.length - 1].at;
+        
+        if (pEnd > pStart && tEnd > tStart) {
+            let scale = (tEnd - tStart) / (pEnd - pStart);
+            
+            // Retrocedemos el punto de impacto para que el ancla calce exacto
+            window.timelineGhostTimeMs = Math.max(0, tStart - (pStart * scale));
+            
+            let fullPresetDuration = primaryPreset[primaryPreset.length - 1].at;
+            window.timelineGhostTargetEnd = window.timelineGhostTimeMs + (fullPresetDuration * scale);
+            
+            if (!window.presetFillInitialized) {
+                window.presetFillReps = 1; // Prioridad total al calce, sobreescribe las repeticiones a menos que des scroll
+                window.presetFillInitialized = true;
+            }
+            return; 
+        }
+    }
+    
+    // MODO B: Ajuste posicional de 1 sola ancla (Sincronización base)
+    if (tAnchors.length === 1 && pAnchors.length >= 1) {
+        window.timelineGhostTimeMs = Math.max(0, tAnchors[0].at - pAnchors[0].at);
+        window.timelineGhostTargetEnd = null; 
+        window.presetFillInitialized = false;
+        return;
+    }
+
+    // MODO C: Estiramiento Clásico por Marcadores de Color
     if (selectedMarkers.length >= 2) {
         window.timelineGhostTimeMs = selectedMarkers[0].at;
         window.timelineGhostTargetEnd = selectedMarkers[selectedMarkers.length - 1].at;
@@ -552,59 +592,44 @@ function updateGhostPosition(mouseX, mouseY) {
             window.presetFillReps = Math.max(1, Math.round((window.timelineGhostTargetEnd - window.timelineGhostTimeMs) / pDur));
             window.presetFillInitialized = true;
         }
-    } else {
-        window.timelineGhostMarkers = null;
-        window.timelineGhostTargetEnd = null;
-        window.presetFillInitialized = false;
+        return;
+    } 
+    
+    // MODO D: Pegado Libre (Inyección con imantado por proximidad)
+    window.timelineGhostMarkers = null;
+    window.timelineGhostTargetEnd = null;
+    window.presetFillInitialized = false;
 
-        const actions = getSafeActions();
-        let safeTime = 0;
-        try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
-        const playheadTimeMs = Math.round(safeTime);
-        const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
-        const snapDistMs = 250; 
-        let bestOffset = hoverTimeMs;
-        let minDistance = snapDistMs;
-        let isSnapped = false;
+    let safeTime = 0;
+    try { safeTime = typeof window.getActualTimeMs === 'function' ? window.getActualTimeMs() : 0; } catch(e){}
+    const playheadTimeMs = Math.round(safeTime);
+    const snapTargets = [playheadTimeMs, ...actions.map(a => a.at)];
+    const snapDistMs = 250; 
+    let bestOffset = hoverTimeMs;
+    let minDistance = snapDistMs;
+    let isSnapped = false;
 
-        let pAnchor = primaryPreset.find(a => a.isSync);
-        let tAnchors = actions.filter(a => a.isSync);
-        window.timelineGhostTargetAnchor = null;
-
-        if (pAnchor && tAnchors.length > 0) {
-            tAnchors.forEach(tA => {
-                let projectedAnchorTime = hoverTimeMs + pAnchor.at;
-                let dist = Math.abs(projectedAnchorTime - tA.at);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    bestOffset = tA.at - pAnchor.at;
-                    isSnapped = true;
-                    window.timelineGhostTargetAnchor = tA;
-                }
-            });
-        } else {
-            const pointsToCheck = [primaryPreset[0]];
-            if (primaryPreset.length > 1) pointsToCheck.push(primaryPreset[primaryPreset.length - 1]);
-            pointsToCheck.forEach(pAct => {
-                let projectedTime = hoverTimeMs + pAct.at;
-                for (let i = 0; i < snapTargets.length; i++) {
-                    let dist = Math.abs(projectedTime - snapTargets[i]);
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                        bestOffset = snapTargets[i] - pAct.at;
-                        isSnapped = true;
-                    }
-                }
-            });
+    const pointsToCheck = [primaryPreset[0]];
+    if (primaryPreset.length > 1) pointsToCheck.push(primaryPreset[primaryPreset.length - 1]);
+    
+    pointsToCheck.forEach(pAct => {
+        let projectedTime = hoverTimeMs + pAct.at;
+        for (let i = 0; i < snapTargets.length; i++) {
+            let dist = Math.abs(projectedTime - snapTargets[i]);
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestOffset = snapTargets[i] - pAct.at;
+                isSnapped = true;
+            }
         }
+    });
 
-        window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
-        
-        const snap = window.snapValue || 5;
-        let hoverPos = Math.round(hoverPosRaw / snap) * snap;
-        const basePos = primaryPreset[0].pos;
-        window.timelineGhostDeltaPos = hoverPos - basePos;
-    }
+    window.timelineGhostTimeMs = Math.max(0, isSnapped ? bestOffset : hoverTimeMs);
+    
+    const snap = window.snapValue || 5;
+    let hoverPos = Math.round(hoverPosRaw / snap) * snap;
+    const basePos = primaryPreset[0].pos;
+    window.timelineGhostDeltaPos = hoverPos - basePos;
 }
 
 // ==========================================
