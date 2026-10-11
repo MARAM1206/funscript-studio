@@ -529,10 +529,20 @@ window.updateActionsLog = function() {
     window.updateHeatmapAndStats();
 };
 
+// ==========================================================================
+// FIX NATIVO: OCULTAR EL RECTÁNGULO FANTASMA AL ARRASTRAR (Issue 2)
+// ==========================================================================
+document.addEventListener('dragstart', (e) => {
+    if (e.dataTransfer) {
+        const emptyImage = new Image();
+        emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        e.dataTransfer.setDragImage(emptyImage, 0, 0);
+    }
+});
+
 function updateGhostPosition(mouseX, mouseY) {
     if (!window.timelineGhostPreset) return;
     
-    // 🎯 FIX: Detectar si traemos 1 o múltiples presets para ajustar las repeticiones base
     let isMultiDrag = Array.isArray(window.timelineGhostPreset[0]);
     let draggedCount = isMultiDrag ? window.timelineGhostPreset.length : 1;
     let primaryPreset = isMultiDrag ? window.timelineGhostPreset[0] : window.timelineGhostPreset;
@@ -556,13 +566,31 @@ function updateGhostPosition(mouseX, mouseY) {
     let pAnchors = primaryPreset.filter(a => a.isSync).sort((a,b) => a.at - b.at);
     let tAnchors = actions.filter(a => a.isSync && a.selected).sort((a,b) => a.at - b.at);
     
-    // MODO F: Múltiples Marcadores (Llenado Inteligente por Espacios)
+    // 🎯 MODO F / C: Llenado de Marcadores
     if (selectedMarkers.length >= 2) {
+        
+        // FIX ISSUE 3: Si hay solo 1 espacio (2 marcadores) y arrastramos MÚLTIPLES presets,
+        // usamos el motor tradicional para inyectarlos todos juntos dentro del espacio
+        if (selectedMarkers.length === 2 && draggedCount > 1) {
+            window.timelineGhostTimeMs = selectedMarkers[0].at;
+            window.timelineGhostTargetEnd = selectedMarkers[1].at;
+            
+            let anchorsInside = actions.filter(a => a.isSync && a.at >= selectedMarkers[0].at && a.at <= selectedMarkers[1].at);
+            if (anchorsInside.length === 1) window.timelineGhostTAnchorPos = anchorsInside[0].pos;
+            
+            if (!window.presetFillInitialized) {
+                window.presetFillReps = draggedCount; 
+                window.presetFillInitialized = true;
+            }
+            return;
+        }
+
+        // Modo Múltiples Espacios (>2 marcadores) o Llenado Simple
         window.timelineGhostIntervals = [];
         for (let i = 0; i < selectedMarkers.length - 1; i++) {
             let mStart = selectedMarkers[i].at;
             let mEnd = selectedMarkers[i+1].at;
-            let anchorsInside = actions.filter(a => a.isSync && a.at > mStart && a.at < mEnd);
+            let anchorsInside = actions.filter(a => a.isSync && a.at >= mStart && a.at <= mEnd);
             window.timelineGhostIntervals.push({
                 start: mStart,
                 end: mEnd,
@@ -596,7 +624,7 @@ function updateGhostPosition(mouseX, mouseY) {
             window.timelineGhostTargetEnd = window.timelineGhostTimeMs + (fullPresetDuration * scale);
             
             if (!window.presetFillInitialized) { 
-                window.presetFillReps = draggedCount; // Inicializa con la cantidad arrastrada
+                window.presetFillReps = draggedCount; 
                 window.presetFillInitialized = true; 
             }
             return; 
@@ -609,7 +637,7 @@ function updateGhostPosition(mouseX, mouseY) {
         window.timelineGhostTargetEnd = null; 
         
         if (!window.presetFillInitialized) {
-            window.presetFillReps = draggedCount; // Inicializa con la cantidad arrastrada
+            window.presetFillReps = draggedCount; 
             window.presetFillInitialized = true;
         }
         
@@ -622,7 +650,7 @@ function updateGhostPosition(mouseX, mouseY) {
     window.timelineGhostMarkers = null;
     window.timelineGhostTargetEnd = null;
     if (!window.presetFillInitialized) {
-        window.presetFillReps = draggedCount; // Inicializa con la cantidad arrastrada
+        window.presetFillReps = draggedCount; 
         window.presetFillInitialized = true;
     }
 
@@ -660,7 +688,6 @@ function updateGhostPosition(mouseX, mouseY) {
 // ==========================================
 // GENERADOR DE PUNTOS FANTASMA (AUTO-AJUSTE)
 // ==========================================
-
 window.generateGhostPoints = function() {
     if (!window.timelineGhostPreset || window.timelineGhostTimeMs === null) return [];
 
@@ -702,14 +729,12 @@ window.generateGhostPoints = function() {
         }
 
         window.timelineGhostIntervals.forEach((interval, idx) => {
-            let sequence = Array.isArray(presetToInject[0])
-                ? presetToInject[(window.timelineGhostRandomSequence?.[idx] || 0) % presetToInject.length]
-                : primaryPreset;
+            let seqIdx = window.timelineGhostRandomSequence?.[idx] !== undefined ? window.timelineGhostRandomSequence[idx] : idx;
+            let sequence = isMulti ? presetToInject[seqIdx % presetToInject.length] : primaryPreset;
                 
             let pDuration = sequence[sequence.length - 1].at - sequence[0].at;
             if (pDuration <= 0) return;
             
-            // 🎯 FIX: Si el preset no tiene ancla, forzamos su PRIMER punto como ancla temporal para que siempre escale.
             let pAnchors = sequence.filter(a => a.isSync).sort((a,b) => a.at - b.at);
             let pAnchor = pAnchors.length > 0 ? pAnchors[0] : sequence[0];
             
@@ -729,15 +754,18 @@ window.generateGhostPoints = function() {
                 let mappedPos = currentTMin + ((act.pos - pMinSeq) / (pMaxSeq - pMinSeq)) * (currentTMax - currentTMin);
                 let finalPos = mappedPos;
                 
+                // 🎯 FIX ISSUE 1: Mapear la altura original del ancla al nuevo límite
                 if (interval.tAnchor && pAnchor) {
                     let tA = interval.tAnchor.pos;
                     let pA = pAnchor.pos;
-                    if (mappedPos > pA) {
-                        let scaleUp = (100 - pA) === 0 ? 1 : (100 - tA) / (100 - pA);
-                        finalPos = tA + (mappedPos - pA) * scaleUp;
-                    } else if (mappedPos < pA) {
-                        let scaleDown = pA === 0 ? 1 : tA / pA;
-                        finalPos = tA - (pA - mappedPos) * scaleDown;
+                    let mappedPA = currentTMin + ((pA - pMinSeq) / (pMaxSeq - pMinSeq)) * (currentTMax - currentTMin);
+                    
+                    if (mappedPos > mappedPA) {
+                        let scaleUp = (100 - mappedPA) === 0 ? 1 : (100 - tA) / (100 - mappedPA);
+                        finalPos = tA + (mappedPos - mappedPA) * scaleUp;
+                    } else if (mappedPos < mappedPA) {
+                        let scaleDown = mappedPA === 0 ? 1 : tA / mappedPA;
+                        finalPos = tA - (mappedPA - mappedPos) * scaleDown;
                     } else {
                         finalPos = tA;
                     }
@@ -770,6 +798,92 @@ window.generateGhostPoints = function() {
         });
         return ghostPoints;
     }
+
+    // ==========================================
+    // MOTOR TRADICIONAL
+    // ==========================================
+    let dropTimeMs = window.timelineGhostTimeMs;
+    let targetEnd = window.timelineGhostTargetEnd;
+    
+    // 🎯 FIX ISSUE 3: Si arrastramos varios, forzar como MÍNIMO a que se vean los que arrastramos
+    let draggedCount = isMulti ? presetToInject.length : 1;
+    let reps = Math.max(window.presetFillReps || 1, draggedCount);
+
+    // Acumulamos las duraciones dinámicamente para que no se encimen presets de distintos tamaños
+    let sequencesToInject = [];
+    let totalDuration = 0;
+    
+    for (let r = 0; r < reps; r++) {
+        if (window.timelineGhostRandomOffsets.length <= r) window.timelineGhostRandomOffsets.push(Math.random());
+        
+        let seqIdx = window.timelineGhostRandomSequence?.[r] !== undefined ? window.timelineGhostRandomSequence[r] : r;
+        let sequence = isMulti ? presetToInject[seqIdx % presetToInject.length] : primaryPreset;
+        sequencesToInject.push(sequence);
+        
+        totalDuration += (sequence[sequence.length - 1].at - sequence[0].at);
+    }
+
+    let timeScale = 1.0;
+    if (targetEnd && totalDuration > 0) {
+        let availableSpace = targetEnd - dropTimeMs;
+        timeScale = availableSpace / totalDuration;
+    }
+
+    let currentOffset = dropTimeMs;
+
+    sequencesToInject.forEach((sequence, r) => {
+        let currentBaseOffset = Math.floor(window.timelineGhostRandomOffsets[r] * (tRand + 1));
+        if (!isMulti) currentBaseOffset = 0; 
+        
+        let currentTMin = Math.min(100, tMin + currentBaseOffset);
+        let currentTMax = Math.max(currentTMin + 1, tMax); 
+
+        let pMinSeq = Math.min(...sequence.map(a => a.pos));
+        let pMaxSeq = Math.max(...sequence.map(a => a.pos));
+        if (pMaxSeq === pMinSeq) pMaxSeq = pMinSeq + 1;
+        
+        let seqDur = sequence[sequence.length - 1].at - sequence[0].at;
+
+        sequence.forEach((act, idx) => {
+            if (r > 0 && idx === 0 && act.at === 0) return; 
+            
+            let mappedPos = currentTMin + ((act.pos - pMinSeq) / (pMaxSeq - pMinSeq)) * (currentTMax - currentTMin);
+            let finalPos = mappedPos;
+            let tA = window.timelineGhostTAnchorPos;
+            
+            let thisPAnchors = sequence.filter(a => a.isSync).sort((a,b) => a.at - b.at);
+            let thisPAnchor = thisPAnchors.length > 0 ? thisPAnchors[0] : sequence[0];
+            let pA = thisPAnchor ? thisPAnchor.pos : window.timelineGhostPAnchorPos;
+
+            // 🎯 FIX ISSUE 1 (Motor Tradicional): Escalar igual que en Múltiples Marcadores
+            if (tA !== null && tA !== undefined && pA !== null && pA !== undefined) {
+                let mappedPA = currentTMin + ((pA - pMinSeq) / (pMaxSeq - pMinSeq)) * (currentTMax - currentTMin);
+                
+                if (mappedPos > mappedPA) {
+                    let scaleUp = (100 - mappedPA) === 0 ? 1 : (100 - tA) / (100 - mappedPA);
+                    finalPos = tA + (mappedPos - mappedPA) * scaleUp;
+                } else if (mappedPos < mappedPA) {
+                    let scaleDown = mappedPA === 0 ? 1 : tA / mappedPA;
+                    finalPos = tA - (mappedPA - mappedPos) * scaleDown;
+                } else {
+                    finalPos = tA;
+                }
+            } else {
+                finalPos = mappedPos + (window.timelineGhostDeltaPos || 0);
+            }
+
+            ghostPoints.push({
+                at: currentOffset + (act.at * timeScale),
+                pos: Math.max(0, Math.min(100, finalPos)),
+                isSync: act.isSync || false
+            });
+        });
+        
+        currentOffset += seqDur * timeScale;
+    });
+    
+    return ghostPoints;
+};
 
     // ==========================================
     // MOTOR TRADICIONAL
