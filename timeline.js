@@ -661,6 +661,9 @@ function updateGhostPosition(mouseX, mouseY) {
 // GENERADOR DE PUNTOS FANTASMA (AUTO-AJUSTE)
 // ==========================================
 
+// ==========================================
+// GENERADOR DE PUNTOS FANTASMA (AUTO-AJUSTE)
+// ==========================================
 window.generateGhostPoints = function() {
     if (!window.timelineGhostPreset || window.timelineGhostTimeMs === null) return [];
 
@@ -770,6 +773,75 @@ window.generateGhostPoints = function() {
         });
         return ghostPoints;
     }
+
+    // ==========================================
+    // MOTOR TRADICIONAL
+    // ==========================================
+    let pMin = Math.min(...primaryPreset.map(a => a.pos));
+    let pMax = Math.max(...primaryPreset.map(a => a.pos));
+    if (pMax === pMin) pMax = pMin + 1; 
+    let pDuration = primaryPreset[primaryPreset.length - 1].at - primaryPreset[0].at;
+    
+    let dropTimeMs = window.timelineGhostTimeMs;
+    let targetEnd = window.timelineGhostTargetEnd;
+    let reps = window.presetFillReps || 1;
+    let timeScale = 1.0;
+    
+    if (targetEnd && reps > 0 && pDuration > 0) {
+        let availableSpace = targetEnd - dropTimeMs;
+        timeScale = availableSpace / (pDuration * reps);
+    }
+
+    for (let r = 0; r < reps; r++) {
+        if (window.timelineGhostRandomOffsets.length <= r) window.timelineGhostRandomOffsets.push(Math.random());
+        
+        let currentBaseOffset = Math.floor(window.timelineGhostRandomOffsets[r] * (tRand + 1));
+        if (!isMulti) currentBaseOffset = 0; 
+        
+        let currentTMin = Math.min(100, tMin + currentBaseOffset);
+        let currentTMax = Math.max(currentTMin + 1, tMax); 
+
+        let startOffset = dropTimeMs + (r * pDuration * timeScale);
+        let sequence = Array.isArray(presetToInject[0])
+            ? presetToInject[(window.timelineGhostRandomSequence?.[r] || 0) % presetToInject.length]
+            : primaryPreset;
+
+        sequence.forEach((act, idx) => {
+            if (r > 0 && idx === 0 && act.at === 0) return; 
+            
+            let mappedPos = currentTMin + ((act.pos - pMin) / (pMax - pMin)) * (currentTMax - currentTMin);
+            let finalPos = mappedPos;
+            let tA = window.timelineGhostTAnchorPos;
+            
+            // 🎯 FIX: Leer el ancla específica del preset actual que se está inyectando, 
+            // no el del primer preset de la lista. (Resuelve el problema de altura original).
+            let thisPAnchors = sequence.filter(a => a.isSync).sort((a,b) => a.at - b.at);
+            let thisPAnchor = thisPAnchors.length > 0 ? thisPAnchors[0] : sequence[0];
+            let pA = thisPAnchor ? thisPAnchor.pos : window.timelineGhostPAnchorPos;
+
+            if (tA !== null && tA !== undefined && pA !== null && pA !== undefined) {
+                if (mappedPos > pA) {
+                    let scaleUp = (100 - pA) === 0 ? 1 : (100 - tA) / (100 - pA);
+                    finalPos = tA + (mappedPos - pA) * scaleUp;
+                } else if (mappedPos < pA) {
+                    let scaleDown = pA === 0 ? 1 : tA / pA;
+                    finalPos = tA - (pA - mappedPos) * scaleDown;
+                } else {
+                    finalPos = tA;
+                }
+            } else {
+                finalPos = mappedPos + (window.timelineGhostDeltaPos || 0);
+            }
+
+            ghostPoints.push({
+                at: startOffset + (act.at * timeScale),
+                pos: Math.max(0, Math.min(100, finalPos)),
+                isSync: act.isSync || false
+            });
+        });
+    }
+    return ghostPoints;
+};
 
     // ==========================================
     // MOTOR TRADICIONAL
